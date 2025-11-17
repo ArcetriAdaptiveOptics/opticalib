@@ -144,11 +144,11 @@ BASE_DATA_PATH: str = _bdp if not _bdp == "" else _fallback_bdp
 
 create_folder_tree(BASE_DATA_PATH)
 if BASE_DATA_PATH == _fallback_bdp:
-    if not _os.path.exists(_fallback_bdp):
-        _os.mkdir(_fallback_bdp)
     CONFIGURATION_FILE = _os.path.join(
         BASE_DATA_PATH, "SysConfig", "configuration.yaml"
     )
+    if not _os.path.exists(CONFIGURATION_FILE):
+        _copy(TEMPLATE_CONF_FILE, CONFIGURATION_FILE)
     with open(CONFIGURATION_FILE, "r") as _f:
         _config = _gyml.load(_f)
 
