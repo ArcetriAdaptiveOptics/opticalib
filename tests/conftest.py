@@ -72,9 +72,11 @@ def sample_image():
 @pytest.fixture
 def sample_cube():
     """Create a sample cube for testing."""
-    data = np.random.randn(50, 50, 10).astype(np.float32)
-    mask = np.zeros((50, 50), dtype=bool)
-    mask[:5, :5] = True
+    from skimage.draw import disk
+    data = np.random.randn(100, 100, 10).astype(np.float32)
+    mask = np.ones((100,100), dtype=bool)
+    rr, cc = disk((50, 50), 30)
+    mask[rr, cc] = False
     # Apply same mask to all frames
     cube = ma.masked_array(
         data,
@@ -144,9 +146,11 @@ def mock_interferometer():
 @pytest.fixture
 def sample_int_cube():
     """Create a sample interaction cube for dmutils tests."""
-    data = np.random.randn(50, 50, 10).astype(np.float32)
-    mask = np.zeros((50, 50), dtype=bool)
-    mask[:5, :5] = True
+    from skimage.draw import disk
+    data = np.random.randn(100, 100, 10).astype(np.float32)
+    mask = np.ones((100,100), dtype=bool)
+    rr, cc = disk((50, 50), 30)
+    mask[rr, cc] = False
     cube = ma.masked_array(
         data,
         mask=np.broadcast_to(mask[..., np.newaxis], data.shape)

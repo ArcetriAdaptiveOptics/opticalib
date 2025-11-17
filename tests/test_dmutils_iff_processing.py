@@ -122,8 +122,8 @@ class TestStackCubes:
         
         # Create second cube with same number of modes as first (10)
         cube2 = ma.masked_array(
-            np.random.randn(50, 50, 10).astype(np.float32),
-            mask=np.zeros((50, 50, 10), dtype=bool)
+            np.random.randn(100, 100, 10).astype(np.float32),
+            mask=np.ones((100, 100, 10), dtype=bool)
         )
         osutils.save_fits(
             os.path.join(tn2_folder, "IMCube.fits"),

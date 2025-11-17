@@ -181,7 +181,7 @@ class TestFlattening:
         assert aligned_img.shape == f._intCube.shape[:2]
 
     def test_apply_flat_command(
-        self, sample_int_matrix_folder, mock_dm, mock_interferometer, temp_dir, monkeypatch
+        self, sample_int_matrix_folder, mock_dm, mock_interferometer, temp_dir, sample_image, monkeypatch
     ):
         """Test applying flat command."""
         from opticalib.core.root import folders
@@ -190,10 +190,10 @@ class TestFlattening:
         tn, tn_folder = sample_int_matrix_folder
         
         # Setup mock interferometer
-        mock_interferometer.acquire_map.return_value = ma.masked_array(
-            np.random.randn(50, 50).astype(np.float32),
-            mask=np.zeros((50, 50), dtype=bool)
-        )
+        mock_interferometer.acquire_map.return_value = sample_image #ma.masked_array(
+            #np.random.randn(50, 50).astype(np.float32),
+            #mask=np.zeros((50, 50), dtype=bool)
+        #)
         
         # Setup folder
         flat_folder = os.path.join(temp_dir, "Flattening")
