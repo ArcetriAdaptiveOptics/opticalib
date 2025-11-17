@@ -129,7 +129,15 @@ class FitsMaskedArray(_np.ma.MaskedArray):
         if obj is None:
             return
         super().__array_finalize__(obj)
-        self.header = getattr(obj, "header", None)
+        self.header = getattr(obj, "header", {})
+
+    def _update_from(self, obj):
+        """
+        Copies attributes from obj to self, called during view operations.
+        This is the standard way to propagate custom attributes in MaskedArray.
+        """
+        super()._update_from(obj)
+        self.header = getattr(obj, "header", {})
 
     def writeto(self, filename: str, overwrite: bool = False):
         """
