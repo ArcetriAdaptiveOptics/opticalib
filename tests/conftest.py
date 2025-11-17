@@ -61,9 +61,11 @@ STITCHING:
 @pytest.fixture
 def sample_image():
     """Create a sample masked image for testing."""
-    data = np.random.randn(50, 50).astype(np.float32)
-    mask = np.zeros((50, 50), dtype=bool)
-    mask[:5, :5] = True  # Mask a corner
+    from skimage.draw import disk
+    data = np.random.randn(100, 100).astype(np.float32)
+    mask = np.ones((100, 100), dtype=bool)
+    rr, cc = disk((50, 50), 30)
+    mask[rr, cc] = False
     return ma.masked_array(data, mask=mask)
 
 

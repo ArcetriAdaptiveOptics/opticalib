@@ -71,13 +71,14 @@ class TestZernikeFitter:
         assert mask is not None
         assert isinstance(mask, np.ndarray)
 
+    # FIXME
     def test_fit_basic(self, sample_image):
         """Test basic fitting of Zernike modes."""
-        fitter = md.ZernikeFitter(fit_mask=sample_image)
-        
+        fitter = md.ZernikeFitter(fit_mask=sample_image.mask)
+
         modes = [1, 2, 3, 4]
         coeffs, mat = fitter.fit(sample_image, modes)
-        
+
         assert coeffs is not None
         assert mat is not None
         assert len(coeffs) == len(modes)
@@ -95,9 +96,10 @@ class TestZernikeFitter:
         assert mat is not None
         assert len(coeffs) == len(modes)
 
+    # FIXME
     def test_remove_zernike_default(self, sample_image):
         """Test removing default Zernike modes (piston, tip, tilt)."""
-        fitter = md.ZernikeFitter(fit_mask=sample_image)
+        fitter = md.ZernikeFitter(fit_mask=sample_image.mask)
         
         filtered = fitter.removeZernike(sample_image)
         
@@ -105,9 +107,10 @@ class TestZernikeFitter:
         assert isinstance(filtered, ma.MaskedArray)
         assert filtered.shape == sample_image.shape
 
+    # FIXME
     def test_remove_zernike_custom_modes(self, sample_image):
         """Test removing custom Zernike modes."""
-        fitter = md.ZernikeFitter(fit_mask=sample_image)
+        fitter = md.ZernikeFitter(fit_mask=sample_image.mask)
         
         filtered = fitter.removeZernike(sample_image, zernike_index_vector=[1, 2, 3, 4])
         
@@ -115,9 +118,10 @@ class TestZernikeFitter:
         assert isinstance(filtered, ma.MaskedArray)
         assert filtered.shape == sample_image.shape
 
+    # FIXME
     def test_make_surface_with_image(self, sample_image):
         """Test making surface from image."""
-        fitter = md.ZernikeFitter(fit_mask=sample_image)
+        fitter = md.ZernikeFitter(fit_mask=sample_image.mask)
         
         modes = [1, 2, 3]
         surface = fitter.makeSurface(modes, image=sample_image)
@@ -152,9 +156,10 @@ class TestZernikeFitter:
         with pytest.raises(ValueError):
             fitter.makeSurface([1])
 
+    # FIXME
     def test_filter_modes(self, sample_image):
         """Test filtering modes from image."""
-        fitter = md.ZernikeFitter(fit_mask=sample_image)
+        fitter = md.ZernikeFitter(fit_mask=sample_image.mask)
         
         modes = [1, 2, 3]
         filtered = fitter.filterModes(sample_image, modes)
@@ -271,9 +276,10 @@ class TestKLFitter:
         assert mode is not None
         assert isinstance(mode, np.ndarray) or isinstance(mode, ma.MaskedArray)
 
+    # FIXME
     def test_make_surface(self, sample_image):
         """Test making KL surface."""
-        fitter = md.KLFitter(nKLModes=10, fit_mask=sample_image)
+        fitter = md.KLFitter(nKLModes=10, fit_mask=sample_image.mask)
         
         modes = [0, 1]
         surface = fitter.makeSurface(modes, image=sample_image)
@@ -282,9 +288,10 @@ class TestKLFitter:
         assert isinstance(surface, ma.MaskedArray)
         assert surface.shape == sample_image.shape
 
+    # FIXME
     def test_filter_modes(self, sample_image):
         """Test filtering KL modes."""
-        fitter = md.KLFitter(nKLModes=10, fit_mask=sample_image)
+        fitter = md.KLFitter(nKLModes=10, fit_mask=sample_image.mask)
         
         modes = [0, 1, 2]
         filtered = fitter.filterModes(sample_image, modes)
@@ -352,9 +359,10 @@ class TestRBFitter:
         assert mode is not None
         assert isinstance(mode, np.ndarray) or isinstance(mode, ma.MaskedArray)
 
+    # FIXME
     def test_make_surface(self, sample_image):
         """Test making RBF surface."""
-        fitter = md.RBFitter(fit_mask=sample_image)
+        fitter = md.RBFitter(fit_mask=sample_image.mask)
         
         modes = [0, 1]
         surface = fitter.makeSurface(modes, image=sample_image)
@@ -363,9 +371,10 @@ class TestRBFitter:
         assert isinstance(surface, ma.MaskedArray)
         assert surface.shape == sample_image.shape
 
+    # FIXME
     def test_filter_modes(self, sample_image):
         """Test filtering RBF modes."""
-        fitter = md.RBFitter(fit_mask=sample_image)
+        fitter = md.RBFitter(fit_mask=sample_image.mask)
         
         modes = [0, 1, 2]
         filtered = fitter.filterModes(sample_image, modes)

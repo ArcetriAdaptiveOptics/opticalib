@@ -371,7 +371,7 @@ class _ModeFitter(ABC):
                 self._mgen = self._create_fit_mask_from_img(image)
                 was_temporary = True
             image = _np.ma.masked_array(
-                image.data, mask=self._mgen._boolean_mask.copy()
+                image.copy().data, mask=self._mgen._boolean_mask.copy()
             )
             yield image, was_temporary
         finally:
