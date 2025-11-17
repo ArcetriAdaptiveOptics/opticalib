@@ -104,12 +104,14 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
             raise _oe.MatrixError(
                 f"Expecting a 2D Matrix of shape (used_acts, nmodes), got instead: {tcmdhist.shape}"
             )
+        if all(self._lastCmd != _np.zeros(self.nActs)):
+            tcmdhist += self._lastCmd[:, None]
         trig = _dmc()["triggerMode"]
         if trig is not False:
-            self._tCmdHistory = tcmdhist.copy()
+            self.cmdHistory = tcmdhist.copy()
             self._aoClient.timeHistoryUpload(tcmdhist)
         else:
-            self.cmdHistory = tcmdhist
+            self.cmdHistory = tcmdhist.copy()
         print("Time History uploaded!")
 
     def runCmdHistory(
@@ -235,7 +237,7 @@ class DP(AdOpticaDm):
             self._aoClient.mirrorCommand(self._lastCmd)
 
     @_contextmanager
-    def read_buffer(self, npoints_per_cmd: int = 100):
+    def read_buffer(self, segment: int = 0, npoints_per_cmd: int = 100, total_frames: int = None):
         """
         Context manager for reading internal buffers of the DP DM during operations.
 
@@ -244,8 +246,12 @@ class DP(AdOpticaDm):
 
         Parameters
         ----------
+        segment : int, optional
+            Segment number to read from (0 or 1 for DP, default: 0)
         npoints_per_cmd : int, optional
             Number of data points to acquire per command (default: 100)
+        total_frames : int, optional
+            Total number of frames to read (default: None, meaning use command history length)
 
         Yields
         ------
@@ -265,38 +271,45 @@ class DP(AdOpticaDm):
         """
         # Setup: Configure and start buffer acquisition
         nActs = 222
-        if self._tCmdHistory is not None:
-            totframes = self._tCmdHistory.shape[-1]
+        if self.cmdHistory is not None:
+            totframes = self.cmdHistory.shape[-1]
+        elif total_frames is not None:
+            totframes = total_frames
         else:
-            totframes = 0
+            raise _oe.BufferError("Missing `total_frames` value: either load a command history or provide the variable's value")
         triggered = _dmc()["triggerMode"]
         if triggered is not False:
             thistfreq = triggered.get("frequency", 1.0)
+        if segment == 0:
+            subsys = self._aoClient.aoSystem.aoSubSystem0
+        else:
+            subsys = self._aoClient.aoSystem.aoSubSystem1
         buffer_len = npoints_per_cmd * totframes + (nActs * 2)  # Extra margin
-        clockfreq = self._aoClient.aoSystem.aoSubSystem0.sysConf.gen.cntFreq()
+        clockfreq = subsys.sysConf.gen.cntFreq()
         thistdecim = int(clockfreq / thistfreq)
         diagdecim = int(thistdecim / npoints_per_cmd)
 
-        self._aoClient.aoSystem.aoSubSystem0.support.diagBuf.config(
+        subsys.support.diagBuf.config(
             _np.r_[0:nActs],
             buffer_len,
             "mirrActMap",
             decFactor=diagdecim,
             startPointer=0,
         )
-        self._aoClient.aoSystem.aoSubSystem0.support.diagBuf.start()
+        subsys.support.diagBuf.start()
 
         # Create a result container that will be populated on exit
         result = {}
 
         try:
             # Yield control back to the caller
+            # Here you can call e.g. `runCmdHistory`
             yield result
 
         finally:
             # Cleanup: Stop acquisition and read data
-            self._aoClient.aoSystem.aoSubSystem0.support.diagBuf.waitStop()
-            bufData = self._aoClient.aoSystem.aoSubSystem0.support.diagBuf.read()
+            subsys.support.diagBuf.waitStop()
+            bufData = subsys.support.diagBuf.read()
 
             # Process the buffer data
             actPos = _np.zeros((nActs, buffer_len))
@@ -312,7 +325,6 @@ class DP(AdOpticaDm):
             result["actForce"] = actForce
             result["rawData"] = bufData
 
-            # Also store as class attribute for later access
             self.bufferData = result.copy()
 
 

@@ -33,3 +33,10 @@ class CommandError(Exception):
 
     def __init__(self, message: str):
         super().__init__(message)
+
+
+class BufferError(Exception):
+    """Exception raised when a buffer operation fails."""
+
+    def __init__(self, message: str):
+        super().__init__(message)
