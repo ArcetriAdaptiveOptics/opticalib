@@ -15,10 +15,12 @@ import numpy as _np
 import time as _time
 import h5py as _h5py
 from numpy import uint8 as _uint8
-from opticalib.core import root as _fn
 from astropy.io import fits as _fits
 from opticalib import typings as _ot
 from numpy.ma import masked_array as _masked_array
+from opticalib.core import fitsarray as _fa
+from opticalib.core import root as _fn
+
 
 _OPTDATA = _fn.OPT_DATA_ROOT_FOLDER
 _OPDIMG = _fn.OPD_IMAGES_ROOT_FOLDER
@@ -346,10 +348,10 @@ def load_fits(
     """
     with _fits.open(filepath) as hdul:
         fit = hdul[0].data
+        header = hdul[0].header
         if (len(hdul) > 1 and len(hdul) < 3) and hasattr(hdul[1], "data"):
             mask = hdul[1].data.astype(bool)
             fit = _masked_array(fit, mask=mask)
-            header = hdul[0].header
         elif len(hdul) > 2:
             header = [hdu.header for hdu in hdul if hasattr(hdu, "header")]
             fit = [hdu.data for hdu in hdul if hasattr(hdu, "data")]
@@ -361,11 +363,11 @@ def load_fits(
         import xupy as _xu
 
         if isinstance(fit, _masked_array):
-            fit = _xu.ma.MaskedArray(fit.data)
+            fit = _xu.ma.MaskedArray(fit)
         else:
             fit = _xu.asarray(fit)
-    if return_header:
-        out = (fit, header)
+    if return_header:        
+        out = _fa.fits_array(fit, header=header)
     else:
         out = fit
     return out
@@ -396,6 +398,9 @@ def save_fits(
     # force float32 dtype on save
     if data.dtype != _np.float32:
         data = _np.asanyarray(data, dtype=_np.float32)
+    if isinstance(data, (_fa.FitsArray, _fa.FitsMaskedArray)):
+        data.writeto(filepath, overwrite=overwrite)
+        return
     # Prepare the header
     if header is not None:
         header = _header_from_dict(header)

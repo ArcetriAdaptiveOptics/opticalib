@@ -30,14 +30,15 @@ from typing import (
 )
 import collections.abc
 import numpy as _np
-from numpy.typing import ArrayLike
+from numpy.typing import ArrayLike, DTypeLike
 from astropy.io.fits import Header
 
 if TYPE_CHECKING:
-    from .devices import AlpaoDm, SplattDm, PhaseCam
     from .ground.computerec import ComputeReconstructor
 
 Reconstructor: TypeAlias = Union["ComputeReconstructor", None]
+
+Number: TypeAlias = Union[int, float, complex]
 
 
 @runtime_checkable

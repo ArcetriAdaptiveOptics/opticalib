@@ -9,6 +9,7 @@ import numpy as np
 import numpy.ma as ma
 from astropy.io import fits
 from opticalib.ground import osutils
+from opticalib.core import fitsarray as _fa
 
 
 class TestIsTn:
@@ -159,34 +160,15 @@ class TestLoadFits:
     def test_load_fits_with_header(self, temp_dir):
         """Test loading FITS file with header."""
         data = np.random.randn(50, 50).astype(np.float32)
+        header = fits.Header()
+        header['TESTKEY'] = 'testvalue'
         fits_file = os.path.join(temp_dir, "test_header.fits")
-        hdu = fits.PrimaryHDU(data)
-        hdu.header['TESTKEY'] = 'testvalue'
-        hdu.writeto(fits_file)
-        
-        # The load_fits function has a bug where header is not always set
-        # For a simple single-extension FITS, we'll test without return_header
-        # or handle the case where header might not be available
-        try:
-            result = osutils.load_fits(fits_file, return_header=True)
-            if isinstance(result, tuple):
-                loaded, header = result
-                # Header might be a list or dict depending on implementation
-                if isinstance(header, list) and len(header) > 0:
-                    header = header[0]
-                if header is not None:
-                    assert 'TESTKEY' in header
-                    assert header['TESTKEY'] == 'testvalue'
-        except UnboundLocalError:
-            # The function has a bug - header is not set for simple FITS files
-            # Just verify the data loads correctly
-            loaded = osutils.load_fits(fits_file, return_header=False)
-            assert loaded is not None
-            # Verify header exists in the file directly
-            with fits.open(fits_file) as hdul:
-                assert 'TESTKEY' in hdul[0].header
-                assert hdul[0].header['TESTKEY'] == 'testvalue'
+        fits.writeto(fits_file, data, header=header)
 
+        result = osutils.load_fits(fits_file, return_header=True)
+        assert isinstance(result, _fa.FitsArray)
+        assert 'TESTKEY' in result.header
+        assert result.header['TESTKEY'] == 'testvalue'
 
 class TestSaveFits:
     """Test save_fits function."""

@@ -46,6 +46,7 @@ import configparser as _cp
 from tqdm import tqdm as _tqdm
 from opticalib import typings as _ot
 from opticalib.core.root import _folds
+from opticalib.core import fitsarray as _fa
 from opticalib.core import read_config as _rif
 from concurrent.futures import ThreadPoolExecutor as _tpe
 from opticalib.ground import modal_decomposer as _zern, osutils as _osu, roi as _roi
@@ -270,12 +271,9 @@ def filterZernikeCube(
         Tracking Number of the new folder where the filtered cube is saved.
     """
     new_tn = _os.path.join(_intMatFold, _ts())
-    _os.mkdir(new_tn)
-    oldCube = _os.path.join(_intMatFold, tn, cubeFile)
-    newCube = _os.path.join(new_tn, cubeFile)
     CmdMat = _os.path.join(_intMatFold, tn, cmdMatFile)
     ModesVec = _os.path.join(_intMatFold, tn, modesVecFile)
-    cube, cube_header = _osu.load_fits(oldCube, True)
+    cube = _fa.FitsMaskedArray.fromFits(_os.path.join(_intMatFold, tn, cubeFile))
     zern_modes = zern_modes if zern_modes is not None else [1, 2, 3]
     from opticalib.analyzer import removeZernikeFromCube
 
@@ -284,15 +282,8 @@ def filterZernikeCube(
     # ffcube.mask = _roi.cubeMasterMask(ffcube)
 
     if save:
-        if cube_header:
-            zern_modes = "[" + ",".join(map(str, zern_modes)) + "]"
-            cube_header.update(
-                {
-                    "FILTERED": (True, "whether the cube has zernike removed or not"),
-                    "ZREMOVED": (zern_modes, "the zernike modes removed"),
-                }
-            )
-        _osu.save_fits(newCube, ffcube, header=cube_header)
+        _os.mkdir(new_tn)
+        ffcube.writeto(_os.path.join(new_tn, cubeFile), overwrite=True)
         _sh.copyfile(CmdMat, _os.path.join(new_tn, cmdMatFile))
         _sh.copyfile(ModesVec, _os.path.join(new_tn, modesVecFile))
         print(f"Filtered cube saved at {new_tn}")
@@ -672,11 +663,11 @@ def _getCubeList(
         cube_name = _os.path.join(fold, cname)
         matrix_name = _os.path.join(fold, "cmdMatrix.fits")
         modesVec_name = _os.path.join(fold, "modesVector.fits")
-        cube, cube_header = _osu.load_fits(cube_name, True)
+        cube = _osu.load_fits(cube_name, True)
         cubeList.append(cube)
         matrixList.append(_osu.load_fits(matrix_name))
         modesVectList.append(_osu.load_fits(modesVec_name))
-        rebins.append(int(cube_header["REBIN"] if "REBIN" in cube_header else 1))
+        rebins.append(int(cube.header.get("REBIN", 1)))
     if not all([rebin == rebins[0] for rebin in rebins]):
         raise ValueError("Cubes have different rebinning factors")
     rebin = rebins[0]

@@ -173,7 +173,7 @@ class TestFilterZernikeCube:
                     pass
         
         ffcube, new_tn = ifp.filterZernikeCube(tn, zern_modes=[1, 2, 3], save=True)
-        
+
         assert ffcube is not None
         assert isinstance(ffcube, ma.MaskedArray)
         assert new_tn is not None

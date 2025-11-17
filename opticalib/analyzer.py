@@ -23,7 +23,7 @@ import matplotlib.pyplot as _plt
 from . import typings as _ot
 from .ground import modal_decomposer as zern
 from .ground import osutils as osu
-from .core import root as _foldname
+from .core import root as _foldname, fitsarray as _fa
 from .ground.geo import qpupil as _qpupil
 from scipy import stats as _stats, fft as _fft, ndimage as _ndimage
 
@@ -877,13 +877,16 @@ def removeZernikeFromCube(
         Cube with Zernike modes removed from each frame.
     """
     from tqdm import tqdm
-
-    # FIXME: a little bit slower without a mask. Half the speed
-    # should i use a circular mask?
     zfit = zern.ZernikeFitter()
     if zmodes is None:
         zmodes = _np.array(range(1, 4))
-    newCube = _np.ma.empty_like(cube)
+
+    if isinstance(cube, (_fa.FitsMaskedArray, _fa.FitsArray)):
+        zmodes_str = "[" + ",".join(map(str, zmodes)) + "]"
+        cube.header["FILTERED"] = (True, "has zernike removed")
+        cube.header["ZREMOVED"] = (zmodes_str, "zernike modes removed")
+
+    newCube = _fa.fits_array(_np.ma.empty_like(cube), header=cube.header)
     for i in tqdm(
         range(cube.shape[-1]),
         desc=f"Removing Z[{', '.join(map(str, zmodes))}]...",

@@ -415,7 +415,7 @@ class Flattening:
         intCube : CubeData
             The interaction cube data array.
         """
-        intCube, cubeHeader = _osu.load_fits(
+        intCube = _osu.load_fits(
             _os.path.join(self._path, _ifp.cubeFile), True
         )
         try:
@@ -437,9 +437,9 @@ class Flattening:
                 filtered = False
                 fittedModes = None
         except FileNotFoundError:
-            rebin = cubeHeader.get("REBIN", 1)
-            filtered = cubeHeader.get("FILTERED", False)
-            fittedModes = eval(cubeHeader.get("ZREMOVED", "None"))
+            rebin = intCube.header.get("REBIN", 1)
+            filtered = intCube.header.get("FILTERED", False)
+            fittedModes = eval(intCube.header.get("ZREMOVED", "None"))
         self.rebin = rebin
         self.filtered = filtered
         self.filteredModes = fittedModes

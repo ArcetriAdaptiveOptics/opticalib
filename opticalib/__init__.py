@@ -29,6 +29,7 @@ from .core.root import (
     create_configuration_file,
 )
 from .core import read_config
+from .core.fitsarray import fits_array
 from .devices import *
 from .devices.interferometer import _4DInterferometer
 
@@ -48,4 +49,5 @@ __all__ = [
     "read_config",
     "getCameraSettings",
     "getFrameRate",
+    "fits_array",
 ]
