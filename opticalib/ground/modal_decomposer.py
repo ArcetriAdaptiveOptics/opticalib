@@ -55,7 +55,7 @@ from opticalib import typings as _t
 from contextlib import contextmanager as _contextmanager
 from arte.utils.zernike_generator import ZernikeGenerator as _ZernikeGenerator
 from arte.atmo.utils import getFullKolmogorovCovarianceMatrix as _gfkcm
-from arte.utils.karhunen_loeve_generator import KarhunenLoeveGenerator as  _KLGenerator
+from arte.utils.karhunen_loeve_generator import KarhunenLoeveGenerator as _KLGenerator
 from arte.utils.rbf_generator import RBFGenerator as _RBFGenerator
 from arte.types.mask import CircularMask as _CircularMask
 from functools import lru_cache as _lru_cache
@@ -72,7 +72,11 @@ class _ModeFitter(ABC):
         If None, a default CircularMask will be created.
     """
 
-    def __init__(self, fit_mask: _t.Optional[_t.ImageData | _CircularMask | _t.MaskData] = None, method: str = 'COG'):
+    def __init__(
+        self,
+        fit_mask: _t.Optional[_t.ImageData | _CircularMask | _t.MaskData] = None,
+        method: str = "COG",
+    ):
         """
         Class for fitting Zernike polynomials to an image.
 
@@ -98,20 +102,22 @@ class _ModeFitter(ABC):
     ) -> _t.MatrixLike:
         """
         Create the fitting matrix for the given modes.
-        
+
         Parameters
         ----------
         modes : list[int]
             List of modal indices.
         mask : MaskData
             Boolean mask defining the fitting area.
-        
+
         Returns
         -------
         mat : MatrixLike
             Fitting matrix for the specified modes.
         """
-        return _np.vstack([self._get_mode_from_generator(zmode)[mask] for zmode in modes])
+        return _np.vstack(
+            [self._get_mode_from_generator(zmode)[mask] for zmode in modes]
+        )
 
     @abstractmethod
     def _create_modes_generator(self, mask: _t.MaskData) -> object:
@@ -143,7 +149,9 @@ class _ModeFitter(ABC):
         """
         return self.auxmask
 
-    def setFitMask(self, fit_mask: _t.ImageData | _CircularMask | _t.MaskData, method: str = "COG") -> None:
+    def setFitMask(
+        self, fit_mask: _t.ImageData | _CircularMask | _t.MaskData, method: str = "COG"
+    ) -> None:
         """
         Set the fitting mask.
 
@@ -158,6 +166,7 @@ class _ModeFitter(ABC):
             Method used by the `CircularMask.fromMaskedArray` function. Default is 'COG'.
         """
         import warnings
+
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=UserWarning)
             if isinstance(fit_mask, _CircularMask):
@@ -167,10 +176,12 @@ class _ModeFitter(ABC):
                     _np.ma.masked_array(fit_mask, mask=fit_mask.mask.astype(bool)),
                     method=method,
                 )
-            elif _t.isinstance_(fit_mask, 'MaskData'):
+            elif _t.isinstance_(fit_mask, "MaskData"):
                 cmask = _CircularMask.fromMaskedArray(
-                    _np.ma.masked_array(_np.zeros_like(fit_mask), mask=fit_mask.astype(bool)),
-                    method='COG',
+                    _np.ma.masked_array(
+                        _np.zeros_like(fit_mask), mask=fit_mask.astype(bool)
+                    ),
+                    method="COG",
                 )
                 cmask._mask = fit_mask.astype(bool)
                 self._fit_mask = cmask
@@ -178,7 +189,6 @@ class _ModeFitter(ABC):
                 self._fit_mask = _CircularMask.fromMaskedArray(fit_mask, method=method)
         self.auxmask = self._fit_mask.mask()
         self._mgen = self._create_modes_generator(self._fit_mask)
-
 
     def fit(
         self, image: _t.ImageData, mode_index_vector: list[int]
@@ -293,7 +303,7 @@ class _ModeFitter(ABC):
                     surface += self._get_mode_from_generator(mode)
             surface[self.auxmask == 1] = 0.0
         return surface
-    
+
     def filterModes(
         self, image: _t.ImageData, mode_index_vector: list[int]
     ) -> _t.ImageData:
@@ -377,7 +387,6 @@ class _ModeFitter(ABC):
         finally:
             if was_temporary:
                 self._mgen = prev_mgen
-                
 
     def _create_fit_mask_from_img(self, image: _t.ImageData) -> _CircularMask:
         """
@@ -437,7 +446,7 @@ class ZernikeFitter(_ModeFitter):
         If None, a default CircularMask will be created.
     """
 
-    def __init__(self, fit_mask: _t.Optional[_t.ImageData] = None, method: str = 'COG'):
+    def __init__(self, fit_mask: _t.Optional[_t.ImageData] = None, method: str = "COG"):
         """The Initiator."""
         super().__init__(fit_mask)
 
@@ -489,7 +498,7 @@ class ZernikeFitter(_ModeFitter):
             The Zernike mode image corresponding to the given index.
         """
         return self._mgen.getZernike(mode_index).copy()
-    
+
 
 class KLFitter(_ModeFitter):
     """
@@ -502,7 +511,12 @@ class KLFitter(_ModeFitter):
         If None, a default CircularMask will be created.
     """
 
-    def __init__(self, nKLModes: int, fit_mask: _t.Optional[_t.ImageData] = None, method: str = 'COG'):
+    def __init__(
+        self,
+        nKLModes: int,
+        fit_mask: _t.Optional[_t.ImageData] = None,
+        method: str = "COG",
+    ):
         """The Initiator"""
         self.nModes = nKLModes
         super().__init__(fit_mask, method)
@@ -518,7 +532,10 @@ class KLFitter(_ModeFitter):
         """
         zz = _ZernikeGenerator(mask)
         zbase = _np.rollaxis(
-            _np.ma.masked_array([zz.getZernike(n) for n in range(2, self.nModes + 2)]),0,3)
+            _np.ma.masked_array([zz.getZernike(n) for n in range(2, self.nModes + 2)]),
+            0,
+            3,
+        )
         kl = _KLGenerator(mask, _gfkcm(self.nModes))
         kl.generateFromBase(zbase)
         return kl
@@ -539,7 +556,7 @@ class KLFitter(_ModeFitter):
             The mode image corresponding to the given index.
         """
         return self._mgen.getKL(mode_index)
-    
+
 
 class RBFitter(_ModeFitter):
     """
@@ -558,7 +575,7 @@ class RBFitter(_ModeFitter):
         rbfFunction: str = "TPS_RBF",
         eps: float = 1.0,
         fit_mask: _t.Optional[_t.ImageData] = None,
-        method: str = 'COG'
+        method: str = "COG",
     ):
         """The Initiator"""
         self.rbfFunction = rbfFunction
@@ -580,13 +597,10 @@ class RBFitter(_ModeFitter):
             ny, nx = npmask.shape
             x = _np.arange(nx)
             y = _np.arange(ny)
-            X,Y = _np.meshgrid(x, y)
+            X, Y = _np.meshgrid(x, y)
             self._coordinates = _np.vstack((X[~npmask].ravel(), Y[~npmask].ravel())).T
         rbf = _RBFGenerator(
-            mask,
-            self._coordinates,
-            rbfFunction=self.rbfFunction,
-            eps=self._eps
+            mask, self._coordinates, rbfFunction=self.rbfFunction, eps=self._eps
         )
         rbf.generate()
         return rbf
@@ -607,4 +621,3 @@ class RBFitter(_ModeFitter):
             The mode image corresponding to the given index.
         """
         return self._mgen.getRBF(mode_index)
-    

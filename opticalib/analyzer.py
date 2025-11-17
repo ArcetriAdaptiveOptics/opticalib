@@ -75,7 +75,7 @@ def averageFrames(
     #         if file_selector is None or x in file_selector
     #     ]
     imcube = createCube(fl)
-    
+
     if thresh is False:
         aveimg = _np.ma.mean(imcube, axis=2)
     else:

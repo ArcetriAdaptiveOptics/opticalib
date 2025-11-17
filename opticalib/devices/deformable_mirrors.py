@@ -237,7 +237,9 @@ class DP(AdOpticaDm):
             self._aoClient.mirrorCommand(self._lastCmd)
 
     @_contextmanager
-    def read_buffer(self, segment: int = 0, npoints_per_cmd: int = 100, total_frames: int = None):
+    def read_buffer(
+        self, segment: int = 0, npoints_per_cmd: int = 100, total_frames: int = None
+    ):
         """
         Context manager for reading internal buffers of the DP DM during operations.
 
@@ -276,7 +278,9 @@ class DP(AdOpticaDm):
         elif total_frames is not None:
             totframes = total_frames
         else:
-            raise _oe.BufferError("Missing `total_frames` value: either load a command history or provide the variable's value")
+            raise _oe.BufferError(
+                "Missing `total_frames` value: either load a command history or provide the variable's value"
+            )
         triggered = _dmc()["triggerMode"]
         if triggered is not False:
             thistfreq = triggered.get("frequency", 1.0)

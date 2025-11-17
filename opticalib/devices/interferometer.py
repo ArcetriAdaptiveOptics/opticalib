@@ -105,16 +105,16 @@ class _4DInterferometer(_api.BaseInterferometer):
             images = _np.ma.dstack(image_list)
             data2d = _np.ma.mean(images, 2)
         return data2d
-    
+
     def get_interferogram(self, index: int, rebin: int = 1) -> _ot.ImageData:
         """
         Acquires the interferogram at the specified index.
-        
+
         Parameters
         ----------
         index: int
             Index of the interferogram to acquire.
-        
+
         Returns
         -------
         data: numpy array

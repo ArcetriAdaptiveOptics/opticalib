@@ -64,6 +64,7 @@ def imgCut(img: _ot.ImageData):
     cutImg = img[top_left[0] : bottom_right[0] + 1, top_left[1] : bottom_right[1] + 1]
     return cutImg
 
+
 def cubeMasterMask(cube: _ot.CubeData) -> _ot.ImageData:
     """
     Generates a master mask for a cube by combining the masks of all individual frames.
@@ -83,9 +84,12 @@ def cubeMasterMask(cube: _ot.CubeData) -> _ot.ImageData:
     )
     return master_mask
 
-def remap_on_new_mask(data: _ot.ArrayLike, old_mask: _ot.MaskData, new_mask: _ot.MaskData) -> _ot.ArrayLike:
-    """ 
-    Remaps the matrix data defined on valid values 
+
+def remap_on_new_mask(
+    data: _ot.ArrayLike, old_mask: _ot.MaskData, new_mask: _ot.MaskData
+) -> _ot.ArrayLike:
+    """
+    Remaps the matrix data defined on valid values
     of old_mask to valid values on new_mask.
 
     Parameters
@@ -96,17 +100,17 @@ def remap_on_new_mask(data: _ot.ArrayLike, old_mask: _ot.MaskData, new_mask: _ot
         2D boolean array defining the old mask
     new_mask : xp.ndarray
         2D boolean array defining the new mask
-    
+
     Returns
     -------
     remapped_data : xp.ndarray
         2D array of shape (sum(1-new_mask), N)
     """
-    old_len = _np.sum(1-old_mask)
-    new_len = _np.sum(1-new_mask)
+    old_len = _np.sum(1 - old_mask)
+    new_len = _np.sum(1 - new_mask)
 
     if old_len < new_len:
-        raise ValueError(f'Cannot reshape from {old_len} to {new_len}')
+        raise ValueError(f"Cannot reshape from {old_len} to {new_len}")
 
     # Handle dimention mismatch
     transpose = False
@@ -115,14 +119,16 @@ def remap_on_new_mask(data: _ot.ArrayLike, old_mask: _ot.MaskData, new_mask: _ot
         transpose = True
 
     if _np.shape(data)[0] != old_len:
-        raise ValueError(f'Mask length {old_len} is incompatible with dimensions {data.shape}')
+        raise ValueError(
+            f"Mask length {old_len} is incompatible with dimensions {data.shape}"
+        )
     elif len(_np.shape(data)) > 2:
-        raise ValueError('Can only operate on 2D arrays')
-    
-    N = data.shape[1]
-    remasked_data = _np.zeros([int(new_len),N])
+        raise ValueError("Can only operate on 2D arrays")
 
-    # Define helper Function    
+    N = data.shape[1]
+    remasked_data = _np.zeros([int(new_len), N])
+
+    # Define helper Function
     def reshape_on_mask(vec, mask):
         """
         Reshape a given array on a 2D mask.
@@ -143,12 +149,12 @@ def remap_on_new_mask(data: _ot.ArrayLike, old_mask: _ot.MaskData, new_mask: _ot
         image[~mask] = vec
         image = _np.reshape(image, mask.shape)
         return _np.array(image)
-    
+
     for j in range(N):
-        old_data_2D = reshape_on_mask(data[:,j], old_mask)
-        remasked_data[:,j] = old_data_2D[~new_mask]
+        old_data_2D = reshape_on_mask(data[:, j], old_mask)
+        remasked_data[:, j] = old_data_2D[~new_mask]
 
     if transpose:
         remasked_data = remasked_data.T
-    
+
     return remasked_data

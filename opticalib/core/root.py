@@ -128,6 +128,7 @@ def create_configuration_file(path: str = "", data_path: str | bool = False) -> 
         move(file, _os.path.join(conf_folder, "configuration.yaml"))
         print(f"Configuration file moved to {conf_folder}")
 
+
 TEMPLATE_CONF_FILE: str = (
     _os.path.dirname(_os.path.abspath(__file__)) + "/_configurations/configuration.yaml"
 )
@@ -139,15 +140,12 @@ with open(CONFIGURATION_FILE, "r") as _f:
 
 _bdp = _config["SYSTEM"].get("data_path")
 _fallback_bdp = _os.path.join(_os.path.expanduser("~"), ".tmp_opticalib")
-BASE_DATA_PATH: str = (
-    _bdp
-    if not _bdp == ""
-    else _fallback_bdp
-)
+BASE_DATA_PATH: str = _bdp if not _bdp == "" else _fallback_bdp
 
 create_folder_tree(BASE_DATA_PATH)
 if BASE_DATA_PATH == _fallback_bdp:
-    create_configuration_file(path=_fallback_bdp, data_path=True)
+    if not _os.path.exists(_fallback_bdp):
+        _os.mkdir(_fallback_bdp)
     CONFIGURATION_FILE = _os.path.join(
         BASE_DATA_PATH, "SysConfig", "configuration.yaml"
     )
@@ -176,7 +174,6 @@ COPIED_SETTINGS_CONF_FILE: str = None
 CAPTURE_FOLDER_NAME_4D_PC: str = None
 PRODUCE_FOLDER_NAME_4D_PC: str = None
 PRODUCE_FOLDER_NAME_LOCAL_PC: str = None
-
 
 
 ###############################################################################
