@@ -1,6 +1,6 @@
 # OptiCalib : adaptive OPTics package for deformable dirrors CALibration
 
-![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/pietroferraiuolo/labott/tests.yml)
+![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/ArcetriAdaptiveOptics/opticalib/tests.yml)
 
 `Adaptive Optics Group, INAF - Osservatorio Astrofisico di Arcetri`  
 
