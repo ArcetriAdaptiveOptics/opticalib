@@ -1,6 +1,6 @@
 import os
 import xupy as xp
-np = xp.np
+import numpy as np
 from abc import ABC, abstractmethod
 from opticalib import folders as fp, typings as _t
 from opticalib.ground import osutils as osu, zernike as zern

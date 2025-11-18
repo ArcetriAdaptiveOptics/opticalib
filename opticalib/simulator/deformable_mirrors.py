@@ -33,7 +33,7 @@ class AlpaoDm(BaseFakeAlpao):
         scaled_cmd = command * 1e-5  # more realistic command
         self._mirror_command(scaled_cmd, differential, modal)
         if self._live:
-            import time
+
 
             time.sleep(0.15)
             plt.pause(0.05)
