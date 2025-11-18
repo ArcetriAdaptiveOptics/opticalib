@@ -262,6 +262,8 @@ class TestFitsArrayGpu:
         """Test FitsArrayGpu construction if xupy is available."""
         try:
             import xupy as xp  # noqa: F401
+            if not xp.on_gpu:
+                pytest.skip("xupy GPU backend not available")
             from opticalib.core.fitsarray import FitsArrayGpu
 
             data = xp.array([[1, 2], [3, 4]])
@@ -275,6 +277,8 @@ class TestFitsArrayGpu:
         """Test FitsMaskedArrayGpu construction if xupy is available."""
         try:
             import xupy as xp  # noqa: F401
+            if not xp.on_gpu:
+                pytest.skip("xupy GPU backend not available")
             from opticalib.core.fitsarray import FitsMaskedArrayGpu
 
             data = xp.array([[1, 2], [3, 4]])

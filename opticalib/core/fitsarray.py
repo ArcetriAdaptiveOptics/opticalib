@@ -252,6 +252,24 @@ class FitsMaskedArrayGpu(_xp.ma.masked_array):
 
         data = load_fits(filename, return_header=True)
         return cls(data=data, header=data.header)
+    
+    def asmarray(self, **kwargs: dict[str,_ot.Any]) -> "FitsMaskedArray":
+        """
+        Returns the data as a cupy ndarray, optionally casting to a specified dtype.
+
+        Parameters
+        ----------
+        dtype : DtypeLike, optional
+            Target data type for the returned array.
+
+        Returns
+        -------
+        array : cupy.ndarray
+            The data as a cupy ndarray.
+        """
+        ma = super().asmarray(**kwargs)
+        arr = FitsMaskedArray(ma, header=self.header)
+        return arr
 
 
 def fits_array(data: _ot.ArrayLike, **kwargs: dict[str,_ot.Any]) -> FitsArray | FitsMaskedArray:
