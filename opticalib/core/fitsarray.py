@@ -35,8 +35,7 @@ class FitsArray(_np.ndarray):
         data: _ot.ArrayLike,
         *,
         header: _ot.Optional[dict[str, _ot.Any] | _ot.Header] = None,
-        dtype: _ot.Optional[_ot.DTypeLike] = None,
-        copy: bool = False,
+        dtype: _ot.Optional[_ot.DTypeLike] = None
     ):
         """
         Parameters
@@ -50,7 +49,7 @@ class FitsArray(_np.ndarray):
         copy :
             Whether to force a copy of the data buffer.
         """
-        obj = _np.array(data, dtype=dtype, copy=copy).view(cls)
+        obj = _np.array(data, dtype=dtype).view(cls)
         obj.header = _prepare_header(header)
         return obj
 
@@ -96,7 +95,6 @@ class FitsMaskedArray(_np.ma.MaskedArray):
         mask: _ot.Optional[_ot.MaskData] = None,
         header: _ot.Optional[dict[str, _ot.Any] | _ot.Header] = None,
         dtype: _ot.Optional[_ot.DTypeLike] = None,
-        copy: bool = False,
         fill_value: _ot.Optional[_ot.Number] = None,
         keep_mask: bool = True,
     ):
@@ -113,7 +111,6 @@ class FitsMaskedArray(_np.ma.MaskedArray):
             data=data,
             mask=mask,
             dtype=dtype,
-            copy=copy,
             keep_mask=keep_mask,
             fill_value=fill_value,
             subok=False,
@@ -177,7 +174,6 @@ class FitsArrayGpu(_xp.ndarray):
         *,
         header: _ot.Optional[dict[str, _ot.Any] | _ot.Header] = None,
         dtype: _ot.Optional[_ot.DTypeLike] = None,
-        copy: bool = False,
     ):
         """
         Parameters
@@ -188,10 +184,8 @@ class FitsArrayGpu(_xp.ndarray):
             FITS header to associate with the array (dict or ``astropy.io.fits.Header``).
         dtype :
             Target dtype, forwarded to ``cupy.array``.
-        copy :
-            Whether to force a copy of the data buffer.
         """
-        obj = _xp.array(data, dtype=dtype, copy=copy).view(cls)
+        obj = _xp.array(data, dtype=dtype).view(cls)
         obj.header = _prepare_header(header)
         return obj
 
