@@ -15,14 +15,14 @@ _conf = {
 }
 
 
-class Interferometer:
+class Fake4DInterferometer:
 
     def __init__(self, dm: _t.DeformableMirrorDevice):
         self.model = "4D"
         self.full_frame = False
         self.shapesRemoved = None
         self._dm = dm
-        self._lambda = 632.8e-9  # Wavelength of the light in meters
+        self._lambda = 632.8e-9  # λ[m]
         self._anim = None
         self._live = False
         self._surf = False
@@ -156,7 +156,7 @@ class Interferometer:
             Phase map of the interferometer.
         """
         imglist = []
-        for i in range(nframes):
+        for _ in range(nframes):
             img = self._dm._shape
             kk = _np.floor(_np.random.random(1) * 5 - 2)
             masked_ima = img + _np.ones(img.shape) * self._lambda * kk

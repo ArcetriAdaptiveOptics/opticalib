@@ -303,10 +303,10 @@ def _project_zernike_on_mask(noll_number: int, mask: _t.ImageData, scale_length:
     return masked_data
 
 
-######################################
-## Base class that creates the simu ##
-##          lated Alpao             ##
-######################################
+#################################
+## Base class that creates the ##
+##       simulated Alpao       ##
+#################################
 
 
 class BaseFakeAlpao(ABC):

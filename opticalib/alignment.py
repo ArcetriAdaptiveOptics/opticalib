@@ -61,7 +61,7 @@ import os as _os
 import numpy as _np
 from .core.root import folders as _fn
 from .core.read_config import getAlignmentConfig as _gac
-from .ground import logger as _logger, zernike as _zern, geo as _geo
+from .ground import geo as _geo, logger as _logger, zernike as _zern
 from .ground.osutils import load_fits as _rfits, save_fits as _sfits, newtn as _ts
 from . import typings as _ot
 
