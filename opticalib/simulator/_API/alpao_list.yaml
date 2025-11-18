@@ -1,0 +1,34 @@
+DM88:
+  coords : [6, 8, 10]
+  opt_diameter : 5
+  pixel_scale : 102.4
+  act_px_size : 51.2
+  act_mm_size : 0.5
+
+DM97:
+  coords : [5, 7, 9, 11]
+  opt_diameter : 7.5
+  pixel_scale : 68.26667
+  act_px_size : 46.545
+  act_mm_size : 0.682
+
+DM277:
+  coords : [7, 9, 11, 13, 15, 17, 19]
+  opt_diameter : 25
+  pixel_scale : 20.48
+  act_px_size : 26.947
+  act_mm_size : 1.316
+
+DM468:
+  coords : [8, 12, 16, 18, 20, 20, 22, 22, 24]
+  opt_diameter : 33.5
+  pixel_scale : 15.283582
+  act_px_size : 21.333
+  act_mm_size : 1.396
+
+DM820:
+  coords : [10, 14, 18, 20, 22, 24, 26, 28, 28, 30, 30, 32]
+  opt_diameter : 45
+  pixel_scale : 11.37778
+  act_px_size : 16.000
+  act_mm_size : 1.406
