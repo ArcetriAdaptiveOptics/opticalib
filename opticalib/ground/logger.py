@@ -1,14 +1,12 @@
 """
-Author(s)
----------
-- Chiara Selmi : written in 2020
-- Pietro Ferraiuolo : modified in 2024
-
-Description
------------
 This module provides an easy interface for setting up scripts logging within
 the Opticalib framework. It includes functions to configure a rotating file logger
 and a simple text file logger class.
+
+Author(s)
+---------
+- Chiara Selmi : written in 2020
+- Pietro Ferraiuolo : rewritten in 2024
 
 Example Usage
 -------------

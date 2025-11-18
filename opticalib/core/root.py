@@ -1,3 +1,9 @@
+"""
+this module is at the heart of the package, as it defines its folder structure
+and the configuration file reader and writer. Also, it is fundamental for the
+`calpy` custom entry point functionalities.
+"""
+
 import os as _os
 import configparser as _cp
 from shutil import copy as _copy
@@ -63,7 +69,6 @@ def _updateInterfPaths(paths: dict[str, str]) -> None:
     This function reads the configuration file and updates the paths of the
     settings file and the folders used in the package.
     """
-    print("è partita?")
     global SETTINGS_CONF_FILE
     global COPIED_SETTINGS_CONF_FILE
     global CAPTURE_FOLDER_NAME_4D_PC
@@ -74,53 +79,6 @@ def _updateInterfPaths(paths: dict[str, str]) -> None:
     CAPTURE_FOLDER_NAME_4D_PC = paths["capture_4dpc"]
     PRODUCE_FOLDER_NAME_4D_PC = paths["produce_4dpc"]
     PRODUCE_FOLDER_NAME_LOCAL_PC = paths["produce"]
-    print(f"Settings file: {SETTINGS_CONF_FILE}")
-    print(f"Copied settings file: {COPIED_SETTINGS_CONF_FILE}")
-    print(f"Capture folder name: {CAPTURE_FOLDER_NAME_4D_PC}")
-    print(f"Produce folder name: {PRODUCE_FOLDER_NAME_4D_PC}")
-    print(f"Produce folder name local PC: {PRODUCE_FOLDER_NAME_LOCAL_PC}")
-
-
-TEMPLATE_CONF_FILE: str = (
-    _os.path.dirname(_os.path.abspath(__file__)) + "/_configurations/configuration.yaml"
-)
-CONFIGURATION_ROOT_FOLDER: str = _os.path.dirname(TEMPLATE_CONF_FILE)
-CONFIGURATION_FILE: str = _os.getenv("AOCONF", TEMPLATE_CONF_FILE)
-
-with open(CONFIGURATION_FILE, "r") as _f:
-    _config = _gyml.load(_f)
-
-_bdp = _config["SYSTEM"].get("data_path")
-BASE_DATA_PATH: str = (
-    _bdp
-    if not _bdp == ""
-    else _os.path.join(_os.path.expanduser("~"), ".tmp_opticalibData")
-)
-
-OPT_DATA_ROOT_FOLDER: str = _os.path.join(BASE_DATA_PATH, "OPTData")
-LOGGING_ROOT_FOLDER: str = _os.path.join(BASE_DATA_PATH, "Logging")
-CONFIGURATION_FOLDER: str = _os.path.join(BASE_DATA_PATH, "SysConfig")
-OPD_SERIES_ROOT_FOLDER: str = _os.path.join(OPT_DATA_ROOT_FOLDER, "OPDSeries")
-OPD_IMAGES_ROOT_FOLDER: str = _os.path.join(OPT_DATA_ROOT_FOLDER, "OPDImages")
-ALIGNMENT_ROOT_FOLDER: str = _os.path.join(OPT_DATA_ROOT_FOLDER, "Alignment")
-FLAT_ROOT_FOLDER: str = _os.path.join(OPT_DATA_ROOT_FOLDER, "Flattening")
-MODALBASE_ROOT_FOLDER: str = _os.path.join(OPT_DATA_ROOT_FOLDER, "ModalBases")
-IFFUNCTIONS_ROOT_FOLDER: str = _os.path.join(OPT_DATA_ROOT_FOLDER, "IFFunctions")
-INTMAT_ROOT_FOLDER: str = _os.path.join(OPT_DATA_ROOT_FOLDER, "INTMatrices")
-CONTROL_MATRIX_FOLDER: str = _os.path.join(ALIGNMENT_ROOT_FOLDER, "ControlMatrices")
-ALIGN_CALIBRATION_ROOT_FOLDER: str = _os.path.join(ALIGNMENT_ROOT_FOLDER, "Calibration")
-ALIGN_RESULTS_ROOT_FOLDER: str = _os.path.join(ALIGNMENT_ROOT_FOLDER, "Results")
-
-create_folder_tree(BASE_DATA_PATH)
-
-########################
-# INTERFEROMETER PATHS #
-########################
-SETTINGS_CONF_FILE: str = None
-COPIED_SETTINGS_CONF_FILE: str = None
-CAPTURE_FOLDER_NAME_4D_PC: str = None
-PRODUCE_FOLDER_NAME_4D_PC: str = None
-PRODUCE_FOLDER_NAME_LOCAL_PC: str = None
 
 
 def create_configuration_file(path: str = "", data_path: str | bool = False) -> None:
@@ -136,9 +94,6 @@ def create_configuration_file(path: str = "", data_path: str | bool = False) -> 
         directory as the configuration file. If False, it will not be set.
         If a string, a path must be provided, and the `data_path` will be
         set to that path.
-    load : bool
-        If True, the configuration file will be loaded after creation, the folder
-        tree created (if not already) and all the paths updated.
     """
     global TEMPLATE_CONF_FILE
     bp = _os.path.expanduser("~")
@@ -172,6 +127,53 @@ def create_configuration_file(path: str = "", data_path: str | bool = False) -> 
         conf_folder = _os.path.join(data_path, "SysConfig")
         move(file, _os.path.join(conf_folder, "configuration.yaml"))
         print(f"Configuration file moved to {conf_folder}")
+
+
+TEMPLATE_CONF_FILE: str = (
+    _os.path.dirname(_os.path.abspath(__file__)) + "/_configurations/configuration.yaml"
+)
+CONFIGURATION_ROOT_FOLDER: str = _os.path.dirname(TEMPLATE_CONF_FILE)
+CONFIGURATION_FILE: str = _os.getenv("AOCONF", TEMPLATE_CONF_FILE)
+
+with open(CONFIGURATION_FILE, "r") as _f:
+    _config = _gyml.load(_f)
+
+_bdp = _config["SYSTEM"].get("data_path")
+_fallback_bdp = _os.path.join(_os.path.expanduser("~"), ".tmp_opticalib")
+BASE_DATA_PATH: str = _bdp if not _bdp == "" else _fallback_bdp
+
+create_folder_tree(BASE_DATA_PATH)
+if BASE_DATA_PATH == _fallback_bdp:
+    CONFIGURATION_FILE = _os.path.join(
+        BASE_DATA_PATH, "SysConfig", "configuration.yaml"
+    )
+    if not _os.path.exists(CONFIGURATION_FILE):
+        _copy(TEMPLATE_CONF_FILE, CONFIGURATION_FILE)
+    with open(CONFIGURATION_FILE, "r") as _f:
+        _config = _gyml.load(_f)
+
+OPT_DATA_ROOT_FOLDER: str = _os.path.join(BASE_DATA_PATH, "OPTData")
+LOGGING_ROOT_FOLDER: str = _os.path.join(BASE_DATA_PATH, "Logging")
+CONFIGURATION_FOLDER: str = _os.path.join(BASE_DATA_PATH, "SysConfig")
+OPD_SERIES_ROOT_FOLDER: str = _os.path.join(OPT_DATA_ROOT_FOLDER, "OPDSeries")
+OPD_IMAGES_ROOT_FOLDER: str = _os.path.join(OPT_DATA_ROOT_FOLDER, "OPDImages")
+ALIGNMENT_ROOT_FOLDER: str = _os.path.join(OPT_DATA_ROOT_FOLDER, "Alignment")
+FLAT_ROOT_FOLDER: str = _os.path.join(OPT_DATA_ROOT_FOLDER, "Flattening")
+MODALBASE_ROOT_FOLDER: str = _os.path.join(OPT_DATA_ROOT_FOLDER, "ModalBases")
+IFFUNCTIONS_ROOT_FOLDER: str = _os.path.join(OPT_DATA_ROOT_FOLDER, "IFFunctions")
+INTMAT_ROOT_FOLDER: str = _os.path.join(OPT_DATA_ROOT_FOLDER, "INTMatrices")
+CONTROL_MATRIX_FOLDER: str = _os.path.join(ALIGNMENT_ROOT_FOLDER, "ControlMatrices")
+ALIGN_CALIBRATION_ROOT_FOLDER: str = _os.path.join(ALIGNMENT_ROOT_FOLDER, "Calibration")
+ALIGN_RESULTS_ROOT_FOLDER: str = _os.path.join(ALIGNMENT_ROOT_FOLDER, "Results")
+
+########################
+# INTERFEROMETER PATHS #
+########################
+SETTINGS_CONF_FILE: str = None
+COPIED_SETTINGS_CONF_FILE: str = None
+CAPTURE_FOLDER_NAME_4D_PC: str = None
+PRODUCE_FOLDER_NAME_4D_PC: str = None
+PRODUCE_FOLDER_NAME_LOCAL_PC: str = None
 
 
 ###############################################################################

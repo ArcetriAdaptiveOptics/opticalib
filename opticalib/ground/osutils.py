@@ -1,4 +1,8 @@
 """
+Module containing various utility functions for handling files and directories,
+especially related to tracking numbers and interferometric data, within the
+Opticalib framework.
+
 Author(s)
 ---------
 - Chiara Selmi:  written in 2019
@@ -11,10 +15,12 @@ import numpy as _np
 import time as _time
 import h5py as _h5py
 from numpy import uint8 as _uint8
-from opticalib.core import root as _fn
 from astropy.io import fits as _fits
 from opticalib import typings as _ot
 from numpy.ma import masked_array as _masked_array
+from opticalib.core import fitsarray as _fa
+from opticalib.core import root as _fn
+
 
 _OPTDATA = _fn.OPT_DATA_ROOT_FOLDER
 _OPDIMG = _fn.OPD_IMAGES_ROOT_FOLDER
@@ -121,30 +127,34 @@ def getFileList(tn: str = None, fold: str = None, key: str = None) -> list[str]:
     Examples
     --------
 
-    Here are some examples regarding the use of the 'key' argument. Let's say w
-    e need a list of files inside ''tn = '20160516_114916' '' in the IFFunctions
+    Here are some examples regarding the use of the 'key' argument. Let's say we
+    need a list of files inside ''tn = '20160516_114916' '' in the IFFunctions
     folder.
 
-        >>> iffold = 'IFFunctions'
-        >>> tn = '20160516_114916'
-        >>> getFileList(tn, fold=iffold)
-        ['.../M4/m4/data/M4Data/OPTData/IFFunctions/20160516_114916/cmdMatrix.fits',
-         '.../M4/m4/data/M4Data/OPTData/IFFunctions/20160516_114916/mode_0000.fits',
-         '.../M4/m4/data/M4Data/OPTData/IFFunctions/20160516_114916/mode_0001.fits',
-         '.../M4/m4/data/M4Data/OPTData/IFFunctions/20160516_114916/mode_0002.fits',
-         '.../M4/m4/data/M4Data/OPTData/IFFunctions/20160516_114916/mode_0003.fits',
-         '.../M4/m4/data/M4Data/OPTData/IFFunctions/20160516_114916/modesVector.fits']
+    ```python
+    iffold = 'IFFunctions'
+    tn = '20160516_114916'
+    getFileList(tn, fold=iffold)
+    ['.../OPTData/IFFunctions/20160516_114916/cmdMatrix.fits',
+     '.../OPTData/IFFunctions/20160516_114916/mode_0000.fits',
+     '.../OPTData/IFFunctions/20160516_114916/mode_0001.fits',
+     '.../OPTData/IFFunctions/20160516_114916/mode_0002.fits',
+     '.../OPTData/IFFunctions/20160516_114916/mode_0003.fits',
+     '.../OPTData/IFFunctions/20160516_114916/modesVector.fits']
+    ```
 
     Let's suppose we want only the list of 'mode_000x.fits' files:
 
-        >>> getFileList(tn, fold=iffold, key='mode_')
-        ['.../M4/m4/data/M4Data/OPTData/IFFunctions/20160516_114916/mode_0000.fits',
-         '.../M4/m4/data/M4Data/OPTData/IFFunctions/20160516_114916/mode_0001.fits',
-         '.../M4/m4/data/M4Data/OPTData/IFFunctions/20160516_114916/mode_0002.fits',
-         '.../M4/m4/data/M4Data/OPTData/IFFunctions/20160516_114916/mode_0003.fits']
+    ```python
+    getFileList(tn, fold=iffold, key='mode_')
+    ['.../OPTData/IFFunctions/20160516_114916/mode_0000.fits',
+     '.../OPTData/IFFunctions/20160516_114916/mode_0001.fits',
+     '.../OPTData/IFFunctions/20160516_114916/mode_0002.fits',
+     '.../OPTData/IFFunctions/20160516_114916/mode_0003.fits']
+    ```
 
-    Notice that, in this specific case, it was necessary to include the undersc
-    ore after 'mode' to exclude the 'modesVector.fits' file from the list.
+    Notice that, in this specific case, it was necessary to include the underscore
+    after 'mode' to exclude the 'modesVector.fits' file from the list.
     """
     if tn is None and fold is not None:
         fl = sorted([_os.path.join(fold, file) for file in _os.listdir(fold)])
@@ -187,7 +197,7 @@ def getFileList(tn: str = None, fold: str = None, key: str = None) -> list[str]:
     return fl
 
 
-def tnRange(tn0: str, tn1: str) -> list[str]:
+def tnRange(tn0: str, tn1: str, complete_paths: bool = False) -> list[str]:
     """
     Returns the list of tracking numbers between tn0 and tn1, within the same
     folder, if they both exist in it.
@@ -198,6 +208,8 @@ def tnRange(tn0: str, tn1: str) -> list[str]:
         Starting tracking number.
     tn1 : str
         Finish tracking number.
+    complete_paths : bool, optional
+        Whether to return the full path of the tracking numbers or only their names.
 
     Returns
     -------
@@ -221,7 +233,10 @@ def tnRange(tn0: str, tn1: str) -> list[str]:
             tn_folds = sorted(_os.listdir(fold_path))
             id0 = tn_folds.index(tn0)
             id1 = tn_folds.index(tn1)
-            tnMat = [_os.path.join(fold_path, tn) for tn in tn_folds[id0 : id1 + 1]]
+            if complete_paths:
+                tnMat = [_os.path.join(fold_path, tn) for tn in tn_folds[id0 : id1 + 1]]
+            else:
+                tnMat = tn_folds[id0 : id1 + 1]
         else:
             raise FileNotFoundError("The tracking numbers are in different foldes")
     else:
@@ -232,10 +247,57 @@ def tnRange(tn0: str, tn1: str) -> list[str]:
                 tn_folds = sorted(_os.listdir(fold_path))
                 id0 = tn_folds.index(tn0)
                 id1 = tn_folds.index(tn1)
-                tnMat.append(
-                    [_os.path.join(fold_path, tn) for tn in tn_folds[id0 : id1 + 1]]
-                )
+                if not complete_paths:
+                    tnMat.append(tn_folds[id0 : id1 + 1])
+                else:
+                    tnMat.append(
+                        [_os.path.join(fold_path, tn) for tn in tn_folds[id0 : id1 + 1]]
+                    )
     return tnMat
+
+
+def loadCubeFromFilelist(
+    tn_or_fl: str, fold: _ot.Optional[str] = None, key: _ot.Optional[str] = None
+) -> _ot.CubeData:
+    """
+    Loads a cube from a list of files obtained from a tracking number or a folder.
+
+    Parameters
+    ----------
+    tn_or_fl : str
+        Either the filelist of the data to be put into the cube, or the tracking
+        number. In the second case, the filelist is obtained searching for the
+        tracking number, for which the additional parameters `fold` and `key` can
+        be used (see the `getFileList` function).
+    fold : str, optional
+        Folder in which searching for the tracking number.
+    key : str, optional
+        A key which identify specific files to load.
+
+    Returns
+    -------
+    cube : CubeData
+        Cube containing all the images loaded from the files.
+    """
+    from ..analyzer import createCube
+
+    if is_tn(tn_or_fl):
+        if fold is None:
+            raise ValueError(
+                "When passing a tracking number, the 'fold' argument must be specified"
+            )
+        path = findTracknum(tn_or_fl, complete_path=True)
+        if isinstance(path, str):
+            path = [path]
+        for p in path:
+            if fold in p:
+                fold = p
+                break
+        fl = getFileList(fold=fold, key=key)
+    else:
+        fl = tn_or_fl
+    cube = createCube(fl)
+    return cube
 
 
 def read_phasemap(file_path: str) -> _ot.ImageData:
@@ -254,19 +316,15 @@ def read_phasemap(file_path: str) -> _ot.ImageData:
         Image as a masked array.
     """
     ext = file_path.split(".")[-1]
-    if ext == "fits":
+    if ext in ["fits", "4Ds"]:
         image = load_fits(file_path)
-    elif ext == "4D":
+    elif ext in ["4D", "h5"]:
         image = _InterferometerConverter.fromPhaseCam6110(file_path)
-    elif ext == "4Ds":
-        image = load_fits(file_path)
-    elif ext == "h5":
-        image = _InterferometerConverter.fromPhaseCam4020(file_path)
     return image
 
 
 def load_fits(
-    filepath: str, return_header: bool = False
+    filepath: str, return_header: bool = False, on_gpu: bool = False
 ) -> tuple[_ot.ImageData | _ot.CubeData | _ot.MatrixLike | _ot.ArrayLike, _ot.Any]:
     """
     Loads a FITS file.
@@ -277,23 +335,42 @@ def load_fits(
         Path to the FITS file.
     return_header: bool
         Wether to return the header of the loaded fits file. Default is False.
+    on_gpu : bool, optional
+        Whether to load the data on GPU as a `cupy.ndarray` or a
+        `xupy.ma.MaskedArray` (if masked). Default is False.
 
     Returns
     -------
-    fit : np.ndarray or np.ma.MaskedArray
-        FITS file data.
+    fit : np.ndarray or np.ma.MaskedArray of cupy.ndarray or xupy.ma.MaskedArray
+        The loaded FITS file data.
     header : dict | fits.Header, optional
         The header of the loaded fits file.
     """
     with _fits.open(filepath) as hdul:
         fit = hdul[0].data
-        if len(hdul) > 1 and hasattr(hdul[1], "data"):
+        header = hdul[0].header
+        if (len(hdul) > 1 and len(hdul) < 3) and hasattr(hdul[1], "data"):
             mask = hdul[1].data.astype(bool)
             fit = _masked_array(fit, mask=mask)
-        if return_header:
-            header = hdul[0].header
-            return fit, header
-    return fit
+        elif len(hdul) > 2:
+            header = [hdu.header for hdu in hdul if hasattr(hdu, "header")]
+            fit = [hdu.data for hdu in hdul if hasattr(hdu, "data")]
+            if on_gpu:
+                raise NotImplementedError(
+                    "Loading multi-extension FITS files on GPU is not supported."
+                )
+    if on_gpu:
+        import xupy as _xu
+
+        if isinstance(fit, _masked_array):
+            fit = _xu.ma.MaskedArray(fit)
+        else:
+            fit = _xu.asarray(fit)
+    if return_header:        
+        out = _fa.fits_array(fit, header=header)
+    else:
+        out = fit
+    return out
 
 
 def save_fits(
@@ -309,7 +386,7 @@ def save_fits(
     ----------
     filepath : str
         Path to the FITS file.
-    data : np.array
+    data : ArrayLike
         Data to be saved.
     overwrite : bool, optional
         Whether to overwrite an existing file. Default is True.
@@ -317,13 +394,20 @@ def save_fits(
         Header information to include in the FITS file. Can be a dictionary or
         a fits.Header object.
     """
+    data = _ensure_on_cpu(data)
+    # force float32 dtype on save
+    if data.dtype != _np.float32:
+        data = _np.asanyarray(data, dtype=_np.float32)
+    if isinstance(data, (_fa.FitsArray, _fa.FitsMaskedArray)):
+        data.writeto(filepath, overwrite=overwrite)
+        return
     # Prepare the header
     if header is not None:
         header = _header_from_dict(header)
     # Save the FITS file
     if isinstance(data, _masked_array):
         _fits.writeto(filepath, data.data, header=header, overwrite=overwrite)
-        if hasattr(data, "mask"):
+        if not data.mask is _np.ma.nomask:
             _fits.append(filepath, data.mask.astype(_uint8))
     else:
         _fits.writeto(filepath, data, header=header, overwrite=overwrite)
@@ -339,74 +423,6 @@ def newtn() -> str:
         Current time in a string format.
     """
     return _time.strftime("%Y%m%d_%H%M%S")
-
-
-def rename4D(folder: str) -> None:
-    """
-    Renames the produced 'x.4D' files into '0000x.4D'
-
-    Parameters
-    ----------
-    folder : str
-        The folder where the 4D data is stored.
-    """
-    fold = _os.path.join(_OPDIMG, folder)
-    files = _os.listdir(fold)
-    for file in files:
-        if file.endswith(".4D"):
-            num_str = file.split(".")[0]
-            if num_str.isdigit():
-                num = int(num_str)
-                new_name = f"{num:05d}.4D"
-                old_file = _os.path.join(fold, file)
-                new_file = _os.path.join(fold, new_name)
-                _os.rename(old_file, new_file)
-
-
-def getCameraSettings(tn: str) -> list[int]:
-    """
-    Reads the interferometer settings from a given configuration file.
-
-    Return
-    ------
-    output: list of int
-        List of camera settings:
-        [width_pixel, height_pixel, offset_x, offset_y]
-    """
-    path = findTracknum(tn, complete_path=True)
-    try:
-        file_path = _os.path.join(path, _fn.COPIED_SETTINGS_CONF_FILE)
-        setting_reader = _fn.ConfSettingReader4D(file_path)
-    except Exception as e:
-        print(f"Error: {e}")
-        file_path = _os.path.join(path, "4DSettings.ini")
-        setting_reader = _fn.ConfSettingReader4D(file_path)
-    width_pixel = setting_reader.getImageWidhtInPixels()
-    height_pixel = setting_reader.getImageHeightInPixels()
-    offset_x = setting_reader.getOffsetX()
-    offset_y = setting_reader.getOffsetY()
-    return [width_pixel, height_pixel, offset_x, offset_y]
-
-
-def getFrameRate(tn: str) -> float:
-    """
-    Reads the frame rate of the camera from a given configuration file.
-
-    Return
-    ------
-    frame_rate: float
-        Frame rate of the interferometer
-    """
-    path = findTracknum(tn, complete_path=True)
-    try:
-        file_path = _os.path.join(path, _fn.COPIED_SETTINGS_CONF_FILE)
-        setting_reader = _fn.ConfSettingReader4D(file_path)
-    except Exception as e:
-        print(f"Error: {e}")
-        file_path = _os.path.join(path, "4DSettings.ini")
-        setting_reader = _fn.ConfSettingReader4D(file_path)
-    frame_rate = setting_reader.getFrameRate()
-    return frame_rate
 
 
 def _header_from_dict(
@@ -440,6 +456,36 @@ def _header_from_dict(
         else:
             header[key] = value
     return header
+
+
+def _ensure_on_cpu(data: _ot.ArrayLike) -> _ot.ArrayLike:
+    """
+    Ensures that the input data is on the CPU as a NumPy array or masked array.
+
+    Parameters
+    ----------
+    data : ArrayLike
+        Input data which may be on GPU or CPU.
+
+    Returns
+    -------
+    ArrayLike
+        Data ensured to be on CPU as a NumPy array or masked array.
+    """
+    try:
+        import xupy as _xu
+
+        if _xu.on_gpu:
+            if isinstance(data, _xu.ma.MaskedArray):
+                data_cpu = data.asmarray()
+                return data_cpu
+            elif isinstance(data, _xu.ndarray):
+                return _xu.asnumpy(data)
+            elif "numpy" in str(type(data)):
+                return data
+    except ImportError:
+        return data
+    return data
 
 
 class _InterferometerConverter:
@@ -489,7 +535,7 @@ class _InterferometerConverter:
             data = ff.get("/Measurement/SurfaceInWaves/Data")
             meas = data[()]
             mask = _np.invert(_np.isfinite(meas))
-        image = _np.ma.masked_array(meas * 632.8e-9, mask=mask)
+        image = _np.ma.masked_array(meas * 632.8e-9, mask=mask, dtype=_np.float32)
         return image
 
     @staticmethod

@@ -1,3 +1,8 @@
+"""
+This module defines custom exceptions used in the opticalib system.
+"""
+
+
 class DeviceNotFoundError(Exception):
     """Exception raised when a device is not found in the
     configuration file.
@@ -25,6 +30,13 @@ class MatrixError(Exception):
 
 class CommandError(Exception):
     """Exception raised when a command is not valid."""
+
+    def __init__(self, message: str):
+        super().__init__(message)
+
+
+class BufferError(Exception):
+    """Exception raised when a buffer operation fails."""
 
     def __init__(self, message: str):
         super().__init__(message)

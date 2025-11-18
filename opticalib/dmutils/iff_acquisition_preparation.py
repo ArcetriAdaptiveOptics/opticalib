@@ -1,16 +1,12 @@
 """
+This module contains the IFFCapturePreparation class, a class which serves as a
+preparator for the Influence Function acquisition, creating the timed command
+matrix history that will be ultimately used.
+
 Author(s):
 ----------
-    - Pietro Ferraiuolo
+- Pietro Ferraiuolo: pietro.ferraiuolo@inaf.it
 
-Written in June 2024
-
-Description
------------
-This module contains the IFFCapturePreparation class, a class which serves as a
-preparator for the Influence Function acquisition by M4, creating the timed com
-mand matrix history that will be ultimately used.
-More information on its use can be found on the class documentation.
 """
 
 import os as _os
@@ -409,5 +405,4 @@ class IFFCapturePreparation:
         numb = math.ceil(math.log(self._NActs, 2))
         hadm = hadamard(2**numb)  # 892, 1 segment
         cmdBase = hadm[1 : self._NActs + 1, 1 : self._NActs + 1]
-        # print('Removed 1st column of Hadamard matrix, or piston mode')
         return cmdBase

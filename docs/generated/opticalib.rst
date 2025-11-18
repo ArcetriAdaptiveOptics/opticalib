@@ -16,5 +16,4 @@
    devices
    dmutils
    ground
-   simulator
    typings

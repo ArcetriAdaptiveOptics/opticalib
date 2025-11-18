@@ -1,4 +1,4 @@
-opticalib.dmutils.iff\_processing
+﻿opticalib.dmutils.iff\_processing
 =================================
 
 .. automodule:: opticalib.dmutils.iff_processing
@@ -8,6 +8,7 @@ opticalib.dmutils.iff\_processing
 
    .. autosummary::
    
+      createMasterMask
       filterZernikeCube
       findFrameOffset
       getIffFileMatrix

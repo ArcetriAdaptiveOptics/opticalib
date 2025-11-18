@@ -4,6 +4,7 @@ opticalib/dmutils/stitching.py
 opticalib/dmutils/_stitching_algorithm.py
 .venv/
 notebooks/
+**/*.ipynb
 
 # Byte-compiled / optimized / DLL files
 **/__pycache__/

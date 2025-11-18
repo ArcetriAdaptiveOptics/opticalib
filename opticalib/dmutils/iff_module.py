@@ -1,21 +1,18 @@
 """
-IFF Module
-==========
-Author(s):
-----------
-- Pietro Ferraiuolo
-- Runa Briguglio
-
-Description:
-------------
 This module contains the necessary high/user-leve functions to acquire the IFF data,
 given a deformable mirror and an interferometer.
+
+Author(s):
+----------
+- Pietro Ferraiuolo: pietro.ferraiuolo@inaf.it
+- Runa Briguglio: runa.briguglio@inaf.it
+
 """
 
 import os as _os
 import numpy as _np
 from opticalib.core.root import folders as _fn
-from opticalib.core import read_config as _rif
+from opticalib.core import read_config as _rif, exceptions as _oe
 from . import iff_acquisition_preparation as _ifa
 from opticalib.ground.osutils import newtn as _ts, save_fits as _sf
 from opticalib import typings as _ot
@@ -26,9 +23,11 @@ def iffDataAcquisition(
     interf: _ot.InterferometerDevice,
     modesList: _ot.Optional[_ot.ArrayLike] = None,
     amplitude: _ot.Optional[float | _ot.ArrayLike] = None,
-    cmdOffset: _ot.Optional[float | _ot.ArrayLike] = None,
     template: _ot.Optional[_ot.ArrayLike] = None,
     shuffle: bool = False,
+    differential: bool = False,
+    read_buffer: bool|dict[str,_ot.Any]= False,
+    # cmdOffset: _ot.Optional[float | _ot.ArrayLike] = None,
 ) -> str:
     """
     This is the user-lever function for the acquisition of the IFF data, given a
@@ -51,6 +50,9 @@ def iffDataAcquisition(
         template file for the command matrix
     shuffle: bool , optional
         if True, shuffle the modes before acquisition
+    differential: bool , optional
+        if True, applies the commands differentially w.r.t. the initial shape of
+        the DM.
 
     Returns
     -------
@@ -59,10 +61,11 @@ def iffDataAcquisition(
     """
     ifc = _ifa.IFFCapturePreparation(dm)
     tch = ifc.createTimedCmdHistory(modesList, amplitude, template, shuffle)
-    if cmdOffset is not None:
-        cmdOff = cmdOffset[:, _np.newaxis]
-        tch = tch + cmdOff
-        print("Adding a cmd offset to the timeHistory")
+    ## MANAGED BY `uploadCmdHistory` METHOD ##
+    # if cmdOffset is not None:
+    #     cmdOff = cmdOffset[:, _np.newaxis]
+    #     tch = tch + cmdOff
+    #     print("Adding a cmd offset to the timeHistory")
     info = ifc.getInfoToSave()
     tn = _ts()
     iffpath = _os.path.join(_fn.IFFUNCTIONS_ROOT_FOLDER, tn)
@@ -88,25 +91,23 @@ def iffDataAcquisition(
         if value is not None:
             _rif.updateIffConfig(tn, param, value)
     dm.uploadCmdHistory(tch)
-    dm.runCmdHistory(interf, save=tn)
-    return tn
+    if read_buffer is not False:
+        try:
+            if not hasattr(dm, 'read_buffer'):
+                raise _oe.BufferError(f"The `{dm.__class__.__name__}` device cannot read buffer data.")
+            if not type(read_buffer) == bool:
+                rb_kwargs = read_buffer
+            else:
+                rb_kwargs = {}
+            with dm.read_buffer(**rb_kwargs) as buffer_data:
+                dm.runCmdHistory(interf, save=tn, differential=differential)
+                bdata = buffer_data
+            # TODO: Do we save the buffer data? Do we return it?
+            # out = (tn, bdata)
+        except _oe.BufferError as be:
+            print(be)
+    else:
+        dm.runCmdHistory(interf, save=tn, differential=differential)
+        out = tn
+    return out
 
-
-# def iffCapture(tn):
-#     """
-#     This function manages the interfacing equence for collecting the IFF data
-#     Parameters
-#     ----------------
-#     tn: string
-#         the tracking number in the xxx folder where the cmd history is saved
-#     Returns
-#     -------
-#     """
-
-#     cmdHist = getCmdHist(tn)
-#     dm.uploadCmdHist(cmdHist)
-#     dm.runCmdHist()
-#     print('Now launching the acquisition sequence')
-#     start4DAcq(tn)
-#     print('Acquisition completed. Dataset tracknum:')
-#     print(tn)

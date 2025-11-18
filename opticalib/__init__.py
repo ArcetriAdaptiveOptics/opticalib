@@ -1,11 +1,16 @@
 """
+OPTICALIB: adaptive OPTIcs package for dm CALIBration
+=====================================================
+
 Author(s)
 ---------
-- Pietro Ferraiuolo : written in 2025
+- Pietro Ferraiuolo : pietro.ferraiuolo@inaf.it
 
 Description
 -----------
-`opticalib` is a package for the control of the 4D PhaseCam interferometer.
+`opticalib` is a package for the control of laboratory instrumentations, like
+Interferometers and Deformable Mirrors. It also provides tools for the
+analysis of wavefronts and images.
 
 How to Use:
 -----------
@@ -24,7 +29,14 @@ from .core.root import (
     create_configuration_file,
 )
 from .core import read_config
+from .core.fitsarray import fits_array
 from .devices import *
+from .devices.interferometer import _4DInterferometer
+
+getCameraSettings = _4DInterferometer.getCameraSettings
+getFrameRate = _4DInterferometer.getFrameRate
+
+del _4DInterferometer
 
 __all__ = [
     "analyzer",
@@ -34,8 +46,8 @@ __all__ = [
     "getFileList",
     "folders",
     "create_configuration_file",
-    "load_configuration_file",
     "read_config",
-    "interferometer",
-    "deformable_mirrors",
+    "getCameraSettings",
+    "getFrameRate",
+    "fits_array",
 ]

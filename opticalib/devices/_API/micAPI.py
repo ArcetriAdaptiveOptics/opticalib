@@ -36,6 +36,7 @@ class BaseAdOpticaDm:
         self.actCoord = self._initActCoord()
         self.workingActs = self._initWorkingActs()
         self._aoClient._connect()
+        self._enumerateDevices()
 
     def getCounter(self):
         """
@@ -128,7 +129,6 @@ class BaseAdOpticaDm:
         shell2 = np.zeros((111, 111))
         for m in range(111):
             shell1[:, m] = mirrorModes[0, :, m] / np.std(mirrorModes[0, :111, m])
-            # shell2[:,m] = mirrorModes[1,:,m] / np.std(mirrorModes[1,111:222,m])
             shell2[:, m] = mirrorModes[1, :, m] / np.std(mirrorModes[1, :, m])
 
         cmdMat[:111, :111] = shell1
@@ -163,3 +163,9 @@ class BaseAdOpticaDm:
         filepath = os.path.join(fn.CONFIGURATION_FOLDER, actCoordFile)
         coords = load_fits(filepath)
         return coords
+
+    def _enumerateDevices(self):
+        """
+        Function which enumerates the connected devices.
+        """
+        self._aoClient.aoSystem.aoSubSystem0.deviceEnum()

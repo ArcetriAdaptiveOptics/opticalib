@@ -1,3 +1,22 @@
+"""
+TYPINGS module
+==============
+2025
+
+Author(s)
+---------
+- Pietro Ferraiuolo : pietro.ferraiuolo@inaf.it
+
+Description
+-----------
+This module defines custom type aliases and protocols for type hinting
+within the `opticalib` package. It includes protocols for matrix-like
+objects, image data, cube data, interferometer devices, and deformable
+mirror devices. Additionally, it provides a custom `isinstance_` function
+to check if an object conforms to these protocols.
+
+"""
+
 from typing import (
     Union,
     Optional,
@@ -11,14 +30,15 @@ from typing import (
 )
 import collections.abc
 import numpy as _np
-from numpy.typing import ArrayLike
+from numpy.typing import ArrayLike, DTypeLike
 from astropy.io.fits import Header
 
 if TYPE_CHECKING:
-    from .devices import AlpaoDm, SplattDm, PhaseCam
     from .ground.computerec import ComputeReconstructor
 
 Reconstructor: TypeAlias = Union["ComputeReconstructor", None]
+
+Number: TypeAlias = Union[int, float, complex]
 
 
 @runtime_checkable
@@ -29,6 +49,7 @@ class _MatrixProtocol(Protocol):
 
 @runtime_checkable
 class _ImageDataProtocol(_MatrixProtocol, Protocol):
+    def data(self) -> ArrayLike: ...
     def mask(self) -> ArrayLike: ...
     def __array__(self) -> ArrayLike: ...
 
@@ -36,12 +57,14 @@ class _ImageDataProtocol(_MatrixProtocol, Protocol):
 @runtime_checkable
 class _CubeProtocol(Protocol):
     def shape(self) -> tuple[int, int, int]: ...
+    def data(self) -> ArrayLike: ...
     def mask(self) -> ArrayLike: ...
     def __getitem__(self, key: Any) -> Any: ...
     def __array__(self) -> ArrayLike: ...
 
 
 MatrixLike = TypeVar("MatrixLike", bound=_MatrixProtocol)
+MaskData = TypeVar("MaskData", bound=_MatrixProtocol)
 ImageData = TypeVar("ImageData", bound=_ImageDataProtocol)
 CubeData = TypeVar("CubeData", bound=_CubeProtocol)
 
@@ -161,6 +184,33 @@ class InstanceCheck:
         return False
 
     @staticmethod
+    def is_mask_like(obj: Any) -> bool:
+        """
+        Check if the object is a mask-like object.
+        Returns True if obj is a 2D mask-like object, otherwise False.
+        """
+        if not isinstance(obj, _MatrixProtocol):
+            return False
+        try:
+            shape = obj.shape
+        except Exception:
+            return False
+        # Ensure shape is a tuple of length 2
+        if not (isinstance(shape, tuple) and len(shape) == 2):
+            return False
+        if not any(
+            [
+                obj.dtype.type == _np.bool_,
+                obj.dtype.type == _np.uint8,
+                obj.dtype.type == _np.int_,
+            ]
+        ):
+            return False
+        if not _np.sum(obj) <= shape[0] * shape[1]:
+            return False
+        return True
+
+    @staticmethod
     def is_image_like(obj: Any, ndim: int = 2) -> bool:
         """
         Check if the object is an image-like object.
@@ -172,6 +222,7 @@ class InstanceCheck:
         try:
             shape = obj.shape
             mask = obj.mask
+            data = obj.data
         except Exception:
             return False
         # Ensure shape is a tuple of length ndim (default 2)
@@ -187,6 +238,19 @@ class InstanceCheck:
                 if len(mask) != shape[0]:
                     return False
                 if any(len(row) != shape[1] for row in mask):
+                    return False
+            except Exception:
+                return False
+        # Check data shape
+        if hasattr(data, "shape"):
+            data_shape = data.shape if not callable(data.shape) else data.shape()
+            if data_shape != shape:
+                return False
+        else:
+            try:
+                if len(data) != shape[0]:
+                    return False
+                if any(len(row) != shape[1] for row in data):
                     return False
             except Exception:
                 return False
@@ -236,6 +300,7 @@ class InstanceCheck:
         """
         checks: dict[str, Callable[..., bool]] = {
             "MatrixLike": cls.is_matrix_like,
+            "MaskData": cls.is_mask_like,
             "ImageData": cls.is_image_like,
             "CubeData": cls.is_cube_like,
             "InterferometerDevice": cls.generic_check,

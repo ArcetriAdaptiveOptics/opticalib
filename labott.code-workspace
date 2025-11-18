@@ -5,6 +5,9 @@
 		}
 	],
 	"settings": {
-		"python.terminal.activateEnvInCurrentTerminal": true
+		"python.terminal.activateEnvInCurrentTerminal": true,
+		"python.analysis.extraPaths": [
+			"~/git/XuPy"
+		]
 	}
 }

@@ -1,4 +1,6 @@
 """
+This module contains the classes for the high-level use of deformable mirrors.
+
 Author(s)
 ---------
 - Pietro Ferraiuolo : written in 2025
@@ -13,6 +15,7 @@ import numpy as _np
 import time as _time
 from . import _API as _api
 from opticalib import typings as _ot
+from contextlib import contextmanager as _contextmanager
 from opticalib.core.root import OPD_IMAGES_ROOT_FOLDER as _opdi
 from opticalib.ground.osutils import newtn as _ts, save_fits as _sf
 from opticalib.core import exceptions as _oe
@@ -21,11 +24,18 @@ import types as _types
 
 
 class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
+    """
+    AdOptica Deformable Mirror interface.
+
+    Used with the AdOptica AO Client. In use for the DP, and will later be used for M4.
+    """
 
     def __init__(self, tn: _ot.Optional[str] = None):
         """The Constructor"""
         self._name = "AdOpticaDm"
         super().__init__(tn)
+        self._lastCmd = _np.zeros(self.nActs)
+        self._lastCmdDiff = False
 
     def get_shape(self):
         """
@@ -34,21 +44,47 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
         pos = self._aoClient.getPosition()
         return pos
 
-    def set_shape(self, cmd: list[float]):  # cmd, segment=None):
+    def set_shape(
+        self,
+        cmd: _ot.ArrayLike | list[float],
+        differential: bool = True,
+        incremental: float = False,
+    ):  # cmd, segment=None):
         """
         Applies the given command to the DM actuators.
 
         Parameters
         ----------
-        cmd : list[float]
+        cmd : ArrayLike | list[float]
             The command to be applied to the DM actuators, of lenght equal
             the number of actuators.
+        differential : bool, optional
+            If True, the command will be applied as a differential command
+            with respect to the current shape (default is False).
+        incremental : float, optional
+            If provided, the command will be applied incrementally in steps of
+            size `incremental` (if <1) of in `N=incremental` steps (if >1)
+            (default is False, meaning the command is applied in one go).
         """
         if not len(cmd) == self.nActs:
             raise _oe.CommandError(
                 f"Command length {len(cmd)} does not match the number of actuators {self.nActs}."
             )
-        self._aoClient.mirrorCommand(cmd)
+        if differential:
+            self._lastCmd += cmd
+        self._lastCmd = cmd
+        if incremental:
+            dc = _np.ceil((1 / incremental))
+            if dc < 1 and incremental > 1.0:
+                dc = incremental
+                incremental = 1.0 / incremental
+            for i in range(dc):
+                if i * incremental > 1.0:
+                    self._aoClient.mirrorCommand(cmd)
+                else:
+                    self._aoClient.mirrorCommand(cmd * i * incremental)
+        else:
+            self._aoClient.mirrorCommand(cmd)
 
     def uploadCmdHistory(self, tcmdhist: _ot.MatrixLike) -> None:
         """
@@ -68,12 +104,14 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
             raise _oe.MatrixError(
                 f"Expecting a 2D Matrix of shape (used_acts, nmodes), got instead: {tcmdhist.shape}"
             )
+        if all(self._lastCmd != _np.zeros(self.nActs)):
+            tcmdhist += self._lastCmd[:, None]
         trig = _dmc()["triggerMode"]
         if trig is not False:
-            self._tCmdHistory = tcmdhist.copy()
+            self.cmdHistory = tcmdhist.copy()
             self._aoClient.timeHistoryUpload(tcmdhist)
         else:
-            self.cmdHistory = tcmdhist
+            self.cmdHistory = tcmdhist.copy()
         print("Time History uploaded!")
 
     def runCmdHistory(
@@ -139,6 +177,172 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
                         img = interf.acquire_map()
                         path = _os.path.join(datafold, f"image_{i:05d}.fits")
                         _sf(path, img)
+
+
+class DP(AdOpticaDm):
+    """
+    Deformable Mirror interface for the Deformable Platform (DP) of the ELT.
+
+    Used with the AdOptica AO Client.
+    """
+
+    def __init__(self, tn: _ot.Optional[str] = None):
+        """The Constructor"""
+        self._name = "DP"
+        super().__init__(tn)
+
+    def set_shape(
+        self,
+        cmd: _ot.ArrayLike | list[float],
+        differential: bool = True,
+        incremental: float = False,
+    ):  # cmd, segment=None):
+        """
+        Applies the given command to the DM actuators.
+
+        Parameters
+        ----------
+        cmd : ArrayLike | list[float]
+            The command to be applied to the DM actuators, of lenght equal
+            the number of actuators.
+        differential : bool, optional
+            If True, the command will be applied as a differential command
+            with respect to the current shape (default is False).
+        incremental : float, optional
+            If provided, the command will be applied incrementally in steps of
+            size `incremental` (if <1) of in `N=incremental` steps (if >1)
+            (default is False, meaning the command is applied in one go).
+        """
+        if not len(cmd) == self.nActs:
+            raise _oe.CommandError(
+                f"Command length {len(cmd)} does not match the number of actuators {self.nActs}."
+            )
+        if differential:
+            self._lastCmd += cmd
+        else:
+            self._lastCmd = cmd
+        if incremental:
+            dc = _np.ceil((1 / incremental))
+            if dc < 1 and incremental > 1.0:
+                dc = incremental
+                incremental = 1.0 / incremental
+            else:
+                dc = int(dc)
+            for i in range(dc):
+                if i * incremental > 1.0:
+                    self._aoClient.mirrorCommand(self._lastCmd)
+                else:
+                    self._aoClient.mirrorCommand(self._lastCmd * i * incremental)
+        else:
+            self._aoClient.mirrorCommand(self._lastCmd)
+
+    @_contextmanager
+    def read_buffer(
+        self, segment: int = 0, npoints_per_cmd: int = 100, total_frames: int = None
+    ):
+        """
+        Context manager for reading internal buffers of the DP DM during operations.
+
+        The buffer data is acquired while executing commands within the context,
+        and stored in `self.bufferData` upon exit.
+
+        Parameters
+        ----------
+        segment : int, optional
+            Segment number to read from (0 or 1 for DP, default: 0)
+        npoints_per_cmd : int, optional
+            Number of data points to acquire per command (default: 100)
+        total_frames : int, optional
+            Total number of frames to read (default: None, meaning use command history length)
+
+        Yields
+        ------
+        dict
+            A dictionary that will be populated with buffer results:
+            - 'actPos': actuator positions (222, buffer_length)
+            - 'actForce': actuator forces (222, buffer_length)
+
+        Example
+        -------
+        >>> with dm.read_buffer(npoints_per_cmd=150) as buf:
+        ...     dm.runCmdHistory(interf=myInterf, save='test_run')
+        >>> print(buf['actPos'].shape)  # Access the buffer data
+        (111, 33300)
+        >>> # Or access via class attribute
+        >>> print(dm.bufferData['actPos'].shape)
+        """
+        # Setup: Configure and start buffer acquisition
+        nActs = 222
+        if self.cmdHistory is not None:
+            totframes = self.cmdHistory.shape[-1]
+        elif total_frames is not None:
+            totframes = total_frames
+        else:
+            raise _oe.BufferError(
+                "Missing `total_frames` value: either load a command history or provide the variable's value"
+            )
+        triggered = _dmc()["triggerMode"]
+        if triggered is not False:
+            thistfreq = triggered.get("frequency", 1.0)
+        if segment == 0:
+            subsys = self._aoClient.aoSystem.aoSubSystem0
+        else:
+            subsys = self._aoClient.aoSystem.aoSubSystem1
+        buffer_len = npoints_per_cmd * totframes + (nActs * 2)  # Extra margin
+        clockfreq = subsys.sysConf.gen.cntFreq()
+        thistdecim = int(clockfreq / thistfreq)
+        diagdecim = int(thistdecim / npoints_per_cmd)
+
+        subsys.support.diagBuf.config(
+            _np.r_[0:nActs],
+            buffer_len,
+            "mirrActMap",
+            decFactor=diagdecim,
+            startPointer=0,
+        )
+        subsys.support.diagBuf.start()
+
+        # Create a result container that will be populated on exit
+        result = {}
+
+        try:
+            # Yield control back to the caller
+            # Here you can call e.g. `runCmdHistory`
+            yield result
+
+        finally:
+            # Cleanup: Stop acquisition and read data
+            subsys.support.diagBuf.waitStop()
+            bufData = subsys.support.diagBuf.read()
+
+            # Process the buffer data
+            actPos = _np.zeros((nActs, buffer_len))
+            actForce = _np.zeros((nActs, buffer_len))
+
+            for act_idx in range(nActs):
+                tmp = bufData[f"ch{act_idx:04d}"]
+                actPos[act_idx, :] = tmp[:, 4]
+                actForce[act_idx, :] = tmp[:, 16]
+
+            # Store in both the yielded dict and class attribute
+            result["actPos"] = actPos
+            result["actForce"] = actForce
+            result["rawData"] = bufData
+
+            self.bufferData = result.copy()
+
+
+class M4AU(AdOpticaDm):
+    """
+    Deformable Mirror interface for the M4 Auxiliary Unit (M4AU) of the ELT.
+
+    Used with the AdOptica AO Client.
+    """
+
+    def __init__(self, tn: _ot.Optional[str] = None):
+        """The Constructor"""
+        self._name = "M4AU"
+        super().__init__(tn)
 
 
 class AlpaoDm(_api.BaseAlpaoMirror, _api.base_devices.BaseDeformableMirror):
@@ -260,7 +464,7 @@ class SplattDm(_api.base_devices.BaseDeformableMirror):
         delay: int | float = 0.2,
         save: _ot.Optional[str] = None,
         differential: bool = True,
-        read_nuffers: bool = False,
+        read_buffers: bool = False,
     ) -> str:
         if self.cmdHistory is None:
             raise _oe.MatrixError("No Command History to run!")
@@ -279,10 +483,12 @@ class SplattDm(_api.base_devices.BaseDeformableMirror):
                     cmd = cmd + s
                 self.set_shape(cmd)
                 if read_buffers is True:
-                    pos,cur,bufTN = self._dm.read_buffers(external=true, n_samples=300)
-                    path = _os.path.join(datafold, f'buffer_{i:05d}.fits')
-                    hdr_dict = {'BUF_TN': str(bufTN)}
-                    _sf(path, [pos,cur], hdr_dict)
+                    pos, cur, bufTN = self._dm.read_buffers(
+                        external=True, n_samples=300
+                    )
+                    path = _os.path.join(datafold, f"buffer_{i:05d}.fits")
+                    hdr_dict = {"BUF_TN": str(bufTN)}
+                    _sf(path, [pos, cur], hdr_dict)
                 if interf is not None:
                     _time.sleep(delay)
                     img = interf.acquire_map()
@@ -291,7 +497,7 @@ class SplattDm(_api.base_devices.BaseDeformableMirror):
         self.set_shape(s)
         return tn
 
-    def plot_command(self, cmd):
+    def plot_command(self, cmd: _ot.ArrayLike) -> None:
         self._dm.plot_splatt_vec(cmd)
 
     def sendBufferCommand(
@@ -313,9 +519,8 @@ class SplattDm(_api.base_devices.BaseDeformableMirror):
     def nActuators(self) -> int:
         return self.nActs
 
-    def integratePosition(self, Nits:int = 3):
-        self._dm._eng.send(f'splattIntegrateMeasPos({Nits})')
-
+    def integratePosition(self, Nits: int = 3):
+        self._dm._eng.send(f"splattIntegrateMeasPos({Nits})")
 
     def _checkCmdIntegrity(self, cmd: _ot.ArrayLike) -> None:
         pos = cmd + self._dm.flatPos

@@ -1,8 +1,14 @@
 """
+ANALYZER module
+===============
+2020-2024
+
+In this module are present all useful functions for data analysis.
+
 Author(s)
 ---------
-- Runa Briguglio: created 2020
-- Pietro Ferraiuolo: modified 2024
+- Runa Briguglio: runa.briguglio@inaf.it
+- Pietro Ferraiuolo: pietro.ferraiuolo@inaf.it
 
 Description
 -----------
@@ -10,24 +16,25 @@ Description
 """
 
 import os as _os
+import xupy as _xp
 import numpy as _np
 import jdcal as _jdcal
 import matplotlib.pyplot as _plt
-from .ground import zernike as zern
+from . import typings as _ot
+from .ground import modal_decomposer as zern
 from .ground import osutils as osu
-from .core import root as _foldname
+from .core import root as _foldname, fitsarray as _fa
 from .ground.geo import qpupil as _qpupil
 from scipy import stats as _stats, fft as _fft, ndimage as _ndimage
 
-_OPDIMG = _foldname.OPD_IMAGES_ROOT_FOLDER
 _OPDSER = _foldname.OPD_SERIES_ROOT_FOLDER
 
 
 def averageFrames(
     tn: str,
-    first: int = None,
-    last: int = None,
-    file_selector: list = None,
+    first: int = 0,
+    last: int = -1,
+    file_selector: list[int] = None,
     thresh: bool = False,
 ):
     """
@@ -39,11 +46,11 @@ def averageFrames(
     tn : str
         Data Tracking Number.
     first : int, optional
-        Index number of the first file to consider. If None, the first file in
-        the list is considered.
+        Index number of the first file to consider. Defaults to first item
+        in the list.
     last : int, optional
-        Index number of the last file to consider. If None, the last file in
-        list is considered.
+        Index number of the last file to consider. Defaults to last item in
+        the list.
     file_selector : list, optional
         A list of integers, representing the specific files to load. If None,
         the range (first->last) is considered.
@@ -56,41 +63,60 @@ def averageFrames(
         Final image of averaged frames.
 
     """
-    fileList = osu.getFileList(tn, fold=_OPDSER, key="20")
-    if first is not None and last is not None:
-        fl = [
-            fileList[x]
-            for x in _np.arange(first, last, 1)
-            if file_selector is None or x in file_selector
-        ]
-    else:
-        first = 0
-        last = len(fileList)
-        fl = [
-            fileList[x]
-            for x in _np.arange(first, last, 1)
-            if file_selector is None or x in file_selector
-        ]
+    fl = osu.getFileList(tn, fold=_OPDSER.split("/")[-1], key="20")
+    s = slice(first, last) if last != -1 else slice(first, None)
+    fl = fl[s] if file_selector is None else fl[file_selector]
+    # elif file_selector is not None:
+    #     first = 0
+    #     last = len(fl)
+    #     fl = [
+    #         fl[x]
+    #         for x in _np.arange(first, last, 1)
+    #         if file_selector is None or x in file_selector
+    #     ]
     imcube = createCube(fl)
+
     if thresh is False:
         aveimg = _np.ma.mean(imcube, axis=2)
     else:
-        img = imcube[:, :, 0].data * 0
-        mmask = imcube[:, :, 0].mask
-        nn = 0
-        for j in range(imcube.shape[2]):
-            im = imcube[:, :, j]
-            size = im.data.compressed.size
-            if size > 1:
-                nn += 1
-                img += im.data
-                mmask = _np.ma.mask_or(im.mask, mmask)
-        img = img / nn
+        ## TODO: test new implementation
+
+        valid_frames = ~imcube.mask  # Boolean array of valid data
+        n_valid = valid_frames.sum(axis=2)  # Count valid frames per pixel
+
+        # Sum only valid data
+        img_sum = _np.ma.sum(imcube, axis=2).filled(0)
+
+        # Avoid division by zero
+        with _np.errstate(divide="ignore", invalid="ignore"):
+            img = img_sum / n_valid
+            img = _np.where(n_valid > 0, img, 0)
+
+        # Create mask
+        mmask = n_valid == 0
         aveimg = _np.ma.masked_array(img, mask=mmask)
+
+        # img = imcube[:, :, 0].data * 0
+        # mmask = imcube[:, :, 0].mask
+        # nn = 0
+        # for j in range(imcube.shape[2]):
+        #     im = imcube[:, :, j]
+        #     size = im.data.compressed.size
+        #     if size > 1:
+        #         nn += 1
+        #         img += im.data
+        #         mmask = _np.ma.mask_or(im.mask, mmask)
+        # img = img / nn
+        # aveimg = _np.ma.masked_array(img, mask=mmask)
     return aveimg
 
 
-def saveAverage(tn, average_img=None, overwrite: bool = False, **kwargs):
+def saveAverage(
+    tn: str,
+    average_img: _ot.ImageData = None,
+    overwrite: bool = False,
+    **kwargs: dict[str, _ot.Any],
+):
     """
     Saves an averaged frame, in the same folder as the original frames. If no
     averaged image is passed as argument, it will create a new average for the
@@ -107,25 +133,23 @@ def saveAverage(tn, average_img=None, overwrite: bool = False, **kwargs):
         from data found in the tracking number folder. Additional arguments can
         be passed on
     **kwargs : additional optional arguments
-        The same arguments as ''averageFrames'', to specify the averaging method.
-
-        tn : str
-            Data Tracking Number.
-        first : int, optional
+        The same arguments as `averageFrames`, to specify the averaging method.
+        - first : int, optional
             Index number of the first file to consider. If None, the first file in
             the list is considered.
-        last : int, optional
+        - last : int, optional
             Index number of the last file to consider. If None, the last file in
             list is considered.
-        file_selector : list, optional
+        - file_selector : list of ints, optional
             A list of integers, representing the specific files to load. If None,
             the range (first->last) is considered.
-        thresh : bool, optional
+        - thresh : bool, optional
             DESCRIPTION. The default is None.
     """
     fname = _os.path.join(_OPDSER, tn, "average.fits")
     if _os.path.isfile(fname):
         print(f"Average '{fname}' already exists")
+        return
     else:
         if average_img is None:
             first = kwargs.get("first", None)
@@ -135,8 +159,8 @@ def saveAverage(tn, average_img=None, overwrite: bool = False, **kwargs):
             average_img = averageFrames(
                 tn, first=first, last=last, file_selector=fsel, thresh=thresh
             )
-        osu.save_fits(fname, average_img, overwrite=overwrite)
-        print(f"Saved average at '{fname}'")
+    osu.save_fits(fname, average_img, overwrite=overwrite)
+    print(f"Saved average at '{fname}'")
 
 
 def openAverage(tn: str):
@@ -168,95 +192,115 @@ def openAverage(tn: str):
     return image
 
 
-def runningDiff(tn, gap=2):
+def runningDiff(
+    tn_or_fl: str | list[str] | list[_ot.ImageData] | _ot.CubeData, gap: int = 2
+):
     """
-
+    Computes the running difference of the frames in a given tracking number.
 
     Parameters
     ----------
-    tn : TYPE
-        DESCRIPTION.
-    gap : TYPE, optional
-        DESCRIPTION. The default is 2.
+    tn_or_fl : str or list[str] or list[ImageData] or CubeData
+        It can either be:
+        - a tracking number where the frames to process are;
+        - a list of strings with the file list of images to process;
+        - a list of ImageData objects;
+        - a CubeData object.
+    gap : int, optional
+        Number of frames to skip between each difference calculation. The default is 2.
 
     Returns
     -------
-    svec : TYPE
-        DESCRIPTION.
+    svec : ndarray
+        Array of standard deviations for each frame difference.
 
     """
-    llist = osu.getFileList(tn)
+    zfit = zern.ZernikeFitter()
+    if isinstance(tn_or_fl, str):
+        if osu.is_tn(tn_or_fl):
+            fl = osu.getFileList(tn_or_fl)
+            llist = [osu.load_fits(x) for x in fl]
+        else:
+            raise ValueError("Invalid tracking number")
+    elif isinstance(tn_or_fl, list):
+        if all(isinstance(item, str) for item in tn_or_fl):
+            llist = [osu.load_fits(x) for x in tn_or_fl]
+        elif all(_ot.isinstance_(item, "ImageData") for item in tn_or_fl):
+            llist = [item.file for item in tn_or_fl]
+        else:
+            raise TypeError("Invalid list elements")
+    elif _ot.isinstance_(tn_or_fl, "CubeData"):
+        llist = tn_or_fl.transpose(2, 0, 1).tolist()
     nfile = len(llist)
     npoints = int(nfile / gap) - 2
-    slist = []
-    for i in range(0, npoints):
-        q0 = frame(i * gap, llist)
-        q1 = frame(i * gap + 1, llist)
-        diff = q1 - q0
-        diff = zern.removeZernike(diff)
-        slist.append(diff.std())
-    svec = _np.array(slist)
+    idx0 = _np.arange(0, npoints * gap, gap)
+    idx1 = idx0 + 1
+    svec = _np.empty(npoints)
+    for i in range(npoints):
+        diff = llist[idx1[i]] - llist[idx0[i]]
+        diff = zfit.removeZernike(diff)
+        svec[i] = diff.std()
     return svec
 
 
-def frame(idx, mylist):
+# TODO: TO REMOVE
+def frame(idx: int, mylist: list[_ot.ImageData] | _ot.CubeData) -> _ot.ImageData:
     """
-
+    Returns a single frame from a list of files or from a cube.
 
     Parameters
     ----------
-    id : TYPE
-        DESCRIPTION.
-    mylist : TYPE
-        DESCRIPTION.
+    idx : int
+        Index of the frame to retrieve.
+    mylist : list or cube
+        1) list of strings with the paths to the files to read;
+        2) list of ImageData objects;
+        3) cube of images (3D masked array).
 
     Returns
     -------
-    img : TYPE
-        DESCRIPTION.
-
+    img : _ot.ImageData
+        The requested image frame.
     """
-    mytype = type(mylist)
-    if mytype is list:
-        img = osu.read_phasemap(mylist[idx])
-    if mytype is _np.ma.core.MaskedArray:
-        img = mylist[idx]
+    if isinstance(mylist, list):
+        if idx >= len(mylist):
+            raise IndexError("Index out of range")
+        if isinstance(mylist[0], str):
+            img = osu.read_phasemap(mylist[idx])
+        elif _ot.isinstance_(mylist[0], _ot.ImageData):
+            img = mylist[idx]
+    else:
+        img = mylist[:, :, idx]
     return img
 
 
-def spectrum(signal, dt=1, show=None):
+# TODO: Check for hardcoded assumptions on dimensions ecc...
+def spectrum(
+    signal: _ot.ArrayLike, dt: float = 1, show: bool = None
+) -> tuple[_ot.ArrayLike, _ot.ArrayLike]:
     """
-
+    Computes the one-dimensional power spectrum of a signal or a set of signals.
 
     Parameters
     ----------
     signal : ndarray
-        DESCRIPTION.
+        Input signal or signals.
     dt : float, optional
-        DESCRIPTION. The default is 1.
+        Time spacing between samples. The default is 1.
     show : bool, optional
-        DESCRIPTION. The default is None.
+        If True, displays the power spectrum. The default is None.
 
     Returns
     -------
     spe : float | ndarray
-        DESCRIPTION.
+        Power spectrum of the input signal(s).
     freq : float | ArrayLike
-        DESCRIPTION.
-
+        Frequency bins corresponding to the power spectrum.
     """
-    # https://numpy.org/doc/stable/reference/generated/numpy.angle - Spectrum phase
     nsig = signal.shape
-    if _np.size(nsig) == 1:
-        thedim = 0
-    else:
-        thedim = 1
-    if _np.size(nsig) == 1:
-        spe = _fft.rfft(signal, norm="ortho")
-        nn = _np.sqrt(spe.shape[thedim])  # modRB
-    else:
-        spe = _fft.rfft(signal, axis=1, norm="ortho")
-        nn = _np.sqrt(spe.shape[thedim])  # modRB
+    thedim = 0 if _np.size(nsig) == 1 else 1
+    spe = _fft.rfft(signal, axis=thedim, norm="ortho")
+    nn = _np.sqrt(spe.shape[thedim])  # modRB
     spe = (_np.abs(spe)) / nn
     freq = _fft.rfftfreq(signal.shape[thedim], d=dt)
     if _np.size(nsig) == 1:
@@ -267,31 +311,33 @@ def spectrum(signal, dt=1, show=None):
         _plt.figure()
         for i in range(0, len(spe)):
             _plt.plot(freq, spe[i, :], label=f"Channel {i}")
-        _plt.xlabel(r"Frequency [$Hz$]")
+        _plt.xlabel(r"Frequency $[\mathrm{Hz}]$")
         _plt.ylabel("PS Amplitude")
         _plt.legend(loc="best")
         _plt.show()
     return spe, freq
 
 
-def frame2ottFrame(img, croppar, flipOffset=True):
+# TODO: TO REMOVE -> equan to `intoFullFrame`
+def frame2ottFrame(
+    img: _ot.ImageData, croppar: list[int], flipOffset: bool = True
+) -> _ot.ImageData:
     """
-
+    Reconstructs a full 2048x2048 image from a cropped image and its cropping parameters.
 
     Parameters
     ----------
-    img : TYPE
-        DESCRIPTION.
-    croppar : TYPE
-        DESCRIPTION.
-    flipOffset : TYPE, optional
-        DESCRIPTION. The default is True.
+    img : _ot.ImageData
+        Cropped image data.
+    croppar : list[int]
+        Cropping parameters [x, y, width, height].
+    flipOffset : bool, optional
+        If True, flips the cropping offset. The default is True.
 
     Returns
     -------
-    fullimg : TYPE
-        DESCRIPTION.
-
+    fullimg : _ot.ImageData
+        Reconstructed full image.
     """
     off = croppar.copy()
     if flipOffset is True:
@@ -310,45 +356,37 @@ def frame2ottFrame(img, croppar, flipOffset=True):
     return fullimg
 
 
-def timevec(tn):
+# TODO
+def timevec(tn: str) -> _ot.ArrayLike:
     """
-
-
     Parameters
     ----------
-    tn : TYPE
-        DESCRIPTION.
+    tn : str
+        Tracking number of the frames to process.
 
     Returns
     -------
-    timevector : TYPE
-        DESCRIPTION.
+    timevector : _np.ndarray
+        Array of time values for each frame.
 
     """
     fold = osu.findTracknum(tn)
     flist = osu.getFileList(tn)
     nfile = len(flist)
     if "OPDImages" in fold:
-        tspace = 1.0 / 28.57
+        tspace = 1.0 / 28.57  # TODO: hardcoded!!
         timevector = range(nfile) * tspace
-    elif "OPD_series" in fold:
+    elif "OPDSeries" in fold:
         timevector = []
-        for i in flist:
-            pp = i.split(".")[0]
-            tni = pp.split("/")[-1]
-            y = tni[0:4]
-            mo = tni[4:6]
-            d = tni[6:8]
-            h = float(tni[9:11])
-            mi = float(tni[11:13])
-            s = float(tni[13:15])
-            jdi = sum(_jdcal.gcal2jd(y, mo, d)) + h / 24 + mi / 1440 + s / 86400
+        for f in flist:
+            tni = f.split("/")[-2]
+            jdi = track2jd(tni)
             timevector.append(jdi)
-        timevector = _np.array(timevec)
+        timevector = _np.array(timevector)
     return timevector
 
 
-def track2jd(tni):
+def track2jd(tni: str):
     """
 
 
@@ -363,147 +401,129 @@ def track2jd(tni):
         DESCRIPTION.
 
     """
-    t = track2date(tni)
-    jdi = sum(_jdcal.gcal2jd(t[0], t[1], t[2])) + t[3] / 24 + t[4] / 1440 + t[5] / 86400
-    return jdi
-
-
-def track2date(tni):
-    """
-    Converts a tracing number into a list containing year, month, day, hour,
-    minutes and seconds, divied.
-
-    Parameters
-    ----------
-    tni : str
-        Tracking number to be converted.
-
-    Returns
-    -------
-    time : list
-        List containing the date element by element.
-        [0] y : str
-            Year.
-        [1] mo : str
-            Month.
-        [2] d : str
-            Day.
-        [3] h : float
-            Hour.
-        [4] mi : float
-            Minutes.
-        [5] s : float
-            Seconds.
-    """
     y = tni[0:4]
     mo = tni[4:6]
     d = tni[6:8]
     h = float(tni[9:11])
     mi = float(tni[11:13])
     s = float(tni[13:15])
-    time = [y, mo, d, h, mi, s]
-    return time
+    t = [y, mo, d, h, mi, s]
+    jdi = sum(_jdcal.gcal2jd(t[0], t[1], t[2])) + t[3] / 24 + t[4] / 1440 + t[5] / 86400
+    return jdi
 
 
-def runningMean(vec, npoints):
+def runningMean(vec: _ot.ArrayLike, npoints: int) -> _ot.ArrayLike:
     """
-
+    Computes the running mean of a 1D array.
 
     Parameters
     ----------
-    vec : TYPE
-        DESCRIPTION.
-    npoints : TYPE
-        DESCRIPTION.
+    vec : _ot.ArrayLike
+        Input array.
+    npoints : int
+        Number of points to average over.
 
     Returns
     -------
-    TYPE
-        DESCRIPTION.
-
+    _ot.ArrayLike
+        Running mean of the input array.
     """
     return _np.convolve(vec, _np.ones(npoints), "valid") / npoints
 
 
-def readTemperatures(tn):
+# TODO
+def readTemperatures(tn: str):
     """
-
+    Reads temperature data from a FITS file associated with a tracking number.
 
     Parameters
     ----------
-    tn : TYPE
-        DESCRIPTION.
+    tn : str
+        Tracking number of the frames to process.
 
     Returns
     -------
-    temperatures : TYPE
-        DESCRIPTION.
+    temperatures : _ot.ArrayLike
+        Array of temperature values for each frame.
 
     """
     fold = osu.findTracknum(tn, complete_path=True)
-    fname = _os.path.join(fold, tn, "temperature.fits")
+    fname = _os.path.join(fold, "temperature.fits")
     temperatures = osu.load_fits(fname)
     return temperatures
 
 
-def readZernike(tn):
+# TODO
+def readZernike(tn: str):
     """
-
+    Reads Zernike coefficients from a FITS file associated with a tracking number.
 
     Parameters
     ----------
-    tn : TYPE
-        DESCRIPTION.
+    tn : str
+        Tracking number of the frames to process.
 
     Returns
     -------
-    temperatures : TYPE
-        DESCRIPTION.
-
+    zernikes : _ot.ArrayLike
+        Array of Zernike coefficients for each frame.
     """
     fold = osu.findTracknum(tn, complete_path=True)
-    fname = _os.path.join(fold, tn, "zernike.fits")
+    fname = _os.path.join(fold, "zernike.fits")
     zernikes = osu.load_fits(fname)
     return zernikes
 
 
-def zernikePlot(mylist, modes=_np.array(range(1, 11))):
+# TODO
+def zernikePlot(
+    mylist: _ot.CubeData | list[_ot.ImageData], zmodes: _ot.ArrayLike = None
+) -> _ot.ArrayLike:
     """
-
+    Computes Zernike coefficients for each frame in a cube or a list of images.
 
     Parameters
     ----------
-    mylist : TYPE
-        DESCRIPTION.
-    modes : TYPE, optional
-        DESCRIPTION. The default is _np.array(range(1, 11)).
+    mylist : _ot.CubeData | list[_ot.ImageData]
+        Input image data.
+    zmodes : _ot.ArrayLike, optional
+        Zernike modes to compute. The default is _np.array(range(1, 11)).
 
     Returns
     -------
-    zcoeff : TYPE
-        DESCRIPTION.
-
+    zcoeff : _ot.ArrayLike
+        Zernike coefficients for each frame.
     """
-    mytype = type(mylist)
-    if mytype is list:
+    zfit = zern.ZernikeFitter()
+    if zmodes is None:
+        zmodes = _np.array(range(1, 11))
+    if isinstance(mylist, list):
         imgcube = createCube(mylist)
-    if mytype is _np.ma.core.MaskedArray:
+    elif isinstance(mylist, _np.ma.MaskedArray):
         imgcube = mylist
     zlist = []
     for i in range(imgcube.shape[-1]):
-        print(i)
-        coeff, _ = zern.zernikeFit(imgcube[:, :, i], modes)
+        coeff, _ = zfit.fit(imgcube[:, :, i], zmodes)
         zlist.append(coeff)
     zcoeff = _np.array(zlist)
     zcoeff = zcoeff.T
     return zcoeff
 
 
-def strfunct(vect, gapvect):
+def strfunct(vect: _ot.ArrayLike, gapvect: _ot.ArrayLike) -> _ot.ArrayLike:
     """
-    vect shall be npoints x m
-    the strfunct is calculate m times over the npoints time series
-    returns stf(n_timeseries x ngaps)
+    Computes the structure function for a given time series.
+
+    Parameters
+    ----------
+    vect : _ot.ArrayLike
+        Input time series data.
+    gapvect : _ot.ArrayLike
+        Array of gap values to compute the structure function.
+
+    Returns
+    -------
+    _ot.ArrayLike
+        Structure function values for each gap.
     """
     nn = _np.shape(vect)
     maxgap = _np.max(gapvect)
@@ -521,27 +541,33 @@ def strfunct(vect, gapvect):
     return st
 
 
-def comp_filtered_image(imgin, verbose=False, disp=False, d=1, freq2filter=None):
+def comp_filtered_image(
+    imgin: _ot.ImageData,
+    verbose: bool = False,
+    disp: bool = False,
+    d: int = 1,
+    freq2filter: _ot.Optional[tuple[float, float]] = None,
+):
     """
 
 
     Parameters
     ----------
-    imgin : TYPE
-        DESCRIPTION.
-    verbose : TYPE, optional
-        DESCRIPTION. The default is False.
-    disp : TYPE, optional
-        DESCRIPTION. The default is False.
-    d : TYPE, optional
-        DESCRIPTION. The default is 1.
-    freq2filter : TYPE, optional
-        DESCRIPTION. The default is None.
+    imgin : _ot.ImageData
+        Input image data.
+    verbose : bool, optional
+        If True, print detailed information. The default is False.
+    disp : bool, optional
+        If True, display intermediate results. The default is False.
+    d : int, optional
+        Spacing between samples. The default is 1.
+    freq2filter : tuple[float, float], optional
+        Frequency range to filter. The default is None.
 
     Returns
     -------
-    imgout : TYPE
-        DESCRIPTION.
+    imgout : _ot.ImageData
+        Filtered image data.
     """
     img = imgin.copy()
     sx = (_np.shape(img))[0]
@@ -567,38 +593,27 @@ def comp_filtered_image(imgin, verbose=False, disp=False, d=1, freq2filter=None)
     imgf = _fft.ifft2(tf2d_filtered, norm=norm)
     imgout = _np.ma.masked_array(_np.real(imgf), mask=imgin.mask)
     if disp:
-        _plt.figure()
-        _plt.imshow(knrm)
-        _plt.title("freq")
-        _plt.figure()
-        _plt.imshow(fmask1)
-        _plt.title("fmask1")
-        _plt.figure()
-        _plt.imshow(fmask2)
-        _plt.title("fmask2")
-        _plt.figure()
-        _plt.imshow(fmask3)
-        _plt.title("fmask3")
-        _plt.figure()
-        _plt.imshow(fmask)
-        _plt.title("fmask")
-        _plt.figure()
-        _plt.imshow(_np.abs(tf2d))
-        _plt.title("Initial spectrum")
-        _plt.figure()
-        _plt.imshow(_np.abs(tf2d_filtered))
-        _plt.title("Filtered spectrum")
-        _plt.figure()
-        _plt.imshow(imgin)
-        _plt.title("Initial image")
-        _plt.figure()
-        _plt.imshow(imgout)
-        _plt.title("Filtered image")
-    e1 = _np.sqrt(_np.sum(img[mask] ** 2) / _np.sum(mask)) * 1e9
-    e2 = _np.sqrt(_np.sum(imgout[mask] ** 2) / _np.sum(mask)) * 1e9
-    e3 = _np.sqrt(_np.sum(_np.abs(tf2d) ** 2) / _np.sum(mask)) * 1e9
-    e4 = _np.sqrt(_np.sum(_np.abs(tf2d_filtered) ** 2) / _np.sum(mask)) * 1e9
+        imgs = [imgin, imgout, knrm, fmask1, fmask2, fmask3, fmask]
+        titles = [
+            "Initial image",
+            "Filtered image",
+            "Frequency",
+            "Fmask1",
+            "Fmask2",
+            "Fmask3",
+            "Fmask",
+        ]
+        for i in range(len(imgs)):
+            _plt.figure()
+            _plt.imshow(imgs[i])
+            _plt.title(titles[i])
+            _plt.colorbar()
+        _plt.show()
     if verbose:
+        e1 = _np.sqrt(_np.sum(img[mask] ** 2) / _np.sum(mask)) * 1e9
+        e2 = _np.sqrt(_np.sum(imgout[mask] ** 2) / _np.sum(mask)) * 1e9
+        e3 = _np.sqrt(_np.sum(_np.abs(tf2d) ** 2) / _np.sum(mask)) * 1e9
+        e4 = _np.sqrt(_np.sum(_np.abs(tf2d_filtered) ** 2) / _np.sum(mask)) * 1e9
         print(f"RMS image [nm]            {e1:.2f}")
         print(f"RMS image filtered [nm]   {e2:.2f}")
         print(f"RMS spectrum              {e3:.2f}")
@@ -607,43 +622,43 @@ def comp_filtered_image(imgin, verbose=False, disp=False, d=1, freq2filter=None)
 
 
 def comp_psd(
-    imgin,
-    nbins=None,
-    norm="backward",
-    verbose=False,
-    disp=False,
-    d=1,
-    sigma=None,
-    crop=True,
+    imgin: _ot.ImageData,
+    nbins: _ot.Optional[int] = None,
+    norm: str = "backward",
+    verbose: bool = False,
+    show: bool = False,
+    d: int = 1,
+    sigma: _ot.Optional[float] = None,
+    crop: bool = True,
 ):
     """
-
+    Computes the power spectrum of a 2D image.
 
     Parameters
     ----------
-    imgin : TYPE
-        DESCRIPTION.
-    nbins : TYPE, optional
-        DESCRIPTION. The default is None.
-    norm : TYPE, optional
-        DESCRIPTION. The default is "backward".
-    verbose : TYPE, optional
-        DESCRIPTION. The default is False.
-    disp : TYPE, optional
-        DESCRIPTION. The default is False.
-    d : TYPE, optional
-        DESCRIPTION. The default is 1.
-    sigma : TYPE, optional
-        DESCRIPTION. The default is None.
-    crop : TYPE, optional
-        DESCRIPTION. The default is True.
+    imgin : _ot.ImageData
+        Input image data.
+    nbins : _ot.Optional[int], optional
+        Number of bins for the power spectrum. The default is None.
+    norm : str, optional
+        Normalization mode for the FFT. The default is "backward".
+    verbose : bool, optional
+        If True, print detailed information. The default is False.
+    show : bool, optional
+        If True, display intermediate results. The default is False.
+    d : int, optional
+        Spacing between samples. The default is 1.
+    sigma : _ot.Optional[float], optional
+        Standard deviation for Gaussian smoothing. The default is None.
+    crop : bool, optional
+        If True, crop the image to the circular region. The default is True.
 
     Returns
     -------
-    fout : TYPE
-        DESCRIPTION.
-    Aout : TYPE
-        DESCRIPTION.
+    fout : _ot.ArrayLike
+        Frequency bins.
+    Aout : _ot.ArrayLike
+        Amplitude spectrum.
 
     """
     if crop:
@@ -688,14 +703,12 @@ def comp_psd(
         print(f"Energy signal     {e1}")
         print(f"Energy spectrum   {e2}")
         print(f"Energy difference {ediff}")
-        print(f"RMS from spectrum {_np.sqrt(e2)}")
-        print(f"RMS [nm]          {(_np.std(img[mask])*1e9):.2f}")
         print(kfreq[0:4])
         print(kfreq[-4:])
     else:
         print(f"RMS from spectrum {_np.sqrt(e2)}")
         print(f"RMS [nm]          {(_np.std(img[mask])*1e9):.2f}")
-    if disp is True:
+    if show is True:
         _plt.figure()
         _plt.plot(fout[1:], Aout[1:] * fout[1:], ".")
         _plt.yscale("log")
@@ -706,13 +719,28 @@ def comp_psd(
     return fout, Aout
 
 
-def integrate_psd(y, img):
+def integrate_psd(y: _ot.ArrayLike, img: _ot.ImageData) -> _ot.ArrayLike:
+    """
+    Integrates the power spectral density (PSD) over the image.
+
+    Parameters
+    ----------
+    y : _ot.ArrayLike
+        Power spectral density values.
+    img : _ot.ImageData
+        Input image data.
+
+    Returns
+    -------
+    _ot.ArrayLike
+        Integrated PSD values.
+    """
     nn = _np.sqrt(_np.sum(-1 * img.mask + 1))
     yint = _np.sqrt(_np.cumsum(y)) / nn
     return yint
 
 
-def getDataFileList(tn):
+def getDataFileList(tn: str) -> list[str]:
     """
     Returns a list of data files for the given tracking number.
 
@@ -731,14 +759,80 @@ def getDataFileList(tn):
     return filelist
 
 
-def createCube(filelist, register=False):
+def pushPullReductionAlgorithm(
+    imagelist: list[_ot.ImageData] | _ot.CubeData,
+    template: _ot.ArrayLike,
+    normalization: _ot.Optional[float | int] = None,
+    shuffle: int = 0,
+):
+    """
+    Performs the basic operation of processing PushPull data.
+
+    Parameters
+    ----------
+    imagelist : list of ImageData ! CubeData
+        List of images for the PushPull acquisition, organized according to the template.
+    template: int | ArrayLike
+        Template for the PushPull acquisition.
+    normalization : float | int, optional
+        Normalization factor for the final image. If None, the normalization factor
+        is set to the template length minus one.
+
+    Returns
+    -------
+    image: masked_array
+        Final processed mode's image.
+    """
+    template = _np.asarray(template)
+    n_images = len(imagelist)
+    if shuffle == 0:
+        # Template weights computation
+        w = template.astype(_np.result_type(template, imagelist[0].data), copy=True)
+        if n_images > 2:
+            w[1:-1] *= 2.0
+        # OR-reduce all masks once
+        master_mask = _np.logical_or.reduce(
+            [_xp.asnumpy(ima.mask) for ima in imagelist]
+        )
+        # Compute weighted sum over realizations on raw data
+        stack = _np.stack([ima.data for ima in imagelist], axis=0)  # (n, H, W)
+        image = _xp.asnumpy(  # (H, W)
+            _xp.tensordot(_xp.asarray(w), _xp.asarray(stack), axes=(0, 0))
+        )
+    else:
+        print("Shuffle option")
+        for i in range(0, shuffle - 1):
+            for x in range(1, 2):
+                opd2add = (
+                    imagelist[i * 3 + x] * template[x]
+                    + imagelist[i * 3 + x - 1] * template[x - 1]
+                )
+                master_mask2add = _np.ma.mask_or(
+                    imagelist[i * 3 + x].mask, imagelist[i * 3 + x - 1].mask
+                )
+                if i == 0 and x == 1:
+                    master_mask = master_mask2add
+                else:
+                    master_mask = _np.ma.mask_or(master_mask, master_mask2add)
+                image += opd2add
+    if normalization is None:
+        norm_factor = _np.max(((template.shape[0] - 1), 1))
+    else:
+        norm_factor = normalization
+    image = _np.ma.masked_array(image, mask=master_mask) / norm_factor
+    return image
+
+
+def createCube(fl_or_il: list[str], register: bool = False):
     """
     Creates a cube of images from an images file list
 
     Parameters
     ----------
-    filelist : list of str
-        List of file paths to the images/frames to be stacked into a cube.
+    fl_or_il : list of str
+        Either:
+        - the list of image files;
+        - a list of ImageData.
     register : int or tuple, optional
         If not False, and int or a tuple of int must be passed as value, and
         the registration algorithm is performed on the images before stacking them
@@ -749,17 +843,91 @@ def createCube(filelist, register=False):
     cube : ndarray
         Data cube containing the images/frames stacked.
     """
-    cube_list = []
-    for imgfits in filelist:
-        image = osu.read_phasemap(imgfits)
-        if register:
-            image = _np.roll(image, register)
-        cube_list.append(image)
-    cube = _np.ma.dstack(cube_list)
+    # check it is a list
+    if not isinstance(fl_or_il, list):
+        raise TypeError("filelist must be a list of strings or images")
+    # check if it is composed of file paths to load
+    if all(isinstance(item, str) for item in fl_or_il):
+        fl_or_il = [osu.read_phasemap(f) for f in fl_or_il]
+        if not all(_ot.isinstance_(item, "ImageData") for item in fl_or_il):
+            raise TypeError("Data different from `images` loaded. Check filelist.")
+    # finally check if it is a list of ImageData
+    elif not all(_ot.isinstance_(item, "ImageData") for item in fl_or_il):
+        raise TypeError("filelist must be either a list of strings or ImageData")
+    cube = _np.ma.dstack(fl_or_il)
     return cube
 
 
-def modeRebinner(img, rebin):
+def removeZernikeFromCube(
+    cube: _ot.CubeData, zmodes: _ot.ArrayLike = None
+) -> _ot.CubeData:
+    """
+    Removes Zernike modes from each frame in a cube of images.
+
+    Parameters
+    ----------
+    cube : ndarray
+        Data cube containing the images/frames stacked.
+    zmodes : ndarray, optional
+        Zernike modes to remove. If None, the first 3 modes are removed.
+
+    Returns
+    -------
+    newCube : ndarray
+        Cube with Zernike modes removed from each frame.
+    """
+    from tqdm import tqdm
+    zfit = zern.ZernikeFitter()
+    if zmodes is None:
+        zmodes = _np.array(range(1, 4))
+
+    if isinstance(cube, (_fa.FitsMaskedArray, _fa.FitsArray)):
+        zmodes_str = "[" + ",".join(map(str, zmodes)) + "]"
+        cube.header["FILTERED"] = (True, "has zernike removed")
+        cube.header["ZREMOVED"] = (zmodes_str, "zernike modes removed")
+
+    newCube = _fa.fits_array(_np.ma.empty_like(cube), header=cube.header)
+    for i in tqdm(
+        range(cube.shape[-1]),
+        desc=f"Removing Z[{', '.join(map(str, zmodes))}]...",
+        unit="image",
+        ncols=80,
+    ):
+        newCube[:, :, i] = zfit.removeZernike(cube[:, :, i], zmodes)
+    return newCube
+
+
+def makeCubeMasterMask(cube: _ot.CubeData, apply: bool = False) -> _ot.CubeData:
+    """
+    Creates a master mask for a cube of images by performing a logical OR operation
+    across all individual image masks.
+
+    Parameters
+    ----------
+    cube : ndarray
+        Data cube containing the images/frames stacked.
+    apply : bool, optional
+        If True, applies the master mask to all frames in the cube and
+        returns the modified cube.
+
+    Returns
+    -------
+    master_mask or cube: MaskData or CubeData
+        Master mask for the cube or the cube with the master mask applied.
+    """
+    master_mask = _np.logical_or.reduce(
+        [cube[:, :, i].mask for i in range(cube.shape[2])]
+    )
+    if apply:
+        cube.mask = _np.broadcast_to(master_mask[:, :, None], cube.shape)
+        return cube
+    else:
+        return master_mask
+
+
+def modeRebinner(
+    img: _ot.ImageData, rebin: int, method: str = "averaging"
+) -> _ot.ArrayLike:
     """
     Image rebinner
 
@@ -771,6 +939,8 @@ def modeRebinner(img, rebin):
         Image to rebin.
     rebin : int
         Rebinning factor.
+    method : str, optional
+        Rebinning method, either 'averaging' or 'sampling'. The default is 'averaging'.
 
     Returns
     -------
@@ -779,11 +949,14 @@ def modeRebinner(img, rebin):
     """
     shape = img.shape
     new_shape = (shape[0] // rebin, shape[1] // rebin)
-    newImg = _rebin2DArray(img, new_shape)
+    sample = False if method == "sampling" else True
+    newImg = _rebin2DArray(img, new_shape, sample=sample)
     return newImg
 
 
-def cubeRebinner(cube, rebin):
+def cubeRebinner(
+    cube: _ot.CubeData, rebin: int, method: str = "averaging"
+) -> _ot.CubeData:
     """
     Cube rebinner
 
@@ -793,6 +966,9 @@ def cubeRebinner(cube, rebin):
         Cube to rebin.
     rebin : int
         Rebinning factor.
+    method : str, optional
+        Rebinning method, either 'averaging' or 'sampling'. The default is
+        'averaging'.
 
     Returns
     -------
@@ -801,17 +977,20 @@ def cubeRebinner(cube, rebin):
     """
     newCube = []
     for i in range(cube.shape[-1]):
-        newCube.append(modeRebinner(cube[:, :, i], rebin))
+        newCube.append(modeRebinner(cube[:, :, i], rebin, method=method))
     return _np.ma.dstack(newCube)
 
 
 # From ARTE #
-def _rebin2DArray(a, new_shape, sample=False):
+def _rebin2DArray(
+    a: _ot.ArrayLike, new_shape: tuple[int, int], sample: bool = False
+) -> _ot.ArrayLike:
     """
     Replacement of IDL's rebin() function for 2d arrays.
     Resizes a 2d array by averaging or repeating elements.
     New dimensions must be integral factors of original dimensions,
     otherwise a ValueError exception will be raised.
+
     Parameters
     ----------
     a : ndarray
@@ -822,12 +1001,14 @@ def _rebin2DArray(a, new_shape, sample=False):
         if True, when reducing the array side elements are set
         using a nearest-neighbor algorithm instead of averaging.
         This parameter has no effect when enlarging the array.
+
     Returns
     -------
     rebinned_array : ndarray
         If the new shape is smaller of the input array  the data are averaged,
         unless the sample parameter is set.
         If the new shape is bigger array elements are repeated.
+
     Raises
     ------
     ValueError
@@ -837,6 +1018,7 @@ def _rebin2DArray(a, new_shape, sample=False):
     NotImplementedError
          - one dimension requires an upsampling while the other requires
            a downsampling
+
     Examples
     --------
     >>> a = np.array([[0, 1], [2, 3]])

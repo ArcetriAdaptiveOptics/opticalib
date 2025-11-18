@@ -1,16 +1,16 @@
 """
+This module contains functions for geometric operations on images.
+
 Autor(s)
 ---------
-    - Runa Briguglio : created Mar 2020
-    - Federico Miceli : added funcitonality on 2022
-    - Pietro Ferraiuolo : polished on 2024
+- Runa Briguglio : created Mar 2020
+- Federico Miceli : added funcitonality on 2022
+- Pietro Ferraiuolo : polished on 2024
 
-Description
------------
-This module contains functions for geometric operations on images.
 """
 
 import numpy as _np
+from .. import typings as _t
 from skimage.draw import disk as _disk
 from skimage.measure import CircleModel as _CM
 
@@ -95,7 +95,8 @@ def qpupil(mask, xx=None, yy=None, nocircle=0):
         yy = yy / ((maxv - minv) / 2)
         r = _np.mean([r1, r2])
         my = [minv, maxv]
-    return x0, y0, r,xx, yy
+    return x0, y0, r, xx, yy
+
 
 
 def draw_mask(img, cx, cy, r, out=0):
@@ -140,6 +141,35 @@ def draw_mask(img, cx, cy, r, out=0):
         img1[pp] = 1
     # plt.imshow(img1)
     return img1
+
+
+# from arte.types.mask import CircularMask
+
+# CircularMask
+
+
+def draw_circular_mask(img_or_mask: _t.ImageData, radius: float) -> _t.ImageData:
+    """
+    Function to create a circular mask that fits the input image or mask.
+
+    Parameters
+    ----------
+    img_or_mask: np.ndarray or np.ma.maskedArray
+        Input image or mask to fit the circular mask.
+
+    Returns
+    -------
+    circular_mask: np.ma.maskedArray
+        Circular mask fitting the input image or mask.
+    """
+    if hasattr(img_or_mask, "mask"):
+        img_data = img_or_mask.data
+        img_mask = img_or_mask.mask
+    else:
+        img_data = img_mask = img_or_mask
+    coords = qpupil(-1 * img_mask + 1)
+    circular_mask = draw_mask(img_data * 0, coords[0], coords[1], radius, out=0)
+    return circular_mask
 
 
 def _find_img_borders(image, imagePixels):

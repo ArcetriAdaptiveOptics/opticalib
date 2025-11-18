@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 numpy
 scipy
 scikit-learn
@@ -13,3 +14,20 @@ ruamel.yaml
 tqdm
 arte
 xupy
+=======
+arte
+astropy
+scikit-image
+scikit-learn
+thin-plate-spline
+scipy
+plico_dm
+ruamel.yaml
+Pyro4
+h5py
+jdcal
+tqdm
+matplotlib
+xupy
+numpy
+>>>>>>> origin/main

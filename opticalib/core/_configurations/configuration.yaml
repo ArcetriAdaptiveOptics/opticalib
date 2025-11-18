@@ -1,53 +1,56 @@
+######################################
+## Configuration file for Opticalib ##
+######################################
+
 SYSTEM:
   data_path: ''
   simulated.devices:
     dm: true
-    interf: false
     interferometer: true
-    accelerometers: true
-    angleRotator: true
-    m4Exapode: true
-    dp: true
-    parSlider: true
-    par: true
-    rmSlider: true
-    rm: true
-    tempSensors: true
+
+## Devices configuration ##
+# In this section you can add the configuration of your devices.
+# Follow the examples provided below, as they show the type of
+# devices implemented as of now.
 DEVICES:
   INTERFEROMETER:
-    PhaseCam4020:
-      ip: 193.206.155.78
-      port: 8011
+    PhaseCamX:
+      ip: 
+      port: 
       Paths:
-        settings: /home/m4/4dConfig/AppSettings.ini
-        copied_settings: 4DSettings.ini
-        capture_4dpc: D:/M4/Capture
-        produce_4dpc: D:/M4/Produced
-        produce: /home/m4/4d/M4/Produced
-    AccuFizAO:
-      ip: 193.206.155.218
-      port: 8011
+        settings: 
+        copied_settings: 
+        capture_4dpc: 
+        produce_4dpc: 
+        produce: 
+    AccuFizX:
+      ip: 
+      port: 
       Paths:
-        settings: /home/labot/Shared4DFolders/AccuFizAOConfig/AppSettings.ini
-        copied_settings: 4DSettings.ini
-        capture_4dpc: C:/Data/Capture
-        produce_4dpc: C:/Data/Produced
-        produce: /home/labot/Shared4DFolders/AccuFizAOData/Produced
+        settings: 
+        copied_settings: 
+        capture_4dpc: 
+        produce_4dpc: 
+        produce: 
   DEFORMABLE.MIRRORS:
     AlpaoXXX:
       ip:
       port:
       diameter:
-    Splatt:
-      ip: 193.206.155.220
-      port: 9090
+  CAMERAS:
+    AVT_MANTA_5G: # example camera
+      id: DEV_000F314DE425
+      ip: 
 
+## Influence functions configuration ##
+# Here you can set the parameters for the influence functions
+# data acquisition and processing.
 INFLUENCE.FUNCTIONS:
   DM:
     nacts: 88
     timing: 1
     delay: 0.0
-    triggeredMode: # if not using triggerMode, put false and comment next 2 lines
+    triggeredMode: # if not using triggerMode, put false and comment next 2 lines (for Microgate DMs)
       frequency: 5.
       cmdDelay: 0.0
   TRIGGER:
@@ -69,12 +72,17 @@ INFLUENCE.FUNCTIONS:
     template: [1, -1, 1]
     modalbase: hadamard
 
+## Stitching configuration ##
+# Here you can set the parameters for the stitching procedure.
 STITCHING:
   pixel_scale: 0.09095 # mm/px
   alpha: 0 # degrees
   starting_coords: [0, 0] # motors position in mm
   home_coords: [0, 0] # motors position in mm
 
+## System alignment configuration ##
+# Here you can set the parameters for the system optical 
+# alignment procedure.
 # Filled, as example, with M4 OTT configuration
 SYSTEM.ALIGNMENT:
   names:

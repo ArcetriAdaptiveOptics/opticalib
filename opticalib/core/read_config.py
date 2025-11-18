@@ -1,6 +1,4 @@
 """
-Module: read_config
-===================
 This module provides utilities for reading, writing, and updating YAML configuration files
 used in the opticalib system. It supports configuration management for devices such as
 deformable mirrors and interferometers, as well as acquisition and alignment settings.
@@ -23,6 +21,7 @@ import yaml
 import os as _os
 import numpy as _np
 from .exceptions import DeviceNotFoundError
+from typing import Any as _Any
 
 global _cfold
 global _iffold
@@ -84,7 +83,7 @@ def load_yaml_config(path: str = None):
     return config
 
 
-def dump_yaml_config(config, path: str = None):
+def dump_yaml_config(config: dict[str, _Any], path: str = None):
     """
     Writes the configuration dictionary back to the YAML file.
 
@@ -144,7 +143,7 @@ def getIffConfig(key: str, bpath: str = _cfold):
     modeId = _parse_val(cc[_modeIdName])
     modeAmp = _parse_val(cc[_modeAmpName])
     modalBase = cc[_modalBaseName]
-    template = _np.array(cc[_templateName])
+    template = _np.asarray(cc[_templateName])
     info = {
         "zeros": nzeros,
         "modes": modeId,
@@ -155,7 +154,7 @@ def getIffConfig(key: str, bpath: str = _cfold):
     return info
 
 
-def copyIffConfigFile(tn, old_path=_cfold):
+def copyIffConfigFile(tn: str, old_path: str = _cfold):
     """
     Copies the YAML configuration file to the new folder for record keeping of the
     configuration used on data acquisition.
@@ -180,7 +179,7 @@ def copyIffConfigFile(tn, old_path=_cfold):
     return nfname
 
 
-def updateIffConfig(tn: str, item: str, value):
+def updateIffConfig(tn: str, item: str, value: _Any):
     """
     Updates the YAML configuration file for the IFF acquisition.
     The item passed is within the INFLUENCE.FUNCTIONS/IFFUNC section.
@@ -210,7 +209,7 @@ def updateIffConfig(tn: str, item: str, value):
     dump_yaml_config(config, file)
 
 
-def updateConfigFile(key: str, item: str, value, bpath=_cfold):
+def updateConfigFile(key: str, item: str, value: _Any, bpath: str = _cfold):
     """
     Updates the YAML configuration file for the IFF acquisition.
     The key passed is within the INFLUENCE.FUNCTIONS section.
@@ -278,7 +277,7 @@ def getDmIffConfig(bpath: str = _cfold):
         return config["DM"]
 
 
-def getNActs(bpath=_cfold):
+def getNActs(bpath: str = _cfold):
     """
     Retrieves the number of actuators from the YAML configuration file.
 
@@ -298,7 +297,7 @@ def getNActs(bpath=_cfold):
     return nacts
 
 
-def getTiming(bpath=_cfold):
+def getTiming(bpath: str = _cfold):
     """
     Retrieves timing information from the YAML configuration file.
 
@@ -318,7 +317,7 @@ def getTiming(bpath=_cfold):
     return timing
 
 
-def getCmdDelay(bpath=_cfold):
+def getCmdDelay(bpath: str = _cfold):
     """
     Retrieves the command delay from the YAML configuration file.
 
@@ -338,7 +337,7 @@ def getCmdDelay(bpath=_cfold):
     return cmdDelay
 
 
-def _parse_val(val):
+def _parse_val(val: _Any):
     """
     Parses a value from the YAML configuration file.
 
@@ -370,6 +369,24 @@ def _parse_val(val):
         else:
             raise ValueError(f"Value type {type(val)} could not be recognized.")
     return val
+
+
+def getCamerasConfig(device_name: str = None):
+    """
+    Reads the cameras settings in the configuration file.
+
+    Returns
+    -------
+    config : dict
+        The defined cameras parameters.
+    """
+    config = (load_yaml_config(_cfile))["DEVICES"]["CAMERAS"]
+    if device_name is not None:
+        try:
+            config = config[device_name]
+        except KeyError:
+            raise DeviceNotFoundError(device_name)
+    return config
 
 
 def getDmConfig(device_name: str):
