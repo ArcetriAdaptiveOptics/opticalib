@@ -16,6 +16,7 @@ import time as _time
 from . import _API as _api
 from opticalib import typings as _ot
 from contextlib import contextmanager as _contextmanager
+from opticalib.ground.logger import set_up_logger as _sul, log as _log
 from opticalib.core.root import OPD_IMAGES_ROOT_FOLDER as _opdi
 from opticalib.ground.osutils import newtn as _ts, save_fits as _sf
 from opticalib.core import exceptions as _oe
@@ -107,12 +108,11 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
         if all(self._lastCmd != _np.zeros(self.nActs)):
             tcmdhist += self._lastCmd[:, None]
         trig = _dmc()["triggerMode"]
+        self.cmdHistory = tcmdhist.copy()
         if trig is not False:
-            self.cmdHistory = tcmdhist.copy()
             self._aoClient.timeHistoryUpload(tcmdhist)
-        else:
-            self.cmdHistory = tcmdhist.copy()
-        print("Time History uploaded!")
+        _log(f"Command History uploaded to the {self._name} DM.")
+        print("Command History uploaded!")
 
     def runCmdHistory(
         self,
@@ -149,17 +149,21 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
                     raise _oe.CommandError(
                         f"Invalid argument '{arg}' in triggered commands."
                     )
+            if self.cmdHistory is None:
+                raise _oe.CommandError("No Command History uploaded!")
             freq = triggered.get("frequency", 1.0)
             tdelay = triggered.get("cmdDelay", 0.8)
             ins = _np.zeros(self.nActs)
+            _log("Executing Command history")
+            nframes = self.cmdHistory.shape[-1]
             self._aoClient.timeHistoryRun(freq, 0, tdelay)
-            nframes = self._tCmdHistory.shape[-1]
             if interf is not None:
                 interf.capture(nframes - 2, save)
             self.set_shape(ins)
+            _log("Command history execution completed")
         else:
             if self.cmdHistory is None:
-                raise _oe.CommandError("No Command History to run!")
+                raise _oe.CommandError("No Command History uploaded!")
             else:
                 tn = _ts() if save is None else save
                 print(f"{tn} - {self.cmdHistory.shape[-1]} images to go.")
@@ -167,6 +171,7 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
                 s = self.get_shape() - self._biasCmd
                 if not _os.path.exists(datafold) and interf is not None:
                     _os.mkdir(datafold)
+                _log("Executing Command history")
                 for i, cmd in enumerate(self.cmdHistory.T):
                     print(f"{i+1}/{self.cmdHistory.shape[-1]}", end="\r", flush=True)
                     if differential:
@@ -177,6 +182,7 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
                         img = interf.acquire_map()
                         path = _os.path.join(datafold, f"image_{i:05d}.fits")
                         _sf(path, img)
+                _log("Command history execution completed")
 
 
 class DP(AdOpticaDm):
@@ -188,8 +194,9 @@ class DP(AdOpticaDm):
 
     def __init__(self, tn: _ot.Optional[str] = None):
         """The Constructor"""
-        self._name = "DP"
         super().__init__(tn)
+        self._name = "DP"
+        self._logger = _sul(self._name+'_'+_ts())
 
     def set_shape(
         self,
@@ -300,6 +307,8 @@ class DP(AdOpticaDm):
             decFactor=diagdecim,
             startPointer=0,
         )
+        _log(f"DP Buffer readout configured: {buffer_len} samples at {clockfreq/diagdecim:1.2f} Hz")
+        _log("Starting DP Buffer readout")
         subsys.support.diagBuf.start()
 
         # Create a result container that will be populated on exit
@@ -314,7 +323,7 @@ class DP(AdOpticaDm):
             # Cleanup: Stop acquisition and read data
             subsys.support.diagBuf.waitStop()
             bufData = subsys.support.diagBuf.read()
-
+            _log("DP Buffer readout completed")
             # Process the buffer data
             actPos = _np.zeros((nActs, buffer_len))
             actForce = _np.zeros((nActs, buffer_len))
@@ -330,6 +339,94 @@ class DP(AdOpticaDm):
             result["rawData"] = bufData
 
             self.bufferData = result.copy()
+    
+    def _get_buffer_mean_values(
+            position: _ot.ArrayLike,
+            position_error: _ot.ArrayLike, 
+            k: int = 12,
+            min_cmd: float = 1e-9
+        ):
+        """
+        Get mean position values for position and position error buffers
+
+        Parameters
+        ----------
+        position : np.ndarray 
+            Position values array (nActs, nSamples)
+        position_error : np.ndarray 
+            Position error values array (nActs, nSamples)
+        k : int, optional
+            Number of samples to wait before averaging each command. Defaults to 12
+        min_cmd : float, optional
+            Minimum command change to detect a new command buffer. Defaults to 1 nm
+
+        Returns
+        -------
+        posMeans : np.ndarray
+            Mean position values for each command buffer [nActuators, nCommands]
+        cmdIds : np.ndarray
+            Indices of samples corresponding to each command [nActuators, nCommands*cmdLen]
+        """
+        # Detect command jumps
+        command = position + position_error
+        delta_command = command[:,1:] - command[:,:-1]
+        delta_bool = abs(delta_command) > min_cmd # 1 nm command threshold
+
+        nActs, nSteps = _np.shape(command)
+        cmd_ids = []
+
+        for i in range(nActs):
+            ids = _np.arange(nSteps)
+            ids = ids[1:][delta_bool[i,:]]
+            filt_ids = []
+            for i in range(len(ids)-1):
+                if ids[i+1] - ids[i] > 1:
+                    filt_ids.append(ids[i])
+            filt_ids.append(ids[-1])
+            cmd_ids.append(filt_ids)
+
+        cmd_ids = _np.array(cmd_ids, dtype=int)
+        cmd_ids = cmd_ids[:,2:] # remove trigger
+
+        startIds = cmd_ids[:,:-1]
+        endIds = cmd_ids[:,1:]
+
+        # Define the minimum command length and crop all commands to the same number of samples
+        minCmdLen = _np.min(endIds-startIds)
+        endIds = startIds + minCmdLen
+
+        nCmds = _np.shape(startIds)[1]
+        _log(f'Detected {nCmds:1.0f} commands of {minCmdLen:1.0f} samples')
+
+        # Full vectorized version
+        # potentially memory hungry
+        # to try
+        # cmdIds = _np.tile(_np.arange(minCmdLen),(nActs,nCmds))
+        # cmdIds += _np.repeat(startIds,(minCmdLen,)).reshape([nActs,-1])
+        # cmd_indices = cmdIds.reshape(nActs, nCmds, minCmdLen)[:, :, k:]
+        # act_idx = _np.arange(nActs)[:, None, None]
+        # posMeans = _np.mean(position[act_idx, cmd_indices], axis=2)
+
+        cmdIds = _np.tile(_np.arange(minCmdLen),(nActs,nCmds))
+        cmdIds += _np.repeat(startIds,(minCmdLen,)).reshape([nActs,-1])
+        posMeans = _np.zeros((nActs,nCmds))
+        
+        # Da provare
+        chunk_size = 10  # Processa 10 actuatori alla volta
+        posMeans = _np.zeros((nActs, nCmds))
+        for i in range(0, nActs, chunk_size):
+            end_i = min(i + chunk_size, nActs)
+            cmd_indices = cmdIds[i:end_i].reshape(-1, nCmds, minCmdLen)[:, :, k:]
+            act_idx = _np.arange(end_i - i)[:, None, None]
+            posMeans[i:end_i] = _np.mean(position[i:end_i][act_idx, cmd_indices], axis=2)
+
+        # Potentially slow
+        # for i in range(nActs):
+        #     for j in range(nCmds):
+        #         posMeans[i,j] = _np.mean(position[i,cmdIds[i,j*minCmdLen+k:(j+1)*minCmdLen]])
+
+        return posMeans, cmdIds
+
 
 
 class M4AU(AdOpticaDm):

@@ -17,7 +17,7 @@ _conf = {
 
 class Fake4DInterferometer:
 
-    def __init__(self, dm: _t.DeformableMirrorDevice):
+    def __init__(self, dm: _t.FakeDeformableMirrorDevice):
         self.model = "4D"
         self.full_frame = False
         self.shapesRemoved = None

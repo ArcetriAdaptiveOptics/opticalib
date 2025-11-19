@@ -67,10 +67,10 @@ def set_up_logger(filename: str, logging_level: int = _l.DEBUG) -> _l.Logger:
     from opticalib.core.root import LOGGING_ROOT_FOLDER
 
     file_path = os.path.join(LOGGING_ROOT_FOLDER, filename)
-    FORMAT = "%(asctime)s %(levelname)s %(name)s %(message)s"
+    FORMAT = "[%(levelname)s] - %(asctime)s - %(name)s : %(message)s"
     formato = _l.Formatter(fmt=FORMAT)
     handler = _lh.RotatingFileHandler(
-        file_path, encoding="utf8", maxBytes=10000000, backupCount=3
+        file_path, encoding="utf8", maxBytes=10000000, backupCount=1
     )
     root_logger = _l.getLogger()
     root_logger.setLevel(logging_level)
@@ -93,7 +93,7 @@ def log(message: str, level: str = "INFO") -> None:
         The logging level to use for the message. This should be one of the
         following strings: 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'. (can
         use lowercase too).
-        The default is 'DEBUG'.
+        The default is 'INFO'.
 
     Notes
     -----

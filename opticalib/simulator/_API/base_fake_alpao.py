@@ -461,48 +461,23 @@ class BaseFakeAlpao(ABC):
         pix_coords = np.zeros((max_x * max_y, 2))
         pix_coords[:, 0] = np.repeat(np.arange(max_x), max_y)
         pix_coords[:, 1] = np.tile(np.arange(max_y), max_x)
-        # Convert actuator coordinates to pixel coordinates.
-        act_coords = self.actCoords.T  # shape: (n_acts, 2)
-        act_pix_coords = np.zeros((n_acts, 2), dtype=int)
-        act_pix_coords[:, 0] = (
-            act_coords[:, 1] / np.max(act_coords[:, 1]) * max_x
-        ).astype(int)
-        act_pix_coords[:, 1] = (
-            act_coords[:, 0] / np.max(act_coords[:, 0]) * max_y
-        ).astype(
-            int
-        )
+        
+        act_pix_coords = self._scaleActCoords()
+        
+        # Create Empty cube for IFF
         img_cube = np.zeros((max_x, max_y, n_acts))
         # For each actuator, compute the influence function with a TPS interpolation.
-        
-        # if GPU is available, use it
-        if xp.on_gpu:
-            for k in range(n_acts):
-                import torch # type: ignore
-                from torch_tps import ThinPlateSpline # type: ignore
-                print(f"{k+1}/{n_acts}", end='\r', flush=True)
-                # Create a command vector with a single nonzero element.
-                act_data = np.zeros(n_acts)
-                act_data[k] = 1
-                act_data = torch.asarray(act_data, device='cuda', dtype=torch.float32)
-                act_pix_coords_t = torch.asarray(act_pix_coords, device='cuda', dtype=torch.float32)
-                pix_coords_t = torch.asarray(pix_coords, device='cuda', dtype=torch.float32)
-                tps = ThinPlateSpline(alpha=0.0)
-                tps.fit(act_pix_coords_t, act_data)
-                flat_img = tps.transform(pix_coords_t)
-                flat_img = flat_img.cpu().numpy()
-                img_cube[:, :, k] = flat_img.reshape((max_x, max_y))
-        else:
-            for k in range(n_acts):
-                from tps import ThinPlateSpline
-                print(f"{k+1}/{n_acts}", end='\r', flush=True)
-                # Create a command vector with a single nonzero element.
-                act_data = np.zeros(n_acts)
-                act_data[k] = 1
-                tps = ThinPlateSpline(alpha=0.0)
-                tps.fit(act_pix_coords, act_data)
-                flat_img = tps.transform(pix_coords)
-                img_cube[:, :, k] = flat_img.reshape((max_x, max_y))
+
+        from tps import ThinPlateSpline
+        for k in range(n_acts):
+            print(f"{k+1}/{n_acts}", end='\r', flush=True)
+            # Create a command vector with a single nonzero element (ZONAL IFF).
+            act_data = np.zeros(n_acts)
+            act_data[k] = 1
+            tps = ThinPlateSpline(alpha=0.0)
+            tps.fit(act_pix_coords, act_data)
+            flat_img = tps.transform(pix_coords)
+            img_cube[:, :, k] = flat_img.reshape((max_x, max_y))
         
         # Create a cube mask that tiles the local mirror mask for each actuator.
         cube_mask = np.tile(self.mask, n_acts).reshape(img_cube.shape, order="F")
@@ -517,7 +492,8 @@ class BaseFakeAlpao(ABC):
         Scales the actuator coordinates to the mirror's pixel scale.
         """
         max_x, max_y = self.mask.shape
-        act_coords = self.actCoords.T  # shape: (n_acts, 2)
+        if not self.actCoords.shape[1] == 2:
+            act_coords = self.actCoords.T  # shape: (n_acts, 2)
         act_pix_coords = np.zeros((self.nActs, 2), dtype=int)
         act_pix_coords[:, 0] = (
             act_coords[:, 1] / np.max(act_coords[:, 1]) * max_x

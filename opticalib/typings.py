@@ -97,7 +97,15 @@ class _DMProtocol(Protocol):
     ) -> str: ...
 
 
+@runtime_checkable
+class _FakeDMProtocol(_DMProtocol, Protocol):
+    @property
+    def mask(self) -> MaskData: ...
+    def _wavefront(self, **kwargs) -> ArrayLike: ...
+
+
 DeformableMirrorDevice = TypeVar("DeformableMirrorDevice", bound=_DMProtocol)
+FakeDeformableMirrorDevice = TypeVar("FakeDeformableMirrorDevice", bound=_FakeDMProtocol)
 
 GenericDevice = TypeVar("GenericDevice")
 
@@ -274,6 +282,7 @@ class InstanceCheck:
         generic_class_map = {
             "DeformableMirrorDevice": _DMProtocol,
             "InterferometerDevice": _InterfProtocol,
+            "FakeDeformableMirrorDevice": _FakeDMProtocol,
         }
         if class_name not in generic_class_map:
             raise ValueError(f"Class {class_name} not found in the current context.")
@@ -305,6 +314,7 @@ class InstanceCheck:
             "CubeData": cls.is_cube_like,
             "InterferometerDevice": cls.generic_check,
             "DeformableMirrorDevice": cls.generic_check,
+            "FakeDeformableMirrorDevice": cls.generic_check,
         }
         if class_name not in checks:
             raise ValueError(f"Unknown class name: {class_name}")
