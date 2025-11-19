@@ -166,6 +166,67 @@ CONTROL_MATRIX_FOLDER: str = _os.path.join(ALIGNMENT_ROOT_FOLDER, "ControlMatric
 ALIGN_CALIBRATION_ROOT_FOLDER: str = _os.path.join(ALIGNMENT_ROOT_FOLDER, "Calibration")
 ALIGN_RESULTS_ROOT_FOLDER: str = _os.path.join(ALIGNMENT_ROOT_FOLDER, "Results")
 
+def SIMULATED_DM_PATH(dmname: str, nacts : int = None) -> str:
+    """
+    Get the path to the simulated deformable mirror data.
+
+    Parameters
+    ----------
+    dmname : str
+        The name of the deformable mirror.
+    nacts : int, optional
+        The number of actuators of the deformable mirror, by default None.
+
+    Returns
+    -------
+    str
+        The path to the simulated deformable mirror data.
+    """
+    if nacts is not None:
+        dm_folder = f"{dmname}{nacts}"
+    else:
+        dm_folder = dmname
+    dm_path = _os.path.join(CONFIGURATION_FOLDER, dm_folder)
+    _create_folder(dm_path)
+    return dm_path
+
+def SIM_DATA_FILE(dmname: str, filename: str, nacts : int = None) -> str:
+    """
+    Get the path to a specific simulated deformable mirror data file.
+
+    Parameters
+    ----------
+    dmname : str
+        The name of the deformable mirror.
+    filename : str
+        The name of the file. Can be
+        - 'IF' : Influence functions cube
+        - 'IM' : Interaction matrix
+        - 'RM' : Reconstruction matrix
+        - 'ZM' : Zernike modes matrix
+    nacts : int, optional
+        The number of actuators of the deformable mirror, by default None.
+
+    Returns
+    -------
+    str
+        The path to the specific simulated deformable mirror data file.
+    """
+    match filename:
+        case "IF":
+            filename = f"iff_cube.fits"
+        case "IM":
+            filename = f"int_matrix.fits"
+        case "RM":
+            filename = f"rec_matrix.fits"
+        case "ZM":
+            filename = f"zern_matrix.fits"
+        case _:
+            raise ValueError(f"Invalid filename: {filename}")
+    dm_path = SIMULATED_DM_PATH(dmname, nacts)
+    file_path = _os.path.join(dm_path, filename)
+    return file_path
+
 ########################
 # INTERFEROMETER PATHS #
 ########################

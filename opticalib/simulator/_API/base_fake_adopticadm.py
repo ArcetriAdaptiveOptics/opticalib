@@ -1,13 +1,14 @@
 import os
 import numpy as np
-from skimage.draw import polygon_perimeter, polygon2mask
-from opticalib import load_fits as lf, save_fits as sf
 from tps import ThinPlateSpline
-from opticalib import folders as fp
-from opticalib.ground import osutils as osu
 from scipy.interpolate import Rbf
-join = os.path.join
+from opticalib import folders as fp
+from opticalib import typings as _t
+from opticalib.ground import osutils as osu
+from opticalib import load_fits as lf, save_fits as sf
+from skimage.draw import polygon_perimeter, polygon2mask
 
+join = os.path.join
 
 class BaseFakeDp:
     
@@ -26,7 +27,7 @@ class BaseFakeDp:
         self._actPos = np.zeros(self.nacts)
 
 
-    def _wavefront(self, **kwargs):
+    def _wavefront(self, **kwargs: dict[str,_t.Any]) -> _t.ImageData:
         """
         Current shape of the mirror's surface. Only used for the interferometer's
         live viewer (see `interferometer.py`).

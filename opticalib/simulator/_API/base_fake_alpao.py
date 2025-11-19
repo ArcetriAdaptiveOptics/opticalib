@@ -1,228 +1,16 @@
 import os
 import xupy as xp
 import numpy as np
+from ... import typings as _t
+from .factory_functions import *
+from ...core import root as _root
 from abc import ABC, abstractmethod
-from opticalib import folders as fp, typings as _t
-from opticalib.ground import osutils as osu, zernike as zern
-from opticalib.core.read_config import load_yaml_config as cl
+from opticalib.ground import osutils as osu
 
 ######################################
 ## Utility classes for creating the ##
 ##       simulated Alpao            ##
 ######################################
-
-_alpao_list = os.path.join(os.path.dirname(os.path.abspath(__file__)), "alpao_list.yaml")
-
-def IffFile(nActs: int):
-    """
-    Returns the file path for the influence functions of a given DM.
-
-    Parameters
-    ----------
-    nActs : int
-        Number of actuators in the DM.
-
-    Returns
-    -------
-    str
-        File path for the influence functions.
-    """
-    bpath = os.path.join(fp.IFFUNCTIONS_ROOT_FOLDER, f"DM{nActs}")
-    if not os.path.exists(bpath):
-        os.makedirs(bpath)
-    return os.path.join(bpath, 'iff_cube.fits')
-
-def IntMatFile(nActs: int):
-    """
-    Returns the file path for the interaction matrix of a given DM.
-
-    Parameters
-    ----------
-    nActs : int
-        Number of actuators in the DM.
-
-    Returns
-    -------
-    str
-        File path for the interaction matrix.
-    """
-    return os.path.join(fp.IFFUNCTIONS_ROOT_FOLDER, f"DM{nActs}", 'int_matrix.fits')
-
-def RecMatFile(nActs: int):
-    """
-    Returns the file path for the reconstruction matrix of a given DM.
-
-    Parameters
-    ----------
-    nActs : int
-        Number of actuators in the DM.
-
-    Returns
-    -------
-    str
-        File path for the reconstruction matrix.
-    """
-    return os.path.join(fp.IFFUNCTIONS_ROOT_FOLDER, f"DM{nActs}", 'rec_matrix.fits')
-
-def ZernMatFile(nActs: int):
-    """
-    Returns the file path for the Zernike matrix of a given DM.
-
-    Parameters
-    ----------
-    nActs : int
-        Number of actuators in the DM.
-
-    Returns
-    -------
-    str
-        File path for the Zernike matrix.
-    """
-    return os.path.join(fp.IFFUNCTIONS_ROOT_FOLDER, f"DM{nActs}", 'zern_matrix.fits')
-
-def getDmCoordinates(nacts: int):
-    """
-    Generates the coordinates of the DM actuators for a given DM size and actuator sequence.
-
-    Parameters
-    ----------
-    Nacts : int
-        Total number of actuators in the DM.
-
-    Returns
-    -------
-    np.array
-        Array of coordinates of the actuators.
-    """
-    dms = cl(_alpao_list)[f"DM{nacts}"]
-    nacts_row_sequence = dms["coords"]
-    n_dim = nacts_row_sequence[-1]
-    upper_rows = nacts_row_sequence[:-1]
-    lower_rows = [l for l in reversed(upper_rows)]
-    center_rows = [n_dim] * upper_rows[0]
-    rows_number_of_acts = upper_rows + center_rows + lower_rows
-    n_rows = len(rows_number_of_acts)
-    cx = np.array([], dtype=int)
-    cy = np.array([], dtype=int)
-    for i in range(n_rows):
-        cx = np.concatenate(
-            (
-                cx,
-                np.arange(rows_number_of_acts[i])
-                + (n_dim - rows_number_of_acts[i]) // 2,
-            )
-        )
-        cy = np.concatenate((cy, np.full(rows_number_of_acts[i], i)))
-    coords = np.array([cx, cy])
-    return coords
-
-
-def getActuatorGeometry(n_act: int, dimension: int, geom : str = 'default', angle_offset: float = 0.0):
-    """
-    Generates the coordinates of the DM actuators based on the specified geometry.
-    
-    Parameters
-    ----------
-    n_act : int
-        Number of actuators along one dimension.
-    dimension : int
-        Size of the DM in pixels.
-    geom : str, optional
-        Geometry type ('circular', 'alpao', or 'default'), by default 'default'.
-    angle_offset : float, optional
-        Angle offset in degrees for circular geometry, by default 0.0.
-    
-    Returns
-    -------
-    x : np.ndarray
-        X coordinates of the actuators.
-    y : np.ndarray
-        Y coordinates of the actuators.
-    n_act_tot : int
-        Total number of actuators.
-    """
-    step = float(dimension)/float(n_act)    
-    match geom:
-        case 'circular':
-            if n_act % 2 == 0:
-                na = xp.arange(xp.ceil((n_act + 1) / 2)) * 6
-            else:
-                step *= float(n_act) / float(n_act - 1)
-                na = xp.arange(xp.ceil(n_act / 2.)) * 6
-            na[0] = 1  # The first value is always 1
-            n_act_tot = int(xp.sum(na))
-            pol_coords = xp.zeros((2, n_act_tot))
-            ka = 0
-            for ia in range(len(na)):
-                n_angles = int(na[ia])
-                for ja in range(n_angles):
-                    pol_coords[0, ka] = 360. / na[ia] * ja + angle_offset  # Angle in degrees
-                    pol_coords[1, ka] = ia * step  # Radial distance
-                    ka += 1
-            x_c, y_c = dimension / 2, dimension / 2 # center
-            x = pol_coords[1] * xp.cos(xp.radians(pol_coords[0])) + x_c
-            y = pol_coords[1] * xp.sin(xp.radians(pol_coords[0])) + y_c
-        case 'alpao':
-            x, y = xp.meshgrid(xp.linspace(0, dimension, n_act), xp.linspace(0, dimension, n_act))
-            x, y = x.ravel(), y.ravel()
-            x_c, y_c = dimension / 2, dimension / 2 # center
-            rho = xp.sqrt((x-x_c)**2+(y-y_c)**2)
-            rho_max = (dimension*(9/8-n_act/(24*16)))/2 # slightly larger than dimension, depends on n_act
-            n_act_tot = len(rho[rho<=rho_max])
-            x = x[rho<=rho_max]
-            y = y[rho<=rho_max]
-        case _:
-            x, y = xp.meshgrid(xp.linspace(0, dimension, n_act), xp.linspace(0, dimension, n_act))
-            x, y = x.ravel(), y.ravel()
-            n_act_tot = n_act ** 2
-    return x,y,n_act_tot
-
-
-def createMask(nacts: int, shape: tuple[int] = (512, 512)):
-    """
-    Generates a circular mask for a mirror based on its optical diameter and pixel scale.
-
-    Parameters
-    ----------
-    opt_diameter : float
-        The mirror's diameter in millimeters.
-    pixel_scale : float
-        Scale in pixels per millimeter.
-    shape : tuple, optional
-        The shape of the output mask (height, width), by default (512, 512).
-
-    Returns
-    -------
-    np.ndarray
-        A boolean array of the given shape. True values represent the mirror area.
-    """
-    dm = cl(_alpao_list)[f"DM{nacts}"]
-    opt_diameter = float(dm["opt_diameter"])
-    pixel_scale = float(dm["pixel_scale"])
-    height, width = shape
-    cx, cy = width / 2, height / 2
-    radius = (opt_diameter * pixel_scale) / 2  # radius in pixels
-    y, x = np.ogrid[:height, :width]
-    mask = (x - cx) ** 2 + (y - cy) ** 2 >= radius**2
-    return mask
-
-
-def pixel_scale(nacts: int):
-    """
-    Returns the pixel scale of the DM.
-
-    Parameters
-    ----------
-    nacts : int
-        Number of actuators in the DM.
-
-    Returns
-    -------
-    float
-        Pixel scale of the DM.
-    """
-    dm = cl(_alpao_list)[f"DM{nacts}"]
-    return float(dm["pixel_scale"])
 
 
 def generate_zernike_matrix(noll_ids: list[int], img_mask: _t.ImageData, scale_length: float = None):
@@ -255,7 +43,7 @@ def generate_zernike_matrix(noll_ids: list[int], img_mask: _t.ImageData, scale_l
     return ZernMat
 
 
-def _project_zernike_on_mask(noll_number: int, mask: _t.ImageData, scale_length: float = None):
+def _project_zernike_on_mask(noll_number: int, mask, scale_length: float = None):
     """
     Project the Zernike polynomials identified by the Noll number in input
     on a given mask.
@@ -318,18 +106,16 @@ class BaseFakeAlpao(ABC):
         """
         Initializes the base deformable mirror with the number of actuators.
         """
+        self._name = f"AlpaoDM{nActs}"
         self.mirrorModes = None
         self.nActs = nActs
         self._pxScale = pixel_scale(self.nActs)
-        self.actCoords = getDmCoordinates(self.nActs)
-        self.mask = createMask(self.nActs)
+        self.actCoords, self.mask = getAlpaoCoordsMask(self.nActs)
         self._scaledActCoords = self._scaleActCoords()
         self._iffCube = None
         self.IM = None
         self.ZM = None
         self.RM = None
-
-        print(" " * 11 + f"DM {self.nActs}\n")
         self._load_matrices()
 
     @abstractmethod

@@ -423,6 +423,7 @@ class _ModeFitter(ABC):
             if was_temporary:
                 self._mgen = prev_mgen
 
+
     def _create_fit_mask_from_img(self, image: _t.ImageData) -> _CircularMask:
         """
         Create a default CircularMask for fitting.
