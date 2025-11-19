@@ -1,4 +1,4 @@
-# OptiCalib : adaptive OPTics package for deformable dirrors CALibration
+# OptiCalib : adaptive OPTics package for deformable mirrors CALibration
 
 ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/ArcetriAdaptiveOptics/opticalib/tests.yml)
 
