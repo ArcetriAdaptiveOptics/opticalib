@@ -19,7 +19,6 @@ import os as _os
 import xupy as _xp
 import numpy as _np
 import jdcal as _jdcal
-from numba import njit as _njit
 import matplotlib.pyplot as _plt
 from . import typings as _ot
 from .ground import modal_decomposer as zern
