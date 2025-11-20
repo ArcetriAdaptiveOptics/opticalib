@@ -366,7 +366,7 @@ def load_fits(
             fit = _xu.ma.MaskedArray(fit)
         else:
             fit = _xu.asarray(fit)
-    if return_header:        
+    if return_header:
         out = _fa.fits_array(fit, header=header)
     else:
         out = fit

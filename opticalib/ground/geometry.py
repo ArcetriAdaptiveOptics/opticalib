@@ -3,7 +3,10 @@ from skimage import draw
 from arte.types.mask import CircularMask
 from opticalib import typings as _ot
 
-def draw_circular_mask(shape: tuple[int, int]|list[int], center: int, radius: int) -> _ot.MaskData:
+
+def draw_circular_mask(
+    shape: tuple[int, int] | list[int], center: int, radius: int
+) -> _ot.MaskData:
     """
     Draws a circular boolean mask.
 
@@ -26,7 +29,10 @@ def draw_circular_mask(shape: tuple[int, int]|list[int], center: int, radius: in
     mask[rr, cc] = False
     return mask
 
-def draw_polygonal_mask(shape: tuple[int, int]|list[int], vertices: _ot.ArrayLike) -> _ot.MaskData:
+
+def draw_polygonal_mask(
+    shape: tuple[int, int] | list[int], vertices: _ot.ArrayLike
+) -> _ot.MaskData:
     """
     Draws a polygonal boolean mask.
 
@@ -47,9 +53,12 @@ def draw_polygonal_mask(shape: tuple[int, int]|list[int], vertices: _ot.ArrayLik
     mask[rr, cc] = False
     return mask
 
+
 def find_circular_pupil(image: _ot.ImageData, method: str = "COG") -> _ot.MaskData:
     """
     Finds the circular pupil in the given image.
+
+    Wrapper to the `arte.types.mask.CircularMask.fromMaskedArray` method.
 
     Parameters
     ----------
@@ -61,7 +70,7 @@ def find_circular_pupil(image: _ot.ImageData, method: str = "COG") -> _ot.MaskDa
         - "ImageMoments";
         - "RANSAC";
         - "correlation".
-    
+
     Refer to arte.types.mask.CircularMask for more details on each method.
 
     Returns

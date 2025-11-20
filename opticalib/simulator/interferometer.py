@@ -35,7 +35,7 @@ class Fake4DInterferometer:
         self,
         zernike2remove: list[int] = None,
         framerate: int = 10,
-        **kwargs: dict[str,_t.Any],
+        **kwargs: dict[str, _t.Any],
     ):
         """
         Runs the live-view animation for the simulated Interferometer
@@ -142,7 +142,7 @@ class Fake4DInterferometer:
     def acquire_map(self, nframes: int = 1, rebin: int = 1):
         """
         Acquires the phase map of the interferometer.
-        
+
         Parameters
         ----------
         nframes : int, optional
@@ -203,18 +203,18 @@ class Fake4DInterferometer:
         new_mask = full_frame == 0
         full_frame = _np.ma.masked_array(full_frame, mask=new_mask)
         return full_frame
-    
-    def acquireFullFrame(self, **kwargs: dict[str,_t.Any]):
+
+    def acquireFullFrame(self, **kwargs: dict[str, _t.Any]):
         """
         Acquires the phase map of the interferometer in full frame mode.
-        
+
         Parameters
         ----------
         nframes : int, optional
             Number of frames to be averaged.
         rebin : int, optional
             Rebin factor to reduce the resolution of the image.
-        
+
 
         Returns
         -------
@@ -223,11 +223,10 @@ class Fake4DInterferometer:
         """
         return self.intoFullFrame(self.acquire_map(**kwargs))
 
-
     # --------------------------------------------------------------------------
     # Series of functions to control the behaviour of the live interferometer
     # --------------------------------------------------------------------------
-    
+
     def toggleShapeRemoval(self, modes: list[int]):
         """
         Removes the acquired shape by the define Zernike modes.

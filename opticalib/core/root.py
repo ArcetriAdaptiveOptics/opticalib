@@ -166,7 +166,8 @@ CONTROL_MATRIX_FOLDER: str = _os.path.join(ALIGNMENT_ROOT_FOLDER, "ControlMatric
 ALIGN_CALIBRATION_ROOT_FOLDER: str = _os.path.join(ALIGNMENT_ROOT_FOLDER, "Calibration")
 ALIGN_RESULTS_ROOT_FOLDER: str = _os.path.join(ALIGNMENT_ROOT_FOLDER, "Results")
 
-def SIMULATED_DM_PATH(dmname: str, nacts : int = None) -> str:
+
+def SIMULATED_DM_PATH(dmname: str, nacts: int = None) -> str:
     """
     Get the path to the simulated deformable mirror data.
 
@@ -190,7 +191,8 @@ def SIMULATED_DM_PATH(dmname: str, nacts : int = None) -> str:
     _create_folder(dm_path)
     return dm_path
 
-def SIM_DATA_FILE(dmname: str, filename: str, nacts : int = None) -> str:
+
+def SIM_DATA_FILE(dmname: str, filename: str, nacts: int = None) -> str:
     """
     Get the path to a specific simulated deformable mirror data file.
 
@@ -226,6 +228,7 @@ def SIM_DATA_FILE(dmname: str, filename: str, nacts : int = None) -> str:
     dm_path = SIMULATED_DM_PATH(dmname, nacts)
     file_path = _os.path.join(dm_path, filename)
     return file_path
+
 
 ########################
 # INTERFEROMETER PATHS #

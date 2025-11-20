@@ -35,7 +35,7 @@ class FitsArray(_np.ndarray):
         data: _ot.ArrayLike,
         *,
         header: _ot.Optional[dict[str, _ot.Any] | _ot.Header] = None,
-        dtype: _ot.Optional[_ot.DTypeLike] = None
+        dtype: _ot.Optional[_ot.DTypeLike] = None,
     ):
         """
         Parameters
@@ -79,6 +79,7 @@ class FitsArray(_np.ndarray):
 
         data = load_fits(filename, return_header=True)
         return cls(data, header=data.header)
+
 
 class FitsMaskedArray(_np.ma.MaskedArray):
     """
@@ -158,6 +159,7 @@ class FitsMaskedArray(_np.ma.MaskedArray):
         data = load_fits(filename, return_header=True)
         return cls(data, header=data.header)
 
+
 class FitsArrayGpu(_xp.ndarray):
     """
     Cupy ndarray subclass that keeps a FITS header alongside the numeric data.
@@ -219,18 +221,19 @@ class FitsArrayGpu(_xp.ndarray):
         data = load_fits(filename, return_header=True)
         return cls(_xp.asarray(data), header=data.header)
 
+
 class FitsMaskedArrayGpu(_xp.ma.masked_array):
     """
     GPU MaskedArray subclass that keeps an associated FITS header.
 
     This version mirrors ``xupy.ma.MaskedArray`` behaviour.
     """
-    
-    def __init__(self, **kwargs:dict[str,_ot.Any]):
+
+    def __init__(self, **kwargs: dict[str, _ot.Any]):
         header = kwargs.pop("header", None)
         super().__init__(**kwargs)
         self.header = _prepare_header(header)
-    
+
     def writeto(self, filename: str, overwrite: bool = False):
         """
         Saves the array to a FITS file.
@@ -252,8 +255,8 @@ class FitsMaskedArrayGpu(_xp.ma.masked_array):
 
         data = load_fits(filename, return_header=True)
         return cls(data=data, header=data.header)
-    
-    def asmarray(self, **kwargs: dict[str,_ot.Any]) -> "FitsMaskedArray":
+
+    def asmarray(self, **kwargs: dict[str, _ot.Any]) -> "FitsMaskedArray":
         """
         Returns the data as a cupy ndarray, optionally casting to a specified dtype.
 
@@ -272,7 +275,9 @@ class FitsMaskedArrayGpu(_xp.ma.masked_array):
         return arr
 
 
-def fits_array(data: _ot.ArrayLike, **kwargs: dict[str,_ot.Any]) -> FitsArray | FitsMaskedArray:
+def fits_array(
+    data: _ot.ArrayLike, **kwargs: dict[str, _ot.Any]
+) -> FitsArray | FitsMaskedArray:
     """
     Wrapper aound numpy's array and masked array classes that keeps an associated FITS header.
 
@@ -292,7 +297,7 @@ def fits_array(data: _ot.ArrayLike, **kwargs: dict[str,_ot.Any]) -> FitsArray | 
         Fill value to be used for the data.
     keep_mask : bool, optional
         Whether to keep the mask.
-        
+
     Returns
     -------
     array : FitsArray | FitsMaskedArray
@@ -309,7 +314,7 @@ def fits_array(data: _ot.ArrayLike, **kwargs: dict[str,_ot.Any]) -> FitsArray | 
      [3 4]]
     """
     mask = kwargs.get("mask", None)
-    
+
     # Convert lists to numpy arrays
     if isinstance(data, list):
         # default on CPU
@@ -324,12 +329,12 @@ def fits_array(data: _ot.ArrayLike, **kwargs: dict[str,_ot.Any]) -> FitsArray | 
         data_type_str = str(type(data))
 
     # Determine array type based on underlying data type
-    if 'cupy' in data_type_str:
+    if "cupy" in data_type_str:
         if hasattr(data, "mask") or mask is not None:
             array_type = FitsMaskedArrayGpu
         else:
             array_type = FitsArrayGpu
-    elif any(['numpy' in data_type_str, 'memoryview' in data_type_str]):
+    elif any(["numpy" in data_type_str, "memoryview" in data_type_str]):
         if hasattr(data, "mask") or mask is not None:
             array_type = FitsMaskedArray
         else:

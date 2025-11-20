@@ -376,11 +376,6 @@ def iffRedux(
             if j < nmodes and j not in futures:
                 futures[j] = ex.submit(_read_mode, fileMat[j, :])
 
-            # Compute (already vectorized inside pushPullRedux)
-
-            # img = pushPullRedux(imagelist, template, shuffle)
-            # norm_img = img / (2 * ampVect[i])
-
             norm_img = pushPullReductionAlgorithm(
                 imagelist,
                 template,

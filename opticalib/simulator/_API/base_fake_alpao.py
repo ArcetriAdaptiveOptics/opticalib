@@ -7,88 +7,83 @@ from ...core import root as _root
 from abc import ABC, abstractmethod
 from opticalib.ground import osutils as osu
 
-######################################
-## Utility classes for creating the ##
-##       simulated Alpao            ##
-######################################
+# LEGACY - let's see how new works
+# def generate_zernike_matrix(noll_ids: list[int], img_mask: _t.ImageData, scale_length: float = None):
+#     """
+#     Generates the interaction matrix of the Zernike modes with Noll index
+#     in noll_ids on the mask in input
+
+#     Parameters
+#     ----------
+#     noll_ids : ndarray(int) [Nzern,]
+#         Array of Noll indices to fit.
+#     img_mask : matrix bool
+#         Mask of the desired image.
+#     scale_length : float, optional
+#         The scale length to use for the Zernike fit.
+#         The default is the maximum of the image mask shape.
+
+#     Returns
+#     -------
+#     ZernMat : ndarray(float) [Npix,Nzern]
+#         The Zernike interaction matrix of the given indices on the given mask.
+#     """
+#     n_pix = np.sum(1 - img_mask)
+#     if isinstance(noll_ids, int):
+#         noll_ids = np.arange(1, noll_ids + 1, 1)
+#     n_zern = len(noll_ids)
+#     ZernMat = np.zeros([n_pix, n_zern])
+#     for i in range(n_zern):
+#         ZernMat[:, i] = _project_zernike_on_mask(noll_ids[i], img_mask, scale_length)
+#     return ZernMat
 
 
-def generate_zernike_matrix(noll_ids: list[int], img_mask: _t.ImageData, scale_length: float = None):
-    """
-    Generates the interaction matrix of the Zernike modes with Noll index
-    in noll_ids on the mask in input
+# def _project_zernike_on_mask(noll_number: int, mask, scale_length: float = None):
+#     """
+#     Project the Zernike polynomials identified by the Noll number in input
+#     on a given mask.
+#     The polynomials are computed on the circle inscribed in the mask by default,
+#     or on a circle of radius scale_length if the corresponding input is given
+#     Masked data is then normalized as follows:
+#     data = ma.data[~ma.mask], data = (data - mean(data))/std(data)
 
-    Parameters
-    ----------
-    noll_ids : ndarray(int) [Nzern,]
-        Array of Noll indices to fit.
-    img_mask : matrix bool
-        Mask of the desired image.
-    scale_length : float, optional
-        The scale length to use for the Zernike fit.
-        The default is the maximum of the image mask shape.
+#     Parameters
+#     ----------
+#     noll_number : int
+#         Noll index of the desired Zernike polynomial.
+#     mask : matrix bool
+#         Mask of the desired image.
+#     scale_length : float, optional
+#         The scale length to use for the Zernike fit.
+#         The default is the maximum of the image mask shape.
 
-    Returns
-    -------
-    ZernMat : ndarray(float) [Npix,Nzern]
-        The Zernike interaction matrix of the given indices on the given mask.
-    """
-    n_pix = np.sum(1 - img_mask)
-    if isinstance(noll_ids, int):
-        noll_ids = np.arange(1, noll_ids + 1, 1)
-    n_zern = len(noll_ids)
-    ZernMat = np.zeros([n_pix, n_zern])
-    for i in range(n_zern):
-        ZernMat[:, i] = _project_zernike_on_mask(noll_ids[i], img_mask, scale_length)
-    return ZernMat
+#     Returns
+#     -------
+#     masked_data : ndarray
+#         Flattenned array of the masked values of the Zernike
+#         shape projected on the mask.
 
-
-def _project_zernike_on_mask(noll_number: int, mask, scale_length: float = None):
-    """
-    Project the Zernike polynomials identified by the Noll number in input
-    on a given mask.
-    The polynomials are computed on the circle inscribed in the mask by default,
-    or on a circle of radius scale_length if the corresponding input is given
-    Masked data is then normalized as follows:
-    data = ma.data[~ma.mask], data = (data - mean(data))/std(data)
-
-    Parameters
-    ----------
-    noll_number : int
-        Noll index of the desired Zernike polynomial.
-    mask : matrix bool
-        Mask of the desired image.
-    scale_length : float, optional
-        The scale length to use for the Zernike fit.
-        The default is the maximum of the image mask shape.
-
-    Returns
-    -------
-    masked_data : ndarray
-        Flattenned array of the masked values of the Zernike
-        shape projected on the mask.
-
-    """
-    if noll_number < 1:
-        raise ValueError("Noll index must be equal to or greater than 1")
-    # Image dimensions
-    X, Y = np.shape(mask)
-    # Determine circle radius on to which define the Zernike
-    if scale_length is not None:
-        r = scale_length
-    else:
-        r = np.max([X, Y]) / 2
-    # Conversion to polar coordinates on circle of radius r
-    phi = lambda i, j: np.arctan2((j - Y / 2.0) / r, (i - X / 2.0) / r)
-    rho = lambda i, j: np.sqrt(((j - Y / 2.0) / r) ** 2 + ((i - X / 2.0) / r) ** 2)
-    mode = np.fromfunction(
-        lambda i, j: zern._zernikel(noll_number, rho(i, j), phi(i, j)), [X, Y]
-    )
-    masked_data = mode[~mask]
-    # Normalization of the masked data: null mean and unit STD
-    if noll_number > 1:
-        masked_data = (masked_data - np.mean(masked_data)) / np.std(masked_data)
-    return masked_data
+#     """
+#     if noll_number < 1:
+#         raise ValueError("Noll index must be equal to or greater than 1")
+#     # Image dimensions
+#     X, Y = np.shape(mask)
+#     # Determine circle radius on to which define the Zernike
+#     if scale_length is not None:
+#         r = scale_length
+#     else:
+#         r = np.max([X, Y]) / 2
+#     # Conversion to polar coordinates on circle of radius r
+#     phi = lambda i, j: np.arctan2((j - Y / 2.0) / r, (i - X / 2.0) / r)
+#     rho = lambda i, j: np.sqrt(((j - Y / 2.0) / r) ** 2 + ((i - X / 2.0) / r) ** 2)
+#     mode = np.fromfunction(
+#         lambda i, j: zern._zernikel(noll_number, rho(i, j), phi(i, j)), [X, Y]
+#     )
+#     masked_data = mode[~mask]
+#     # Normalization of the masked data: null mean and unit STD
+#     if noll_number > 1:
+#         masked_data = (masked_data - np.mean(masked_data)) / np.std(masked_data)
+#     return masked_data
 
 
 #################################
@@ -149,7 +144,7 @@ class BaseFakeAlpao(ABC):
             Current shape of the DM.
         """
         raise NotImplementedError
-    
+
     @abstractmethod
     def uploadCmdHistory(self, timed_command_history: _t.MatrixLike):
         """
@@ -168,13 +163,12 @@ class BaseFakeAlpao(ABC):
         Executes the uploaded command history on the DM.
         """
         raise NotImplementedError
-    
 
     def _load_matrices(self):
         """
         Loads the required matrices for the deformable mirror's operations.
         """
-        if not os.path.exists(IffFile(self.nActs)):
+        if not os.path.exists(_root.SIM_DATA_FILE(self._name, "IF", self.nActs)):
             print(
                 f"First time simulating DM {self.nActs}. Generating influence functions..."
             )
@@ -182,7 +176,7 @@ class BaseFakeAlpao(ABC):
         else:
             print(f"Loaded influence functions.")
             self._iffCube = np.ma.masked_array(
-                osu.load_fits(IffFile(self.nActs))
+                osu.load_fits(_root.SIM_DATA_FILE(self._name, "IF", self.nActs))
             )
         self._create_int_and_rec_matrices()
         self._create_zernike_matrix()
@@ -191,20 +185,20 @@ class BaseFakeAlpao(ABC):
         """
         Create the Zernike matrix for the DM.
         """
-        if not os.path.exists(ZernMatFile(self.nActs)):
+        if not os.path.exists(_root.SIM_DATA_FILE(self._name, "ZM", self.nActs)):
             n_zern = self.nActs
             print("Computing Zernike matrix...")
-            self.ZM = xp.asnumpy(generate_zernike_matrix(n_zern, self.mask))
-            osu.save_fits(ZernMatFile(self.nActs), self.ZM)
+            self.ZM = xp.asnumpy(generateZernikeMatrix(n_zern, self.mask))
+            osu.save_fits(_root.SIM_DATA_FILE(self._name, "ZM", self.nActs), self.ZM)
         else:
             print(f"Loaded Zernike matrix.")
-            self.ZM = osu.load_fits(ZernMatFile(self.nActs))
+            self.ZM = osu.load_fits(_root.SIM_DATA_FILE(self._name, "ZM", self.nActs))
 
     def _create_int_and_rec_matrices(self):
         """
         Create the interaction matrices for the DM.
         """
-        if not os.path.exists(IntMatFile(self.nActs)):
+        if not os.path.exists(_root.SIM_DATA_FILE(self._name, "IM", self.nActs)):
             print("Computing interaction matrix...")
             im = xp.array(
                 [
@@ -213,17 +207,17 @@ class BaseFakeAlpao(ABC):
                 ]
             )
             self.IM = xp.asnumpy(im)
-            osu.save_fits(IntMatFile(self.nActs), self.IM)
+            osu.save_fits(_root.SIM_DATA_FILE(self._name, "IM", self.nActs), self.IM)
         else:
             print(f"Loaded interaction matrix.")
-            self.IM = osu.load_fits(IntMatFile(self.nActs))
-        if not os.path.exists(RecMatFile(self.nActs)):
+            self.IM = osu.load_fits(_root.SIM_DATA_FILE(self._name, "IM", self.nActs))
+        if not os.path.exists(_root.SIM_DATA_FILE(self._name, "RM", self.nActs)):
             print("Computing reconstruction matrix...")
             self.RM = xp.asnumpy(xp.linalg.pinv(im))
-            osu.save_fits(RecMatFile(self.nActs), self.RM)
+            osu.save_fits(_root.SIM_DATA_FILE(self._name, "RM", self.nActs), self.RM)
         else:
             print(f"Loaded reconstruction matrix.")
-            self.RM = osu.load_fits(RecMatFile(self.nActs))
+            self.RM = osu.load_fits(_root.SIM_DATA_FILE(self._name, "RM", self.nActs))
 
     def _simulate_Zonal_Iff_Acquisition(self):
         """
@@ -247,16 +241,17 @@ class BaseFakeAlpao(ABC):
         pix_coords = np.zeros((max_x * max_y, 2))
         pix_coords[:, 0] = np.repeat(np.arange(max_x), max_y)
         pix_coords[:, 1] = np.tile(np.arange(max_y), max_x)
-        
+
         act_pix_coords = self._scaleActCoords()
-        
+
         # Create Empty cube for IFF
         img_cube = np.zeros((max_x, max_y, n_acts))
         # For each actuator, compute the influence function with a TPS interpolation.
 
         from tps import ThinPlateSpline
+
         for k in range(n_acts):
-            print(f"{k+1}/{n_acts}", end='\r', flush=True)
+            print(f"{k+1}/{n_acts}", end="\r", flush=True)
             # Create a command vector with a single nonzero element (ZONAL IFF).
             act_data = np.zeros(n_acts)
             act_data[k] = 1
@@ -264,12 +259,12 @@ class BaseFakeAlpao(ABC):
             tps.fit(act_pix_coords, act_data)
             flat_img = tps.transform(pix_coords)
             img_cube[:, :, k] = flat_img.reshape((max_x, max_y))
-        
+
         # Create a cube mask that tiles the local mirror mask for each actuator.
         cube_mask = np.tile(self.mask, n_acts).reshape(img_cube.shape, order="F")
         cube = np.ma.masked_array(img_cube, mask=cube_mask)
         # Save the cube to a FITS file.
-        fits_file = IffFile(self.nActs)
+        fits_file = _root.SIM_DATA_FILE(self._name, "IF", self.nActs)
         osu.save_fits(fits_file, cube)
         self._iffCube = cube
 

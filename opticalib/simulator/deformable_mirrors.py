@@ -18,7 +18,9 @@ class AlpaoDm(BaseFakeAlpao):
         self._live = False
         self._produce_random_shape()
 
-    def set_shape(self, command: _t.ArrayLike, differential: bool = False, modal: bool = False):
+    def set_shape(
+        self, command: _t.ArrayLike, differential: bool = False, modal: bool = False
+    ):
         """
         Applies the given command to the deformable mirror.
 
@@ -33,8 +35,6 @@ class AlpaoDm(BaseFakeAlpao):
         scaled_cmd = command * 1e-5  # more realistic command
         self._mirror_command(scaled_cmd, differential, modal)
         if self._live:
-
-
             time.sleep(0.15)
             plt.pause(0.05)
 
@@ -58,7 +58,7 @@ class AlpaoDm(BaseFakeAlpao):
 
     def runCmdHistory(
         self,
-        interf: _t.InterferometerDevice=None,
+        interf: _t.InterferometerDevice = None,
         save: str = None,
         rebin: int = 1,
         modal: bool = False,
@@ -109,7 +109,7 @@ class AlpaoDm(BaseFakeAlpao):
         self.set_shape(s)
         return tn
 
-    def visualize_shape(self, cmd: _t.ArrayLike=None):
+    def visualize_shape(self, cmd: _t.ArrayLike = None):
         """
         Visualizes the command amplitudes on the mirror's actuators.
 
@@ -164,7 +164,7 @@ class AlpaoDm(BaseFakeAlpao):
         self._shape[self._idx] += np.dot(cmd_amp, self.IM)
         self._actPos += cmd_amp
 
-    def _wavefront(self, **kwargs: dict[str,_t.Any]) -> np.array:
+    def _wavefront(self, **kwargs: dict[str, _t.Any]) -> np.array:
         """
         Current shape of the mirror's surface. Only used for the interferometer's
         live viewer (see `interferometer.py`).

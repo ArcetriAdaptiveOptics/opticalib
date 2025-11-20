@@ -98,7 +98,6 @@ def qpupil(mask, xx=None, yy=None, nocircle=0):
     return x0, y0, r, xx, yy
 
 
-
 def draw_mask(img, cx, cy, r, out=0):
     """Function to create circular mask
     Created by Runa

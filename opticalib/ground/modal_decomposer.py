@@ -303,8 +303,10 @@ class _ModeFitter(ABC):
                     surface += self._get_mode_from_generator(mode)
             surface[self.auxmask == 1] = 0.0
         return surface
-    
-    def makeSurfaceOnRoi(self, modes: int|list[int], image: _t.ImageData) -> list[_t.ImageData]:
+
+    def makeSurfaceOnRoi(
+        self, modes: int | list[int], image: _t.ImageData
+    ) -> list[_t.ImageData]:
         """
         Fits modes on each ROI found in the image, and returns an image with
         the modal surface for each ROI.
@@ -325,7 +327,10 @@ class _ModeFitter(ABC):
         nroi = len(roiimg)
         if not nroi > 1:
             import warnings
-            warnings.warn("Found less than 2 ROIs. Using `makeSurface` instead.", UserWarning)
+
+            warnings.warn(
+                "Found less than 2 ROIs. Using `makeSurface` instead.", UserWarning
+            )
             return self.makeSurface(modes, image)
         print("Found " + str(nroi) + " ROI")
         surfs = []
@@ -422,7 +427,6 @@ class _ModeFitter(ABC):
         finally:
             if was_temporary:
                 self._mgen = prev_mgen
-
 
     def _create_fit_mask_from_img(self, image: _t.ImageData) -> _CircularMask:
         """

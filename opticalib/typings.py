@@ -105,7 +105,9 @@ class _FakeDMProtocol(_DMProtocol, Protocol):
 
 
 DeformableMirrorDevice = TypeVar("DeformableMirrorDevice", bound=_DMProtocol)
-FakeDeformableMirrorDevice = TypeVar("FakeDeformableMirrorDevice", bound=_FakeDMProtocol)
+FakeDeformableMirrorDevice = TypeVar(
+    "FakeDeformableMirrorDevice", bound=_FakeDMProtocol
+)
 
 GenericDevice = TypeVar("GenericDevice")
 

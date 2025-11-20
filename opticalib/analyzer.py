@@ -19,6 +19,7 @@ import os as _os
 import xupy as _xp
 import numpy as _np
 import jdcal as _jdcal
+from numba import njit as _njit
 import matplotlib.pyplot as _plt
 from . import typings as _ot
 from .ground import modal_decomposer as zern
@@ -770,7 +771,7 @@ def pushPullReductionAlgorithm(
 
     Parameters
     ----------
-    imagelist : list of ImageData ! CubeData
+    imagelist : list of ImageData | CubeData
         List of images for the PushPull acquisition, organized according to the template.
     template: int | ArrayLike
         Template for the PushPull acquisition.
@@ -787,18 +788,21 @@ def pushPullReductionAlgorithm(
     n_images = len(imagelist)
     if shuffle == 0:
         # Template weights computation
-        w = template.astype(_np.result_type(template, imagelist[0].data), copy=True)
+        w = _xp.asarray(
+            template.astype(_np.result_type(template, imagelist[0].data), copy=True),
+            dtype=_xp.float,
+        )
         if n_images > 2:
             w[1:-1] *= 2.0
         # OR-reduce all masks once
-        master_mask = _np.logical_or.reduce(
-            [_xp.asnumpy(ima.mask) for ima in imagelist]
-        )
+        master_mask = _np.logical_or.reduce([ima.mask for ima in imagelist])
         # Compute weighted sum over realizations on raw data
-        stack = _np.stack([ima.data for ima in imagelist], axis=0)  # (n, H, W)
-        image = _xp.asnumpy(  # (H, W)
-            _xp.tensordot(_xp.asarray(w), _xp.asarray(stack), axes=(0, 0))
-        )
+        stack = _xp.stack(
+            [_xp.asarray(ima.data, dtype=_xp.float) for ima in imagelist],
+            axis=0,
+            dtype=_xp.float,
+        )  # (n, H, W)
+        image = _xp.asnumpy(_xp.tensordot(w, stack, axes=(0, 0)))  # (H, W)
     else:
         print("Shuffle option")
         for i in range(0, shuffle - 1):
@@ -877,6 +881,7 @@ def removeZernikeFromCube(
         Cube with Zernike modes removed from each frame.
     """
     from tqdm import tqdm
+
     zfit = zern.ZernikeFitter()
     if zmodes is None:
         zmodes = _np.array(range(1, 4))

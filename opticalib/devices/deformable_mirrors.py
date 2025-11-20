@@ -196,7 +196,7 @@ class DP(AdOpticaDm):
         """The Constructor"""
         super().__init__(tn)
         self._name = "DP"
-        self._logger = _sul(self._name+'_'+_ts())
+        self._logger = _sul(self._name + "_" + _ts())
 
     def set_shape(
         self,
@@ -307,7 +307,9 @@ class DP(AdOpticaDm):
             decFactor=diagdecim,
             startPointer=0,
         )
-        _log(f"DP Buffer readout configured: {buffer_len} samples at {clockfreq/diagdecim:1.2f} Hz")
+        _log(
+            f"DP Buffer readout configured: {buffer_len} samples at {clockfreq/diagdecim:1.2f} Hz"
+        )
         _log("Starting DP Buffer readout")
         subsys.support.diagBuf.start()
 
@@ -339,21 +341,21 @@ class DP(AdOpticaDm):
             result["rawData"] = bufData
 
             self.bufferData = result.copy()
-    
+
     def _get_buffer_mean_values(
-            position: _ot.ArrayLike,
-            position_error: _ot.ArrayLike, 
-            k: int = 12,
-            min_cmd: float = 1e-9
-        ):
+        position: _ot.ArrayLike,
+        position_error: _ot.ArrayLike,
+        k: int = 12,
+        min_cmd: float = 1e-9,
+    ):
         """
         Get mean position values for position and position error buffers
 
         Parameters
         ----------
-        position : np.ndarray 
+        position : np.ndarray
             Position values array (nActs, nSamples)
-        position_error : np.ndarray 
+        position_error : np.ndarray
             Position error values array (nActs, nSamples)
         k : int, optional
             Number of samples to wait before averaging each command. Defaults to 12
@@ -369,34 +371,34 @@ class DP(AdOpticaDm):
         """
         # Detect command jumps
         command = position + position_error
-        delta_command = command[:,1:] - command[:,:-1]
-        delta_bool = abs(delta_command) > min_cmd # 1 nm command threshold
+        delta_command = command[:, 1:] - command[:, :-1]
+        delta_bool = abs(delta_command) > min_cmd  # 1 nm command threshold
 
         nActs, nSteps = _np.shape(command)
         cmd_ids = []
 
         for i in range(nActs):
             ids = _np.arange(nSteps)
-            ids = ids[1:][delta_bool[i,:]]
+            ids = ids[1:][delta_bool[i, :]]
             filt_ids = []
-            for i in range(len(ids)-1):
-                if ids[i+1] - ids[i] > 1:
+            for i in range(len(ids) - 1):
+                if ids[i + 1] - ids[i] > 1:
                     filt_ids.append(ids[i])
             filt_ids.append(ids[-1])
             cmd_ids.append(filt_ids)
 
         cmd_ids = _np.array(cmd_ids, dtype=int)
-        cmd_ids = cmd_ids[:,2:] # remove trigger
+        cmd_ids = cmd_ids[:, 2:]  # remove trigger
 
-        startIds = cmd_ids[:,:-1]
-        endIds = cmd_ids[:,1:]
+        startIds = cmd_ids[:, :-1]
+        endIds = cmd_ids[:, 1:]
 
         # Define the minimum command length and crop all commands to the same number of samples
-        minCmdLen = _np.min(endIds-startIds)
+        minCmdLen = _np.min(endIds - startIds)
         endIds = startIds + minCmdLen
 
         nCmds = _np.shape(startIds)[1]
-        _log(f'Detected {nCmds:1.0f} commands of {minCmdLen:1.0f} samples')
+        _log(f"Detected {nCmds:1.0f} commands of {minCmdLen:1.0f} samples")
 
         # Full vectorized version
         # potentially memory hungry
@@ -407,10 +409,10 @@ class DP(AdOpticaDm):
         # act_idx = _np.arange(nActs)[:, None, None]
         # posMeans = _np.mean(position[act_idx, cmd_indices], axis=2)
 
-        cmdIds = _np.tile(_np.arange(minCmdLen),(nActs,nCmds))
-        cmdIds += _np.repeat(startIds,(minCmdLen,)).reshape([nActs,-1])
-        posMeans = _np.zeros((nActs,nCmds))
-        
+        cmdIds = _np.tile(_np.arange(minCmdLen), (nActs, nCmds))
+        cmdIds += _np.repeat(startIds, (minCmdLen,)).reshape([nActs, -1])
+        posMeans = _np.zeros((nActs, nCmds))
+
         # Da provare
         chunk_size = 10  # Processa 10 actuatori alla volta
         posMeans = _np.zeros((nActs, nCmds))
@@ -418,7 +420,9 @@ class DP(AdOpticaDm):
             end_i = min(i + chunk_size, nActs)
             cmd_indices = cmdIds[i:end_i].reshape(-1, nCmds, minCmdLen)[:, :, k:]
             act_idx = _np.arange(end_i - i)[:, None, None]
-            posMeans[i:end_i] = _np.mean(position[i:end_i][act_idx, cmd_indices], axis=2)
+            posMeans[i:end_i] = _np.mean(
+                position[i:end_i][act_idx, cmd_indices], axis=2
+            )
 
         # Potentially slow
         # for i in range(nActs):
@@ -426,7 +430,6 @@ class DP(AdOpticaDm):
         #         posMeans[i,j] = _np.mean(position[i,cmdIds[i,j*minCmdLen+k:(j+1)*minCmdLen]])
 
         return posMeans, cmdIds
-
 
 
 class M4AU(AdOpticaDm):

@@ -26,7 +26,7 @@ def iffDataAcquisition(
     template: _ot.Optional[_ot.ArrayLike] = None,
     shuffle: bool = False,
     differential: bool = False,
-    read_buffer: bool|dict[str,_ot.Any]= False,
+    read_buffer: bool | dict[str, _ot.Any] = False,
     # cmdOffset: _ot.Optional[float | _ot.ArrayLike] = None,
 ) -> str:
     """
@@ -93,8 +93,10 @@ def iffDataAcquisition(
     dm.uploadCmdHistory(tch)
     if read_buffer is not False:
         try:
-            if not hasattr(dm, 'read_buffer'):
-                raise _oe.BufferError(f"The `{dm.__class__.__name__}` device cannot read buffer data.")
+            if not hasattr(dm, "read_buffer"):
+                raise _oe.BufferError(
+                    f"The `{dm.__class__.__name__}` device cannot read buffer data."
+                )
             if not type(read_buffer) == bool:
                 rb_kwargs = read_buffer
             else:
@@ -110,4 +112,3 @@ def iffDataAcquisition(
         dm.runCmdHistory(interf, save=tn, differential=differential)
         out = tn
     return out
-
