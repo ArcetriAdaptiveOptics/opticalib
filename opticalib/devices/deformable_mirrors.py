@@ -343,6 +343,7 @@ class DP(AdOpticaDm):
             self.bufferData = result.copy()
 
     def _get_buffer_mean_values(
+        self,
         position: _ot.ArrayLike,
         position_error: _ot.ArrayLike,
         k: int = 12,

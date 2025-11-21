@@ -28,10 +28,10 @@ class _4DInterferometer(_api.BaseInterferometer):
     """
 
     def __init__(
-        self, model: _ot.Optional[str | int] = None, ip: str = None, port: int = None
+        self, ip: str = None, port: int = None
     ):
         """The constructor"""
-        super().__init__(self.name, ip, port)
+        super().__init__(self._name, ip, port)
         self._i4d = _api.I4D(self.ip, self.port)
         self._ic = _InterferometerConverter()
 
@@ -357,7 +357,7 @@ class AccuFiz(_4DInterferometer):
         self, model: _ot.Optional[str | int] = None, ip: str = None, port: int = None
     ):
         """The constructor"""
-        self.name = "AccuFiz" + str(model)
+        self._name = "AccuFiz" + str(model)
         super().__init__(model, ip, port)
 
 
@@ -370,7 +370,7 @@ class PhaseCam(_4DInterferometer):
         self, model: _ot.Optional[str | int] = None, ip: str = None, port: int = None
     ):
         """The constructor"""
-        self.name = "PhaseCam" + str(model)
+        self._name = "PhaseCam" + str(model)
         super().__init__(model, ip, port)
 
 

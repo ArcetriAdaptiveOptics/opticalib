@@ -80,3 +80,72 @@ def find_circular_pupil(image: _ot.ImageData, method: str = "COG") -> _ot.MaskDa
     """
     mask = CircularMask.fromMaskedArray(image, method=method).mask()
     return mask
+
+def rotate_image(
+    masked_img: _ot.ImageData,
+    angle_deg: float,
+    center: tuple[int, int] | None = None,
+    order: int = 1):
+    """
+    Rotate masked image and point coordinates about a center.
+
+    Parameters
+    ----------
+    masked_img : np.ma.MaskedArray
+        2D masked array.
+    points : (N,2) ndarray
+        Pixel coordinates (row, col) or (y, x). Must match image indexing.
+    angle_deg : float
+        Counter-clockwise rotation angle in degrees.
+    center : (cy, cx) or None
+        Rotation center. If None uses image geometric center.
+    order : int
+        Interpolation order (0=nearest,1=linear). Higher -> slower.
+
+    Returns
+    -------
+    rotated_img : np.ma.MaskedArray
+    rotated_points : (N,2) ndarray
+    """
+    from scipy.ndimage import affine_transform
+    img = masked_img.data
+    msk = masked_img.mask
+    h, w = img.shape
+    if center is None:
+        center = ((h - 1) / 2.0, (w - 1) / 2.0)
+
+    theta = np.deg2rad(angle_deg)
+    c, s = np.cos(theta), np.sin(theta)
+
+    # Rotation matrix in (row, col) space
+    R = np.array([[c, -s],
+                  [s,  c]])
+
+    # Affine transform expects matrix mapping output -> input.
+    # For pure rotation about center: R^{-1} = R.T
+    Rin = R.T
+
+    # Offset term for affine_transform: offset = center - Rin @ center
+    offset = np.array(center) - Rin @ np.array(center)
+
+    rotated_data = affine_transform(
+        img,
+        Rin,
+        offset=offset,
+        order=order,
+        mode='constant',
+        cval=0.0,
+        prefilter=(order > 1)
+    )
+
+    rotated_mask = affine_transform(
+        msk.astype(float),
+        Rin,
+        offset=offset,
+        order=0,
+        mode='constant',
+        cval=1.0  # outside becomes masked
+    ) > 0.5
+    
+    rotated_img = np.ma.masked_array(rotated_data, mask=rotated_mask)
+    return rotated_img

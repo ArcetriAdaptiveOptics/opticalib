@@ -27,7 +27,7 @@ class VimbaXCam:
         cam_id : str
             The ID of the camera to be used.
         """
-        self.name = name
+        self._name = name
         self._cam_config = _gcc(device_name=self.name)
 
         # retrieve device ID or IP

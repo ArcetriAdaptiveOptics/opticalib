@@ -7,91 +7,6 @@ from ...core import root as _root
 from abc import ABC, abstractmethod
 from opticalib.ground import osutils as osu
 
-# LEGACY - let's see how new works
-# def generate_zernike_matrix(noll_ids: list[int], img_mask: _t.ImageData, scale_length: float = None):
-#     """
-#     Generates the interaction matrix of the Zernike modes with Noll index
-#     in noll_ids on the mask in input
-
-#     Parameters
-#     ----------
-#     noll_ids : ndarray(int) [Nzern,]
-#         Array of Noll indices to fit.
-#     img_mask : matrix bool
-#         Mask of the desired image.
-#     scale_length : float, optional
-#         The scale length to use for the Zernike fit.
-#         The default is the maximum of the image mask shape.
-
-#     Returns
-#     -------
-#     ZernMat : ndarray(float) [Npix,Nzern]
-#         The Zernike interaction matrix of the given indices on the given mask.
-#     """
-#     n_pix = np.sum(1 - img_mask)
-#     if isinstance(noll_ids, int):
-#         noll_ids = np.arange(1, noll_ids + 1, 1)
-#     n_zern = len(noll_ids)
-#     ZernMat = np.zeros([n_pix, n_zern])
-#     for i in range(n_zern):
-#         ZernMat[:, i] = _project_zernike_on_mask(noll_ids[i], img_mask, scale_length)
-#     return ZernMat
-
-
-# def _project_zernike_on_mask(noll_number: int, mask, scale_length: float = None):
-#     """
-#     Project the Zernike polynomials identified by the Noll number in input
-#     on a given mask.
-#     The polynomials are computed on the circle inscribed in the mask by default,
-#     or on a circle of radius scale_length if the corresponding input is given
-#     Masked data is then normalized as follows:
-#     data = ma.data[~ma.mask], data = (data - mean(data))/std(data)
-
-#     Parameters
-#     ----------
-#     noll_number : int
-#         Noll index of the desired Zernike polynomial.
-#     mask : matrix bool
-#         Mask of the desired image.
-#     scale_length : float, optional
-#         The scale length to use for the Zernike fit.
-#         The default is the maximum of the image mask shape.
-
-#     Returns
-#     -------
-#     masked_data : ndarray
-#         Flattenned array of the masked values of the Zernike
-#         shape projected on the mask.
-
-#     """
-#     if noll_number < 1:
-#         raise ValueError("Noll index must be equal to or greater than 1")
-#     # Image dimensions
-#     X, Y = np.shape(mask)
-#     # Determine circle radius on to which define the Zernike
-#     if scale_length is not None:
-#         r = scale_length
-#     else:
-#         r = np.max([X, Y]) / 2
-#     # Conversion to polar coordinates on circle of radius r
-#     phi = lambda i, j: np.arctan2((j - Y / 2.0) / r, (i - X / 2.0) / r)
-#     rho = lambda i, j: np.sqrt(((j - Y / 2.0) / r) ** 2 + ((i - X / 2.0) / r) ** 2)
-#     mode = np.fromfunction(
-#         lambda i, j: zern._zernikel(noll_number, rho(i, j), phi(i, j)), [X, Y]
-#     )
-#     masked_data = mode[~mask]
-#     # Normalization of the masked data: null mean and unit STD
-#     if noll_number > 1:
-#         masked_data = (masked_data - np.mean(masked_data)) / np.std(masked_data)
-#     return masked_data
-
-
-#################################
-## Base class that creates the ##
-##       simulated Alpao       ##
-#################################
-
-
 class BaseFakeAlpao(ABC):
     """
     Base class for deformable mirrors.
@@ -105,7 +20,7 @@ class BaseFakeAlpao(ABC):
         self.mirrorModes = None
         self.nActs = nActs
         self._pxScale = pixel_scale(self.nActs)
-        self.actCoords, self.mask = getAlpaoCoordsMask(self.nActs)
+        self.actCoords, self._mask = getAlpaoCoordsMask(self.nActs)
         self._scaledActCoords = self._scaleActCoords()
         self._iffCube = None
         self.IM = None
@@ -188,7 +103,7 @@ class BaseFakeAlpao(ABC):
         if not os.path.exists(_root.SIM_DATA_FILE(self._name, "ZM", self.nActs)):
             n_zern = self.nActs
             print("Computing Zernike matrix...")
-            self.ZM = xp.asnumpy(generateZernikeMatrix(n_zern, self.mask))
+            self.ZM = xp.asnumpy(generateZernikeMatrix(n_zern, self._mask))
             osu.save_fits(_root.SIM_DATA_FILE(self._name, "ZM", self.nActs), self.ZM)
         else:
             print(f"Loaded Zernike matrix.")
@@ -202,7 +117,7 @@ class BaseFakeAlpao(ABC):
             print("Computing interaction matrix...")
             im = xp.array(
                 [
-                    (self._iffCube[:, :, i].data)[self.mask == 0]
+                    (self._iffCube[:, :, i].data)[self._mask == 0]
                     for i in range(self._iffCube.shape[2])
                 ]
             )
@@ -236,7 +151,7 @@ class BaseFakeAlpao(ABC):
         """
         # Get the number of actuators from the coordinates array.
         n_acts = self.actCoords.shape[1]
-        max_x, max_y = self.mask.shape
+        max_x, max_y = self._mask.shape
         # Create pixel grid coordinates.
         pix_coords = np.zeros((max_x * max_y, 2))
         pix_coords[:, 0] = np.repeat(np.arange(max_x), max_y)
@@ -261,7 +176,7 @@ class BaseFakeAlpao(ABC):
             img_cube[:, :, k] = flat_img.reshape((max_x, max_y))
 
         # Create a cube mask that tiles the local mirror mask for each actuator.
-        cube_mask = np.tile(self.mask, n_acts).reshape(img_cube.shape, order="F")
+        cube_mask = np.tile(self._mask, n_acts).reshape(img_cube.shape, order="F")
         cube = np.ma.masked_array(img_cube, mask=cube_mask)
         # Save the cube to a FITS file.
         fits_file = _root.SIM_DATA_FILE(self._name, "IF", self.nActs)
@@ -272,7 +187,7 @@ class BaseFakeAlpao(ABC):
         """
         Scales the actuator coordinates to the mirror's pixel scale.
         """
-        max_x, max_y = self.mask.shape
+        max_x, max_y = self._mask.shape
         if not self.actCoords.shape[1] == 2:
             act_coords = self.actCoords.T  # shape: (n_acts, 2)
         act_pix_coords = np.zeros((self.nActs, 2), dtype=int)

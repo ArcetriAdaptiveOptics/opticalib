@@ -15,7 +15,7 @@ class BaseInterferometer(ABC):
         Initializes the interferometer with a name, in order to retrieve
         all the information from the configuration file.
         """
-        self.name = name
+        self._name = name
         if (ip and port) is None:
             config = getInterfConfig(name)
             ip = config["ip"]

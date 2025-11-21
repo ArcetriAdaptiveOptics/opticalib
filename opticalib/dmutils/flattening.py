@@ -182,8 +182,8 @@ class Flattening:
         header["CALDATA"] = (self.tn, "calibration data used")
         header["MODFLAT"] = (str(modes2flat), "modes used for flattening")
         header["MDISCAR"] = (modes2discard, "modes discarded in reconstructor")
-        header["DMNAME"] = (dm.name, "deformable mirror name")
-        header["INTERF"] = (interf.name, "interferometer used")
+        header["DMNAME"] = (dm._name, "deformable mirror name")
+        header["INTERF"] = (interf._name, "interferometer used")
         if not _os.path.exists(fold):
             _os.mkdir(fold)
         for f, d in zip(files, data):

@@ -1,2 +1,2 @@
-from .deformable_mirrors import AlpaoDm
-from .interferometer import Interferometer
+from .fake_dms import AlpaoDm, DP
+from .fake_interf import Fake4DInterf

@@ -1,6 +1,5 @@
 import numpy as _np
 import matplotlib.pyplot as _plt
-from opticalib.ground import zernike as zern
 from opticalib import typings as _t
 from opticalib.analyzer import modeRebinner as rebinned
 from matplotlib.animation import FuncAnimation as _FuncAnimation
@@ -15,10 +14,10 @@ _conf = {
 }
 
 
-class Fake4DInterferometer:
+class Fake4DInterf:
 
     def __init__(self, dm: _t.FakeDeformableMirrorDevice):
-        self.model = "4D"
+        self._name = "4DFakeInterferometer"
         self.full_frame = False
         self.shapesRemoved = None
         self._dm = dm
@@ -30,6 +29,7 @@ class Fake4DInterferometer:
         self._noisy = False
         self._fps = 10
         self._fW, self._fH = self._readFullFrameSize()
+        self._dmzfitter = self._dm._zern
 
     def live(
         self,
@@ -71,7 +71,7 @@ class Fake4DInterferometer:
         _plt.ion()
         fig, ax = _plt.subplots(figsize=(7, 7.5))
         fig.subplots_adjust(top=0.9, bottom=0.1, left=0.05, right=0.95)
-        fig.canvas.manager.set_window_title(f"Live View - Alpao DM {self._dm.nActs}")
+        fig.canvas.manager.set_window_title(f"Live View - {self._dm._name} {self._dm.nActs}")
         simg = self._dm._wavefront(
             zernike=zernike2remove, surf=self._surf, noisy=self._noisy
         )
@@ -163,12 +163,12 @@ class Fake4DInterferometer:
             imglist.append(masked_ima)
         image = _np.ma.dstack(imglist)
         image = _np.mean(image, axis=2)
-        masked_img = _np.ma.masked_array(image, mask=self._dm.mask)
+        masked_img = _np.ma.masked_array(image, mask=self._dm._mask)
         fimage = rebinned(masked_img, rebin)
         if self.full_frame:
             fimage = self.intoFullFrame(fimage)
         if self.shapesRemoved is not None:
-            fimage = zern.removeZernike(fimage, self.shapesRemoved)
+            fimage = self._dmzfitter.removeZernike(fimage, self.shapesRemoved)
         if self._freeze:
             if self._live:
                 self._surf = True
@@ -224,7 +224,7 @@ class Fake4DInterferometer:
         return self.intoFullFrame(self.acquire_map(**kwargs))
 
     # --------------------------------------------------------------------------
-    # Series of functions to control the behaviour of the live interferometer
+    # Series of functions to control the behavior of the live interferometer
     # --------------------------------------------------------------------------
 
     def toggleShapeRemoval(self, modes: list[int]):
