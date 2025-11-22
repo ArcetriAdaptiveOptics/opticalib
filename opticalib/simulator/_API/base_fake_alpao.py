@@ -113,7 +113,11 @@ class BaseFakeAlpao(ABC):
         """
         Create the interaction matrices for the DM.
         """
-        if not os.path.exists(_root.SIM_DATA_FILE(self._name, "IM", self.nActs)):
+        if not all([
+            os.path.exists(_root.SIM_DATA_FILE(self._name, "IM", self.nActs)),
+            os.path.exists(_root.SIM_DATA_FILE(self._name, "RM", self.nActs))
+            ]
+        ):
             print("Computing interaction matrix...")
             im = xp.array(
                 [
@@ -122,15 +126,13 @@ class BaseFakeAlpao(ABC):
                 ]
             )
             self.IM = xp.asnumpy(im)
+            print("Computing reconstruction matrix...")
+            self.RM = xp.asnumpy(xp.linalg.pinv(im))
             osu.save_fits(_root.SIM_DATA_FILE(self._name, "IM", self.nActs), self.IM)
+            osu.save_fits(_root.SIM_DATA_FILE(self._name, "RM", self.nActs), self.RM)
         else:
             print(f"Loaded interaction matrix.")
             self.IM = osu.load_fits(_root.SIM_DATA_FILE(self._name, "IM", self.nActs))
-        if not os.path.exists(_root.SIM_DATA_FILE(self._name, "RM", self.nActs)):
-            print("Computing reconstruction matrix...")
-            self.RM = xp.asnumpy(xp.linalg.pinv(im))
-            osu.save_fits(_root.SIM_DATA_FILE(self._name, "RM", self.nActs), self.RM)
-        else:
             print(f"Loaded reconstruction matrix.")
             self.RM = osu.load_fits(_root.SIM_DATA_FILE(self._name, "RM", self.nActs))
 

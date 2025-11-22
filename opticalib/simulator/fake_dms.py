@@ -266,7 +266,7 @@ class DP(BaseFakeDp):
         self._live = False
         
 
-    def set_shape(self, command, differential: bool = False, modal: bool = False):
+    def set_shape(self, command: _t.ArrayLike, differential: bool = False, modal: bool = False):
         """
         Applies the given command to the deformable mirror.
 
@@ -278,8 +278,7 @@ class DP(BaseFakeDp):
         differential : bool
             If True, the command is applied differentially.
         """
-        scaled_cmd = command * 1e-5  # more realistic command
-        self._mirror_command(scaled_cmd, differential, modal)
+        self._mirror_command(command, differential, modal)
         if self._live:
             time.sleep(0.15)
             plt.pause(0.05)
@@ -293,9 +292,10 @@ class DP(BaseFakeDp):
         np.array
             Current amplitudes commanded to the dm's actuators.
         """
-        return self._actPos.copy()
+        cmd = np.concatenate((self._actPos[0], self._actPos[1]))
+        return cmd
 
-    def uploadCmdHistory(self, cmdhist):
+    def uploadCmdHistory(self, cmdhist: _t.MatrixLike):
         """
         Upload the command history to the deformable mirror memory.
         Ready to run the `runCmdHistory` method.
@@ -304,7 +304,7 @@ class DP(BaseFakeDp):
 
     def runCmdHistory(
         self,
-        interf=None,
+        interf: _t.InterferometerDevice=None,
         save: str = None,
         rebin: int = 1,
         modal: bool = False,
@@ -374,12 +374,13 @@ class DP(BaseFakeDp):
         import matplotlib.pyplot as plt
 
         if cmd is None:
-            cmd = self._actPos.copy()
-        plt.figure(figsize=(7, 6))
+            cmd = self.get_shape()
+        coords = self.actCoords
+        plt.figure(figsize=(13, 6))
         size = (120 * 97) / self.nActs
-        plt.scatter(self._act_px_coords[:, 0], self._act_px_coords[:, 1], c=cmd, s=size, **kwargs)
+        plt.scatter(coords[:, 0], coords[:, 1], c=cmd, s=size, **kwargs)
         plt.xlabel(r"$x$ $[px]$")
         plt.ylabel(r"$y$ $[px]$")
-        plt.title(f"DM {self.nActs} Actuator's Coordinates")
+        plt.title(f"{self._name} {self.nActs} Actuator's Coordinates")
         plt.colorbar()
         plt.show()

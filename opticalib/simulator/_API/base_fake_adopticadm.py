@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import xupy as xp
 from tps import ThinPlateSpline
 #from scipy.interpolate import Rbf
 from opticalib import folders as fp
@@ -17,17 +18,21 @@ class BaseFakeDp:
     def __init__(self):
         """The constuctor"""
         self._name = "DP"
-        dir = join(os.path.dirname(__file__), "AdOpticaMirrorsData")
-        self.coords_file = os.path.join(dir, "dp_coords.fits")
-        self.mirrorModes = lf(os.path.join(dir, "dp_cmdmat.fits"))
-        self._mask, self._act_px_coords = self._createDpMaskAndCoords()
-        self.nActs = self._act_px_coords.shape[0]
-        self._load_matrices()
+        self._rootDataDit = join(os.path.dirname(__file__), "AdOpticaMirrorsData")
+        self.mirrorModes = lf(os.path.join(self._rootDataDit, "dp_cmdmat.fits"))
+        self.nActs = self.mirrorModes.shape[0]
+        self._createDpMaskAndCoords()
         self.cmdHistory = None
         self._shape = np.ma.masked_array(self._mask * 0, mask=self._mask, dtype=float)
-        self._idx = np.where(self._mask == 0)
-        self._actPos = np.zeros(self.nActs)
+        self._idx0, self._idx1 = self._get_segments_idx()
+        self._actPos = [np.zeros(self.nActs//2), np.zeros(self.nActs//2)]
+        self._load_matrices()
         self._zern = _ZF(self._mask)
+    
+    @property
+    def actCoords(self) -> _t.ArrayLike:
+        """Actuator coordinates in pixels."""
+        return self._coords.copy()
 
     def _wavefront(self, **kwargs: dict[str, _t.Any]) -> _t.ImageData:
         """
@@ -69,7 +74,7 @@ class BaseFakeDp:
             pimg = np.pad(img.data, ((dx//2, dx - dx//2), (dy//2, dy - dy//2)), mode='constant', constant_values=0)
             pmask = np.pad(img.mask, ((dx//2, dx - dx//2), (dy//2, dy - dy//2)), mode='constant', constant_values=1)
             img = np.ma.masked_array(pimg, mask=pmask)
-        return geo.rotate_image(img, angle_deg=45)
+        return geo.rotate_image(img, angle_deg=-70)
 
     def _mirror_command(self, cmd: _t.ArrayLike, diff: bool, modal: bool):
         """
@@ -88,14 +93,20 @@ class BaseFakeDp:
         np.array
             Processed shape based on the command.
         """
-        if modal:
-            mode_img = np.dot(self.ZM, cmd)
-            cmd = np.dot(mode_img, self.RM)
-        cmd_amp = cmd
-        if not diff:
-            cmd_amp = cmd - self._actPos
-        self._shape[self._idx] += np.dot(cmd_amp, self.IM)
-        self._actPos += cmd_amp
+        cmd0 = cmd[: self.nActs // 2].copy()
+        cmd1 = cmd[self.nActs // 2 :].copy()
+        tomove = [0, 1]
+        cmds = [cmd0, cmd1]
+        idxs = [self._idx0, self._idx1]
+        for s,cmx,idx in zip(tomove, cmds, idxs):
+            if modal:
+                mode_img = np.dot(self.ZM[s], cmx)
+                cmx = np.dot(mode_img, self.RM[s])
+            cmd_amp = cmx   
+            if not diff:
+                cmd_amp = cmx - self._actPos[s]
+            self._shape[idx] += np.dot(cmd_amp, self.IM[s])
+            self._actPos[s] += cmd_amp
 
     def _load_matrices(self):
         """
@@ -103,12 +114,12 @@ class BaseFakeDp:
         """
         if not os.path.exists(fp.SIM_DATA_FILE(self._name, 'IF')):
             print(
-                f"First time simulating DM {self.nActs}. Generating influence functions..."
+                f"First time simulating {self._name}.\nGenerating influence functions..."
             )
             self._simulateDP()
         else:
             print(f"Loaded influence functions.")
-            self._iffCube = np.ma.masked_array(lf(fp.SIM_DATA_FILE(self._name, 'IF')))
+            self._iffCube = lf(fp.SIM_DATA_FILE(self._name, 'IF'))
         self._create_int_and_rec_matrices()
         self._create_zernike_matrix()
 
@@ -117,97 +128,132 @@ class BaseFakeDp:
         Create the Zernike matrix for the DM.
         """
         if not os.path.exists(fp.SIM_DATA_FILE(self._name, 'ZM')):
-            n_zern = self.nActs
+            n_zern = self.nActs//2
             print("Computing Zernike matrix...")
             from .factory_functions import generateZernikeMatrix
 
-            self.ZM = generateZernikeMatrix(n_zern, self._mask)
-            sf(fp.SIM_DATA_FILE(self._name, 'ZM'), self.ZM)
+            zms = []
+            for mask in [self._ms0, self._ms1]:
+                zm = generateZernikeMatrix(n_zern, mask)
+                zms.append(zm)
+            ZM = np.dstack(zms)
+            sf(fp.SIM_DATA_FILE(self._name, 'ZM'), ZM)
+            self.ZM = zms
         else:
             print(f"Loaded Zernike matrix.")
-            self.ZM = lf(fp.SIM_DATA_FILE(self._name, 'ZM'))
+            zms = lf(fp.SIM_DATA_FILE(self._name, 'ZM'))
+            self.ZM = [zms[:,:,i] for i in range(zms.shape[-1])]
 
     def _create_int_and_rec_matrices(self):
         """
         Create the interaction matrices for the DM.
         """
         imfile = fp.SIM_DATA_FILE(self._name, 'IM')
-        if not os.path.exists(imfile):
+        rmfile = fp.SIM_DATA_FILE(self._name, 'RM')
+        if not all([
+            os.path.exists(imfile),
+            os.path.exists(rmfile)
+            ]
+        ):
             print("Computing interaction matrix...")
-            self.IM = np.array(
-                [
-                    (self._iffCube[:, :, i].data)[self._mask == 0]
-                    for i in range(self._iffCube.shape[2])
-                ]
-            )
-            sf(imfile, self.IM)
+            ims = []
+            rms = []
+            for mask,s in zip([self._ms0, self._ms1], [0,1]):
+                im = xp.array(
+                    [
+                        (self._iffCube[:, :, i, s].data)[mask == 0]
+                        for i in range(self._iffCube.shape[2])
+                    ],
+                    dtype=xp.float,
+                )
+                ims.append(im)
+                rms.append(xp.asnumpy(xp.linalg.pinv(im)))
+            im = xp.dstack(ims)
+            self.IM = [xp.asnumpy(ifm) for ifm in ims]
+            sf(imfile, im)
+            print("Computing reconstruction matrix...")
+            self.RM = [rm for rm in rms]
+            sf(rmfile, np.dstack(rms))
         else:
             print(f"Loaded interaction matrix.")
-            self.IM = lf(imfile)
-        rmfile = fp.SIM_DATA_FILE(self._name, 'RM')
-        if not os.path.exists(rmfile):
-            print("Computing reconstruction matrix...")
-            self.RM = np.linalg.pinv(self.IM)
-            sf(rmfile, self.RM)
-        else:
+            ims = lf(imfile)
+            self.IM = [ims[:,:,i] for i in range(ims.shape[-1])]
             print(f"Loaded reconstruction matrix.")
-            self.RM = lf(rmfile)
+            rms = lf(rmfile)
+            self.RM = [rms[:,:,i] for i in range(rms.shape[-1])]
+
+    def _getSegmentsMasks(self):
+        """
+        Get the masks of the two segments in the DP
+        """
+        
 
     def _simulateDP(self):
         """
         Simulates the influence function of the DP by TPS interpolation
         """
-        dp_mask = self._mask.copy()
-        act_px_coords = self._act_px_coords.copy()
-        X, Y = dp_mask.shape
-        # Create pixel grid coordinates.
-        pix_coords = np.zeros((X * Y, 2))
-        pix_coords[:, 0] = np.repeat(np.arange(X), Y)
-        pix_coords[:, 1] = np.tile(np.arange(Y), X)
-        img_cube = np.zeros((X, Y, self.nActs))
-        amps = np.ones(self.nActs)
-        # For each actuator, compute the influence function with a TPS interpolation.
-        for k in range(self.nActs):
-            print(f"{k+1}/{self.nActs}", end="\r", flush=True)
-            # Create a command vector with a single nonzero element.
-            act_data = np.zeros(self.nActs)
-            act_data[k] = amps[k]
-            tps = ThinPlateSpline(alpha=0.0)
-            tps.fit(act_px_coords, act_data)
-            flat_img = tps.transform(pix_coords)
-            img_cube[:, :, k] = flat_img.reshape((X, Y))
-        # Create a cube mask that tiles the local mirror mask for each actuator.
-        cube_mask = np.tile(self._mask, self.nActs).reshape(img_cube.shape, order="F")
-        cube = np.ma.masked_array(img_cube, mask=cube_mask)
-        # Save the cube to a FITS file.
-        fits_file = fp.SIM_DATA_FILE(self._name, "IF")
-        sf(fits_file, cube)
-        self._iffCube = cube
+        # get Segment0 mask and coordinates (scaled)
+        s0x, s0y = self._coords[: self.nActs // 2, :].T # segment 0 (upper)
+            # self._ms0 = dp_mask[: dp_mask.shape[0] // 2, :] # segment 0 mask
+        s0y -= self._ms0.shape[0]
+        s0acts = np.stack((s0x, s0y)).T
+        
+        # get Segment1 mask and coordinates
+        s1x, s1y = self._coords[self.nActs // 2 :, :].T # segment 1 (lower)
+            # self._ms1 = dp_mask[dp_mask.shape[0] // 2 :, :] # segment 1 mask
+        s1acts = np.stack((s1x, s1y)).T
 
-    def _createDpMaskAndCoords(self):
+        # act_px_coords = self._coords.copy()
+        iffcubes = []
+        segacts = 111
+        for act_px_coords,mask,sid in zip([s0acts, s1acts], [self._ms0, self._ms1], [0, 1]):
+            print(f"Segment {sid}", end="\n")
+            X, Y = mask.shape
+            # Create pixel grid coordinates.
+            pix_coords = np.zeros((X * Y, 2))
+            pix_coords[:, 0] = np.tile(np.arange(Y), X)
+            pix_coords[:, 1] = np.repeat(np.arange(X), Y)
+            img_cube = np.zeros((X, Y, segacts))
+            # For each actuator, compute the influence function with a TPS interpolation.
+            for k in range(segacts):
+                print(f"{k+1}/{segacts}", end="\r", flush=True)
+                # Create a command vector with a single nonzero element.
+                act_data = np.zeros(segacts)
+                act_data[k] = 1.
+                tps = ThinPlateSpline(alpha=0.0)
+                tps.fit(act_px_coords, act_data)
+                flat_img = tps.transform(pix_coords)
+                img_cube[:, :, k] = flat_img.reshape((X, Y))
+            # Create a cube mask that tiles the local mirror mask for each actuator.
+            cube_mask = np.tile(mask, segacts).reshape(img_cube.shape, order="F")
+            cube = np.ma.masked_array(img_cube, mask=cube_mask)
+            iffcubes.append(cube)
+            # Save the cube to a FITS file.
+        iffcubes = np.ma.stack(iffcubes, axis=3)
+        fits_file = fp.SIM_DATA_FILE(self._name, "IF")
+        sf(fits_file, iffcubes)
+        self._iffCube = iffcubes
+
+    def _createDpMaskAndCoords(self) -> tuple[_t.MaskData, _t.ArrayLike]:
         """
         Creates the mask and the actuator pixel coordinates for the DP
         """
-        if self.coords_file is not None:
-            dp_coords = lf(self.coords_file)
-        else:
-            dp_coords = lf("/mnt/nas/m4data/dp_plot_coord.fits")
+        dp_coords = lf(join(self._rootDataDit, 'dp_coords.fits'))
 
         # Get DP's shape vertex coordinates (only 1 segment)
         
-        x,y = dp_coords[dp_coords[:,1] > dp_coords[:,1].max()/2].T*1000 # upper segment
-        _,yl= dp_coords[dp_coords[:,1] < dp_coords[:,1].max()/2].T*1000 # lower segment
+        s0x,s0y = dp_coords[dp_coords[:,1] > dp_coords[:,1].max()/2].T*1000 # upper segment
+        s1x,s1y= dp_coords[dp_coords[:,1] < dp_coords[:,1].max()/2].T*1000 # lower segment
         
-        y0,y1,y2,y3 = y.min(), y.max(), y.max(), y.min()
-        x0,x1,x2,x3 = x[y==y0].min(), x[y==y1].min(), x[y==y2].max(), x[y==y3].max()
+        y0,y1,y2,y3 = s0y.min(), s0y.max(), s0y.max(), s0y.min()
+        x0,x1,x2,x3 = s0x[s0y==y0].min(), s0x[s0y==y1].min(), s0x[s0y==y2].max(), s0x[s0y==y3].max()
         
         # vertex coordinates of the upper segment
         cols = np.array([x0,x1,x2,x3])
         rows = np.array([y0,y1,y2,y3])
 
-        ylm = yl.max()
-        # FIXME: gap is too big, should be half, maybe 1/4
-        gap = np.abs((ylm - y1)//2).astype(np.int8) # in px
+        ylm = s1y.max()
+        gap = np.abs((ylm - y0)//2).astype(np.int8) # in px
 
         # rescale to mm/px
         cols = cols - cols.min()
@@ -224,35 +270,28 @@ class BaseFakeDp:
         mask_dp = np.zeros((mm.shape[0] * 2, mm.shape[1]))
         mask_dp[mm.shape[0] :, :] = mm
         mask_dp += np.flipud(mask_dp)  # flipping up-down
-        
         mask_dp = mask_dp.astype(bool)
-
-        # creating the valid pixel coordinates as a meshgrid
-        X = np.arange(mask_dp.shape[1])
-        Y = np.arange(mask_dp.shape[0])
-        XX, YY = np.meshgrid(X, Y)
-        xvalid = XX[~mask_dp].flatten()
-        yvalid = YY[~mask_dp].flatten()
-
-        # calculating the pixel to meter scale factors
-        xlen = xvalid.max() - xvalid.min()  # px
-        ylen = yvalid.max() - yvalid.min()  # px
-
-        # dp dimensions in meters
-        x_dp = dp_coords[:, 0].max() - dp_coords[:, 0].min()  # m
-        y_dp = dp_coords[:, 1].max() - dp_coords[:, 1].min()  # m
-
-        # pixel scale factor
-        xscale = x_dp / xlen
-        yscale = y_dp / ylen
-
-        # scaling the dp coordinates to pixel coordinates
-        dp2c = np.copy(dp_coords)
-        dp2c *= 1000
-        dp2c[:, 0] -= dp2c[:, 0].min()
-        dp2c[:, 1] -= dp2c[:, 1].min()
 
         # padding the mask to avoid tangent frame
         final_mask = np.pad(mask_dp, 5, mode="constant", constant_values=1)
 
-        return final_mask, dp2c
+        # Reorganize actuator coordinates in shells
+        final_coords = np.empty_like(dp_coords)
+        final_coords[:self.nActs//2,:] = np.array([s0x,s0y]).T +5 # mathing padding
+        final_coords[self.nActs//2:,:] = np.array([s1x,s1y]).T +5 # mathing padding
+        
+        self._coords = final_coords.copy()
+        self._mask = final_mask.copy()
+        self._ms0 = final_mask[: final_mask.shape[0] // 2, :]
+        self._ms1 = final_mask[final_mask.shape[0] // 2 :, :]
+        # return final_mask, final_coords
+    
+    def _get_segments_idx(self):
+        """
+        Get the indices of the two segments in the DP mask
+        """
+        mid_row = self._mask.shape[0] // 2
+        idx0 = np.where(self._mask[:mid_row, :] == 0)
+        idx1 = np.where(self._mask[mid_row:, :] == 0)
+        idx1 = (idx1[0] + mid_row, idx1[1])  # adjust row indices for segment 1
+        return idx0, idx1

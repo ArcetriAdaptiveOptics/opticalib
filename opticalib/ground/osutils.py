@@ -483,6 +483,8 @@ def _ensure_on_cpu(data: _ot.ArrayLike) -> _ot.ArrayLike:
                 return _xu.asnumpy(data)
             elif "numpy" in str(type(data)):
                 return data
+        else:
+            raise ImportError
     except ImportError:
         return data
     return data
