@@ -1,14 +1,13 @@
 import os
-import numpy as np
 import xupy as xp
+import numpy as np
 from tps import ThinPlateSpline
 #from scipy.interpolate import Rbf
 from opticalib import folders as fp
 from opticalib import typings as _t
-from opticalib import load_fits as lf, save_fits as sf
-from skimage.draw import polygon_perimeter, polygon2mask
-from opticalib.ground.modal_decomposer import ZernikeFitter as _ZF
 from opticalib.ground import geometry as geo
+from opticalib import load_fits as lf, save_fits as sf
+from opticalib.ground.modal_decomposer import ZernikeFitter as _ZF
 
 join = os.path.join
 
@@ -17,17 +16,19 @@ class BaseFakeDp:
 
     def __init__(self):
         """The constuctor"""
-        self._name = "DP"
-        self._rootDataDit = join(os.path.dirname(__file__), "AdOpticaMirrorsData")
-        self.mirrorModes = lf(os.path.join(self._rootDataDit, "dp_cmdmat.fits"))
+        self._name = "AdOpticaDP"
+        self._rootDataDir = join(os.path.dirname(__file__), "AdOpticaData")
+        self.mirrorModes = lf(os.path.join(self._rootDataDir, "dp_cmdmat.fits"))
         self.nActs = self.mirrorModes.shape[0]
         self._createDpMaskAndCoords()
         self.cmdHistory = None
         self._shape = np.ma.masked_array(self._mask * 0, mask=self._mask, dtype=float)
         self._idx0, self._idx1 = self._get_segments_idx()
-        self._actPos = [np.zeros(self.nActs//2), np.zeros(self.nActs//2)]
         self._load_matrices()
         self._zern = _ZF(self._mask)
+        self._actPos = [np.zeros(self.nActs//2), np.zeros(self.nActs//2)]
+        self._ccalcurve, self._coffset = self._getCapsensCalibration()
+        self.set_shape(np.zeros(self.nActs)) # initialize to flat + offset
     
     @property
     def actCoords(self) -> _t.ArrayLike:
@@ -93,6 +94,7 @@ class BaseFakeDp:
         np.array
             Processed shape based on the command.
         """
+        cmd = self._applyCSCalibration(cmd)
         cmd0 = cmd[: self.nActs // 2].copy()
         cmd1 = cmd[self.nActs // 2 :].copy()
         tomove = [0, 1]
@@ -182,10 +184,20 @@ class BaseFakeDp:
             rms = lf(rmfile)
             self.RM = [rms[:,:,i] for i in range(rms.shape[-1])]
 
-    def _getSegmentsMasks(self):
+    def _getCapsensCalibration(self):
         """
-        Get the masks of the two segments in the DP
+        Loads the capacitive sensors calibration data.
         """
+        calcurve = np.random.uniform(0.9, 1.1, size=self.nActs)
+        offset = np.random.uniform(-5e-8, 5e-8, size=self.nActs)
+        return calcurve, offset
+    
+    def _applyCSCalibration(self, cmd: _t.ArrayLike):
+        """
+        Applies the capacitive sensors calibration to the current command.
+        """
+        ncmd = cmd*self._ccalcurve + self._coffset
+        return ncmd
         
 
     def _simulateDP(self):
@@ -238,7 +250,7 @@ class BaseFakeDp:
         """
         Creates the mask and the actuator pixel coordinates for the DP
         """
-        dp_coords = lf(join(self._rootDataDit, 'dp_coords.fits'))
+        dp_coords = lf(join(self._rootDataDir, 'dp_coords.fits'))
 
         # Get DP's shape vertex coordinates (only 1 segment)
         
@@ -277,8 +289,8 @@ class BaseFakeDp:
 
         # Reorganize actuator coordinates in shells
         final_coords = np.empty_like(dp_coords)
-        final_coords[:self.nActs//2,:] = np.array([s0x,s0y]).T +5 # mathing padding
-        final_coords[self.nActs//2:,:] = np.array([s1x,s1y]).T +5 # mathing padding
+        final_coords[:self.nActs//2,:] = np.array([s0x,s0y]).T +5 # matching padding
+        final_coords[self.nActs//2:,:] = np.array([s1x,s1y]).T +5 # matching padding
         
         self._coords = final_coords.copy()
         self._mask = final_mask.copy()

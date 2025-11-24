@@ -34,7 +34,9 @@ setup(
     python_requires=">=3.10",
     install_requires=requirements,
     include_package_data=True,
-    package_data={'opticalib': ['core/_configurations/configuration.yaml']},
+    package_data={'opticalib': ['core/_configurations/configuration.yaml',
+                                'simulator/_API/AdOpticaData/*',
+                                'simulator/_API/alpao_conf.yaml']},
     entry_points={
         'console_scripts': [
             'calpy=setup_calpy:main',

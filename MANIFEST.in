@@ -2,4 +2,6 @@ include README.md
 include requirements.txt
 include opticalib/core/_configurations/configuration.yaml
 include setup_calpy.py
+include opticalib/simulator/_API/AdOpticaData/*
+include opticalib/simulator/_API/alpao_conf.yaml
 recursive-include labott *.py

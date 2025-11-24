@@ -13,12 +13,12 @@ class AlpaoDm(BaseFakeAlpao):
     def __init__(self, nActs: int):
         super(AlpaoDm, self).__init__(nActs)
         self.cmdHistory = None
-        self._shape = np.ma.masked_array(self.mask * 0, mask=self.mask, dtype=float)
-        self._idx = np.where(self.mask == 0)
+        self._shape = np.ma.masked_array(self._mask * 0, mask=self._mask, dtype=float)
+        self._idx = np.where(self._mask == 0)
         self._actPos = np.zeros(self.nActs)
         self._live = False
         self._produce_random_shape()
-        self._zern = _ZF(self.mask)
+        self._zern = _ZF(self._mask)
 
     def set_shape(
         self, command: _t.ArrayLike, differential: bool = False, modal: bool = False
@@ -262,8 +262,8 @@ class DP(BaseFakeDp):
         """
         The constructor for the DPSimulator class.
         """
-        super().__init__()
         self._live = False
+        super().__init__()
         
 
     def set_shape(self, command: _t.ArrayLike, differential: bool = False, modal: bool = False):
@@ -375,7 +375,7 @@ class DP(BaseFakeDp):
 
         if cmd is None:
             cmd = self.get_shape()
-        coords = self.actCoords
+        coords = self.actCoords.copy()
         plt.figure(figsize=(13, 6))
         size = (120 * 97) / self.nActs
         plt.scatter(coords[:, 0], coords[:, 1], c=cmd, s=size, **kwargs)

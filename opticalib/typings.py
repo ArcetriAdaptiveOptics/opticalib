@@ -74,6 +74,7 @@ class _InterfProtocol(Protocol):
     def acquire_map(
         self, nframes: int, delay: int | float, rebin: int
     ) -> ImageData: ...
+    def acquireFullFrame(self, **kwargs: dict[str,Any]) -> ImageData: ...
     def capture(self, numberOfFrames: int, folder_name: str = None) -> str: ...
     def produce(self, tn: str): ...
 
@@ -105,10 +106,22 @@ class _FakeDMProtocol(_DMProtocol, Protocol):
     def _zern(self) -> Any: ...
     def _wavefront(self, **kwargs) -> ArrayLike: ...
 
+@runtime_checkable
+class _FakeInterfProtocol(_InterfProtocol, Protocol):
+    def live(self, ) -> tuple: ...
+    def toggleSurfaceView(self) -> None: ...
+    def toggleAcquisitionLiveFreeze(self) -> None: ...
+    def toggleLiveNoise(self) -> None: ...
+    def live_info(self) -> None: ...
+    def toggleShapeRemoval(self, modes: list[int]) -> None: ...
+    
 
 DeformableMirrorDevice = TypeVar("DeformableMirrorDevice", bound=_DMProtocol)
 FakeDeformableMirrorDevice = TypeVar(
     "FakeDeformableMirrorDevice", bound=_FakeDMProtocol
+)
+FakeInterferometerDevice = TypeVar(
+    "FakeInterferometerDevice", bound=_FakeInterfProtocol
 )
 
 GenericDevice = TypeVar("GenericDevice")
@@ -287,6 +300,7 @@ class InstanceCheck:
             "DeformableMirrorDevice": _DMProtocol,
             "InterferometerDevice": _InterfProtocol,
             "FakeDeformableMirrorDevice": _FakeDMProtocol,
+            "FakeInterferometerDevice": _FakeInterfProtocol,
         }
         if class_name not in generic_class_map:
             raise ValueError(f"Class {class_name} not found in the current context.")
@@ -319,6 +333,7 @@ class InstanceCheck:
             "InterferometerDevice": cls.generic_check,
             "DeformableMirrorDevice": cls.generic_check,
             "FakeDeformableMirrorDevice": cls.generic_check,
+            "FakeInterferometerDevice": cls.generic_check,
         }
         if class_name not in checks:
             raise ValueError(f"Unknown class name: {class_name}")

@@ -83,7 +83,7 @@ class BaseFakeAlpao(ABC):
         """
         Loads the required matrices for the deformable mirror's operations.
         """
-        if not os.path.exists(_root.SIM_DATA_FILE(self._name, "IF", self.nActs)):
+        if not os.path.exists(_root.SIM_DATA_FILE(self._name, "IF")):
             print(
                 f"First time simulating DM {self.nActs}. Generating influence functions..."
             )
@@ -91,7 +91,7 @@ class BaseFakeAlpao(ABC):
         else:
             print(f"Loaded influence functions.")
             self._iffCube = np.ma.masked_array(
-                osu.load_fits(_root.SIM_DATA_FILE(self._name, "IF", self.nActs))
+                osu.load_fits(_root.SIM_DATA_FILE(self._name, "IF"))
             )
         self._create_int_and_rec_matrices()
         self._create_zernike_matrix()
@@ -100,22 +100,22 @@ class BaseFakeAlpao(ABC):
         """
         Create the Zernike matrix for the DM.
         """
-        if not os.path.exists(_root.SIM_DATA_FILE(self._name, "ZM", self.nActs)):
+        if not os.path.exists(_root.SIM_DATA_FILE(self._name, "ZM")):
             n_zern = self.nActs
             print("Computing Zernike matrix...")
             self.ZM = xp.asnumpy(generateZernikeMatrix(n_zern, self._mask))
-            osu.save_fits(_root.SIM_DATA_FILE(self._name, "ZM", self.nActs), self.ZM)
+            osu.save_fits(_root.SIM_DATA_FILE(self._name, "ZM"), self.ZM)
         else:
             print(f"Loaded Zernike matrix.")
-            self.ZM = osu.load_fits(_root.SIM_DATA_FILE(self._name, "ZM", self.nActs))
+            self.ZM = osu.load_fits(_root.SIM_DATA_FILE(self._name, "ZM"))
 
     def _create_int_and_rec_matrices(self):
         """
         Create the interaction matrices for the DM.
         """
         if not all([
-            os.path.exists(_root.SIM_DATA_FILE(self._name, "IM", self.nActs)),
-            os.path.exists(_root.SIM_DATA_FILE(self._name, "RM", self.nActs))
+            os.path.exists(_root.SIM_DATA_FILE(self._name, "IM")),
+            os.path.exists(_root.SIM_DATA_FILE(self._name, "RM"))
             ]
         ):
             print("Computing interaction matrix...")
@@ -128,13 +128,13 @@ class BaseFakeAlpao(ABC):
             self.IM = xp.asnumpy(im)
             print("Computing reconstruction matrix...")
             self.RM = xp.asnumpy(xp.linalg.pinv(im))
-            osu.save_fits(_root.SIM_DATA_FILE(self._name, "IM", self.nActs), self.IM)
-            osu.save_fits(_root.SIM_DATA_FILE(self._name, "RM", self.nActs), self.RM)
+            osu.save_fits(_root.SIM_DATA_FILE(self._name, "IM"), self.IM)
+            osu.save_fits(_root.SIM_DATA_FILE(self._name, "RM"), self.RM)
         else:
             print(f"Loaded interaction matrix.")
-            self.IM = osu.load_fits(_root.SIM_DATA_FILE(self._name, "IM", self.nActs))
+            self.IM = osu.load_fits(_root.SIM_DATA_FILE(self._name, "IM"))
             print(f"Loaded reconstruction matrix.")
-            self.RM = osu.load_fits(_root.SIM_DATA_FILE(self._name, "RM", self.nActs))
+            self.RM = osu.load_fits(_root.SIM_DATA_FILE(self._name, "RM"))
 
     def _simulate_Zonal_Iff_Acquisition(self):
         """
@@ -181,7 +181,7 @@ class BaseFakeAlpao(ABC):
         cube_mask = np.tile(self._mask, n_acts).reshape(img_cube.shape, order="F")
         cube = np.ma.masked_array(img_cube, mask=cube_mask)
         # Save the cube to a FITS file.
-        fits_file = _root.SIM_DATA_FILE(self._name, "IF", self.nActs)
+        fits_file = _root.SIM_DATA_FILE(self._name, "IF")
         osu.save_fits(fits_file, cube)
         self._iffCube = cube
 
