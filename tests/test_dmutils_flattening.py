@@ -180,41 +180,42 @@ class TestFlattening:
         # Image should be aligned to cube shape
         assert aligned_img.shape == f._intCube.shape[:2]
 
-    # FIXME: FAILED tests/test_dmutils_flattening.py::TestFlattening::test_apply_flat_command - ValueError: Illegal value: <MagicMock name='mock._name' id='140183703826272'>
-    # def test_apply_flat_command(
-    #     self, sample_int_matrix_folder, mock_dm, mock_interferometer, temp_dir, sample_image, monkeypatch
-    # ):
-    #     """Test applying flat command."""
-    #     from opticalib.core.root import folders
-    #     import os
+    def test_apply_flat_command(
+        self, sample_int_matrix_folder, mock_dm, mock_interferometer, temp_dir, sample_image, monkeypatch
+    ):
+        """Test applying flat command."""
+        from opticalib.core.root import folders
+        import os
         
-    #     tn, tn_folder = sample_int_matrix_folder
+        tn, tn_folder = sample_int_matrix_folder
         
-    #     # Setup mock interferometer
-    #     mock_interferometer.acquire_map.return_value = sample_image #ma.masked_array(
-    #         #np.random.randn(50, 50).astype(np.float32),
-    #         #mask=np.zeros((50, 50), dtype=bool)
-    #     #)
+        # Properly configure mock_dm with required attributes
+        mock_dm._name = "TestDM"
+        mock_dm.get_shape.return_value = np.zeros(sample_image.shape)
+        mock_dm.set_shape.return_value = None
         
-    #     # Setup folder
-    #     flat_folder = os.path.join(temp_dir, "Flattening")
-    #     os.makedirs(flat_folder, exist_ok=True)
-    #     monkeypatch.setattr(folders, "FLAT_ROOT_FOLDER", flat_folder)
+        # Setup mock interferometer
+        mock_interferometer.acquire_map.return_value = sample_image
         
-    #     f = flt.Flattening(tn)
-    #     f.loadImage2Shape(mock_interferometer.acquire_map())
-    #     f.computeRecMat(threshold=5)
+        # Setup folder
+        flat_folder = os.path.join(temp_dir, "Flattening")
+        os.makedirs(flat_folder, exist_ok=True)
+        monkeypatch.setattr(folders, "FLAT_ROOT_FOLDER", flat_folder)
         
-    #     f.applyFlatCommand(
-    #         mock_dm,
-    #         mock_interferometer,
-    #         modes2flat=5,
-    #         nframes=1
-    #     )
+        f = flt.Flattening(tn)
+        f.loadImage2Shape(mock_interferometer.acquire_map())
+        f.computeRecMat(threshold=5)
         
-    #     # Verify interferometer was called
-    #     assert mock_interferometer.acquire_map.call_count >= 2
-    #     # Verify DM was called
-    #     mock_dm.get_shape.assert_called()
-    #     mock_dm.set_shape.assert_called()
+        f.applyFlatCommand(
+            mock_dm,
+            mock_interferometer,
+            modes2flat=5,
+            nframes=1
+        )
+        
+        # Verify interferometer was called
+        assert mock_interferometer.acquire_map.call_count >= 2
+        # Verify DM was called
+        mock_dm.get_shape.assert_called()
+        mock_dm.set_shape.assert_called()
 
