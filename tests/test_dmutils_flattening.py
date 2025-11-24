@@ -195,6 +195,7 @@ class TestFlattening:
         mock_dm.set_shape.return_value = None
         
         # Setup mock interferometer
+        mock_interferometer._name = 'TestInterferometer'
         mock_interferometer.acquire_map.return_value = sample_image
         
         # Setup folder
