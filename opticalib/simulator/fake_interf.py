@@ -16,17 +16,37 @@ _conf = {
 
 class Fake4DInterf:
 
-    def __init__(self, dm: _t.FakeDeformableMirrorDevice):
+    def __init__(self, dm: _t.FakeDeformableMirrorDevice, **kwargs: dict[str, _t.Any]):
+        """
+        Initializes the Fake4DInterferometer instance.
+        
+        Parameters
+        ----------
+        dm : FakeDeformableMirrorDevice
+            The deformable mirror device to be simulated.
+        **kwargs : dict, optional
+            Additional keyword arguments for live settings:
+            - full_frame : bool
+                If True, the interferometer operates in full frame mode.
+            - remove_zerns : list of int
+                Zernike modes to be removed from the wavefront.
+            - surface_view : bool
+                If True, the live view shows the surface shape.
+            - freeze_on_acquisition : bool
+                If True, the live wavefront is frozen when acquiring.
+            - add_noise : bool
+                If True, noise is added to the live wavefront.
+        
+        Returns
+        -------
+        None
+        """
         self._name = "4DFakeInterferometer"
-        self.full_frame = False
-        self.shapesRemoved = None
+        self._set_live_settings(**kwargs)
+        self._live = False
         self._dm = dm
         self._lambda = 632.8e-9  # λ[m]
         self._anim = None
-        self._live = False
-        self._surf = False
-        self._freeze = False
-        self._noisy = False
         self._fps = 10
         self._fW, self._fH = self._readFullFrameSize()
         self._dmzfitter = self._dm._zern
@@ -271,7 +291,7 @@ class Fake4DInterf:
         """
         params = self.getCameraSettings()
         state = f"""
-{self.model}
+{self._name}
 --------------------------
 Full Frame Size    : {self._fW}x{self._fH}
 Actual Frame Size  : {params['Width']}x{params['Height']}
@@ -285,7 +305,22 @@ Surface View       : {self._surf}
 Freeze on Acqu.    : {self._freeze}
 Noise              : {self._noisy}"""
         print(state)
+    
+    def _set_live_settings(self, **kwargs: dict[str, _t.Any]):
+        """
+        Sets the live settings of the interferometer.
 
+        Parameters
+        ----------
+        **kwargs : dict, optional
+            Additional keyword arguments for live settings.
+        """
+        self.full_frame = kwargs.get("full_frame", False)
+        self.shapesRemoved = kwargs.get("remove_zerns", None)
+        self._surf = kwargs.get("surface_view", False)
+        self._freeze = kwargs.get("freeze_on_acquisition", False)
+        self._noisy = kwargs.get("add_noise", False)
+        
     # ==========================================================================
 
     def getCameraSettings(self):

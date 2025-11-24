@@ -78,6 +78,7 @@ def process(
     save: bool = False,
     rebin: int = 1,
     *,
+    trigger_roi: int = None,
     nworkers: int = 1,
     nmode_prefetch: int = 0,
 ) -> None:
@@ -114,7 +115,7 @@ def process(
     new_fold = _os.path.join(_intMatFold, tn)
     if not _os.path.exists(new_fold):
         _os.mkdir(new_fold)
-    trigFrame = getTriggerFrame(tn)
+    trigFrame = getTriggerFrame(tn, roi=trigger_roi)
     regMat = getRegFileMatrix(tn, trigFrame)
     modesMat = getIffFileMatrix(tn, trigFrame)
     modesMatReorg = _modesReorganization(modesMat)
@@ -243,6 +244,7 @@ def stackCubes(tnlist: str, cubeNames: _ot.Optional[list[str]]) -> None:
     _osu.save_fits(save_cmat, stacked_cmat)
     _osu.save_fits(save_mvec, stacked_mvec)
     print(f"Stacked cube and matrices saved in {new_tn}")
+    return new_tn
 
 
 def filterZernikeCube(
@@ -496,7 +498,6 @@ def getTriggerFrame(tn: str, amplitude: int | float = None, roi: int = None) -> 
         img1 = _osu.read_phasemap(fileList[i])
         if not roi is None:
             rois = _roi.roiGenerator(img0)
-            roi2use = rois[roi]  # ??
             _ = rois.pop(roi)
             for r in rois:
                 img1.mask[r == 0] = True

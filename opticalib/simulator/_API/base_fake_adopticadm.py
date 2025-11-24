@@ -27,7 +27,8 @@ class BaseFakeDp:
         self._load_matrices()
         self._zern = _ZF(self._mask)
         self._actPos = [np.zeros(self.nActs//2), np.zeros(self.nActs//2)]
-        self._ccalcurve, self._coffset = self._getCapsensCalibration()
+        self._ccalcurve = self._getCapsensCalibration()
+        self._biasCmd = self._getBiasCmd()
         self.set_shape(np.zeros(self.nActs)) # initialize to flat + offset
     
     @property
@@ -66,10 +67,11 @@ class BaseFakeDp:
         if not surf:
             Ilambda = 632.8e-9
             phi = np.random.uniform(-0.25 * np.pi, 0.25 * np.pi) if noisy else 0
-            wf = np.sin(2 * np.pi / Ilambda * img + phi)
+            wf = np.sin(2 * np.pi / Ilambda * img.copy() + phi)
             A = np.std(img) / np.std(wf)
             wf *= A
-            img = wf
+            img = wf.copy()
+            del wf
         dx, dy = 650-img.shape[0], 650-img.shape[1]
         if dx > 0 or dy > 0:
             pimg = np.pad(img.data, ((dx//2, dx - dx//2), (dy//2, dy - dy//2)), mode='constant', constant_values=0)
@@ -189,14 +191,22 @@ class BaseFakeDp:
         Loads the capacitive sensors calibration data.
         """
         calcurve = np.random.uniform(0.9, 1.1, size=self.nActs)
-        offset = np.random.uniform(-5e-8, 5e-8, size=self.nActs)
-        return calcurve, offset
+        return calcurve
+    
+    def _getBiasCmd(self):
+        """
+        Loads the bias command for the DP.
+        """
+        biascmd = np.random.uniform(75e-9, 85e-9, size=self.nActs)
+        return biascmd
     
     def _applyCSCalibration(self, cmd: _t.ArrayLike):
         """
         Applies the capacitive sensors calibration to the current command.
         """
-        ncmd = cmd*self._ccalcurve + self._coffset
+        ncmd = cmd*self._ccalcurve
+        if all(cmd == 0):
+            ncmd += self._biasCmd
         return ncmd
         
 
