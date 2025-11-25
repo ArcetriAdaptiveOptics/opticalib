@@ -11,7 +11,9 @@ file for the `opticalib` package.
 
 Options:
 --------
-no option : Initialize an IPython --pylab shell
+no option : Initialize an IPython shell executing the `opticalib` init script.
+            This will load `opticalib` loading a pre-configured environment and 
+            configuration file, in `~/.tmp_opticalib/SysConfig/configuration.yaml`.
 
 -f <path> : Option to pass the path to a configuration file to be read 
             (e.g., '../opticalibConf/configuration.yaml'). Used to initiate
@@ -23,10 +25,10 @@ no option : Initialize an IPython --pylab shell
                      configuration file is already updated with the provided
                      data path.
                      
--c <path> : Create the configuration file in the specified path, as well as 
-            the complete  data folder tree, and exit. The created
-            configuration file is already updated with the provided
-            data path.
+-c|--create <path> : Create the configuration file in the specified path, as well as 
+                     the complete  data folder tree, and exit. The created
+                     configuration file is already updated with the provided
+                     data path.
 
 -h |--help : Shows this help message
 
@@ -40,35 +42,11 @@ def check_dir(config_path: str) -> str:
     config_path = os.path.join(config_path, 'configuration.yaml')
     return config_path
 
-def backend_fallback() -> str:
-    """Check if the preferred matplotlib backend is available, fallback if not.
-
-    Parameters
-    ----------
-    preferred : str
-        The preferred backend to use.
-
-    Returns
-    -------
-    str
-        The backend to use.
-    """
-    import matplotlib
-    try:
-        # Prefer Qt event loop integration; IPython accepts --pylab=qt
-        matplotlib.use('qt', force=True)
-        return 'qt'
-    except Exception:
-        return "auto"
-
-
 def main():
     """
     Main function to handle command-line arguments and launch IPython
     shell with optional configuration.
     """
-    home = os.path.expanduser("~")
-    backend = backend_fallback()
     init_file = os.path.join(os.path.dirname(__file__), '__init_script__', 'initCalpy.py')
     # Check if IPython is installed in current interpreter
     if importlib.util.find_spec("IPython") is None:
@@ -104,14 +82,14 @@ def main():
             env = os.environ.copy()
             env["AOCONF"] = config_path
             # Launch IPython using the current interpreter for cross-platform compatibility
-            args = [sys.executable, "-m", "IPython", f"--pylab={backend}", "-i", init_file]
+            args = [sys.executable, "-m", "IPython", "-i", init_file]
             subprocess.run(args, env=env, check=False)
         except OSError as ose:
             print(f"Error: {ose}")
             sys.exit(1)
 
     # -c <path> is passed
-    elif len(sys.argv) > 2 and sys.argv[1] == '-c' and sys.argv[2]:
+    elif len(sys.argv) > 2 and any(sys.argv[1] == '-c', sys.argv[1] == '--create') and sys.argv[2]:
         config_path = sys.argv[2]
         config_path = os.path.expanduser(config_path)
         # Use robust absolute path detection (works on Windows and Unix)
@@ -130,8 +108,8 @@ def main():
         
     # no option is passed
     elif len(sys.argv) == 1:
-        # Start plain IPython pylab session with Qt integration
-        args = [sys.executable, "-m", "IPython", f"--pylab={backend}"]
+        # Start plain IPython session with temp opticalib file loaded
+        args = [sys.executable, "-m", "IPython", "-i", init_file]
         subprocess.run(args, check=False)
         
     # Handle invalid arguments
