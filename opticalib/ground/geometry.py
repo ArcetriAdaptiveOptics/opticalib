@@ -81,11 +81,13 @@ def find_circular_pupil(image: _ot.ImageData, method: str = "COG") -> _ot.MaskDa
     mask = CircularMask.fromMaskedArray(image, method=method).mask()
     return mask
 
+
 def rotate_image(
     masked_img: _ot.ImageData,
     angle_deg: float,
     center: tuple[int, int] | None = None,
-    order: int = 1):
+    order: int = 1,
+):
     """
     Rotate masked image and point coordinates about a center.
 
@@ -108,6 +110,7 @@ def rotate_image(
     rotated_points : (N,2) ndarray
     """
     from scipy.ndimage import affine_transform
+
     img = masked_img.data
     msk = masked_img.mask
     h, w = img.shape
@@ -118,8 +121,7 @@ def rotate_image(
     c, s = np.cos(theta), np.sin(theta)
 
     # Rotation matrix in (row, col) space
-    R = np.array([[c, -s],
-                  [s,  c]])
+    R = np.array([[c, -s], [s, c]])
 
     # Affine transform expects matrix mapping output -> input.
     # For pure rotation about center: R^{-1} = R.T
@@ -133,19 +135,22 @@ def rotate_image(
         Rin,
         offset=offset,
         order=order,
-        mode='constant',
+        mode="constant",
         cval=0.0,
-        prefilter=(order > 1)
+        prefilter=(order > 1),
     )
 
-    rotated_mask = affine_transform(
-        msk.astype(float),
-        Rin,
-        offset=offset,
-        order=0,
-        mode='constant',
-        cval=1.0  # outside becomes masked
-    ) > 0.5
-    
+    rotated_mask = (
+        affine_transform(
+            msk.astype(float),
+            Rin,
+            offset=offset,
+            order=0,
+            mode="constant",
+            cval=1.0,  # outside becomes masked
+        )
+        > 0.5
+    )
+
     rotated_img = np.ma.masked_array(rotated_data, mask=rotated_mask)
     return rotated_img

@@ -34,7 +34,7 @@ class AVTCamera:
             print(f"Connected to camera:\n{repr}")
         except Exception as e:
             raise RuntimeError(
-                f"Could not connect to camera {self.name} with ID {self.cam_id}."
+                f"Could not connect to camera {self._name} with ID {self.cam_id}."
             ) from e
 
     def get_exptime(self) -> float:
@@ -50,7 +50,7 @@ class AVTCamera:
             exptimeFeat = cam.get_feature_by_name("ExposureTimeAbs")
             exposure_time = exptimeFeat.get()
         return exposure_time
-    
+
     def set_exptime(self, exptime_us: float):
         """
         Sets the exposure time of the camera.

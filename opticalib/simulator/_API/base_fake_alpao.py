@@ -6,6 +6,8 @@ from .factory_functions import *
 from ...core import root as _root
 from abc import ABC, abstractmethod
 from opticalib.ground import osutils as osu
+from scipy.interpolate import RBFInterpolator
+
 
 class BaseFakeAlpao(ABC):
     """
@@ -113,9 +115,10 @@ class BaseFakeAlpao(ABC):
         """
         Create the interaction matrices for the DM.
         """
-        if not all([
-            os.path.exists(_root.SIM_DATA_FILE(self._name, "IM")),
-            os.path.exists(_root.SIM_DATA_FILE(self._name, "RM"))
+        if not all(
+            [
+                os.path.exists(_root.SIM_DATA_FILE(self._name, "IM")),
+                os.path.exists(_root.SIM_DATA_FILE(self._name, "RM")),
             ]
         ):
             print("Computing interaction matrix...")
@@ -158,23 +161,26 @@ class BaseFakeAlpao(ABC):
         pix_coords = np.zeros((max_x * max_y, 2))
         pix_coords[:, 0] = np.repeat(np.arange(max_x), max_y)
         pix_coords[:, 1] = np.tile(np.arange(max_y), max_x)
-
         act_pix_coords = self._scaleActCoords()
-
         # Create Empty cube for IFF
         img_cube = np.zeros((max_x, max_y, n_acts))
+
         # For each actuator, compute the influence function with a TPS interpolation.
-
-        from tps import ThinPlateSpline
-
         for k in range(n_acts):
             print(f"{k+1}/{n_acts}", end="\r", flush=True)
             # Create a command vector with a single nonzero element (ZONAL IFF).
             act_data = np.zeros(n_acts)
             act_data[k] = 1
-            tps = ThinPlateSpline(alpha=0.0)
-            tps.fit(act_pix_coords, act_data)
-            flat_img = tps.transform(pix_coords)
+
+            rbf = RBFInterpolator(
+                act_pix_coords,  # Shape (n_acts, 2)
+                act_data,  # Shape (n_acts,)
+                kernel="thin_plate_spline",  # TPS
+                smoothing=0.0,  # No smoothing
+                degree=1,  # Polynomial degree for TPS
+            )
+            flat_img = rbf(pix_coords)
+
             img_cube[:, :, k] = flat_img.reshape((max_x, max_y))
 
         # Create a cube mask that tiles the local mirror mask for each actuator.

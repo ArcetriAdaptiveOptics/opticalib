@@ -191,7 +191,7 @@ class AlpaoDm(BaseFakeAlpao):
         zernike = kwargs.get("zernike", None)
         surf = kwargs.get("surf", True)
         noisy = kwargs.get("noisy", False)
-        img = np.ma.masked_array(self._shape, mask=self.mask)
+        img = np.ma.masked_array(self._shape, mask=self._mask)
         if zernike is not None:
             img = self._zern.removeZernike(img, zernike)
         if not surf:
@@ -240,6 +240,7 @@ class AlpaoDm(BaseFakeAlpao):
             )
             self._actPos = np.zeros(self.nActs)
 
+
 class DP(BaseFakeDp):
     """
     Simulator for the AdOptica Deformable Prototype (DP).
@@ -264,9 +265,10 @@ class DP(BaseFakeDp):
         """
         self._live = False
         super().__init__()
-        
 
-    def set_shape(self, command: _t.ArrayLike, differential: bool = False, modal: bool = False):
+    def set_shape(
+        self, command: _t.ArrayLike, differential: bool = False, modal: bool = False
+    ):
         """
         Applies the given command to the deformable mirror.
 
@@ -304,7 +306,7 @@ class DP(BaseFakeDp):
 
     def runCmdHistory(
         self,
-        interf: _t.InterferometerDevice=None,
+        interf: _t.InterferometerDevice = None,
         save: str = None,
         rebin: int = 1,
         modal: bool = False,
@@ -355,7 +357,7 @@ class DP(BaseFakeDp):
         self.set_shape(s)
         return tn
 
-    def visualize_shape(self, cmd: _t.ArrayLike = None, **kwargs: dict[str,_t.Any]):
+    def visualize_shape(self, cmd: _t.ArrayLike = None, **kwargs: dict[str, _t.Any]):
         """
         Visualizes the command amplitudes on the mirror's actuators.
 
@@ -370,7 +372,7 @@ class DP(BaseFakeDp):
         np.array
             Processed shape based on the command.
         """
-        size = kwargs.pop('s', (120 * 97) / self.nActs)
+        size = kwargs.pop("s", (120 * 97) / self.nActs)
         import matplotlib.pyplot as plt
 
         if cmd is None:

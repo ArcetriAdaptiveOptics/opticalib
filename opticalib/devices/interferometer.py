@@ -27,9 +27,7 @@ class _4DInterferometer(_api.BaseInterferometer):
     Class for the 4D Laser Interferometer.
     """
 
-    def __init__(
-        self, ip: str = None, port: int = None
-    ):
+    def __init__(self, ip: str = None, port: int = None):
         """The constructor"""
         super().__init__(self._name, ip, port)
         self._i4d = _api.I4D(self.ip, self.port)
@@ -382,7 +380,7 @@ class Processer4D(_4DInterferometer):
     The 4D software is loaded through a Virtual Machine (VM) that runs
     on a dedicated computer, over dedicated IP and Ports, allowing
     for multiple processers concurrently.
-    
+
     The processers need to be defined in the `configuration.yaml` file
     just like any other `INTERFEROMETER` device.
 
@@ -396,7 +394,7 @@ class Processer4D(_4DInterferometer):
         The port number of the processer.
     """
 
-    def __init__(self, nth: int|str = 1, ip: str = None, port: int = None):
+    def __init__(self, nth: int | str = 1, ip: str = None, port: int = None):
         """
         This class is used to process data of 4D interferometers, without
         the need to connect to the actual hardware device.
@@ -404,7 +402,7 @@ class Processer4D(_4DInterferometer):
         The 4D software is loaded through a Virtual Machine (VM) that runs
         on a dedicated computer, over dedicated IP and Ports, allowing
         for multiple processers concurrently.
-        
+
         The processers need to be defined in the `configuration.yaml` file
         just like any other `INTERFEROMETER` device.
 
@@ -419,22 +417,34 @@ class Processer4D(_4DInterferometer):
         """
         self._name = f"4DProcesser{nth}"
         super().__init__(ip, port)
-    
+
     # Disabled acquisition-related methods
     def acquire_map(self, *_, **__):
-        raise AttributeError("acquire_map is not available in Processer4D (processing only).")
+        raise AttributeError(
+            "acquire_map is not available in Processer4D (processing only)."
+        )
 
     def acquire_detector(self, *_, **__):
-        raise AttributeError("acquire_detector is not available in Processer4D (processing only).")
+        raise AttributeError(
+            "acquire_detector is not available in Processer4D (processing only)."
+        )
 
     def capture(self, *_, **__):
-        raise AttributeError("capture is not available in Processer4D (processing only).")
+        raise AttributeError(
+            "capture is not available in Processer4D (processing only)."
+        )
 
     def setTriggerMode(self, *_, **__):
-        raise AttributeError("setTriggerMode is not available in Processer4D (processing only).")
+        raise AttributeError(
+            "setTriggerMode is not available in Processer4D (processing only)."
+        )
 
     def get_interferogram(self, *_, **__):
-        raise AttributeError("get_interferogram is not available in Processer4D (processing only).")
-    
+        raise AttributeError(
+            "get_interferogram is not available in Processer4D (processing only)."
+        )
+
     def acquireFullFrame(self, *_, **__):
-        raise AttributeError("acquireFullFrame is not available in Processer4D (processing only).")
+        raise AttributeError(
+            "acquireFullFrame is not available in Processer4D (processing only)."
+        )

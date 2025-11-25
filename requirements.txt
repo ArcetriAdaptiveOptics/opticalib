@@ -2,7 +2,6 @@ arte
 astropy
 scikit-image
 scikit-learn
-thin-plate-spline
 vmbpy
 scipy
 plico_dm

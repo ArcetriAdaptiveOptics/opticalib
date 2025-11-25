@@ -1,8 +1,9 @@
 import os
 import xupy as xp
 import numpy as np
-from tps import ThinPlateSpline
-#from scipy.interpolate import Rbf
+from scipy.interpolate import RBFInterpolator
+
+# from scipy.interpolate import Rbf
 from opticalib import folders as fp
 from opticalib import typings as _t
 from opticalib.ground import geometry as geo
@@ -26,11 +27,11 @@ class BaseFakeDp:
         self._idx0, self._idx1 = self._get_segments_idx()
         self._load_matrices()
         self._zern = _ZF(self._mask)
-        self._actPos = [np.zeros(self.nActs//2), np.zeros(self.nActs//2)]
+        self._actPos = [np.zeros(self.nActs // 2), np.zeros(self.nActs // 2)]
         self._ccalcurve = self._getCapsensCalibration()
         self._biasCmd = self._getBiasCmd()
-        self.set_shape(np.zeros(self.nActs)) # initialize to flat + offset
-    
+        self.set_shape(np.zeros(self.nActs))  # initialize to flat + offset
+
     @property
     def actCoords(self) -> _t.ArrayLike:
         """Actuator coordinates in pixels."""
@@ -72,10 +73,20 @@ class BaseFakeDp:
             wf *= A
             img = wf.copy()
             del wf
-        dx, dy = 650-img.shape[0], 650-img.shape[1]
+        dx, dy = 650 - img.shape[0], 650 - img.shape[1]
         if dx > 0 or dy > 0:
-            pimg = np.pad(img.data, ((dx//2, dx - dx//2), (dy//2, dy - dy//2)), mode='constant', constant_values=0)
-            pmask = np.pad(img.mask, ((dx//2, dx - dx//2), (dy//2, dy - dy//2)), mode='constant', constant_values=1)
+            pimg = np.pad(
+                img.data,
+                ((dx // 2, dx - dx // 2), (dy // 2, dy - dy // 2)),
+                mode="constant",
+                constant_values=0,
+            )
+            pmask = np.pad(
+                img.mask,
+                ((dx // 2, dx - dx // 2), (dy // 2, dy - dy // 2)),
+                mode="constant",
+                constant_values=1,
+            )
             img = np.ma.masked_array(pimg, mask=pmask)
         return geo.rotate_image(img, angle_deg=-70)
 
@@ -102,11 +113,11 @@ class BaseFakeDp:
         tomove = [0, 1]
         cmds = [cmd0, cmd1]
         idxs = [self._idx0, self._idx1]
-        for s,cmx,idx in zip(tomove, cmds, idxs):
+        for s, cmx, idx in zip(tomove, cmds, idxs):
             if modal:
                 mode_img = np.dot(self.ZM[s], cmx)
                 cmx = np.dot(mode_img, self.RM[s])
-            cmd_amp = cmx   
+            cmd_amp = cmx
             if not diff:
                 cmd_amp = cmx - self._actPos[s]
             self._shape[idx] += np.dot(cmd_amp, self.IM[s])
@@ -116,14 +127,14 @@ class BaseFakeDp:
         """
         Loads the required matrices for the deformable mirror's operations.
         """
-        if not os.path.exists(fp.SIM_DATA_FILE(self._name, 'IF')):
+        if not os.path.exists(fp.SIM_DATA_FILE(self._name, "IF")):
             print(
                 f"First time simulating {self._name}.\nGenerating influence functions..."
             )
             self._simulateDP()
         else:
             print(f"Loaded influence functions.")
-            self._iffCube = lf(fp.SIM_DATA_FILE(self._name, 'IF'))
+            self._iffCube = lf(fp.SIM_DATA_FILE(self._name, "IF"))
         self._create_int_and_rec_matrices()
         self._create_zernike_matrix()
 
@@ -131,8 +142,8 @@ class BaseFakeDp:
         """
         Create the Zernike matrix for the DM.
         """
-        if not os.path.exists(fp.SIM_DATA_FILE(self._name, 'ZM')):
-            n_zern = self.nActs//2
+        if not os.path.exists(fp.SIM_DATA_FILE(self._name, "ZM")):
+            n_zern = self.nActs // 2
             print("Computing Zernike matrix...")
             from .factory_functions import generateZernikeMatrix
 
@@ -141,28 +152,24 @@ class BaseFakeDp:
                 zm = generateZernikeMatrix(n_zern, mask)
                 zms.append(zm)
             ZM = np.dstack(zms)
-            sf(fp.SIM_DATA_FILE(self._name, 'ZM'), ZM)
+            sf(fp.SIM_DATA_FILE(self._name, "ZM"), ZM)
             self.ZM = zms
         else:
             print(f"Loaded Zernike matrix.")
-            zms = lf(fp.SIM_DATA_FILE(self._name, 'ZM'))
-            self.ZM = [zms[:,:,i] for i in range(zms.shape[-1])]
+            zms = lf(fp.SIM_DATA_FILE(self._name, "ZM"))
+            self.ZM = [zms[:, :, i] for i in range(zms.shape[-1])]
 
     def _create_int_and_rec_matrices(self):
         """
         Create the interaction matrices for the DM.
         """
-        imfile = fp.SIM_DATA_FILE(self._name, 'IM')
-        rmfile = fp.SIM_DATA_FILE(self._name, 'RM')
-        if not all([
-            os.path.exists(imfile),
-            os.path.exists(rmfile)
-            ]
-        ):
+        imfile = fp.SIM_DATA_FILE(self._name, "IM")
+        rmfile = fp.SIM_DATA_FILE(self._name, "RM")
+        if not all([os.path.exists(imfile), os.path.exists(rmfile)]):
             print("Computing interaction matrix...")
             ims = []
             rms = []
-            for mask,s in zip([self._ms0, self._ms1], [0,1]):
+            for mask, s in zip([self._ms0, self._ms1], [0, 1]):
                 im = xp.array(
                     [
                         (self._iffCube[:, :, i, s].data)[mask == 0]
@@ -181,10 +188,10 @@ class BaseFakeDp:
         else:
             print(f"Loaded interaction matrix.")
             ims = lf(imfile)
-            self.IM = [ims[:,:,i] for i in range(ims.shape[-1])]
+            self.IM = [ims[:, :, i] for i in range(ims.shape[-1])]
             print(f"Loaded reconstruction matrix.")
             rms = lf(rmfile)
-            self.RM = [rms[:,:,i] for i in range(rms.shape[-1])]
+            self.RM = [rms[:, :, i] for i in range(rms.shape[-1])]
 
     def _getCapsensCalibration(self):
         """
@@ -192,43 +199,44 @@ class BaseFakeDp:
         """
         calcurve = np.random.uniform(0.9, 1.1, size=self.nActs)
         return calcurve
-    
+
     def _getBiasCmd(self):
         """
         Loads the bias command for the DP.
         """
         biascmd = np.random.uniform(75e-9, 85e-9, size=self.nActs)
         return biascmd
-    
+
     def _applyCSCalibration(self, cmd: _t.ArrayLike):
         """
         Applies the capacitive sensors calibration to the current command.
         """
-        ncmd = cmd*self._ccalcurve
+        ncmd = cmd * self._ccalcurve
         if all(cmd == 0):
             ncmd += self._biasCmd
         return ncmd
-        
 
     def _simulateDP(self):
         """
         Simulates the influence function of the DP by TPS interpolation
         """
         # get Segment0 mask and coordinates (scaled)
-        s0x, s0y = self._coords[: self.nActs // 2, :].T # segment 0 (upper)
-            # self._ms0 = dp_mask[: dp_mask.shape[0] // 2, :] # segment 0 mask
+        s0x, s0y = self._coords[: self.nActs // 2, :].T  # segment 0 (upper)
+        # self._ms0 = dp_mask[: dp_mask.shape[0] // 2, :] # segment 0 mask
         s0y -= self._ms0.shape[0]
         s0acts = np.stack((s0x, s0y)).T
-        
+
         # get Segment1 mask and coordinates
-        s1x, s1y = self._coords[self.nActs // 2 :, :].T # segment 1 (lower)
-            # self._ms1 = dp_mask[dp_mask.shape[0] // 2 :, :] # segment 1 mask
+        s1x, s1y = self._coords[self.nActs // 2 :, :].T  # segment 1 (lower)
+        # self._ms1 = dp_mask[dp_mask.shape[0] // 2 :, :] # segment 1 mask
         s1acts = np.stack((s1x, s1y)).T
 
         # act_px_coords = self._coords.copy()
         iffcubes = []
         segacts = 111
-        for act_px_coords,mask,sid in zip([s0acts, s1acts], [self._ms0, self._ms1], [0, 1]):
+        for act_px_coords, mask, sid in zip(
+            [s0acts, s1acts], [self._ms0, self._ms1], [0, 1]
+        ):
             print(f"Segment {sid}", end="\n")
             X, Y = mask.shape
             # Create pixel grid coordinates.
@@ -241,10 +249,17 @@ class BaseFakeDp:
                 print(f"{k+1}/{segacts}", end="\r", flush=True)
                 # Create a command vector with a single nonzero element.
                 act_data = np.zeros(segacts)
-                act_data[k] = 1.
-                tps = ThinPlateSpline(alpha=0.0)
-                tps.fit(act_px_coords, act_data)
-                flat_img = tps.transform(pix_coords)
+                act_data[k] = 1.0
+
+                rbf = RBFInterpolator(
+                    act_px_coords,  # Shape (n_acts, 2)
+                    act_data,  # Shape (n_acts,)
+                    kernel="thin_plate_spline",  # TPS
+                    smoothing=0.0,  # No smoothing
+                    degree=1,  # Polynomial degree for TPS
+                )
+                flat_img = rbf(pix_coords)
+
                 img_cube[:, :, k] = flat_img.reshape((X, Y))
             # Create a cube mask that tiles the local mirror mask for each actuator.
             cube_mask = np.tile(mask, segacts).reshape(img_cube.shape, order="F")
@@ -260,22 +275,31 @@ class BaseFakeDp:
         """
         Creates the mask and the actuator pixel coordinates for the DP
         """
-        dp_coords = lf(join(self._rootDataDir, 'dp_coords.fits'))
+        dp_coords = lf(join(self._rootDataDir, "dp_coords.fits"))
 
         # Get DP's shape vertex coordinates (only 1 segment)
-        
-        s0x,s0y = dp_coords[dp_coords[:,1] > dp_coords[:,1].max()/2].T*1000 # upper segment
-        s1x,s1y= dp_coords[dp_coords[:,1] < dp_coords[:,1].max()/2].T*1000 # lower segment
-        
-        y0,y1,y2,y3 = s0y.min(), s0y.max(), s0y.max(), s0y.min()
-        x0,x1,x2,x3 = s0x[s0y==y0].min(), s0x[s0y==y1].min(), s0x[s0y==y2].max(), s0x[s0y==y3].max()
-        
+
+        s0x, s0y = (
+            dp_coords[dp_coords[:, 1] > dp_coords[:, 1].max() / 2].T * 1000
+        )  # upper segment
+        s1x, s1y = (
+            dp_coords[dp_coords[:, 1] < dp_coords[:, 1].max() / 2].T * 1000
+        )  # lower segment
+
+        y0, y1, y2, y3 = s0y.min(), s0y.max(), s0y.max(), s0y.min()
+        x0, x1, x2, x3 = (
+            s0x[s0y == y0].min(),
+            s0x[s0y == y1].min(),
+            s0x[s0y == y2].max(),
+            s0x[s0y == y3].max(),
+        )
+
         # vertex coordinates of the upper segment
-        cols = np.array([x0,x1,x2,x3])
-        rows = np.array([y0,y1,y2,y3])
+        cols = np.array([x0, x1, x2, x3])
+        rows = np.array([y0, y1, y2, y3])
 
         ylm = s1y.max()
-        gap = np.abs((ylm - y0)//2).astype(np.int8) # in px
+        gap = np.abs((ylm - y0) // 2).astype(np.int8)  # in px
 
         # rescale to mm/px
         cols = cols - cols.min()
@@ -299,15 +323,19 @@ class BaseFakeDp:
 
         # Reorganize actuator coordinates in shells
         final_coords = np.empty_like(dp_coords)
-        final_coords[:self.nActs//2,:] = np.array([s0x,s0y]).T +5 # matching padding
-        final_coords[self.nActs//2:,:] = np.array([s1x,s1y]).T +5 # matching padding
-        
+        final_coords[: self.nActs // 2, :] = (
+            np.array([s0x, s0y]).T + 5
+        )  # matching padding
+        final_coords[self.nActs // 2 :, :] = (
+            np.array([s1x, s1y]).T + 5
+        )  # matching padding
+
         self._coords = final_coords.copy()
         self._mask = final_mask.copy()
         self._ms0 = final_mask[: final_mask.shape[0] // 2, :]
         self._ms1 = final_mask[final_mask.shape[0] // 2 :, :]
         # return final_mask, final_coords
-    
+
     def _get_segments_idx(self):
         """
         Get the indices of the two segments in the DP mask

@@ -195,7 +195,7 @@ class DP(AdOpticaDm):
     def __init__(self, tn: _ot.Optional[str] = None):
         """The Constructor"""
         super().__init__(tn)
-        self._name = self._name.replace('DM',"DP")
+        self._name = self._name.replace("DM", "DP")
         self._logger = _sul(self._name + "_" + _ts())
 
     def set_shape(
@@ -340,7 +340,6 @@ class DP(AdOpticaDm):
             result["actForce"] = actForce
             result["rawData"] = bufData
             self.bufferData = result.copy()
-
 
     def _get_buffer_mean_values(
         self,

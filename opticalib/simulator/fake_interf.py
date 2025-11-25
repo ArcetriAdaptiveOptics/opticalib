@@ -19,7 +19,7 @@ class Fake4DInterf:
     def __init__(self, dm: _t.FakeDeformableMirrorDevice, **kwargs: dict[str, _t.Any]):
         """
         Initializes the Fake4DInterferometer instance.
-        
+
         Parameters
         ----------
         dm : FakeDeformableMirrorDevice
@@ -36,7 +36,7 @@ class Fake4DInterf:
                 If True, the live wavefront is frozen when acquiring.
             - add_noise : bool
                 If True, noise is added to the live wavefront.
-        
+
         Returns
         -------
         None
@@ -91,7 +91,9 @@ class Fake4DInterf:
         _plt.ion()
         fig, ax = _plt.subplots(figsize=(7, 7.5))
         fig.subplots_adjust(top=0.9, bottom=0.1, left=0.05, right=0.95)
-        fig.canvas.manager.set_window_title(f"Live View - {self._dm._name} {self._dm.nActs}")
+        fig.canvas.manager.set_window_title(
+            f"Live View - {self._dm._name} {self._dm.nActs}"
+        )
         simg = self._dm._wavefront(
             zernike=zernike2remove, surf=self._surf, noisy=self._noisy
         )
@@ -305,7 +307,7 @@ Surface View       : {self._surf}
 Freeze on Acqu.    : {self._freeze}
 Noise              : {self._noisy}"""
         print(state)
-    
+
     def _set_live_settings(self, **kwargs: dict[str, _t.Any]):
         """
         Sets the live settings of the interferometer.
@@ -320,7 +322,7 @@ Noise              : {self._noisy}"""
         self._surf = kwargs.get("surface_view", False)
         self._freeze = kwargs.get("freeze_on_acquisition", False)
         self._noisy = kwargs.get("add_noise", False)
-        
+
     # ==========================================================================
 
     def getCameraSettings(self):
