@@ -396,7 +396,7 @@ class Processer4D(_4DInterferometer):
         The port number of the processer.
     """
 
-    def __init__(self, nth: int = 1, ip: str = None, port: int = None):
+    def __init__(self, nth: int|str = 1, ip: str = None, port: int = None):
         """
         This class is used to process data of 4D interferometers, without
         the need to connect to the actual hardware device.

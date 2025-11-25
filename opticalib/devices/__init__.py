@@ -23,7 +23,7 @@ Contents:
   `_API` submodule.
 """
 
-from .interferometer import PhaseCam, AccuFiz
+from .interferometer import PhaseCam, AccuFiz, Processer4D
 from .deformable_mirrors import SplattDm, AlpaoDm, AdOpticaDm, DP, M4AU
 
-__all__ = ["AdOpticaDm", "PhaseCam", "AccuFiz", "SplattDm", "AlpaoDm", "DP", "M4AU"]
+__all__ = ["AdOpticaDm", "PhaseCam", "AccuFiz", "Processer4D", "SplattDm", "AlpaoDm", "DP", "M4AU"]
