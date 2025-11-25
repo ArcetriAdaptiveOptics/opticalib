@@ -358,7 +358,7 @@ class AccuFiz(_4DInterferometer):
     ):
         """The constructor"""
         self._name = "AccuFiz" + str(model)
-        super().__init__(model, ip, port)
+        super().__init__(ip, port)
 
 
 class PhaseCam(_4DInterferometer):
@@ -371,7 +371,7 @@ class PhaseCam(_4DInterferometer):
     ):
         """The constructor"""
         self._name = "PhaseCam" + str(model)
-        super().__init__(model, ip, port)
+        super().__init__(ip, port)
 
 
 class Processer4D(_4DInterferometer):
