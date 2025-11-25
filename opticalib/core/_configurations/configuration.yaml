@@ -32,6 +32,14 @@ DEVICES:
         capture_4dpc: 
         produce_4dpc: 
         produce: 
+    4DProcesser1:
+      ip: 
+      port:
+      Paths:
+        settings:
+        capture_4dpc: 
+        produce_4dpc: 
+        produce: 
   DEFORMABLE.MIRRORS:
     AlpaoXXX:
       ip:
