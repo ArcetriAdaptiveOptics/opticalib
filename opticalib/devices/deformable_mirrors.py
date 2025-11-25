@@ -231,7 +231,7 @@ class DP(AdOpticaDm):
         if incremental:
             dc = _np.ceil((1 / incremental))
             if dc < 1 and incremental > 1.0:
-                dc = incremental
+                dc = int(incremental)
                 incremental = 1.0 / incremental
             else:
                 dc = int(dc)

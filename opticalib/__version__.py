@@ -14,7 +14,7 @@ __author__ = "Adaptive Optics Group - INAF - Osservatorio Astrofisico di Arcetri
 __maintainer__ = "Pietro Ferraiuolo"
 __author_email__ = "pietro.ferraiuolo@inaf.it"
 __license__ = "MIT License"
-__url__ = "https://github.com/pietroferraiuolo/LABOTT"
+__url__ = "https://github.com/ArcetriAdaptiveOptics/opticalib"
 
 __all__ = [
     "__title__",
