@@ -3,32 +3,20 @@ from contextlib import contextmanager as _contextmanager
 import vmbpy as _vmbpy
 
 
-class SPLArrayCams:
-
-    def __init__(self, names: list[str]):
-        """
-        The constructor for the SPLArrayCams class.
-
-        Parameters:
-        -----------
-        cam_ids : list[str]
-            The IDs of the cameras to be used.
-        """
-
-
-class VimbaXCam:
+class AVTCamera:
 
     def __init__(self, name: str):
         """
-        The constructor for the VimbaXCam class.
+        Class which interfaces AVT cameras using the VimbaXPy API.
 
         Parameters:
         -----------
         cam_id : str
-            The ID of the camera to be used.
+            The ID of the camera to be used, as defined in the configuration
+            file.
         """
         self._name = name
-        self._cam_config = _gcc(device_name=self.name)
+        self._cam_config = _gcc(device_name=self._name)
 
         # retrieve device ID or IP
         try:
