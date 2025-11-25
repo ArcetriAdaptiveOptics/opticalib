@@ -3,6 +3,7 @@ astropy
 scikit-image
 scikit-learn
 thin-plate-spline
+vmbpy
 scipy
 plico_dm
 ruamel.yaml

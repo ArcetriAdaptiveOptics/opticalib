@@ -37,6 +37,33 @@ class AVTCamera:
                 f"Could not connect to camera {self.name} with ID {self.cam_id}."
             ) from e
 
+    def get_exptime(self) -> float:
+        """
+        Gets the exposure time of the camera in micro-seconds.
+
+        Returns:
+        --------
+        exposure_time : float
+            The exposure time in micro-seconds.
+        """
+        with self._prepare_camera() as cam:
+            exptimeFeat = cam.get_feature_by_name("ExposureTimeAbs")
+            exposure_time = exptimeFeat.get()
+        return exposure_time
+    
+    def set_exptime(self, exptime_us: float):
+        """
+        Sets the exposure time of the camera.
+
+        Parameters:
+        -----------
+        exptime_us : float
+            The exposure time in micro-seconds.
+        """
+        with self._prepare_camera() as cam:
+            exptimeFeat = cam.get_feature_by_name("ExposureTimeAbs")
+            exptimeFeat.set(exptime_us)
+
     def acquire_frames(
         self,
         n_frames: int = 1,
