@@ -338,11 +338,14 @@ class DP(AdOpticaDm):
             # Process the buffer data
             actPos = _np.zeros((subsys_nacts, buffer_len))
             actForce = _np.zeros((subsys_nacts, buffer_len))
+            posError = _np.zeros((subsys_nacts, buffer_len))
 
             for act_idx in range(subsys_nacts):
                 tmp = bufData[f"ch{act_idx:04d}"]
                 actPos[act_idx, :] = tmp[:, 4]
                 actForce[act_idx, :] = tmp[:, 16]
+                posError[act_idx, :] = tmp[:, 5]
+
 
             # Store in both the yielded dict and class attribute
             result["actPos"] = actPos
