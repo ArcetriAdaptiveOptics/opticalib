@@ -232,14 +232,14 @@ class DP(AdOpticaDm):
                 dc = incremental
                 incremental = 1.0 / incremental
             else:
-                dc = _np.ceil((1 / incremental))
+                dc = int(_np.ceil((1 / incremental)))
             for i in range(dc):
                 if i * incremental > 1.0:
-                    self._aoClient.mirrorCommand(self._lastCmd)
+                    self._aoClient.mirrorCommand(cmd)
                 else:
-                    self._aoClient.mirrorCommand(self._lastCmd * i * incremental)
+                    self._aoClient.mirrorCommand(cmd * i * incremental)
         else:
-            self._aoClient.mirrorCommand(self._lastCmd)
+            self._aoClient.mirrorCommand(cmd)
         fc2 = self._get_frame_counter()
         if not fc2 == fc1:
             _log(
