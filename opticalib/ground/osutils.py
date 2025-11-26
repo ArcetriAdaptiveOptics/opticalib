@@ -394,23 +394,48 @@ def save_fits(
         Header information to include in the FITS file. Can be a dictionary or
         a fits.Header object.
     """
-    data = _ensure_on_cpu(data)
-    # force float32 dtype on save
-    if data.dtype != _np.float32:
-        data = _np.asanyarray(data, dtype=_np.float32)
-    if isinstance(data, (_fa.FitsArray, _fa.FitsMaskedArray)):
-        data.writeto(filepath, overwrite=overwrite)
-        return
-    # Prepare the header
-    if header is not None:
-        header = _header_from_dict(header)
-    # Save the FITS file
-    if isinstance(data, _masked_array):
-        _fits.writeto(filepath, data.data, header=header, overwrite=overwrite)
-        if not data.mask is _np.ma.nomask:
-            _fits.append(filepath, data.mask.astype(_uint8))
+    # If data is a python dictionary:
+    if isinstance(data, dict):
+        import pandas as _pd
+        from astropy.table import Table
+
+        df = _pd.DataFrame(data)
+        table = Table.from_pandas(df)
+        table.write(filepath, format="fits", overwrite=True)
+    
     else:
-        _fits.writeto(filepath, data, header=header, overwrite=overwrite)
+        data = _ensure_on_cpu(data)
+        # force float32 dtype on save
+        if data.dtype != _np.float32:
+            data = _np.asanyarray(data, dtype=_np.float32)
+        if isinstance(data, (_fa.FitsArray, _fa.FitsMaskedArray)):
+            data.writeto(filepath, overwrite=overwrite)
+            return
+        # Prepare the header
+        if header is not None:
+            header = _header_from_dict(header)
+        # Save the FITS file
+        if isinstance(data, _masked_array):
+            _fits.writeto(filepath, data.data, header=header, overwrite=overwrite)
+            if not data.mask is _np.ma.nomask:
+                _fits.append(filepath, data.mask.astype(_uint8))
+        else:
+            _fits.writeto(filepath, data, header=header, overwrite=overwrite)
+
+def load_table(filepath: str) -> None:
+    """
+    Load tabular data from a fits file.
+
+    Parameters
+    ----------
+    filepath : str
+        Path to the fits file.
+    """
+    from astropy.table import Table
+
+    table = Table.read(filepath, format="fits")
+    return table
+    
 
 
 def newtn() -> str:

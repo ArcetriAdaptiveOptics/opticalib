@@ -27,7 +27,6 @@ def iffDataAcquisition(
     shuffle: bool = False,
     differential: bool = False,
     read_buffer: bool | dict[str, _ot.Any] = False,
-    # cmdOffset: _ot.Optional[float | _ot.ArrayLike] = None,
 ) -> str:
     """
     This is the user-lever function for the acquisition of the IFF data, given a
@@ -53,6 +52,11 @@ def iffDataAcquisition(
     differential: bool , optional
         if True, applies the commands differentially w.r.t. the initial shape of
         the DM.
+    read_buffer: bool | dict[str, Any], optional
+        If False (default) do not read the buffer data during the acquisition.
+        If True, read the buffer data with default parameters.
+        If a dictionary is provided, it is passed as keyword arguments to the
+        `read_buffer` method of the deformable mirror device.
 
     Returns
     -------
@@ -61,11 +65,6 @@ def iffDataAcquisition(
     """
     ifc = _ifa.IFFCapturePreparation(dm)
     tch = ifc.createTimedCmdHistory(modesList, amplitude, template, shuffle)
-    ## MANAGED BY `uploadCmdHistory` METHOD ##
-    # if cmdOffset is not None:
-    #     cmdOff = cmdOffset[:, _np.newaxis]
-    #     tch = tch + cmdOff
-    #     print("Adding a cmd offset to the timeHistory")
     info = ifc.getInfoToSave()
     tn = _ts()
     iffpath = _os.path.join(_fn.IFFUNCTIONS_ROOT_FOLDER, tn)
@@ -103,9 +102,8 @@ def iffDataAcquisition(
                 rb_kwargs = {}
             with dm.read_buffer(**rb_kwargs) as buffer_data:
                 dm.runCmdHistory(interf, save=tn, differential=differential)
-                bdata = buffer_data
-            # TODO: Do we save the buffer data? Do we return it?
-            # out = (tn, bdata)
+                bdata = buffer_data.copy()
+                _sf(_os.path.join(iffpath, "buffer_data.fits"), bdata, overwrite=True)
         except _oe.BufferError as be:
             print(be)
     else:
