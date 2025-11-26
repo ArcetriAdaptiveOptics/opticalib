@@ -240,14 +240,14 @@ class DP(AdOpticaDm):
                     self._aoClient.mirrorCommand(cmd * i * incremental)
         else:
             self._aoClient.mirrorCommand(cmd)
-        time.sleep(0.5) # DEBUG
+        _time.sleep(0.2) # needed to get fc updated
         fc2 = self._get_frame_counter()
         if not fc2 == fc1:
             _log(
                 f"FRAME SKIPPED.",
                 level='ERROR',
             )
-            raise _oe.CommandError("Frame skipped during DP command application.")
+            raise _oe.CommandError("Frame skipped! Consider using the `incremental` parameter.")
         else:
             self._lastCmd = cmd
             
