@@ -201,7 +201,7 @@ class DP(AdOpticaDm):
     def set_shape(
         self,
         cmd: _ot.ArrayLike | list[float],
-        differential: bool = True,
+        differential: bool = False,
         incremental: float = False,
     ):  # cmd, segment=None):
         """
@@ -240,6 +240,7 @@ class DP(AdOpticaDm):
                     self._aoClient.mirrorCommand(cmd * i * incremental)
         else:
             self._aoClient.mirrorCommand(cmd)
+        time.sleep(0.5) # DEBUG
         fc2 = self._get_frame_counter()
         if not fc2 == fc1:
             _log(
