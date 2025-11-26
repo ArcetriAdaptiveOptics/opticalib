@@ -105,8 +105,7 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
             raise _oe.MatrixError(
                 f"Expecting a 2D Matrix of shape (used_acts, nmodes), got instead: {tcmdhist.shape}"
             )
-        if all(self._lastCmd != _np.zeros(self.nActs)):
-            tcmdhist += self._lastCmd[:, None]
+        tcmdhist += self._lastCmd[:, None]
         trig = _dmc()["triggerMode"]
         self.cmdHistory = tcmdhist.copy()
         if trig is not False:
@@ -153,7 +152,7 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
                 raise _oe.CommandError("No Command History uploaded!")
             freq = triggered.get("frequency", 1.0)
             tdelay = triggered.get("cmdDelay", 0.8)
-            ins = _np.zeros(self.nActs)
+            ins = self._lastCmd.copy()
             _log("Executing Command history")
             nframes = self.cmdHistory.shape[-1]
             self._aoClient.timeHistoryRun(freq, 0, tdelay)
@@ -197,6 +196,7 @@ class DP(AdOpticaDm):
         super().__init__(tn)
         self._name = self._name.replace("DM", "DP")
         self._logger = _sul(self._name + "_" + _ts())
+        self.bufferData = None
 
     def set_shape(
         self,
@@ -247,7 +247,7 @@ class DP(AdOpticaDm):
                 f"FRAME SKIPPED.",
                 level='ERROR',
             )
-            raise _oe.CommandError("Frame skipped! Consider using the `incremental` parameter.")
+        #    raise _oe.CommandError("Frame skipped! Consider using the `incremental` parameter.")
         else:
             self._lastCmd = cmd
             
@@ -288,7 +288,7 @@ class DP(AdOpticaDm):
         >>> print(dm.bufferData['actPos'].shape)
         """
         # Setup: Configure and start buffer acquisition
-        nActs = 222
+        subsys_nacts = 111
         if self.cmdHistory is not None:
             totframes = self.cmdHistory.shape[-1]
         elif total_frames is not None:
@@ -304,13 +304,13 @@ class DP(AdOpticaDm):
             subsys = self._aoClient.aoSystem.aoSubSystem0
         else:
             subsys = self._aoClient.aoSystem.aoSubSystem1
-        buffer_len = npoints_per_cmd * totframes + (nActs * 2)  # Extra margin
-        clockfreq = subsys.sysConf.gen.cntFreq()
+        buffer_len = npoints_per_cmd * totframes + (subsys_nacts * 2)  # Extra margin
+        clockfreq = subsys.sysConf.gen.cntFreq
         thistdecim = int(clockfreq / thistfreq)
         diagdecim = int(thistdecim / npoints_per_cmd)
 
         subsys.support.diagBuf.config(
-            _np.r_[0:nActs],
+            _np.r_[0:subsys_nacts],
             buffer_len,
             "mirrActMap",
             decFactor=diagdecim,
@@ -336,10 +336,10 @@ class DP(AdOpticaDm):
             bufData = subsys.support.diagBuf.read()
             _log("DP Buffer readout completed")
             # Process the buffer data
-            actPos = _np.zeros((nActs, buffer_len))
-            actForce = _np.zeros((nActs, buffer_len))
+            actPos = _np.zeros((subsys_nacts, buffer_len))
+            actForce = _np.zeros((subsys_nacts, buffer_len))
 
-            for act_idx in range(nActs):
+            for act_idx in range(subsys_nacts):
                 tmp = bufData[f"ch{act_idx:04d}"]
                 actPos[act_idx, :] = tmp[:, 4]
                 actForce[act_idx, :] = tmp[:, 16]

@@ -22,9 +22,9 @@ class BaseInterferometer(ABC):
             port = config["port"]
         self.ip = ip
         self.port = port
-        self._logger = _logger.set_up_logger(f"{self.name}.log", 20)
+        self._logger = _logger.set_up_logger(f"{self._name}.log", 20)
         self._logger.info(
-            f"Interferometer {self.name} initialized on addess {self.ip}:{self.port}"
+            f"Interferometer {self._name} initialized on addess {self.ip}:{self.port}"
         )
         self._ts = _newtn
         _updateInterfPaths(config["Paths"])

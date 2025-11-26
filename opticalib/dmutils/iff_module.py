@@ -110,5 +110,4 @@ def iffDataAcquisition(
             print(be)
     else:
         dm.runCmdHistory(interf, save=tn, differential=differential)
-        out = tn
-    return out
+    return tn
