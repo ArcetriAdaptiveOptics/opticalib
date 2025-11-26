@@ -224,17 +224,15 @@ class DP(AdOpticaDm):
             raise _oe.CommandError(
                 f"Command length {len(cmd)} does not match the number of actuators {self.nActs}."
             )
+        fc1 = self._get_frame_counter()
         if differential:
-            self._lastCmd += cmd
-        else:
-            self._lastCmd = cmd
+            cmd = self._lastCmd + cmd
         if incremental:
-            dc = _np.ceil((1 / incremental))
-            if dc < 1 and incremental > 1.0:
-                dc = int(incremental)
+            if incremental > 1.0:
+                dc = incremental
                 incremental = 1.0 / incremental
             else:
-                dc = int(dc)
+                dc = _np.ceil((1 / incremental))
             for i in range(dc):
                 if i * incremental > 1.0:
                     self._aoClient.mirrorCommand(self._lastCmd)
@@ -242,6 +240,16 @@ class DP(AdOpticaDm):
                     self._aoClient.mirrorCommand(self._lastCmd * i * incremental)
         else:
             self._aoClient.mirrorCommand(self._lastCmd)
+        fc2 = self._get_frame_counter()
+        if not fc2 == fc1:
+            _log(
+                f"FRAME SKIPPED.",
+                level='ERROR',
+            )
+            raise _oe.CommandError("Frame skipped during DP command application.")
+        else:
+            self._lastCmd = cmd
+            
 
     @_contextmanager
     def read_buffer(
@@ -430,6 +438,23 @@ class DP(AdOpticaDm):
         #         posMeans[i,j] = _np.mean(position[i,cmdIds[i,j*minCmdLen+k:(j+1)*minCmdLen]])
 
         return posMeans, cmdIds
+
+    def _get_frame_counter(self) -> int:
+        """
+        Get the current frame counter from the AO client
+
+        Returns
+        -------
+        total_skipped_frames : int
+            Current total skipped frames counter value
+        """
+        cc = self._aoClient.getCounters()
+        values = []
+        keyse = ['skipByCommand', 'skipByDeltaCommand', 'skipByForce']
+        for key in keyse:
+            values.append(getattr(cc, key))
+        total_skipped_frames = sum(values)
+        return total_skipped_frames
 
 
 class M4AU(AdOpticaDm):
