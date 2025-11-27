@@ -14,7 +14,7 @@ import numpy as _np
 from opticalib.core.root import folders as _fn
 from opticalib.core import read_config as _rif, exceptions as _oe
 from . import iff_acquisition_preparation as _ifa
-from opticalib.ground.osutils import newtn as _ts, save_fits as _sf
+from opticalib.ground import osutils as _osu
 from opticalib import typings as _ot
 
 
@@ -84,10 +84,9 @@ def iffDataAcquisition(
                 rb_kwargs = read_buffer
             else:
                 rb_kwargs = {}
-            with dm.read_buffer(**rb_kwargs) as buffer_data:
+            with dm.read_buffer(**rb_kwargs):
                 dm.runCmdHistory(interf, save=tn, differential=differential)
-                bdata = buffer_data.copy()
-                _sf(_os.path.join(iffpath, "buffer_data.fits"), bdata, overwrite=True)
+                saveBufferData(dm, tn)
         except _oe.BufferError as be:
             print(be)
     else:
@@ -139,12 +138,36 @@ def acquirePistonData(
             with dm.read_buffer(**rb_kwargs) as buffer_data:
                 dm.runCmdHistory(interf, save=tn, differential=differential)
                 bdata = buffer_data.copy()
-                _sf(_os.path.join(iffpath, "buffer_data.fits"), bdata, overwrite=True)
+                _osu.save_fits(_os.path.join(iffpath, "buffer_data.fits"), bdata, overwrite=True)
         except _oe.BufferError as be:
             print(be)
     else:
         dm.runCmdHistory(interf, save=tn, differential=differential)
     return tn
+
+def saveBufferData(dm: _ot.DeformableMirrorDevice, tn_or_fp: str):
+    """
+    Saves the buffer data from the deformable mirror device into a FITS file.
+
+    Parameters
+    ----------
+    dm: DeformableMirrorDevice
+        The initialized deformable mirror object
+    tn_or_fp: str
+        The tracking number or full path where to save the buffer data.
+    """
+    if not hasattr(dm, "read_buffer"):
+        raise _oe.BufferError(
+            f"The `{dm.__class__.__name__}` device cannot read buffer data."
+        )
+    if _osu.is_tn(tn_or_fp):
+        iffpath = _os.path.join(_fn.IFFUNCTIONS_ROOT_FOLDER, tn_or_fp)
+    elif not _os.path.exists(tn_or_fp):
+        raise _oe.PathError(f"The path `{tn_or_fp}` does not exist.")
+    else:
+        iffpath = tn_or_fp
+    bdata = dm.bufferData.copy()
+    _osu.save_dict(bdata, iffpath, overwrite=True)
 
 def _prepareData2Save(info: dict[str, _ot.Any]) -> None:
     """
@@ -168,7 +191,7 @@ def _prepareData2Save(info: dict[str, _ot.Any]) -> None:
     iffpath: str
         The path to the folder where the IFF data are saved
     """
-    tn = _ts()
+    tn = _osu.newtn()
     iffpath = _os.path.join(_fn.IFFUNCTIONS_ROOT_FOLDER, tn)
     if not _os.path.exists(iffpath):
         _os.mkdir(iffpath)
@@ -182,7 +205,7 @@ def _prepareData2Save(info: dict[str, _ot.Any]) -> None:
                 with open(_os.path.join(iffpath, f"{key}.dat"), "w") as f:
                     f.write(str(value))
             else:
-                _sf(_os.path.join(iffpath, f"{key}.fits"), tvalue, overwrite=True)
+                _osu.save_fits(_os.path.join(iffpath, f"{key}.fits"), tvalue, overwrite=True)
     except KeyError as e:
         print(f"KeyError: {key}, {e}")
     return tn, iffpath

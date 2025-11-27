@@ -11,6 +11,7 @@ Author(s)
 """
 
 import os as _os
+import h5py as _h5
 import numpy as _np
 import time as _time
 import h5py as _h5py
@@ -21,10 +22,7 @@ from numpy.ma import masked_array as _masked_array
 from opticalib.core import fitsarray as _fa
 from opticalib.core import root as _fn
 
-
 _OPTDATA = _fn.OPT_DATA_ROOT_FOLDER
-_OPDIMG = _fn.OPD_IMAGES_ROOT_FOLDER
-
 
 def is_tn(string: str) -> bool:
     """
@@ -422,21 +420,194 @@ def save_fits(
         else:
             _fits.writeto(filepath, data, header=header, overwrite=overwrite)
 
-
-def load_table(filepath: str) -> None:
+def save_dict(
+    datadict: dict[str,_ot.ArrayLike],
+    filepath: str,
+    overwrite: bool = True
+) -> None:
     """
-    Load tabular data from a fits file.
-
+    Saves a dictionary of buffer data arrays to an HDF5 file.
+    
+    Each key-value pair in the dictionary is stored as a separate dataset
+    in the HDF5 file, where the key becomes the dataset name and the value
+    (expected to be a numpy array of shape (111, N)) is stored as the dataset.
+    
     Parameters
     ----------
-    filepath : str
-        Path to the fits file.
+    buffer_dict: dict[str, np.ndarray]
+        Dictionary where keys are strings and values are numpy arrays of shape (111, N)
+    filepath: str
+        Full path where to save the HDF5 file. Should end with '.h5' or '.hdf5'
+    overwrite: bool, optional
+        If True, overwrites existing file. Default is True.
+    
+    Raises
+    ------
+    FileExistsError
+        If file exists and overwrite is False
+    
+    Examples
+    --------
+    >>> buffer_dict = {
+    ...     'sensor_1': np.random.randn(111, 100),
+    ...     'sensor_2': np.random.randn(111, 100),
+    ... }
+    >>> saveBufferDataDict(buffer_dict, '/path/to/buffer_data.h5')
     """
-    from astropy.table import Table
+    if not filepath.endswith(('.h5', '.hdf5')):
+        filepath += '.h5'
+    
+    if _os.path.exists(filepath) and not overwrite:
+        raise FileExistsError(f"File {filepath} already exists and overwrite=False")
+    
+    with _h5.File(filepath, 'w') as hf:
+        # Store metadata
+        hf.attrs['n_keys'] = len(datadict)
+        hf.attrs['creation_date'] = newtn()
+        
+        # Store each array as a dataset
+        for key, data in datadict.items():
+            if not isinstance(data, _np.ndarray):
+                data = _np.asarray(data)
+            
+            # Create dataset with compression for better storage efficiency
+            hf.create_dataset(
+                key,
+                data=data,
+                compression='gzip',
+                compression_opts=4,  # Compression level 0-9
+                chunks=True  # Enable chunking for better I/O performance
+            )
+            
+            # Store shape information as attributes for verification
+            hf[key].attrs['shape'] = data.shape
+            hf[key].attrs['dtype'] = str(data.dtype)
 
-    table = Table.read(filepath, format="fits")
-    return table
 
+def load_dict(
+    filepath: str,
+    keys: _ot.Optional[list[str]] = None
+) -> dict[str,_ot.ArrayLike]:
+    """
+    Loads buffer data from an HDF5 file into a dictionary.
+    
+    Parameters
+    ----------
+    filepath: str
+        Full path to the HDF5 file to load
+    keys: list[str], optional
+        If provided, only loads the specified keys. Otherwise loads all datasets.
+        This is useful for memory management when dealing with large files.
+    
+    Returns
+    -------
+    dict: dict[str, _ot.ArrayLike]
+        Dictionary with keys as dataset names and values as numpy arrays
+    
+    Raises
+    ------
+    FileNotFoundError
+        If the specified file does not exist
+    KeyError
+        If a requested key is not found in the file
+    
+    Examples
+    --------
+    >>> # Load all data
+    >>> buffer_dict = loadBufferDataDict('/path/to/buffer_data.h5')
+    >>> 
+    >>> # Load only specific keys (memory efficient)
+    >>> buffer_dict = loadBufferDataDict(
+    ...     '/path/to/buffer_data.h5',
+    ...     keys=['sensor_1', 'sensor_3']
+    ... )
+    """
+    if not _os.path.exists(filepath):
+        raise FileNotFoundError(f"File {filepath} not found")
+    
+    datadict = {}
+    
+    with _h5.File(filepath, 'r') as hf:
+        # Get list of keys to load
+        if keys is None:
+            keys_to_load = list(hf.keys())
+        else:
+            # Verify requested keys exist
+            missing_keys = set(keys) - set(hf.keys())
+            if missing_keys:
+                raise KeyError(f"Keys not found in file: {missing_keys}")
+            keys_to_load = keys
+        
+        # Load each dataset
+        for key in keys_to_load:
+            datadict[key] = hf[key][:]  # [:] loads data into memory
+            
+            # Verify shape if needed (for debugging)
+            expected_shape = hf[key].attrs.get('shape', None)
+            if expected_shape is not None:
+                actual_shape = tuple(datadict[key].shape)
+                if actual_shape != tuple(expected_shape):
+                    print(f"Warning: Shape mismatch for key '{key}': "
+                          f"expected {expected_shape}, got {actual_shape}")
+    
+    return dict
+
+
+def get_h5file_info(filepath: str) -> dict[str, _ot.Any]:
+    """
+    Retrieves metadata and information about the buffer data file without loading
+    the full datasets into memory.
+    
+    This is useful for inspecting large HDF5 files without memory overhead.
+    
+    Parameters
+    ----------
+    filepath: str
+        Full path to the HDF5 file
+    
+    Returns
+    -------
+    info: dict[str, Any]
+        Dictionary containing:
+        - 'keys': list of dataset names
+        - 'n_keys': number of datasets
+        - 'creation_date': tracking number when file was created
+        - 'shapes': dict mapping each key to its array shape
+        - 'dtypes': dict mapping each key to its data type
+        - 'file_size_mb': file size in megabytes
+    
+    Examples
+    --------
+    >>> info = getBufferDataInfo('/path/to/buffer_data.h5')
+    >>> print(f"File contains {info['n_keys']} datasets")
+    >>> print(f"Keys: {info['keys']}")
+    >>> print(f"Shapes: {info['shapes']}")
+    """
+    if not _os.path.exists(filepath):
+        raise FileNotFoundError(f"File {filepath} not found")
+    
+    info = {
+        'keys': [],
+        'shapes': {},
+        'dtypes': {},
+    }
+    
+    with _h5.File(filepath, 'r') as hf:
+        # Get file-level metadata
+        info['n_keys'] = hf.attrs.get('n_keys', len(hf.keys()))
+        info['creation_date'] = hf.attrs.get('creation_date', 'unknown')
+        
+        # Get dataset information
+        for key in hf.keys():
+            info['keys'].append(key)
+            info['shapes'][key] = tuple(hf[key].shape)
+            info['dtypes'][key] = str(hf[key].dtype)
+    
+    # Get file size
+    file_size_bytes = _os.path.getsize(filepath)
+    info['file_size_mb'] = file_size_bytes / (1024 * 1024)
+    
+    return info
 
 def newtn() -> str:
     """
