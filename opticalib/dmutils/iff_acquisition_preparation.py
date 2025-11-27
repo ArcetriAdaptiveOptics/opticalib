@@ -120,8 +120,10 @@ class IFFCapturePreparation:
             Final timed command history, including the trigger padding, the
             registration pattern and the command matrix history.
         """
-        self.createCmdMatrixHistory(modesList, modesAmp, template, shuffle)
-        self.createAuxCmdHistory()
+        if self.cmdMatHistory is None:
+            self.createCmdMatrixHistory(modesList, modesAmp, template, shuffle)
+        if self.auxCmdHistory is None:
+            self.createAuxCmdHistory()
         if not self.auxCmdHistory is None:
             cmdHistory = _np.hstack((self.auxCmdHistory, self.cmdMatHistory))
         else:

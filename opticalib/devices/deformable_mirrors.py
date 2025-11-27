@@ -335,20 +335,32 @@ class DP(AdOpticaDm):
             bufData = subsys.support.diagBuf.read()
             _log("DP Buffer readout completed")
             # Process the buffer data
-            actPos = _np.zeros((subsys_nacts, buffer_len))
-            actForce = _np.zeros((subsys_nacts, buffer_len))
-            posError = _np.zeros((subsys_nacts, buffer_len))
+            keys = [
+                'globCounter',          #  0
+                'statusBits',           #  1
+                'ADCHigh',              #  2
+                'ADCLow',               #  3
+                'actPos',               #  4
+                'posError',             #  5
+                'preshapedBiadCmd',     #  6
+                'preshapedBiadForce',   #  7
+                'newFFcmd',             #  8  
+                'newFFforce',           #  9
+                'controlPropForce',     # 10
+                'controlDerivForce',    # 11
+                'controlIntegForce',    # 12
+                'dynamicFFmassForce',   # 13
+                'dynamicFFdampForce',   # 14
+                'dynamicFFposForce',    # 15
+                'actForce',             # 16
+            ]
 
             for act_idx in range(subsys_nacts):
                 tmp = bufData[f"ch{act_idx:04d}"]
-                actPos[act_idx, :] = tmp[:, 4]
-                actForce[act_idx, :] = tmp[:, 16]
-                posError[act_idx, :] = tmp[:, 5]
+                for k,idx in zip(keys, range(tmp.shape[1])):
+                    result[k] = tmp[:, idx]
 
             # Store in both the yielded dict and class attribute
-            result["actPos"] = actPos
-            result["actForce"] = actForce
-            result["rawData"] = bufData
             self.bufferData = result.copy()
 
     def _get_frame_counter(self) -> int:

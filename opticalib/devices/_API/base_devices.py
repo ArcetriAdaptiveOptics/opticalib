@@ -16,8 +16,8 @@ class BaseInterferometer(ABC):
         all the information from the configuration file.
         """
         self._name = name
+        config = getInterfConfig(name)
         if (ip and port) is None:
-            config = getInterfConfig(name)
             ip = config["ip"]
             port = config["port"]
         self.ip = ip

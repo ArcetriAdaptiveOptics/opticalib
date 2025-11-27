@@ -215,7 +215,7 @@ class _4DInterferometer(_api.BaseInterferometer):
         )
 
     @staticmethod
-    def getCameraSettings(tn: str = None) -> list[int]:
+    def getCameraSettings(tn: str = None, processer: bool = False) -> list[int]:
         """
         Reads che actual interferometer settings from its configuration file.
 
@@ -228,14 +228,14 @@ class _4DInterferometer(_api.BaseInterferometer):
             path = _ft(tn, complete_path=True)
             try:
                 file_path = _os.path.join(path, _fn.COPIED_SETTINGS_CONF_FILE)
-                setting_reader = _fn.ConfSettingReader4D(file_path)
+                setting_reader = _fn.ConfSettingReader4D(file_path, processer)
             except Exception as e:
                 print(f"Error: {e}")
                 file_path = _os.path.join(path, "4DSettings.ini")
-                setting_reader = _fn.ConfSettingReader4D(file_path)
+                setting_reader = _fn.ConfSettingReader4D(file_path, processer)
         else:
             file_path = _folds.SETTINGS_CONF_FILE
-            setting_reader = _confReader(file_path)
+            setting_reader = _confReader(file_path, processer)
         width_pixel = setting_reader.getImageWidhtInPixels()
         height_pixel = setting_reader.getImageHeightInPixels()
         offset_x = setting_reader.getOffsetX()
@@ -243,7 +243,7 @@ class _4DInterferometer(_api.BaseInterferometer):
         return [width_pixel, height_pixel, offset_x, offset_y]
 
     @staticmethod
-    def getFrameRate(tn: str = None) -> float:
+    def getFrameRate(tn: str = None, processer: bool = False) -> float:
         """
         Reads the frame rate the interferometer is working at.
 
@@ -256,11 +256,11 @@ class _4DInterferometer(_api.BaseInterferometer):
             path = _ft(tn, complete_path=True)
             try:
                 file_path = _os.path.join(path, _fn.COPIED_SETTINGS_CONF_FILE)
-                setting_reader = _fn.ConfSettingReader4D(file_path)
+                setting_reader = _fn.ConfSettingReader4D(file_path, processer)
             except Exception as e:
                 print(f"Error: {e}")
                 file_path = _os.path.join(path, "4DSettings.ini")
-                setting_reader = _fn.ConfSettingReader4D(file_path)
+                setting_reader = _fn.ConfSettingReader4D(file_path, processer)
         else:
             file_path = _folds.SETTINGS_CONF_FILE
             setting_reader = _confReader(file_path)
@@ -417,6 +417,14 @@ class Processer4D(_4DInterferometer):
         """
         self._name = f"4DProcesser{nth}"
         super().__init__(ip, port)
+    
+    @staticmethod
+    def getCameraSettings(tn: str = None) -> list[int]:
+        return _4DInterferometer.getCameraSettings(tn, processer=True)
+    
+    @staticmethod
+    def getFrameRate(tn: str = None) -> float:
+        return _4DInterferometer.getFrameRate(tn, processer=True)
 
     # Disabled acquisition-related methods
     def acquire_map(self, *_, **__):
