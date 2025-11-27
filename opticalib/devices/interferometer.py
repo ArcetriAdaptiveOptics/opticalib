@@ -228,14 +228,14 @@ class _4DInterferometer(_api.BaseInterferometer):
             path = _ft(tn, complete_path=True)
             try:
                 file_path = _os.path.join(path, _fn.COPIED_SETTINGS_CONF_FILE)
-                setting_reader = _fn.ConfSettingReader4D(file_path, processer)
+                setting_reader = _fn.ConfSettingReader4D(file_path)
             except Exception as e:
                 print(f"Error: {e}")
                 file_path = _os.path.join(path, "4DSettings.ini")
-                setting_reader = _fn.ConfSettingReader4D(file_path, processer)
+                setting_reader = _fn.ConfSettingReader4D(file_path)
         else:
             file_path = _folds.SETTINGS_CONF_FILE
-            setting_reader = _confReader(file_path, processer)
+            setting_reader = _confReader(file_path)
         width_pixel = setting_reader.getImageWidhtInPixels()
         height_pixel = setting_reader.getImageHeightInPixels()
         offset_x = setting_reader.getOffsetX()
@@ -256,11 +256,11 @@ class _4DInterferometer(_api.BaseInterferometer):
             path = _ft(tn, complete_path=True)
             try:
                 file_path = _os.path.join(path, _fn.COPIED_SETTINGS_CONF_FILE)
-                setting_reader = _fn.ConfSettingReader4D(file_path, processer)
+                setting_reader = _fn.ConfSettingReader4D(file_path)
             except Exception as e:
                 print(f"Error: {e}")
                 file_path = _os.path.join(path, "4DSettings.ini")
-                setting_reader = _fn.ConfSettingReader4D(file_path, processer)
+                setting_reader = _fn.ConfSettingReader4D(file_path)
         else:
             file_path = _folds.SETTINGS_CONF_FILE
             setting_reader = _confReader(file_path)
@@ -417,14 +417,7 @@ class Processer4D(_4DInterferometer):
         """
         self._name = f"4DProcesser{nth}"
         super().__init__(ip, port)
-    
-    @staticmethod
-    def getCameraSettings(tn: str = None) -> list[int]:
-        return _4DInterferometer.getCameraSettings(tn, processer=True)
-    
-    @staticmethod
-    def getFrameRate(tn: str = None) -> float:
-        return _4DInterferometer.getFrameRate(tn, processer=True)
+        self._processer = True
 
     # Disabled acquisition-related methods
     def acquire_map(self, *_, **__):

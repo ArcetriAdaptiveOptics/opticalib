@@ -344,10 +344,10 @@ class ConfSettingReader4D:
     ''getConf4DSettingsPath'' and ''getCameraSettings''.
     """
 
-    def __init__(self, file_path: str, processer: bool = False):
+    def __init__(self, file_path: str):
         self.config = _cp.ConfigParser()
         self.config.read(file_path)
-        self.camera_section = "SimulatedCamera" if processer else "ACA2440"
+        self.camera_section = "ACA2440"
         self.path_section = "Paths"
 
     # CAMERA

@@ -36,7 +36,8 @@ DEVICES:
       ip: 
       port:
       Paths:
-        settings:
+        settings:        
+        copied_settings: 
         capture_4dpc: 
         produce_4dpc: 
         produce: 
