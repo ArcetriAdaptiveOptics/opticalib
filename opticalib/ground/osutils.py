@@ -402,7 +402,7 @@ def save_fits(
         df = _pd.DataFrame(data)
         table = Table.from_pandas(df)
         table.write(filepath, format="fits", overwrite=True)
-    
+
     else:
         data = _ensure_on_cpu(data)
         # force float32 dtype on save
@@ -422,6 +422,7 @@ def save_fits(
         else:
             _fits.writeto(filepath, data, header=header, overwrite=overwrite)
 
+
 def load_table(filepath: str) -> None:
     """
     Load tabular data from a fits file.
@@ -435,7 +436,6 @@ def load_table(filepath: str) -> None:
 
     table = Table.read(filepath, format="fits")
     return table
-    
 
 
 def newtn() -> str:

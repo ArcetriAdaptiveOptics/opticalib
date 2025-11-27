@@ -1,6 +1,7 @@
 """
 Tests for opticalib.core.root module.
 """
+
 import pytest
 import os
 import tempfile
@@ -16,7 +17,7 @@ class TestCreateFolderTree:
         """Test that folder tree is created correctly."""
         base_path = os.path.join(temp_dir, "test_data")
         root.create_folder_tree(base_path)
-        
+
         # Check that all expected folders exist
         expected_folders = [
             "OPTData",
@@ -32,7 +33,7 @@ class TestCreateFolderTree:
             os.path.join("OPTData", "Alignment", "ControlMatrices"),
             os.path.join("OPTData", "Alignment", "Calibration"),
         ]
-        
+
         for folder in expected_folders:
             folder_path = os.path.join(base_path, folder)
             assert os.path.exists(folder_path), f"Folder {folder_path} does not exist"
@@ -55,32 +56,34 @@ class TestCreateConfigurationFile:
         mock_template = os.path.join(temp_dir, "template.yaml")
         with open(mock_template, "w") as f:
             f.write("SYSTEM:\n  data_path: ''\n")
-        
+
         # Patch TEMPLATE_CONF_FILE to point to our mock
         monkeypatch.setattr(root, "TEMPLATE_CONF_FILE", mock_template)
-        
+
         # Use absolute path to avoid home directory prepending
         config_path = os.path.join(temp_dir, "test_config")
         root.create_configuration_file(path=config_path)
-        
+
         expected_file = os.path.join(config_path, "configuration.yaml")
         assert os.path.exists(expected_file)
 
-    @patch('opticalib.core.root.TEMPLATE_CONF_FILE')
-    @patch('opticalib.core.root._copy')
-    @patch('opticalib.core.root._gyml')
-    def test_create_configuration_file_with_data_path(self, mock_yaml, mock_copy, mock_template, temp_dir):
+    @patch("opticalib.core.root.TEMPLATE_CONF_FILE")
+    @patch("opticalib.core.root._copy")
+    @patch("opticalib.core.root._gyml")
+    def test_create_configuration_file_with_data_path(
+        self, mock_yaml, mock_copy, mock_template, temp_dir
+    ):
         """Test configuration file creation with data_path."""
         mock_template = os.path.join(temp_dir, "template.yaml")
         with open(mock_template, "w") as f:
             f.write("SYSTEM:\n  data_path: ''\n")
-        
+
         mock_yaml_instance = MagicMock()
         mock_yaml_instance.load.return_value = {"SYSTEM": {"data_path": ""}}
         mock_yaml.return_value = mock_yaml_instance
-        
-        with patch('opticalib.core.root.TEMPLATE_CONF_FILE', mock_template):
-            with patch('opticalib.core.root._gyml', mock_yaml_instance):
+
+        with patch("opticalib.core.root.TEMPLATE_CONF_FILE", mock_template):
+            with patch("opticalib.core.root._gyml", mock_yaml_instance):
                 config_path = os.path.join(temp_dir, "test_config")
                 # This might fail due to file operations, but we test the structure
                 try:
@@ -107,7 +110,7 @@ class TestConfSettingReader4D:
             f.write("PixelFormat = Mono8\n")
             f.write("[Paths]\n")
             f.write("UserSettingsFilePath = /path/to/settings\n")
-        
+
         reader = root.ConfSettingReader4D(settings_file)
         assert reader.config is not None
         assert reader.camera_section == "ACA2440"
@@ -119,7 +122,7 @@ class TestConfSettingReader4D:
         with open(settings_file, "w") as f:
             f.write("[ACA2440]\n")
             f.write("FrameRate = 30.0\n")
-        
+
         reader = root.ConfSettingReader4D(settings_file)
         frame_rate = reader.getFrameRate()
         assert frame_rate == 30.0
@@ -131,7 +134,7 @@ class TestConfSettingReader4D:
         with open(settings_file, "w") as f:
             f.write("[ACA2440]\n")
             f.write("ImageWidthInPixels = 2000\n")
-        
+
         reader = root.ConfSettingReader4D(settings_file)
         width = reader.getImageWidhtInPixels()
         assert width == 2000
@@ -143,7 +146,7 @@ class TestConfSettingReader4D:
         with open(settings_file, "w") as f:
             f.write("[ACA2440]\n")
             f.write("ImageHeightInPixels = 2000\n")
-        
+
         reader = root.ConfSettingReader4D(settings_file)
         height = reader.getImageHeightInPixels()
         assert height == 2000
@@ -155,7 +158,7 @@ class TestConfSettingReader4D:
         with open(settings_file, "w") as f:
             f.write("[ACA2440]\n")
             f.write("OffsetX = 10\n")
-        
+
         reader = root.ConfSettingReader4D(settings_file)
         offset_x = reader.getOffsetX()
         assert offset_x == 10
@@ -167,7 +170,7 @@ class TestConfSettingReader4D:
         with open(settings_file, "w") as f:
             f.write("[ACA2440]\n")
             f.write("OffsetY = 20\n")
-        
+
         reader = root.ConfSettingReader4D(settings_file)
         offset_y = reader.getOffsetY()
         assert offset_y == 20
@@ -179,7 +182,7 @@ class TestConfSettingReader4D:
         with open(settings_file, "w") as f:
             f.write("[ACA2440]\n")
             f.write("PixelFormat = Mono8\n")
-        
+
         reader = root.ConfSettingReader4D(settings_file)
         pixel_format = reader.getPixelFormat()
         assert pixel_format == "Mono8"
@@ -190,7 +193,7 @@ class TestConfSettingReader4D:
         with open(settings_file, "w") as f:
             f.write("[Paths]\n")
             f.write("UserSettingsFilePath = /path/to/settings\n")
-        
+
         reader = root.ConfSettingReader4D(settings_file)
         path = reader.getUserSettingFilePath()
         assert path == "/path/to/settings"
@@ -234,15 +237,14 @@ class TestUpdateInterfPaths:
             "copied_settings": "/path/to/copied",
             "capture_4dpc": "/path/to/capture",
             "produce_4dpc": "/path/to/produce_4d",
-            "produce": "/path/to/produce"
+            "produce": "/path/to/produce",
         }
-        
+
         root._updateInterfPaths(paths)
-        
+
         # Check that global variables were set
         assert root.SETTINGS_CONF_FILE == paths["settings"]
         assert root.COPIED_SETTINGS_CONF_FILE == paths["copied_settings"]
         assert root.CAPTURE_FOLDER_NAME_4D_PC == paths["capture_4dpc"]
         assert root.PRODUCE_FOLDER_NAME_4D_PC == paths["produce_4dpc"]
         assert root.PRODUCE_FOLDER_NAME_LOCAL_PC == paths["produce"]
-

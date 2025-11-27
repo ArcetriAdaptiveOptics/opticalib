@@ -1,13 +1,27 @@
 import numpy as np
-from matplotlib.pyplot import *
 import xupy as xp
+from matplotlib.pyplot import *
 import opticalib
+from os.path import join
 from opticalib import dmutils
 from opticalib import analyzer as az
 from opticalib.ground import osutils
 from opticalib.ground import modal_decomposer
 
-zern = modal_decomposer # alias for backward compatibility
+zern = modal_decomposer  # alias for backward compatibility
 opt = opticalib
 osu = osutils
 
+__all__ = [
+    "np",
+    "xp",
+    "opticalib",
+    "join",
+    "dmutils",
+    "az",
+    "osutils",
+    "modal_decomposer",
+    "zern",
+    "opt",
+    "osu",
+]

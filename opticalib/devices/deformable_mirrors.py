@@ -240,17 +240,16 @@ class DP(AdOpticaDm):
                     self._aoClient.mirrorCommand(cmd * i * incremental)
         else:
             self._aoClient.mirrorCommand(cmd)
-        _time.sleep(0.2) # needed to get fc updated
+        _time.sleep(0.2)  # needed to get fc updated
         fc2 = self._get_frame_counter()
         if not fc2 == fc1:
             _log(
                 f"FRAME SKIPPED.",
-                level='ERROR',
+                level="ERROR",
             )
         #    raise _oe.CommandError("Frame skipped! Consider using the `incremental` parameter.")
         else:
             self._lastCmd = cmd
-            
 
     @_contextmanager
     def read_buffer(
@@ -346,13 +345,11 @@ class DP(AdOpticaDm):
                 actForce[act_idx, :] = tmp[:, 16]
                 posError[act_idx, :] = tmp[:, 5]
 
-
             # Store in both the yielded dict and class attribute
             result["actPos"] = actPos
             result["actForce"] = actForce
             result["rawData"] = bufData
             self.bufferData = result.copy()
-
 
     def _get_frame_counter(self) -> int:
         """
@@ -365,7 +362,7 @@ class DP(AdOpticaDm):
         """
         cc = self._aoClient.getCounters()
         values = []
-        keyse = ['skipByCommand', 'skipByDeltaCommand', 'skipByForce']
+        keyse = ["skipByCommand", "skipByDeltaCommand", "skipByForce"]
         for key in keyse:
             values.append(getattr(cc, key))
         total_skipped_frames = sum(values)

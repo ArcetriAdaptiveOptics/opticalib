@@ -1,6 +1,7 @@
 """
 Tests for opticalib.ground.logger module.
 """
+
 import pytest
 import os
 import logging
@@ -18,14 +19,15 @@ class TestSetUpLogger:
         monkeypatch.setattr("opticalib.core.root.LOGGING_ROOT_FOLDER", temp_dir)
         # Reload the logger module to pick up the new path
         import importlib
+
         importlib.reload(logger)
-        
+
         log_file = "test.log"
         test_logger = logger.set_up_logger(log_file, logging.INFO)
-        
+
         assert isinstance(test_logger, logging.Logger)
         assert test_logger.level == logging.INFO
-        
+
         # Check that log file was created
         log_path = os.path.join(temp_dir, log_file)
         assert os.path.exists(log_path)
@@ -34,11 +36,12 @@ class TestSetUpLogger:
         """Test logger with default logging level."""
         monkeypatch.setattr("opticalib.core.root.LOGGING_ROOT_FOLDER", temp_dir)
         import importlib
+
         importlib.reload(logger)
-        
+
         log_file = "test_default.log"
         test_logger = logger.set_up_logger(log_file)
-        
+
         assert isinstance(test_logger, logging.Logger)
         assert test_logger.level == logging.DEBUG
 
@@ -46,16 +49,19 @@ class TestSetUpLogger:
         """Test that logger uses rotating file handler."""
         monkeypatch.setattr("opticalib.core.root.LOGGING_ROOT_FOLDER", temp_dir)
         import importlib
+
         importlib.reload(logger)
-        
+
         log_file = "test_rotating.log"
         test_logger = logger.set_up_logger(log_file, logging.INFO)
-        
+
         # Check that handler is a RotatingFileHandler
         handlers = test_logger.handlers
         assert len(handlers) > 0
         # At least one handler should be a RotatingFileHandler
-        rotating_handlers = [h for h in handlers if isinstance(h, logging.handlers.RotatingFileHandler)]
+        rotating_handlers = [
+            h for h in handlers if isinstance(h, logging.handlers.RotatingFileHandler)
+        ]
         assert len(rotating_handlers) > 0
 
 
@@ -119,17 +125,17 @@ class TestTxtLogger:
         """Test txtLogger initialization."""
         log_file = os.path.join(temp_dir, "test.txt")
         txt_log = logger.txtLogger(log_file)
-        
+
         assert txt_log.file_path == log_file
 
     def test_txt_logger_log(self, temp_dir):
         """Test txtLogger log method."""
         log_file = os.path.join(temp_dir, "test.txt")
         txt_log = logger.txtLogger(log_file)
-        
+
         message = "Test log message"
         txt_log.log(message)
-        
+
         # Check that file was created and contains the message
         assert os.path.exists(log_file)
         with open(log_file, "r") as f:
@@ -140,11 +146,11 @@ class TestTxtLogger:
         """Test txtLogger with multiple log entries."""
         log_file = os.path.join(temp_dir, "test.txt")
         txt_log = logger.txtLogger(log_file)
-        
+
         messages = ["Message 1", "Message 2", "Message 3"]
         for msg in messages:
             txt_log.log(msg)
-        
+
         # Check that all messages are in the file
         assert os.path.exists(log_file)
         with open(log_file, "r") as f:
@@ -156,14 +162,13 @@ class TestTxtLogger:
         """Test that txtLogger appends to existing file."""
         log_file = os.path.join(temp_dir, "test.txt")
         txt_log = logger.txtLogger(log_file)
-        
+
         txt_log.log("First message")
         txt_log.log("Second message")
-        
+
         # Check that both messages are in the file
         with open(log_file, "r") as f:
             lines = f.readlines()
             assert len(lines) == 2
             assert "First message" in lines[0]
             assert "Second message" in lines[1]
-

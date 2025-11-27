@@ -79,9 +79,7 @@ def get_buffer_mean_values(
         end_i = min(i + chunk_size, nActs)
         cmd_indices = cmdIds[i:end_i].reshape(-1, nCmds, minCmdLen)[:, :, k:]
         act_idx = _np.arange(end_i - i)[:, None, None]
-        posMeans[i:end_i] = _np.mean(
-            position[i:end_i][act_idx, cmd_indices], axis=2
-        )
+        posMeans[i:end_i] = _np.mean(position[i:end_i][act_idx, cmd_indices], axis=2)
 
     # Potentially slow
     # for i in range(nActs):

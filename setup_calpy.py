@@ -34,50 +34,57 @@ no option : Initialize an IPython shell executing the `opticalib` init script.
 
 """
 
+
 def check_dir(config_path: str) -> str:
     if not os.path.exists(config_path):
         os.makedirs(config_path)
         if not os.path.isdir(config_path):
             raise OSError(f"Invalid Path: {config_path}")
-    config_path = os.path.join(config_path, 'configuration.yaml')
+    config_path = os.path.join(config_path, "configuration.yaml")
     return config_path
+
 
 def main():
     """
     Main function to handle command-line arguments and launch IPython
     shell with optional configuration.
     """
-    init_file = os.path.join(os.path.dirname(__file__), '__init_script__', 'initCalpy.py')
+    init_file = os.path.join(
+        os.path.dirname(__file__), "__init_script__", "initCalpy.py"
+    )
     # Check if IPython is installed in current interpreter
     if importlib.util.find_spec("IPython") is None:
         print("Error: IPython is not installed in this Python environment.")
         sys.exit(1)
-        
+
     # -h/--help is passed, show help message
-    if len(sys.argv) > 1 and sys.argv[1] in ['-h', '--help']:
+    if len(sys.argv) > 1 and sys.argv[1] in ["-h", "--help"]:
         print(docs)
         sys.exit(0)
-        
+
     # -f <path> [--create] is passed
-    elif len(sys.argv) > 2 and sys.argv[1] == '-f' and sys.argv[2]:
+    elif len(sys.argv) > 2 and sys.argv[1] == "-f" and sys.argv[2]:
         config_path = sys.argv[2]
         config_path = os.path.expanduser(config_path)
         # Use robust absolute path detection (works on Windows and Unix)
         if not os.path.isabs(config_path):
             current_path = os.getcwd()
             config_path = os.path.join(current_path, config_path)
-        if not '.yaml' in config_path:
+        if not ".yaml" in config_path:
             try:
                 config_path = check_dir(config_path)
             except OSError as ose:
                 print(f"Error: {ose}")
                 sys.exit(1)
-        if '--create' in sys.argv or '-c' in sys.argv:
+        if "--create" in sys.argv or "-c" in sys.argv:
             from opticalib.core.root import create_configuration_file
+
             create_configuration_file(config_path, data_path=True)
         try:
             if not os.path.exists(config_path):
-                config_path = os.path.join(os.path.dirname(config_path), 'SysConfig', 'configuration.yaml')
+                config_path = os.path.join(
+                    os.path.dirname(config_path), "SysConfig", "configuration.yaml"
+                )
             print("\n Initiating IPython Shell, importing Opticalib...\n")
             env = os.environ.copy()
             env["AOCONF"] = config_path
@@ -89,29 +96,34 @@ def main():
             sys.exit(1)
 
     # -c <path> is passed
-    elif len(sys.argv) > 2 and any(sys.argv[1] == '-c', sys.argv[1] == '--create') and sys.argv[2]:
+    elif (
+        len(sys.argv) > 2
+        and any(sys.argv[1] == "-c", sys.argv[1] == "--create")
+        and sys.argv[2]
+    ):
         config_path = sys.argv[2]
         config_path = os.path.expanduser(config_path)
         # Use robust absolute path detection (works on Windows and Unix)
         if not os.path.isabs(config_path):
             current_path = os.getcwd()
             config_path = os.path.join(current_path, config_path)
-        if not '.yaml' in config_path:
+        if not ".yaml" in config_path:
             try:
                 config_path = check_dir(config_path)
             except OSError as ose:
                 print(f"Error: {ose}")
                 sys.exit(1)
         from opticalib.core.root import create_configuration_file
+
         create_configuration_file(config_path, data_path=True)
         sys.exit(0)
-        
+
     # no option is passed
     elif len(sys.argv) == 1:
         # Start plain IPython session with temp opticalib file loaded
         args = [sys.executable, "-m", "IPython", "-i", init_file]
         subprocess.run(args, check=False)
-        
+
     # Handle invalid arguments
     else:
         print("Error: Invalid use. Use -h or --help for usage information.")

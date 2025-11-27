@@ -1,6 +1,7 @@
 """
 Tests for opticalib.core.exceptions module.
 """
+
 import pytest
 from opticalib.core.exceptions import (
     DeviceNotFoundError,
@@ -23,7 +24,9 @@ class TestDeviceNotFoundError:
         """Test that DeviceNotFoundError has correct message."""
         device_name = "TestDevice"
         error = DeviceNotFoundError(device_name)
-        assert str(error) == f"Device '{device_name}' not found in the configuration file."
+        assert (
+            str(error) == f"Device '{device_name}' not found in the configuration file."
+        )
 
     def test_device_not_found_error_inheritance(self):
         """Test that DeviceNotFoundError inherits from Exception."""
@@ -122,4 +125,3 @@ class TestExceptionUsage:
         with pytest.raises(CommandError) as exc_info:
             raise CommandError("Invalid command")
         assert "Invalid command" in str(exc_info.value)
-

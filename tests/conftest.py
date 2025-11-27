@@ -1,6 +1,7 @@
 """
 Pytest configuration and shared fixtures for opticalib tests.
 """
+
 import pytest
 import tempfile
 import shutil
@@ -62,6 +63,7 @@ STITCHING:
 def sample_image():
     """Create a sample masked image for testing."""
     from skimage.draw import disk
+
     data = np.random.randn(100, 100).astype(np.float32)
     mask = np.ones((100, 100), dtype=bool)
     rr, cc = disk((50, 50), 30)
@@ -73,14 +75,14 @@ def sample_image():
 def sample_cube():
     """Create a sample cube for testing."""
     from skimage.draw import disk
+
     data = np.random.randn(100, 100, 10).astype(np.float32)
-    mask = np.ones((100,100), dtype=bool)
+    mask = np.ones((100, 100), dtype=bool)
     rr, cc = disk((50, 50), 30)
     mask[rr, cc] = False
     # Apply same mask to all frames
     cube = ma.masked_array(
-        data,
-        mask=np.broadcast_to(mask[..., np.newaxis], data.shape)
+        data, mask=np.broadcast_to(mask[..., np.newaxis], data.shape)
     )
     return cube
 
@@ -89,7 +91,7 @@ def sample_cube():
 def circular_mask():
     """Create a circular mask for testing."""
     size = 100
-    y, x = np.ogrid[-size/2:size/2, -size/2:size/2]
+    y, x = np.ogrid[-size / 2 : size / 2, -size / 2 : size / 2]
     radius = size / 2 - 5
     mask = (x**2 + y**2) > radius**2
     return mask.astype(bool)
@@ -99,6 +101,7 @@ def circular_mask():
 def tracking_number():
     """Generate a valid tracking number."""
     from opticalib.ground.osutils import newtn
+
     return newtn()
 
 
@@ -135,10 +138,12 @@ def mock_interferometer():
     """Create a mock interferometer device."""
     interf = MagicMock()
     interf.name = "TestInterf"
-    interf.acquire_map = Mock(return_value=ma.masked_array(
-        np.random.randn(200, 200).astype(np.float32),
-        mask=np.zeros((200, 200), dtype=bool)
-    ))
+    interf.acquire_map = Mock(
+        return_value=ma.masked_array(
+            np.random.randn(200, 200).astype(np.float32),
+            mask=np.zeros((200, 200), dtype=bool),
+        )
+    )
     interf.capture = Mock(return_value="test_tn")
     return interf
 
@@ -147,13 +152,13 @@ def mock_interferometer():
 def sample_int_cube():
     """Create a sample interaction cube for dmutils tests."""
     from skimage.draw import disk
+
     data = np.random.randn(100, 100, 10).astype(np.float32)
-    mask = np.ones((100,100), dtype=bool)
+    mask = np.ones((100, 100), dtype=bool)
     rr, cc = disk((50, 50), 30)
     mask[rr, cc] = False
     cube = ma.masked_array(
-        data,
-        mask=np.broadcast_to(mask[..., np.newaxis], data.shape)
+        data, mask=np.broadcast_to(mask[..., np.newaxis], data.shape)
     )
     return cube
 
@@ -170,27 +175,27 @@ def sample_iff_folder_structure(temp_dir, monkeypatch):
     from opticalib.core.root import folders
     from opticalib.dmutils import iff_processing as ifp
     from opticalib.ground import osutils
-    
+
     # Patch _OPTDATA to point to temp_dir
     optdata = os.path.join(temp_dir, "OPTData")
     os.makedirs(optdata, exist_ok=True)
     monkeypatch.setattr(osutils, "_OPTDATA", optdata)
-    
+
     # Create IFF folder
     iff_folder = os.path.join(optdata, "IFFunctions")
     os.makedirs(iff_folder, exist_ok=True)
     monkeypatch.setattr(folders, "IFFUNCTIONS_ROOT_FOLDER", iff_folder)
     # Also patch the module-level variable
     monkeypatch.setattr(ifp, "_ifFold", iff_folder)
-    
+
     # Create tracking number folder
     tn = "20240101_120000"
     tn_folder = os.path.join(iff_folder, tn)
     os.makedirs(tn_folder, exist_ok=True)
-    
+
     # Create required files
     from opticalib.ground import osutils
-    
+
     # Create dummy files
     files_to_create = {
         "ampVector.fits": np.array([0.1, 0.2, 0.3]),
@@ -199,31 +204,25 @@ def sample_iff_folder_structure(temp_dir, monkeypatch):
         "indexList.fits": np.array([0, 1, 2]),
         "regActs.fits": np.array([1, 2]),
         "cmdMatrix.fits": np.random.randn(100, 3).astype(np.float32),
-        "shuffle.dat": "0"
+        "shuffle.dat": "0",
     }
-    
+
     for fname, data in files_to_create.items():
-        if fname.endswith('.fits'):
-            osutils.save_fits(
-                os.path.join(tn_folder, fname),
-                data,
-                overwrite=True
-            )
+        if fname.endswith(".fits"):
+            osutils.save_fits(os.path.join(tn_folder, fname), data, overwrite=True)
         else:
             with open(os.path.join(tn_folder, fname), "w") as f:
                 f.write(str(data))
-    
+
     # Create mode_ files for saveCube tests
     for i in range(3):
         mode_data = np.random.randn(50, 50).astype(np.float32)
         mode_mask = np.zeros((50, 50), dtype=bool)
         mode_img = ma.masked_array(mode_data, mask=mode_mask)
         osutils.save_fits(
-            os.path.join(tn_folder, f"mode_{i:04d}.fits"),
-            mode_img,
-            overwrite=True
+            os.path.join(tn_folder, f"mode_{i:04d}.fits"), mode_img, overwrite=True
         )
-    
+
     return tn, tn_folder
 
 
@@ -234,42 +233,37 @@ def sample_int_matrix_folder(temp_dir, monkeypatch, sample_int_cube):
     from opticalib.ground import osutils
     from opticalib.dmutils import iff_processing as ifp
     from opticalib.dmutils import flattening as flt
-    
+
     int_folder = os.path.join(temp_dir, "INTMatrices")
     os.makedirs(int_folder, exist_ok=True)
     monkeypatch.setattr(folders, "INTMAT_ROOT_FOLDER", int_folder)
     # Also patch the module-level variables
     monkeypatch.setattr(ifp, "_intMatFold", int_folder)
     monkeypatch.setattr(flt._ifp, "_intMatFold", int_folder)
-    
+
     tn = "20240101_120000"
     tn_folder = os.path.join(int_folder, tn)
     os.makedirs(tn_folder, exist_ok=True)
-    
+
     # Create cube
     cube = sample_int_cube
     osutils.save_fits(
         os.path.join(tn_folder, "IMCube.fits"),
         cube,
         overwrite=True,
-        header={"REBIN": 1, "FILTERED": False}
+        header={"REBIN": 1, "FILTERED": False},
     )
-    
+
     # Create command matrix
     cmd_mat = np.random.randn(100, 10).astype(np.float32)
     osutils.save_fits(
-        os.path.join(tn_folder, "cmdMatrix.fits"),
-        cmd_mat,
-        overwrite=True
+        os.path.join(tn_folder, "cmdMatrix.fits"), cmd_mat, overwrite=True
     )
-    
+
     # Create modes vector
     modes_vec = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
     osutils.save_fits(
-        os.path.join(tn_folder, "modesVector.fits"),
-        modes_vec,
-        overwrite=True
+        os.path.join(tn_folder, "modesVector.fits"), modes_vec, overwrite=True
     )
-    
-    return tn, tn_folder
 
+    return tn, tn_folder

@@ -107,7 +107,7 @@ class TestFitsArray:
         view = arr.view(FitsArray)
         assert hasattr(view, "header")
         assert_dicts(view.header, _sample_header())
-        
+
         # Slicing should also preserve header
         sliced = arr[0:1, :]
         assert hasattr(sliced, "header")
@@ -141,7 +141,12 @@ class TestFitsMaskedArray:
 
         def fake_writeto(filename, data, header=None, overwrite=False):
             writeto_calls.append(
-                {"filename": filename, "data": data, "header": header, "overwrite": overwrite}
+                {
+                    "filename": filename,
+                    "data": data,
+                    "header": header,
+                    "overwrite": overwrite,
+                }
             )
 
         def fake_append(filename, data):
@@ -195,7 +200,7 @@ class TestFitsMaskedArray:
         view = masked.view(FitsMaskedArray)
         assert hasattr(view, "header")
         assert_dicts(view.header, _sample_header())
-        
+
         # Slicing should also preserve header
         sliced = masked[0:1, :]
         assert hasattr(sliced, "header")
@@ -262,6 +267,7 @@ class TestFitsArrayGpu:
         """Test FitsArrayGpu construction if xupy is available."""
         try:
             import xupy as xp  # noqa: F401
+
             if not xp.on_gpu:
                 pytest.skip("xupy GPU backend not available")
             from opticalib.core.fitsarray import FitsArrayGpu
@@ -277,6 +283,7 @@ class TestFitsArrayGpu:
         """Test FitsMaskedArrayGpu construction if xupy is available."""
         try:
             import xupy as xp  # noqa: F401
+
             if not xp.on_gpu:
                 pytest.skip("xupy GPU backend not available")
             from opticalib.core.fitsarray import FitsMaskedArrayGpu
