@@ -8,6 +8,7 @@ import tempfile
 import shutil
 import numpy as np
 import numpy.ma as ma
+import h5py
 from astropy.io import fits
 from opticalib.ground import osutils
 from opticalib.core import fitsarray as _fa
@@ -277,3 +278,183 @@ class TestEnsureOnCpu:
         data = ma.masked_array(np.random.randn(50, 50))
         result = osutils._ensure_on_cpu(data)
         assert result is data
+
+
+class TestSaveDict:
+    """Test save_dict function."""
+
+    def test_save_dict_basic(self, temp_dir):
+        """Test saving a basic dictionary to HDF5."""
+        datadict = {
+            "sensor_1": np.random.randn(111, 100).astype(np.float32),
+            "sensor_2": np.random.randn(111, 100).astype(np.float32),
+        }
+        filepath = os.path.join(temp_dir, "test_data.h5")
+
+        osutils.save_dict(datadict, filepath)
+
+        assert os.path.exists(filepath)
+        # Verify file can be opened and contains data
+        with h5py.File(filepath, "r") as hf:
+            assert "sensor_1" in hf.keys()
+            assert "sensor_2" in hf.keys()
+            assert hf["sensor_1"].shape == (111, 100)
+            assert hf["sensor_2"].shape == (111, 100)
+            assert "n_keys" in hf.attrs
+            assert hf.attrs["n_keys"] == 2
+
+    def test_save_dict_auto_extension(self, temp_dir):
+        """Test that .h5 extension is added automatically."""
+        datadict = {"data": np.random.randn(50, 50).astype(np.float32)}
+        filepath = os.path.join(temp_dir, "test_data")  # No extension
+
+        osutils.save_dict(datadict, filepath)
+
+        assert os.path.exists(filepath + ".h5")
+
+    def test_save_dict_overwrite(self, temp_dir):
+        """Test saving with overwrite option."""
+        datadict1 = {"data": np.random.randn(50, 50).astype(np.float32)}
+        datadict2 = {"data": np.random.randn(60, 60).astype(np.float32)}
+        filepath = os.path.join(temp_dir, "test_data.h5")
+
+        osutils.save_dict(datadict1, filepath, overwrite=True)
+        osutils.save_dict(datadict2, filepath, overwrite=True)
+
+        with h5py.File(filepath, "r") as hf:
+            assert hf["data"].shape == (60, 60)
+
+    def test_save_dict_no_overwrite_error(self, temp_dir):
+        """Test that FileExistsError is raised when overwrite=False."""
+        datadict = {"data": np.random.randn(50, 50).astype(np.float32)}
+        filepath = os.path.join(temp_dir, "test_data.h5")
+
+        osutils.save_dict(datadict, filepath, overwrite=True)
+        # Try to save again without overwrite
+        with pytest.raises(FileExistsError):
+            osutils.save_dict(datadict, filepath, overwrite=False)
+
+    def test_save_dict_with_metadata(self, temp_dir):
+        """Test that metadata is stored correctly."""
+        datadict = {"sensor_1": np.random.randn(10, 10).astype(np.float32)}
+        filepath = os.path.join(temp_dir, "test_data.h5")
+
+        osutils.save_dict(datadict, filepath)
+
+        with h5py.File(filepath, "r") as hf:
+            assert "n_keys" in hf.attrs
+            assert "creation_date" in hf.attrs
+            assert osutils.is_tn(hf.attrs["creation_date"])
+            # Check dataset attributes
+            assert "shape" in hf["sensor_1"].attrs
+            assert "dtype" in hf["sensor_1"].attrs
+
+
+class TestLoadDict:
+    """Test load_dict function."""
+
+    def test_load_dict_basic(self, temp_dir):
+        """Test loading a dictionary from HDF5."""
+        # First save some data
+        datadict = {
+            "sensor_1": np.random.randn(111, 100).astype(np.float32),
+            "sensor_2": np.random.randn(50, 50).astype(np.float32),
+        }
+        filepath = os.path.join(temp_dir, "test_data.h5")
+        osutils.save_dict(datadict, filepath)
+
+        # Now load it
+        loaded = osutils.load_dict(filepath)
+
+        assert isinstance(loaded, dict)
+        assert "sensor_1" in loaded
+        assert "sensor_2" in loaded
+        np.testing.assert_array_almost_equal(loaded["sensor_1"], datadict["sensor_1"])
+        np.testing.assert_array_almost_equal(loaded["sensor_2"], datadict["sensor_2"])
+
+    def test_load_dict_with_keys(self, temp_dir):
+        """Test loading only specific keys."""
+        datadict = {
+            "sensor_1": np.random.randn(50, 50).astype(np.float32),
+            "sensor_2": np.random.randn(50, 50).astype(np.float32),
+            "sensor_3": np.random.randn(50, 50).astype(np.float32),
+        }
+        filepath = os.path.join(temp_dir, "test_data.h5")
+        osutils.save_dict(datadict, filepath)
+
+        loaded = osutils.load_dict(filepath, keys=["sensor_1", "sensor_3"])
+
+        assert "sensor_1" in loaded
+        assert "sensor_3" in loaded
+        assert "sensor_2" not in loaded
+
+    def test_load_dict_missing_key_error(self, temp_dir):
+        """Test that KeyError is raised for missing keys."""
+        datadict = {"sensor_1": np.random.randn(50, 50).astype(np.float32)}
+        filepath = os.path.join(temp_dir, "test_data.h5")
+        osutils.save_dict(datadict, filepath)
+
+        with pytest.raises(KeyError):
+            osutils.load_dict(filepath, keys=["sensor_1", "missing_key"])
+
+    def test_load_dict_file_not_found(self, temp_dir):
+        """Test that FileNotFoundError is raised for non-existent file."""
+        filepath = os.path.join(temp_dir, "nonexistent.h5")
+
+        with pytest.raises(FileNotFoundError):
+            osutils.load_dict(filepath)
+
+    def test_load_dict_auto_extension(self, temp_dir):
+        """Test that .h5 extension is added automatically."""
+        datadict = {"data": np.random.randn(50, 50).astype(np.float32)}
+        filepath = os.path.join(temp_dir, "test_data.h5")
+        osutils.save_dict(datadict, filepath)
+
+        # Load without extension
+        loaded = osutils.load_dict(os.path.join(temp_dir, "test_data"))
+        assert "data" in loaded
+
+
+class TestGetH5FileInfo:
+    """Test get_h5file_info function."""
+
+    def test_get_h5file_info_basic(self, temp_dir):
+        """Test getting basic info from HDF5 file."""
+        datadict = {
+            "sensor_1": np.random.randn(111, 100).astype(np.float32),
+            "sensor_2": np.random.randn(50, 50).astype(np.int32),
+        }
+        filepath = os.path.join(temp_dir, "test_data.h5")
+        osutils.save_dict(datadict, filepath)
+
+        info = osutils.get_h5file_info(filepath)
+
+        assert isinstance(info, dict)
+        assert "keys" in info
+        assert "n_keys" in info
+        assert "shapes" in info
+        assert "dtypes" in info
+        assert "creation_date" in info
+        assert "file_size_mb" in info
+        assert len(info["keys"]) == 2
+        assert info["n_keys"] == 2
+        assert info["shapes"]["sensor_1"] == (111, 100)
+        assert info["shapes"]["sensor_2"] == (50, 50)
+        assert info["file_size_mb"] > 0
+
+    def test_get_h5file_info_file_not_found(self, temp_dir):
+        """Test that FileNotFoundError is raised for non-existent file."""
+        filepath = os.path.join(temp_dir, "nonexistent.h5")
+
+        with pytest.raises(FileNotFoundError):
+            osutils.get_h5file_info(filepath)
+
+    def test_get_h5file_info_auto_extension(self, temp_dir):
+        """Test that .h5 extension is added automatically."""
+        datadict = {"data": np.random.randn(50, 50).astype(np.float32)}
+        filepath = os.path.join(temp_dir, "test_data.h5")
+        osutils.save_dict(datadict, filepath)
+
+        # Get info without extension
+        info = osutils.get_h5file_info(os.path.join(temp_dir, "test_data"))
+        assert "data" in info["keys"]

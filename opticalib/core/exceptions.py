@@ -40,3 +40,10 @@ class BufferError(Exception):
 
     def __init__(self, message: str):
         super().__init__(message)
+
+
+class PathError(Exception):
+    """Exception raised when a path operation fails."""
+
+    def __init__(self, message: str):
+        super().__init__(message)

@@ -113,7 +113,7 @@ def acquirePistonData(
     amps = _prepareSteppingAmplitudes(amp_template, nstep, stepamp, reverse)
     modeslist = _np.arange(len(amps))
     cmdmat = _np.full((dm.nActs, len(amps)), 1.0)
-    cmdmat *= amps[:,None]
+    cmdmat *= amps[None, :]
     ifc.cmdMatHistory = cmdmat.copy()
     tch = ifc.createTimedCmdHistory(modesList=modeslist, amplitude=amps, template=template, shuffle=False)
     info = ifc.getInfoToSave()
