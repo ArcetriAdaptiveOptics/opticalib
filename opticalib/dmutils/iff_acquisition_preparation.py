@@ -195,8 +195,8 @@ class IFFCapturePreparation:
         template = template if template is not None else infoIF.get("template")
         zeroScheme = infoIF["zeros"]
         self._template = template
-        self._createCmdMatrix(mlist)
         self._modesList = mlist
+        self._createCmdMatrix(mlist)
         nModes = self._cmdMatrix.shape[1]
         n_push_pull = len(template)
         if _np.size(modesAmp) == 1:
