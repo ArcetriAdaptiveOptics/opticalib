@@ -49,7 +49,9 @@ from opticalib.core.root import _folds
 from opticalib.core import fitsarray as _fa
 from opticalib.core import read_config as _rif
 from concurrent.futures import ThreadPoolExecutor as _tpe
-from opticalib.ground import modal_decomposer as _zern, osutils as _osu, roi as _roi
+from opticalib.ground import (
+    modal_decomposer as _zern, osutils as _osu, roi as _roi
+)
 
 # from scripts.misc.IFFPackage import actuator_identification_lib as _fa
 
@@ -60,16 +62,16 @@ _intMatFold = _fn.INTMAT_ROOT_FOLDER
 _frameCenter = [200, 200]
 _ts = _osu.newtn
 
-ampVecFile = "ampVector.fits"
-modesVecFile = "modesVector.fits"
-templateFile = "template.fits"
-regisActFile = "regActs.fits"
-shuffleFile = "shuffle.dat"
+modesVecFile  = "modesVector.fits"
+cmdMatFile    = "cmdMatrix.fits"
+ampVecFile    = "ampVector.fits"
+templateFile  = "template.fits"
+regisActFile  = "regActs.fits"
 indexListFile = "indexList.fits"
-coordfile = ""  # TODO
-cmdMatFile = "cmdMatrix.fits"
-cubeFile = "IMCube.fits"
-flagFile = "flag.txt"
+shuffleFile   = "shuffle.dat"
+cubeFile      = "IMCube.fits"
+coordfile     = ""  # TODO
+# flagFile      = "flag.txt" DEPRECATED
 
 
 def process(
