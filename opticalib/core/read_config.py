@@ -143,7 +143,7 @@ def getIffConfig(key: str, bpath: str = _cfold):
     modeId = _parse_val(cc[_modeIdName])
     modeAmp = _parse_val(cc[_modeAmpName])
     modalBase = cc[_modalBaseName]
-    template = _np.asarray(cc[_templateName])
+    template = _parse_val(cc[_templateName])
     info = {
         "zeros": nzeros,
         "modes": modeId,
@@ -197,13 +197,14 @@ def updateIffConfig(tn: str, item: str, value: _Any):
     key = "IFFUNC"
     file = _os.path.join(_iffold, tn, _iff_config_file)
     config = load_yaml_config(file)
-    if isinstance(value, _np.ndarray):
+    if isinstance(value, (_np.ndarray,list)):
         vmax = _np.max(value)
         vmin = _np.min(value)
-        if _np.array_equal(value, _np.arange(vmin, vmax + 1)):
-            config[key][item] = f"np.arange({vmin}, {vmax + 1})"
+        step = value[1]-value[0] if len(value)>1 else 1
+        if _np.array_equal(value, _np.arange(vmin, vmax + 1, step)):
+            config[key][item] = f"np.arange({vmin}, {vmax + 1}, {step})"
         else:
-            config[key][item] = str(value.tolist())
+            config[key][item] = f"[{','.join(str(v) for v in value)}]"
     else:
         config[key][item] = str(value)
     dump_yaml_config(config, file)

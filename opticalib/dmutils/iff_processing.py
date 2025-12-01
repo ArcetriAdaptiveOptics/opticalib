@@ -79,8 +79,8 @@ def process(
     rebin: int = 1,
     *,
     trigger_roi: int = None,
-    nworkers: int = 1,
-    nmode_prefetch: int = 0,
+    nworkers: int = 2,
+    nmode_prefetch: int = 1,
 ) -> None:
     """
     High level function with processes the data contained in the given tracking
@@ -103,11 +103,9 @@ def process(
         If not None, it defines the size of the square ROI to be used for the
         registration algorithm. The default is None.
     nworkers : int, optional
-        Number of workers to use for the processing. The default is 1 for no
-        parallelization.
+        Number of workers to use for the processing. The default is 2.
     nmode_prefetch : int, optional
-        Number of modes to prefetch during the processing. The default is 0
-        for no prefetching.
+        Number of modes to prefetch during the processing. The default is 1.
     """
     ampVector, modesVector, template, _, registrationActs, shuffle = _getAcqPar(tn)
     if not modesVector.dtype.type is _np.int_:

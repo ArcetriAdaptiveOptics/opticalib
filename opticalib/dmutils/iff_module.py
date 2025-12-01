@@ -143,13 +143,12 @@ def acquirePistonData(
     """
     ifc = _ifa.IFFCapturePreparation(dm)
     amps = _prepareSteppingAmplitudes(template, nstep, stepamp, reverse)
-    modeslist = _np.arange(len(amps))
     cmdmat = _np.full((dm.nActs, len(amps)), 1.0)
     cmdmat *= amps[None, :]
     ifc.cmdMatHistory = cmdmat.copy()
-    tch = ifc.createTimedCmdHistory(modesList=modeslist, modesAmp=amps, template=[1], shuffle=False)
+    tch = ifc.createTimedCmdHistory()
     info = ifc.getInfoToSave()
-    
+
     # create compatible amp vector
     ampvec = []
     ki = 0
@@ -158,13 +157,13 @@ def acquirePistonData(
         ki = kf
 
     # Hacking the standard IFF procedure
-    
+    modeslist = _np.arange(len(ampvec))
     info['ampVector'] = _np.asarray(ampvec)
     info['template'] = _np.asarray(template)
     info['cmdMatrix'] = _np.full((dm.nActs, len(amps)), 1.0)
-    info['modesVector'] = _np.arange(len(ampvec))
+    info['modesVector'] = modeslist
+    info['indexList'] = modeslist
     info['shuffle'] = 0
-    info['indexList'] = _np.arange(len(ampvec))
     tn,_= _prepareData2Save(info)
 
     _rif.copyIffConfigFile(tn)
@@ -193,6 +192,7 @@ def acquirePistonData(
         dm.runCmdHistory(interf, save=tn, differential=differential)
     return tn
 
+
 def saveBufferData(dm: _ot.DeformableMirrorDevice, tn_or_fp: str):
     """
     Saves the buffer data from the deformable mirror device into a FITS file.
@@ -216,6 +216,7 @@ def saveBufferData(dm: _ot.DeformableMirrorDevice, tn_or_fp: str):
         iffpath = tn_or_fp
     bdata = dm.bufferData.copy()
     _osu.save_dict(bdata, iffpath, overwrite=True)
+
 
 def _prepareData2Save(info: dict[str, _ot.Any]) -> tuple[str,str]:
     """
@@ -245,7 +246,6 @@ def _prepareData2Save(info: dict[str, _ot.Any]) -> tuple[str,str]:
         _os.mkdir(iffpath)
     try:
         for key, value in info.items():
-            print(key)
             if not isinstance(value, _np.ndarray):
                 tvalue = _np.asarray(value)
             else:
