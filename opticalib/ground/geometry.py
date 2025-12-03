@@ -4,8 +4,8 @@ from arte.types.mask import CircularMask
 from opticalib import typings as _ot
 
 
-def draw_circular_mask(
-    shape: tuple[int, int] | list[int], center: int, radius: int
+def draw_circular_pupil(
+    shape: tuple[int, int] | list[int], radius: int, center: int = None, masked: bool = False
 ) -> _ot.MaskData:
     """
     Draws a circular boolean mask.
@@ -18,6 +18,8 @@ def draw_circular_mask(
         The (x, y) coordinates of the circle's center.
     radius: float
         The radius of the circle.
+    masked: bool
+        If True, flips the logic, and sets the circular area to True.
 
     Returns
     -------
@@ -25,13 +27,17 @@ def draw_circular_mask(
         A binary mask with the circular area set to False.
     """
     mask = np.ones(shape, dtype=bool)
+    if not center:
+        center = (shape[1] // 2, shape[0] // 2)
     rr, cc = draw.disk((center[1], center[0]), radius, shape=shape)
     mask[rr, cc] = False
+    if masked:
+        mask = ~mask
     return mask
 
 
 def draw_polygonal_mask(
-    shape: tuple[int, int] | list[int], vertices: _ot.ArrayLike
+    shape: tuple[int, int] | list[int], vertices: _ot.ArrayLike, masked: bool = False
 ) -> _ot.MaskData:
     """
     Draws a polygonal boolean mask.
@@ -42,6 +48,8 @@ def draw_polygonal_mask(
         The shape of the image (height, width).
     vertices: np.ndarray
         An array of shape (N, 2) containing the (x, y) coordinates of the polygon's vertices.
+    masked: bool
+        If True, flips the logic, and sets the polygonal area to True.
 
     Returns
     -------
@@ -51,6 +59,8 @@ def draw_polygonal_mask(
     mask = np.ones(shape, dtype=bool)
     rr, cc = draw.polygon(vertices[:, 1], vertices[:, 0], shape=shape)
     mask[rr, cc] = False
+    if masked:
+        mask = ~mask
     return mask
 
 
@@ -154,3 +164,31 @@ def rotate_image(
 
     rotated_img = np.ma.masked_array(rotated_data, mask=rotated_mask)
     return rotated_img
+
+def draw_hexagonal_mask(
+    shape: tuple[int, int] | list[int], radius: int, center: int= None, masked: bool = False
+) -> _ot.MaskData:
+    """
+    Draws a hexagonal boolean mask.
+
+    Parameters
+    ----------
+    image_shape: tuple of ints
+        The shape of the image (height, width).
+    radius: float
+        The radius of the hexagon.
+    center: tuple of floats
+        The (x, y) coordinates of the hexagon's center.
+
+    Returns
+    -------
+    mask: np.ndarray
+        A binary mask with the hexagonal area set to False.
+    """
+    if not center:
+        center = (shape[1] // 2, shape[0] // 2)
+    vertexes = np.array([
+        [center[0] + radius * np.cos(np.pi / 3 * i) for i in range(6)],
+        [np.ceil(center[1]) + radius * np.sin(np.pi / 3 * i) for i in range(6)],
+    ],dtype=int).T
+    return draw_polygonal_mask(shape, vertexes, masked=masked)
