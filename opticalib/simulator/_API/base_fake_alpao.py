@@ -2,7 +2,7 @@ import os
 import xupy as xp
 import numpy as np
 from ... import typings as _t
-from .factory_functions import *
+from ..factory_functions import *
 from ...core import root as _root
 from abc import ABC, abstractmethod
 from opticalib.ground import osutils as osu

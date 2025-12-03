@@ -145,7 +145,7 @@ class BaseFakeDp:
         if not os.path.exists(fp.SIM_DATA_FILE(self._name, "ZM")):
             n_zern = self.nActs // 2
             print("Computing Zernike matrix...")
-            from .factory_functions import generateZernikeMatrix
+            from ..factory_functions import generateZernikeMatrix
 
             zms = []
             for mask in [self._ms0, self._ms1]:

@@ -5,7 +5,10 @@ from opticalib import typings as _ot
 
 
 def draw_circular_pupil(
-    shape: tuple[int, int] | list[int], radius: int, center: int = None, masked: bool = False
+    shape: tuple[int, int] | list[int],
+    radius: int,
+    center: int = None,
+    masked: bool = False,
 ) -> _ot.MaskData:
     """
     Draws a circular boolean mask.
@@ -165,8 +168,12 @@ def rotate_image(
     rotated_img = np.ma.masked_array(rotated_data, mask=rotated_mask)
     return rotated_img
 
+
 def draw_hexagonal_mask(
-    shape: tuple[int, int] | list[int], radius: int, center: int= None, masked: bool = False
+    shape: tuple[int, int] | list[int],
+    radius: int,
+    center: int = None,
+    masked: bool = False,
 ) -> _ot.MaskData:
     """
     Draws a hexagonal boolean mask.
@@ -187,8 +194,75 @@ def draw_hexagonal_mask(
     """
     if not center:
         center = (shape[1] // 2, shape[0] // 2)
-    vertexes = np.array([
-        [center[0] + radius * np.cos(np.pi / 3 * i) for i in range(6)],
-        [np.ceil(center[1]) + radius * np.sin(np.pi / 3 * i) for i in range(6)],
-    ],dtype=int).T
+    vertexes = np.array(
+        [
+            [center[0] + radius * np.cos(np.pi / 3 * i) for i in range(6)],
+            [np.ceil(center[1]) + radius * np.sin(np.pi / 3 * i) for i in range(6)],
+        ],
+        dtype=int,
+    ).T
     return draw_polygonal_mask(shape, vertexes, masked=masked)
+
+
+def create_line_mask(
+    shape: tuple[int, int],
+    angle_deg: float | None = None,
+    width: int = 1,
+    center: tuple[int, int] | None = None,
+    slope: float | None = None,
+    masked: bool = False,
+) -> _ot.MaskData:
+    """
+    Create a boolean mask with a line of given width.
+
+    Parameters
+    ----------
+    shape : tuple[int, int]
+        Shape of the mask (height, width), e.g., (2000, 2000)
+    angle_deg : float, optional
+        Angle in degrees with respect to horizontal (counterclockwise positive)
+    width : float
+        Width of the line in pixels
+    center : tuple[int, int] | None, optional
+        Point (x, y) through which the line passes
+    slope : float, optional
+        Angular coefficient m (alternative to angle_deg)
+    masked : bool, optional
+        If True, inverts the mask logic (line area set to True)
+
+    Returns
+    -------
+    mask : ndarray
+        Boolean mask with True where the line is
+    """
+    if angle_deg is None and slope is None:
+        raise ValueError("Must provide either angle_deg or slope")
+
+    # Convert slope to angle if needed
+    if angle_deg is not None:
+        theta = np.deg2rad(angle_deg)
+    else:
+        theta = np.arctan(slope)
+
+    if center is None:
+        center = (shape[1] // 2, shape[0] // 2)  # (x, y)
+
+    # Line coefficients: a*x + b*y + c = 0
+    a = np.sin(theta)
+    b = -np.cos(theta)
+    c = -a * center[0] - b * center[1]
+
+    # Create coordinate grids
+    # Note: y is row index (0 at top), x is column index
+    height, width_px = shape
+    y, x = np.ogrid[0:height, 0:width_px]
+
+    # Compute signed distance to line
+    # Since a² + b² = sin²θ + cos²θ = 1, denominator is 1
+    distance = np.abs(a * x + b * y + c)
+
+    # Create mask: pixels within half-width of the line
+    mask = distance <= (width / 2.0)
+    if masked:
+        mask = ~mask
+    return mask
