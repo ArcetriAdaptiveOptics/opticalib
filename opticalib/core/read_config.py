@@ -150,6 +150,7 @@ def getIffConfig(key: str, bpath: str = _cfold):
         "amplitude": modeAmp,
         "template": template,
         "modalBase": modalBase,
+        'paddingZeros': cc.get('paddingZeros', 0)
     }
     return info
 
