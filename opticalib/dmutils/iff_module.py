@@ -12,6 +12,7 @@ Author(s):
 import os as _os
 import numpy as _np
 from opticalib.core.root import folders as _fn
+from opticalib.core.fitsarray import fits_array as _fa
 from opticalib.core import read_config as _rif, exceptions as _oe
 from . import iff_acquisition_preparation as _ifa
 from opticalib.ground import osutils as _osu
@@ -66,7 +67,7 @@ def iffDataAcquisition(
     ifc = _ifa.IFFCapturePreparation(dm)
     tch = ifc.createTimedCmdHistory(modesList, amplitude, template, shuffle)
     info = ifc.getInfoToSave()
-    tn, iffpath = _prepareData2Save(info)
+    tn,_ = _prepareData2Save(info)
     _rif.copyIffConfigFile(tn)
     for param, value in zip(
         ["modeid", "modeamp", "template"], [modesList, amplitude, template]
@@ -103,24 +104,71 @@ def acquirePistonData(
     reverse: bool = False,
     differential: bool = False,
     read_buffer: bool = False
-):
+) -> str:
     """
+    This is the user-lever function for the acquisition of piston data of a 
+    segmented DM. 
     
+    The logic is to leave one of the segments fixed at "0" for reference and
+    to move all the others with a stepping function which pistons all actuators
+    back a forth on a Push-Pull basis.
+
+    Parameters
+    ----------
+    dm: DeformableMirrorDevice
+        The inizialized deformable mirror object
+    interf: InterferometerDevice
+        The initialized interferometer object to take measurements
+    template: list[int]
+        The template defining the stepping pattern. Must have an odd length.
+    stepamp: float, optional
+        The amplitude of each step. Default is 70e-9 m.
+    nstep: int, optional
+        The number of steps in the sequence. Default is 50.
+    reverse: bool, optional
+        If True, appends the reverse of the sequence to itself. Default is False.
+    differential: bool , optional
+        if True, applies the commands differentially w.r.t. the initial shape of
+        the DM.
+    read_buffer: bool | dict[str, Any], optional
+        If False (default) do not read the buffer data during the acquisition.
+        If True, read the buffer data with default parameters.
+        If a dictionary is provided, it is passed as keyword arguments to the
+        `read_buffer` method of the deformable mirror device.
+
+    Returns
+    -------
+    tn: str
+        The tracking number of the dataset acquired, saved in the OPDImages folder
     """
-    amp_template = template.copy()
-    template = [1]
     ifc = _ifa.IFFCapturePreparation(dm)
-    amps = _prepareSteppingAmplitudes(amp_template, nstep, stepamp, reverse)
-    modeslist = _np.arange(len(amps))
+    amps = _prepareSteppingAmplitudes(template, nstep, stepamp, reverse)
     cmdmat = _np.full((dm.nActs, len(amps)), 1.0)
-    cmdmat *= amps[:,None]
+    cmdmat *= amps[None, :]
     ifc.cmdMatHistory = cmdmat.copy()
-    tch = ifc.createTimedCmdHistory(modesList=modeslist, amplitude=amps, template=template, shuffle=False)
+    tch = ifc.createTimedCmdHistory()
     info = ifc.getInfoToSave()
-    tn, iffpath = _prepareData2Save(info)
+
+    # create compatible amp vector
+    ampvec = []
+    ki = 0
+    for kf in range(ki+len(template)-1, len(amps), len(template)):
+        ampvec.append(amps[ki:kf].max())
+        ki = kf
+
+    # Hacking the standard IFF procedure
+    modeslist = _np.arange(len(ampvec))
+    info['ampVector'] = _np.asarray(ampvec)
+    info['template'] = _np.asarray(template)
+    info['cmdMatrix'] = _np.full((dm.nActs, len(amps)), 1.0)
+    info['modesVector'] = modeslist
+    info['indexList'] = modeslist
+    info['shuffle'] = 0
+    tn,_= _prepareData2Save(info)
+
     _rif.copyIffConfigFile(tn)
     for param, value in zip(
-        ["modeid", "modeamp", "template"], [modeslist, amps, template]
+        ["modeid", "modeamp", "template"], [modeslist, ampvec, template]
     ):
         if value is not None:
             _rif.updateIffConfig(tn, param, value)
@@ -135,15 +183,15 @@ def acquirePistonData(
                 rb_kwargs = read_buffer
             else:
                 rb_kwargs = {}
-            with dm.read_buffer(**rb_kwargs) as buffer_data:
+            with dm.read_buffer(**rb_kwargs):
                 dm.runCmdHistory(interf, save=tn, differential=differential)
-                bdata = buffer_data.copy()
-                _osu.save_fits(_os.path.join(iffpath, "buffer_data.fits"), bdata, overwrite=True)
+                saveBufferData(dm, tn)
         except _oe.BufferError as be:
             print(be)
     else:
         dm.runCmdHistory(interf, save=tn, differential=differential)
     return tn
+
 
 def saveBufferData(dm: _ot.DeformableMirrorDevice, tn_or_fp: str):
     """
@@ -169,7 +217,8 @@ def saveBufferData(dm: _ot.DeformableMirrorDevice, tn_or_fp: str):
     bdata = dm.bufferData.copy()
     _osu.save_dict(bdata, iffpath, overwrite=True)
 
-def _prepareData2Save(info: dict[str, _ot.Any]) -> None:
+
+def _prepareData2Save(info: dict[str, _ot.Any]) -> tuple[str,str]:
     """
     Manages the creation of the folder to save the IFF data and saves
     the info dictionary in it, which comprehends:
@@ -237,17 +286,12 @@ def _prepareSteppingAmplitudes(
     if not M % 2:
         raise ValueError("Template must return to starting point (e.g, [1,-1,1])")
 
-    fk = []
-
-    # Stepping sequence
-    for i in range(nstep):
-        for j in range(1, M + 1):
-            fk.append(i + (1 if j % 2 == 0 else 0))
-    fk.append((nstep - 1) + 1)
-    fk = _np.asarray(fk) * stepamp
+    fk = _np.array(
+        [i + (j % 2 == 0) for i in range(nstep) for j in range(1, M + 1)] + [nstep]
+        ) * stepamp
 
     if reverse:
-        fk = _np.concatenate((fk, _np.flip(fk[1:])[1:]))
+        fk = _np.concatenate((fk, _np.flip(fk)[1:]))
 
     # get rid of 0 amplitude at the beginning
     return fk[1:]

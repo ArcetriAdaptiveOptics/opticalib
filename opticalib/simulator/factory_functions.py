@@ -4,13 +4,14 @@ import xupy as xp
 from opticalib import folders as fp, typings as _t
 from opticalib.core.read_config import load_yaml_config as cl
 from opticalib.ground.modal_decomposer import ZernikeFitter
+from opticalib.ground import geometry as geo
 
 _alpao_list = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "alpao_conf.yaml"
 )
 
 
-def getAlpaoCoordsMask(nacts: int, shape: tuple[int] = (512, 512)):
+def getAlpaoCoordsMask(nacts: int, shape: tuple[int] = (512, 512)) -> tuple[_t.ArrayLike, _t.MaskData]:
     """
     Generates the coordinates of the DM actuators for a given DM size and actuator sequence.
 
@@ -184,156 +185,48 @@ def generateZernikeMatrix(modes: int | list[int], mask: _t.MaskData):
         ZM[:, i] = masked_data
     return ZM
 
-
-def createMaskAndCoords(
-    coords: str | np.ndarray,
-    geometry: str = "circle",
-    radius: float = None,
-    vertices: np.ndarray = None,
-    mask_size: int = 1000,
-    padding: int = 10,
-    mirror_axis: str = None,
-):
+def getPetalmirrorMask(shape: tuple[int, int], pupil_radius: int, central_segment_radius: int|None = None) -> _t.MaskData:
     """
-    General function to create a mask and scaled actuator coordinates for any deformable mirror.
+    Generates a petal-shaped mask.
 
     Parameters
     ----------
-    coords_file : str
-        Path to the FITS file containing actuator coordinates in meters.
-        Expected format: Nx2 array with [x, y] coordinates.
-
-    geometry : str, optional
-        Type of mirror geometry. Options are 'circle' or 'polygon'. Default is 'circle'.
-
-    radius : float, optional
-        Radius of the circular mirror aperture in meters. Required if geometry='circle'.
-
-    vertices : np.ndarray, optional
-        Array of polygon vertices in meters with shape (N, 2) for [x, y] coordinates.
-        Required if geometry='polygon'. Vertices should be ordered sequentially.
-
-    mask_size : int, optional
-        Size of the mask in pixels (for the largest dimension). Default is 1000.
-
-    padding : int, optional
-        Number of pixels to pad around the mask to avoid edge effects. Default is 10.
-
-    mirror_axis : str, optional
-        If provided, creates a symmetric mask by mirroring along the specified axis.
-        Options: 'horizontal', 'vertical', None. Default is None (no mirroring).
+    shape : tuple[int, int]
+        Shape of the mask (height, width).
+    pupil_radius : int
+        Radius of the pupil.
+    central_segment_radius : int, optional
+        Radius of the central segment. If not provided, defaults to 26.6% of the
+        pupil_radius.
 
     Returns
     -------
-    final_mask : np.ndarray
-        Boolean mask where True indicates invalid/masked pixels.
-
-    act_px_coords : np.ndarray
-        Actuator coordinates in pixel space (Nx2 array).
-
+    mask : _t.MaskData
+        Petal-shaped boolean mask.
     """
-    from opticalib.ground.osutils import load_fits as lf
-    from skimage.draw import polygon2mask
+    if central_segment_radius is None:
+        central_segment_radius = np.ceil(0.266666666666 * pupil_radius)
+    
+    hexagon_outer = geo.draw_hexagonal_mask(shape, radius=central_segment_radius+10, masked=True)
+    hexagon_inner = geo.draw_hexagonal_mask(shape, radius=central_segment_radius, masked=False)
 
-    # Load actuator coordinates in meters
-    if isinstance(coords, str):
-        act_coords = lf(coords)
-    else:
-        act_coords = coords
-    if act_coords.shape[1] != 2:
-        raise ValueError(
-            f"Expected actuator coordinates with shape (N, 2), got {act_coords.shape}"
-        )
+    hexagon_ring = hexagon_inner ^ hexagon_outer
 
-    # Determine mirror physical dimensions
-    x_min, y_min = act_coords.min(axis=0)
-    x_max, y_max = act_coords.max(axis=0)
-    x_extent = x_max - x_min  # meters
-    y_extent = y_max - y_min  # meters
+    line1 = geo.create_line_mask(shape, angle_deg=60, width=10)
+    line2 = geo.create_line_mask(shape, angle_deg=120, width=10)
+    line3 = geo.create_line_mask(shape, angle_deg=180, width=10)
 
-    # Create mask based on geometry
-    if geometry == "circle":
-        if radius is None:
-            raise ValueError("Radius must be provided for circular geometry")
+    cross = ~(line1 ^ line2 ^ line3)
+    cross[hexagon_inner==False] = True
 
-        # Create circular mask
-        mask_diameter = mask_size
-        center = mask_diameter / 2
-        y_grid, x_grid = np.ogrid[:mask_diameter, :mask_diameter]
-        distance_from_center = np.sqrt((x_grid - center) ** 2 + (y_grid - center) ** 2)
-        mask = distance_from_center > (mask_diameter / 2 - 1)
+    segmask = hexagon_ring ^ cross
 
-        # Physical scale: map 2*radius (diameter) to mask_diameter pixels
-        pixel_scale = (2 * radius) / mask_diameter
+    pupil = geo.draw_circular_pupil(shape, radius=pupil_radius, masked=False)
 
-    elif geometry == "polygon":
-        if vertices is None:
-            raise ValueError("Vertices must be provided for polygon geometry")
-
-        vertices = np.asarray(vertices)
-        if vertices.shape[1] != 2:
-            raise ValueError(
-                f"Expected vertices with shape (N, 2), got {vertices.shape}"
-            )
-
-        # Normalize vertices to [0, 1] range
-        v_min = vertices.min(axis=0)
-        v_max = vertices.max(axis=0)
-        v_extent = v_max - v_min
-
-        # Scale vertices to pixel coordinates
-        scale_factor = mask_size / v_extent.max()
-        vertices_px = (vertices - v_min) * scale_factor
-
-        # Create polygon mask
-        mask_shape = (
-            int(np.ceil(vertices_px[:, 1].max())) + 1,
-            int(np.ceil(vertices_px[:, 0].max())) + 1,
-        )
-
-        # Convert vertices to row, col format for polygon2mask
-        poly_coords = np.column_stack([vertices_px[:, 1], vertices_px[:, 0]])
-        mask = ~polygon2mask(mask_shape, poly_coords)
-
-        # Physical scale
-        pixel_scale = v_extent.max() / mask_size
-
-    else:
-        raise ValueError(
-            f"Unknown geometry type: {geometry}. Use 'circle' or 'polygon'."
-        )
-
-    # Apply mirroring if requested
-    if mirror_axis == "horizontal":
-        # Mirror horizontally (left-right)
-        half_mask = mask[:, : mask.shape[1] // 2]
-        mirrored = np.fliplr(half_mask)
-        mask = np.hstack([half_mask, mirrored])
-    elif mirror_axis == "vertical":
-        # Mirror vertically (up-down)
-        half_mask = mask[: mask.shape[0] // 2, :]
-        mirrored = np.flipud(half_mask)
-        mask = np.vstack([half_mask, mirrored])
-
-    # Convert actuator coordinates to pixel coordinates
-    # Center the coordinates
-    act_coords_centered = act_coords - act_coords.min(axis=0)
-
-    # Scale to pixels
-    act_px_coords = act_coords_centered / pixel_scale
-
-    # Center actuators in the mask
-    mask_center = np.array([mask.shape[1] / 2, mask.shape[0] / 2])
-    act_center = np.array([act_px_coords[:, 0].mean(), act_px_coords[:, 1].mean()])
-    act_px_coords += mask_center - act_center
-
-    # Apply padding to mask
-    final_mask = np.pad(mask, padding, mode="constant", constant_values=True)
-
-    # Adjust actuator coordinates for padding
-    act_px_coords += padding
-
-    return final_mask, act_px_coords
+    segmask[pupil==1] = 1
+    segmask[hexagon_ring==0] = 1
+    
+    return segmask
 
 
 __all__ = [

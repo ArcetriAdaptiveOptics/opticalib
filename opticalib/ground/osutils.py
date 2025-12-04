@@ -397,7 +397,7 @@ def save_fits(
     # Check if lowering precision is safe
     if data.dtype == _np.float64:
         data = _reduce_dtype_safely(data, preserve_float64=False)
-    elif any(data.dtype == _np.int64, data.dtype == _np.int32):
+    elif any([data.dtype == _np.int64, data.dtype == _np.int32]):
         data = _reduce_dtype_safely(data)
 
     if isinstance(data, (_fa.FitsArray, _fa.FitsMaskedArray)):
