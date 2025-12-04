@@ -189,16 +189,16 @@ class ComputeReconstructor:
         try:
             self._setAnalysisMask()
             # New efficient way - TOTRY
-            n_images = self._intMatCube.shape[2]
-            reshaped = self._intMatCube.data.reshape(-1, n_images)
-            mask_flat = (self._analysisMask == 0).ravel()
-            intMat = reshaped[mask_flat, :].T
-            # self._intMat = _np.array(
-            #     [
-            #         (self._intMatCube[:, :, i].data)[self._analysisMask == 0]
-            #         for i in range(self._intMatCube.shape[2])
-            #     ]
-            # )
+           # n_images = self._intMatCube.shape[2]
+           # reshaped = self._intMatCube.data.reshape(-1, n_images)
+           # mask_flat = (self._analysisMask == 0).ravel()
+           # intMat = reshaped[mask_flat, :].T
+            self._intMat = _np.array(
+                [
+                    (self._intMatCube[:, :, i].data)[self._analysisMask == 0]
+                    for i in range(self._intMatCube.shape[2])
+                ]
+            )
         except Exception as e:
             self._logger.error("Error in computing interaction matrix from cube:%s", e)
             raise e
