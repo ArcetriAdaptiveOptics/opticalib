@@ -216,11 +216,11 @@ def saveBufferData(dm: _ot.DeformableMirrorDevice, tn_or_fp: str):
             f"The `{dm.__class__.__name__}` device cannot read buffer data."
         )
     if _osu.is_tn(tn_or_fp):
-        iffpath = _os.path.join(_fn.IFFUNCTIONS_ROOT_FOLDER, tn_or_fp)
+        iffpath = _os.path.join(_fn.IFFUNCTIONS_ROOT_FOLDER, tn_or_fp, 'buffer_data.h5')
     elif not _os.path.exists(tn_or_fp):
         raise _oe.PathError(f"The path `{tn_or_fp}` does not exist.")
     else:
-        iffpath = tn_or_fp
+        iffpath = _os.path.join(tn_or_fp, 'buffer_data.h5')
     bdata = dm.bufferData.copy()
     _osu.save_dict(bdata, iffpath, overwrite=True)
 
