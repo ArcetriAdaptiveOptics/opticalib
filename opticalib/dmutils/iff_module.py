@@ -97,7 +97,7 @@ def iffDataAcquisition(
 def acquirePistonData(
     dm: _ot.DeformableMirrorDevice,
     interf: _ot.InterferometerDevice,
-    shellid: int = 0,
+    segmentID: int = 0,
     *,
     template: list[int],
     stepamp: float = 70e-9,
@@ -145,16 +145,12 @@ def acquirePistonData(
     ifc = _ifa.IFFCapturePreparation(dm)
     amps = _prepareSteppingAmplitudes(template, nstep, stepamp, reverse)
     cmdmat = _np.full((dm.nActs, len(amps)), 0.0)
-    # DP patch #FIXME
-    if shellid == 0:
-        cmdmat[:111,:] = 1.
-    elif shellid == 1:
-        cmdmat[111:,:] = 1.
+    # FIXME
+    if segmentID == 0:
+        cmdmat[:111, :] = 1.0
+    elif segmentID == 1:
+        cmdmat[111:222, :] = 1.0
     cmdmat *= amps[None, :]
-    cmdmat = _np.hstack((cmdmat, _np.zeros((dm.nActs, 5))))
-    ifc.cmdMatHistory = cmdmat.copy()
-    tch = ifc.createTimedCmdHistory()
-    info = ifc.getInfoToSave()
 
     # create compatible amp vector
     ampvec = []
@@ -163,8 +159,12 @@ def acquirePistonData(
         ampvec.append(amps[ki:kf].max())
         ki = kf
 
-    # Hacking the standard IFF procedure
     modeslist = _np.arange(len(ampvec))
+
+    tch = ifc.createTimedCmdHistory(cmdmat, modeslist, ampvec, template, shuffle=False)
+    info = ifc.getInfoToSave()
+    
+    # Hacking the standard IFF procedure
     info['ampVector'] = _np.asarray(ampvec)
     info['template'] = _np.asarray(template)
     info['cmdMatrix'] = _np.full((dm.nActs, len(amps)), 1.0)

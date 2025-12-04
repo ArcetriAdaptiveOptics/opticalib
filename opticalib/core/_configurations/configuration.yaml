@@ -76,6 +76,7 @@ INFLUENCE.FUNCTIONS:
     modalbase: zonal
   IFFUNC:
     numberofzeros: 0
+    paddingZeros: 5
     modeid: np.arange(0,88,1)
     modeamp: 0.05
     template: [1, -1, 1]

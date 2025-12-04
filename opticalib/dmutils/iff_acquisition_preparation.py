@@ -92,6 +92,7 @@ class IFFCapturePreparation:
 
     def createTimedCmdHistory(
         self,
+        cmdMat: _ot.Optional[_ot.MatrixLike] = None,
         modesList: _ot.Optional[_ot.ArrayLike] = None,
         modesAmp: _ot.Optional[float | _ot.ArrayLike] = None,
         template: _ot.Optional[_ot.ArrayLike] = None,
@@ -102,6 +103,10 @@ class IFFCapturePreparation:
 
         Parameters
         ----------
+        cmdMat : MatrixLike
+            Command matrix to be used. Default is None, that means the command
+            matrix is created using the 'modesList' argument or the configuration
+            file.
         modesList : int | ArrayLike
             List of selected modes to use. Default is None, that means all modes
             of the base command matrix are used.
@@ -122,6 +127,21 @@ class IFFCapturePreparation:
         """
         if self.cmdMatHistory is None:
             self.createCmdMatrixHistory(modesList, modesAmp, template, shuffle)
+
+        # Provide manually the cmdMatrixHistory
+        elif cmdMat is not None:
+            _, _, infoIF = _getAcqInfo()
+            trailing_zeros = _np.zeros((cmdMat.shape[0], infoIF['paddingZeros']))
+            self._cmdMatrix = cmdMat
+            cmdMat = _np.hstack((cmdMat, trailing_zeros))
+            self.cmdMatHistory = cmdMat
+            self._modesList = modesList
+            self._modesAmp = modesAmp
+            self._template = template
+            self._shuffle = shuffle
+            self._indexingList = _np.arange(0, len(modesList), 1)
+
+        # Create the auxiliary command history if needed
         if self.auxCmdHistory is None:
             self.createAuxCmdHistory()
         if not self.auxCmdHistory is None:
@@ -129,6 +149,7 @@ class IFFCapturePreparation:
         else:
             cmdHistory = self.cmdMatHistory
             self._regActs = _np.array([])
+
         timing = _rif.getTiming()
         timedCmdHist = _np.repeat(cmdHistory, timing, axis=1)
         self.timedCmdHistory = timedCmdHist
@@ -218,7 +239,7 @@ class IFFCapturePreparation:
             self._indexingList = _np.arange(0, len(modesList), 1)
         n_frame = len(self._modesList) * n_push_pull
         cmd_matrixHistory = _np.zeros(
-            (self._NActs, n_frame + zeroScheme + 5) # FIXME
+            (self._NActs, n_frame + zeroScheme + infoIF['paddingZeros'])
         )  # TODO -> fix it by reading a new configuration entry, like 'paddingZeros'
         k = zeroScheme
         for i in range(nModes):

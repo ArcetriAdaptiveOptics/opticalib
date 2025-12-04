@@ -48,15 +48,17 @@ def get_buffer_mean_values(
         cmd_ids.append(filt_ids)
 
     cmd_ids = _np.array(cmd_ids, dtype=int)
-    cmd_ids = cmd_ids[:, 2:]  # remove trigger
+    cmd_ids = cmd_ids[:, 3:]  # remove trigger
 
-    startIds = cmd_ids[:, :-1]
-    endIds = cmd_ids[:, 1:]
+    # startIds = cmd_ids[:, :-1]
+    # endIds = cmd_ids[:, 1:]
 
     # Define the minimum command length and crop all commands to the same number of samples
-    minCmdLen = _np.min(endIds - startIds)
-    endIds = startIds + minCmdLen
-
+    #minCmdLen = _np.min(endIds - startIds)
+    #endIds = startIds + minCmdLen
+ 
+    minCmdLen = _np.min(cmd_ids[:,1:] - cmd_ids[:,:-1])
+    startIds = cmd_ids.copy()
     nCmds = _np.shape(startIds)[1]
 
     # Full vectorized version
