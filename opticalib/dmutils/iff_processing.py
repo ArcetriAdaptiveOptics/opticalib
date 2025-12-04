@@ -71,7 +71,7 @@ indexListFile = "indexList.fits"
 shuffleFile   = "shuffle.dat"
 cubeFile      = "IMCube.fits"
 coordfile     = ""  # TODO
- flagFile      = "flag.txt" # DEPRECATED
+flagFile      = "flag.txt" # DEPRECATED
 
 
 def process(
