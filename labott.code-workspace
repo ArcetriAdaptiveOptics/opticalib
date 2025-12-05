@@ -8,6 +8,9 @@
 		"python.terminal.activateEnvInCurrentTerminal": true,
 		"python.analysis.extraPaths": [
 			"~/git/XuPy"
+		],
+		"cursorpyright.analysis.extraPaths": [
+			"~/git/XuPy"
 		]
 	},
 	"launch": {

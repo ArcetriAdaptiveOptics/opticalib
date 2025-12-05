@@ -93,6 +93,8 @@ class TestGetIffConfig:
         assert isinstance(config["amplitude"], np.ndarray)
         assert isinstance(config["template"], np.ndarray)
         assert config["modalBase"] == "test_base"
+        assert "paddingZeros" in config
+        assert config["paddingZeros"] == 0  # Default value when not in config
 
 
 class TestGetDmConfig:

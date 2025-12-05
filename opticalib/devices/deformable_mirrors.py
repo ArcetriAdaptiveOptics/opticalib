@@ -36,7 +36,6 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
         self._name = "AdOpticaDM"
         super().__init__(tn)
         self._lastCmd = _np.zeros(self.nActs)
-        self._lastCmdDiff = False
 
     def get_shape(self):
         """
@@ -202,8 +201,8 @@ class DP(AdOpticaDm):
         self,
         cmd: _ot.ArrayLike | list[float],
         differential: bool = False,
-        incremental: float = False,
-    ):  # cmd, segment=None):
+        incremental: float|int = False,
+    ) -> None:
         """
         Applies the given command to the DM actuators.
 
@@ -215,31 +214,62 @@ class DP(AdOpticaDm):
         differential : bool, optional
             If True, the command will be applied as a differential command
             with respect to the current shape (default is False).
-        incremental : float, optional
+        incremental: float|int, optional
             If provided, the command will be applied incrementally in steps of
-            size `incremental` (if <1) of in `N=incremental` steps (if >1)
+            size `incremental` (if <1) or in `N=incremental` steps (if >1)
             (default is False, meaning the command is applied in one go).
+
+            If incremental is positive, the command is applied from the current
+            shape to the target shape, while if negative, it is applied in reverse
+            (so, if a `lastCmd` is available, it returns to it, else it goes to 0 cmd).
         """
         if not len(cmd) == self.nActs:
             raise _oe.CommandError(
                 f"Command length {len(cmd)} does not match the number of actuators {self.nActs}."
             )
         fc1 = self._get_frame_counter()
-        if differential:
-            cmd = self._lastCmd + cmd
+        
+        # Incremental case
         if incremental:
-            if incremental > 1.0:
-                dc = incremental
-                incremental = 1.0 / incremental
+
+            # Compute increment
+            # Determine direction and number of steps
+            if abs(incremental) >= 1.0:
+                # incremental is number of steps
+                n_steps = int(abs(incremental))
+                step_fraction = 1.0 / n_steps
             else:
-                dc = int(_np.ceil((1 / incremental)))
-            for i in range(dc):
-                if i * incremental > 1.0:
-                    self._aoClient.mirrorCommand(cmd)
-                else:
-                    self._aoClient.mirrorCommand(cmd * i * incremental)
+                # incremental is step size
+                step_fraction = abs(incremental)
+                n_steps = int(_np.ceil(1.0 / step_fraction))
+
+            # Create iteration (reverse if incremental is negative)
+            dc = range(n_steps) if incremental > 0 else reversed(range(n_steps))
+            incremental = step_fraction
+
+            # Differential case
+            if differential:
+                for i in range(dc):
+                    if i * incremental > 1.0:
+                        self._aoClient.mirrorCommand(cmd + self._lastCmd)
+                    else:
+                        self._aoClient.mirrorCommand(self._lastCmd + (cmd * i * incremental))
+                cmd += self._lastCmd
+
+            # Absolute case
+            else:
+                for i in range(dc):
+                    if i * incremental > 1.0:
+                        self._aoClient.mirrorCommand(cmd)
+                    else:
+                        self._aoClient.mirrorCommand(cmd * i * incremental)
+
+        # Not incremental case
         else:
+            if differential:
+                cmd += self._lastCmd
             self._aoClient.mirrorCommand(cmd)
+
         _time.sleep(0.2)  # needed to get fc updated
         fc2 = self._get_frame_counter()
         if not fc2 == fc1:
@@ -247,7 +277,6 @@ class DP(AdOpticaDm):
                 f"FRAME SKIPPED.",
                 level="ERROR",
             )
-        #    raise _oe.CommandError("Frame skipped! Consider using the `incremental` parameter.")
         else:
             self._lastCmd = cmd
 

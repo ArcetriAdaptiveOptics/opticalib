@@ -275,6 +275,7 @@ class TestGetAcqInfo:
                 "amplitude": 0.1,
                 "template": [1, -1],
                 "modalBase": "mirror",
+                "paddingZeros": 0,
             },
             {
                 "zeros": 0,
@@ -282,6 +283,7 @@ class TestGetAcqInfo:
                 "amplitude": 0.1,
                 "template": [1, -1],
                 "modalBase": "mirror",
+                "paddingZeros": 0,
             },
             {
                 "zeros": 0,
@@ -289,6 +291,7 @@ class TestGetAcqInfo:
                 "amplitude": 0.1,
                 "template": [1, -1],
                 "modalBase": "mirror",
+                "paddingZeros": 0,
             },
         ]
         mock_dm_config.return_value = {"nacts": 100, "timing": 10}

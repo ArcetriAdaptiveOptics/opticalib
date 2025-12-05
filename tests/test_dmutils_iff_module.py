@@ -105,7 +105,7 @@ class TestIffDataAcquisition:
         # Verify modes and amplitude were passed
         mock_prep.createTimedCmdHistory.assert_called_once()
         call_args = mock_prep.createTimedCmdHistory.call_args
-        assert np.array_equal(call_args[0][0], modes) or call_args[0][0] == modes
+        assert np.array_equal(call_args.kwargs['modesList'], modes) or call_args.kwargs['modesList'] == modes
 
     @patch("opticalib.dmutils.iff_module._ifa.IFFCapturePreparation")
     @patch("opticalib.dmutils.iff_module._osu.newtn")
@@ -147,7 +147,7 @@ class TestIffDataAcquisition:
 
         assert tn == "20240101_120000"
         call_args = mock_prep.createTimedCmdHistory.call_args
-        assert call_args[0][3] is True
+        assert call_args.kwargs.get('shuffle', False) is True
 
     @patch("opticalib.dmutils.iff_module._ifa.IFFCapturePreparation")
     @patch("opticalib.dmutils.iff_module._osu.newtn")
@@ -405,7 +405,8 @@ class TestSaveBufferData:
 
         mock_save_dict.assert_called_once()
         call_args = mock_save_dict.call_args
-        assert call_args[0][1] == filepath
+        expected_path = os.path.join(filepath, 'buffer_data.h5')
+        assert call_args[0][1] == expected_path
 
     def test_save_buffer_data_no_read_buffer(self):
         """Test that BufferError is raised when DM has no read_buffer."""

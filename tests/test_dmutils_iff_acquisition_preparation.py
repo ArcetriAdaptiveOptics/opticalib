@@ -101,6 +101,7 @@ class TestIFFCapturePreparation:
                 "amplitude": 0.1,
                 "template": [1, -1],
                 "modalBase": "mirror",
+                "paddingZeros": 0,
             },
             {"nacts": 100, "timing": 10},
         )
@@ -125,6 +126,7 @@ class TestIFFCapturePreparation:
                 "amplitude": 0.1,
                 "template": [1, -1],
                 "modalBase": "mirror",
+                "paddingZeros": 0,
             },
         }
 
@@ -214,6 +216,7 @@ class TestIFFCapturePreparation:
                 "amplitude": 0.1,
                 "template": [1, -1],
                 "modalBase": "mirror",
+                "paddingZeros": 0,
             },
             {"nacts": 100, "timing": 10},
         )
@@ -238,6 +241,7 @@ class TestIFFCapturePreparation:
                 "amplitude": 0.1,
                 "template": [1, -1],
                 "modalBase": "mirror",
+                "paddingZeros": 0,
             },
         }
 
@@ -327,6 +331,7 @@ class TestIFFCapturePreparation:
                 "amplitude": 0.1,
                 "template": [1, -1],
                 "modalBase": "mirror",
+                "paddingZeros": 0,
             },
             {"nacts": 100, "timing": 10},
         )
@@ -351,6 +356,7 @@ class TestIFFCapturePreparation:
                 "amplitude": 0.1,
                 "template": [1, -1],
                 "modalBase": "mirror",
+                "paddingZeros": 0,
             },
         }
 
@@ -440,6 +446,7 @@ class TestIFFCapturePreparation:
                 "amplitude": 0.1,
                 "template": [1, -1],
                 "modalBase": "mirror",
+                "paddingZeros": 0,
             },
             {"nacts": 100, "timing": 10},
         )
@@ -464,6 +471,7 @@ class TestIFFCapturePreparation:
                 "amplitude": 0.1,
                 "template": [1, -1],
                 "modalBase": "mirror",
+                "paddingZeros": 0,
             },
         }
 
@@ -549,6 +557,7 @@ class TestIFFCapturePreparation:
                 "amplitude": 0.1,
                 "template": [1, -1],
                 "modalBase": "mirror",
+                "paddingZeros": 0,
             },
             {"nacts": 100, "timing": 10},
         )
@@ -573,6 +582,7 @@ class TestIFFCapturePreparation:
                 "amplitude": 0.1,
                 "template": [1, -1],
                 "modalBase": "mirror",
+                "paddingZeros": 0,
             },
         }
 
@@ -607,6 +617,7 @@ class TestIFFCapturePreparation:
                 "template": [1, -1],
                 "zeros": 0,
                 "modalBase": "mirror",
+                "paddingZeros": 0,
             },
             {},
         )
@@ -631,6 +642,7 @@ class TestIFFCapturePreparation:
                 "template": [1, -1],
                 "zeros": 0,
                 "modalBase": "mirror",
+                "paddingZeros": 0,
             },
         }
 
