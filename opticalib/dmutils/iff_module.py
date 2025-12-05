@@ -65,7 +65,7 @@ def iffDataAcquisition(
         The tracking number of the dataset acquired, saved in the OPDImages folder
     """
     ifc = _ifa.IFFCapturePreparation(dm)
-    tch = ifc.createTimedCmdHistory(modesList, amplitude, template, shuffle)
+    tch = ifc.createTimedCmdHistory(modesList=modesList, modesAmp=amplitude, template=template, shuffle=shuffle)
     info = ifc.getInfoToSave()
     tn,_ = _prepareData2Save(info)
     _rif.copyIffConfigFile(tn)
@@ -87,7 +87,7 @@ def iffDataAcquisition(
                 rb_kwargs = {}
             with dm.read_buffer(**rb_kwargs):
                 dm.runCmdHistory(interf, save=tn, differential=differential)
-                saveBufferData(dm, tn)
+            saveBufferData(dm, tn)
         except _oe.BufferError as be:
             print(be)
     else:

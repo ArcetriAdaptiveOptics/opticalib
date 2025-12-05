@@ -202,8 +202,8 @@ class ComputeReconstructor:
         except Exception as e:
             self._logger.error("Error in computing interaction matrix from cube:%s", e)
             raise e
-        self._logger.info("Computed interaction matrix of shape %s", intMat.shape)
-        return intMat
+        self._logger.info("Computed interaction matrix of shape %s", self._intMat.shape)
+        return self._intMat
 
     def _setAnalysisMask(self):
         """
