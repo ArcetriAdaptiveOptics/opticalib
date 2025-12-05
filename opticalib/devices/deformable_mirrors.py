@@ -196,6 +196,9 @@ class DP(AdOpticaDm):
         self._name = self._name.replace("DM", "DP")
         self._logger = _sul(self._name + "_" + _ts())
         self.bufferData = None
+        self.is_segmented = True
+        self.nSegments = 2
+        self.nActsPerSegment = 111
 
     def set_shape(
         self,
