@@ -237,6 +237,7 @@ class DP(AdOpticaDm):
 
             # Compute increment
             # Determine direction and number of steps
+            positive = True if incremental > 0 else False
             if abs(incremental) >= 1.0:
                 # incremental is number of steps
                 n_steps = int(abs(incremental))
@@ -252,20 +253,21 @@ class DP(AdOpticaDm):
 
             # Differential case
             if differential:
-                for i in range(dc):
+                for i in dc:
                     if i * incremental > 1.0:
                         self._aoClient.mirrorCommand(cmd + self._lastCmd)
                     else:
                         self._aoClient.mirrorCommand(self._lastCmd + (cmd * i * incremental))
-                cmd += self._lastCmd
+                cmd = (self._lastCmd + cmd) if positive else (self._lastCmd - cmd)
 
             # Absolute case
             else:
-                for i in range(dc):
+                for i in dc:
                     if i * incremental > 1.0:
                         self._aoClient.mirrorCommand(cmd)
                     else:
                         self._aoClient.mirrorCommand(cmd * i * incremental)
+                cmd = cmd if positive else _np.zeros(self.nActs)
 
         # Not incremental case
         else:
