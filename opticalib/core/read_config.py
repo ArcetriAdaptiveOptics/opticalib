@@ -150,7 +150,7 @@ def getIffConfig(key: str, bpath: str = _cfold):
         "amplitude": modeAmp,
         "template": template,
         "modalBase": modalBase,
-        'paddingZeros': cc.get('paddingZeros', 0)
+        "paddingZeros": cc.get("paddingZeros", 0),
     }
     return info
 
@@ -198,10 +198,10 @@ def updateIffConfig(tn: str, item: str, value: _Any):
     key = "IFFUNC"
     file = _os.path.join(_iffold, tn, _iff_config_file)
     config = load_yaml_config(file)
-    if isinstance(value, (_np.ndarray,list)):
+    if isinstance(value, (_np.ndarray, list)):
         vmax = _np.max(value)
         vmin = _np.min(value)
-        step = value[1]-value[0] if len(value)>1 else 1
+        step = value[1] - value[0] if len(value) > 1 else 1
         if _np.array_equal(value, _np.arange(vmin, vmax + 1, step)):
             config[key][item] = f"np.arange({vmin}, {vmax + 1}, {step})"
         else:

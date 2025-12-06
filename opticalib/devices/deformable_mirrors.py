@@ -36,6 +36,12 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
         self._name = "AdOpticaDM"
         super().__init__(tn)
         self._lastCmd = _np.zeros(self.nActs)
+        self._slaveIds = _dmc()["slaveIds"]
+        self.has_slaved_acts = False if len(self._slaveIds) == 0 else True
+
+    @property
+    def slaveIds(self):
+        return self._slaveIds
 
     def get_shape(self):
         """
@@ -47,9 +53,9 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
     def set_shape(
         self,
         cmd: _ot.ArrayLike | list[float],
-        differential: bool = True,
-        incremental: float = False,
-    ):  # cmd, segment=None):
+        differential: bool = False,
+        incremental: float | int = False,
+    ) -> None:
         """
         Applies the given command to the DM actuators.
 
@@ -61,30 +67,75 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
         differential : bool, optional
             If True, the command will be applied as a differential command
             with respect to the current shape (default is False).
-        incremental : float, optional
+        incremental: float|int, optional
             If provided, the command will be applied incrementally in steps of
-            size `incremental` (if <1) of in `N=incremental` steps (if >1)
+            size `incremental` (if <1) or in `N=incremental` steps (if >1)
             (default is False, meaning the command is applied in one go).
+
+            If incremental is positive, the command is applied from the current
+            shape to the target shape, while if negative, it is applied in reverse
+            (so, if a `lastCmd` is available, it returns to it, else it goes to 0 cmd).
         """
         if not len(cmd) == self.nActs:
             raise _oe.CommandError(
                 f"Command length {len(cmd)} does not match the number of actuators {self.nActs}."
             )
-        if differential:
-            self._lastCmd += cmd
-        self._lastCmd = cmd
+        fc1 = self._get_frame_counter()
+
+        # Incremental case
         if incremental:
-            dc = _np.ceil((1 / incremental))
-            if dc < 1 and incremental > 1.0:
-                dc = incremental
-                incremental = 1.0 / incremental
-            for i in range(dc):
-                if i * incremental > 1.0:
-                    self._aoClient.mirrorCommand(cmd)
-                else:
-                    self._aoClient.mirrorCommand(cmd * i * incremental)
+
+            # Compute increment
+            # Determine direction and number of steps
+            positive = True if incremental > 0 else False
+            if abs(incremental) >= 1.0:
+                # incremental is number of steps
+                n_steps = int(abs(incremental))
+                step_fraction = 1.0 / n_steps
+            else:
+                # incremental is step size
+                step_fraction = abs(incremental)
+                n_steps = int(_np.ceil(1.0 / step_fraction))
+
+            # Create iteration (reverse if incremental is negative)
+            dc = range(n_steps) if incremental > 0 else reversed(range(n_steps))
+            incremental = step_fraction
+
+            # Differential case
+            if differential:
+                for i in dc:
+                    if i * incremental > 1.0:
+                        self._aoClient.mirrorCommand(cmd + self._lastCmd)
+                    else:
+                        self._aoClient.mirrorCommand(
+                            self._lastCmd + (cmd * i * incremental)
+                        )
+                cmd = (self._lastCmd + cmd) if positive else (self._lastCmd - cmd)
+
+            # Absolute case
+            else:
+                for i in dc:
+                    if i * incremental > 1.0:
+                        self._aoClient.mirrorCommand(cmd)
+                    else:
+                        self._aoClient.mirrorCommand(cmd * i * incremental)
+                cmd = cmd if positive else _np.zeros(self.nActs)
+
+        # Not incremental case
         else:
+            if differential:
+                cmd += self._lastCmd
             self._aoClient.mirrorCommand(cmd)
+
+        _time.sleep(0.2)  # needed to get fc updated
+        fc2 = self._get_frame_counter()
+        if not fc2 == fc1:
+            _log(
+                f"FRAME SKIPPED.",
+                level="ERROR",
+            )
+        else:
+            self._lastCmd = cmd.copy()
 
     def uploadCmdHistory(self, tcmdhist: _ot.MatrixLike) -> None:
         """
@@ -200,90 +251,9 @@ class DP(AdOpticaDm):
         self.nSegments = 2
         self.nActsPerSegment = 111
 
-    def set_shape(
-        self,
-        cmd: _ot.ArrayLike | list[float],
-        differential: bool = False,
-        incremental: float|int = False,
-    ) -> None:
-        """
-        Applies the given command to the DM actuators.
-
-        Parameters
-        ----------
-        cmd : ArrayLike | list[float]
-            The command to be applied to the DM actuators, of lenght equal
-            the number of actuators.
-        differential : bool, optional
-            If True, the command will be applied as a differential command
-            with respect to the current shape (default is False).
-        incremental: float|int, optional
-            If provided, the command will be applied incrementally in steps of
-            size `incremental` (if <1) or in `N=incremental` steps (if >1)
-            (default is False, meaning the command is applied in one go).
-
-            If incremental is positive, the command is applied from the current
-            shape to the target shape, while if negative, it is applied in reverse
-            (so, if a `lastCmd` is available, it returns to it, else it goes to 0 cmd).
-        """
-        if not len(cmd) == self.nActs:
-            raise _oe.CommandError(
-                f"Command length {len(cmd)} does not match the number of actuators {self.nActs}."
-            )
-        fc1 = self._get_frame_counter()
-        
-        # Incremental case
-        if incremental:
-
-            # Compute increment
-            # Determine direction and number of steps
-            positive = True if incremental > 0 else False
-            if abs(incremental) >= 1.0:
-                # incremental is number of steps
-                n_steps = int(abs(incremental))
-                step_fraction = 1.0 / n_steps
-            else:
-                # incremental is step size
-                step_fraction = abs(incremental)
-                n_steps = int(_np.ceil(1.0 / step_fraction))
-
-            # Create iteration (reverse if incremental is negative)
-            dc = range(n_steps) if incremental > 0 else reversed(range(n_steps))
-            incremental = step_fraction
-
-            # Differential case
-            if differential:
-                for i in dc:
-                    if i * incremental > 1.0:
-                        self._aoClient.mirrorCommand(cmd + self._lastCmd)
-                    else:
-                        self._aoClient.mirrorCommand(self._lastCmd + (cmd * i * incremental))
-                cmd = (self._lastCmd + cmd) if positive else (self._lastCmd - cmd)
-
-            # Absolute case
-            else:
-                for i in dc:
-                    if i * incremental > 1.0:
-                        self._aoClient.mirrorCommand(cmd)
-                    else:
-                        self._aoClient.mirrorCommand(cmd * i * incremental)
-                cmd = cmd if positive else _np.zeros(self.nActs)
-
-        # Not incremental case
-        else:
-            if differential:
-                cmd += self._lastCmd
-            self._aoClient.mirrorCommand(cmd)
-
-        _time.sleep(0.2)  # needed to get fc updated
-        fc2 = self._get_frame_counter()
-        if not fc2 == fc1:
-            _log(
-                f"FRAME SKIPPED.",
-                level="ERROR",
-            )
-        else:
-            self._lastCmd = cmd
+    @property
+    def slaveIds(self):
+        return self._slaveIds
 
     @_contextmanager
     def read_buffer(
@@ -370,28 +340,28 @@ class DP(AdOpticaDm):
             _log("DP Buffer readout completed")
             # Process the buffer data
             keys = [
-                'globCounter',          #  0
-                'statusBits',           #  1
-                'ADCHigh',              #  2
-                'ADCLow',               #  3
-                'actPos',               #  4
-                'posError',             #  5
-                'preshapedBiadCmd',     #  6
-                'preshapedBiadForce',   #  7
-                'newFFcmd',             #  8  
-                'newFFforce',           #  9
-                'controlPropForce',     # 10
-                'controlDerivForce',    # 11
-                'controlIntegForce',    # 12
-                'dynamicFFmassForce',   # 13
-                'dynamicFFdampForce',   # 14
-                'dynamicFFposForce',    # 15
-                'actForce',             # 16
+                "globCounter",  #  0
+                "statusBits",  #  1
+                "ADCHigh",  #  2
+                "ADCLow",  #  3
+                "actPos",  #  4
+                "posError",  #  5
+                "preshapedBiadCmd",  #  6
+                "preshapedBiadForce",  #  7
+                "newFFcmd",  #  8
+                "newFFforce",  #  9
+                "controlPropForce",  # 10
+                "controlDerivForce",  # 11
+                "controlIntegForce",  # 12
+                "dynamicFFmassForce",  # 13
+                "dynamicFFdampForce",  # 14
+                "dynamicFFposForce",  # 15
+                "actForce",  # 16
             ]
 
             for act_idx in range(subsys_nacts):
                 tmp = bufData[f"ch{act_idx:04d}"]
-                for k,idx in zip(keys, range(tmp.shape[1])):
+                for k, idx in zip(keys, range(tmp.shape[1])):
                     result[k] = tmp[:, idx]
 
             # Store in both the yielded dict and class attribute
@@ -426,6 +396,9 @@ class M4AU(AdOpticaDm):
         """The Constructor"""
         super().__init__(tn)
         self._name = "M4AU"
+        self.is_segmented = True
+        self.nSegments = 6
+        self.nActsPerSegment = 892
 
 
 class AlpaoDm(_api.BaseAlpaoMirror, _api.base_devices.BaseDeformableMirror):
@@ -442,6 +415,13 @@ class AlpaoDm(_api.BaseAlpaoMirror, _api.base_devices.BaseDeformableMirror):
         """The Contructor"""
         super().__init__(ip, port, nacts)
         self.baseDataPath = _opdi
+        self.is_segmented = False
+        self._slaveIds = _dmc()["slaveIds"]
+        self.has_slaved_acts = False if len(self._slaveIds) == 0 else True
+
+    @property
+    def slaveIds(self):
+        return self._slaveIds
 
     def get_shape(self) -> _ot.ArrayLike:
         shape = self._dm.get_shape()
@@ -522,6 +502,7 @@ class SplattDm(_api.base_devices.BaseDeformableMirror):
         self.cmdHistory = None
         self.baseDataPath = _opdi
         self.refAct = 16
+        self.is_segmented = False
 
     def get_shape(self):
         shape = self._dm.get_position()

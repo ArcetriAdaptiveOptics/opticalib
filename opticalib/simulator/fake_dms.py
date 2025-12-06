@@ -19,6 +19,7 @@ class AlpaoDm(BaseFakeAlpao):
         self._live = False
         self._produce_random_shape()
         self._zern = _ZF(self._mask)
+        self.is_segmented = False
 
     def set_shape(
         self, command: _t.ArrayLike, differential: bool = False, modal: bool = False
@@ -265,6 +266,9 @@ class DP(BaseFakeDp):
         """
         self._live = False
         super().__init__()
+        self.is_segmented = True
+        self.nSegments = 2
+        self.nActsPerSegment = 111
 
     def set_shape(
         self, command: _t.ArrayLike, differential: bool = False, modal: bool = False

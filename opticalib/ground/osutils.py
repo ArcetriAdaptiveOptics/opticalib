@@ -24,6 +24,7 @@ from opticalib.core import root as _fn
 
 _OPTDATA = _fn.OPT_DATA_ROOT_FOLDER
 
+
 def is_tn(string: str) -> bool:
     """
     Check if a given string is a valid tracking number or the full path
@@ -393,7 +394,7 @@ def save_fits(
         a fits.Header object.
     """
     data = _ensure_on_cpu(data)
-    
+
     # Check if lowering precision is safe
     if data.dtype == _np.float64:
         data = _reduce_dtype_safely(data, preserve_float64=False)
@@ -418,18 +419,18 @@ def save_fits(
 
 
 def save_dict(
-    datadict: dict[str,_ot.ArrayLike],
+    datadict: dict[str, _ot.ArrayLike],
     filepath: str,
     overwrite: bool = True,
     reduce_precision: bool = True,
 ) -> None:
     """
     Saves a dictionary of data arrays to an HDF5 file.
-    
+
     Each key-value pair in the dictionary is stored as a separate dataset
     in the HDF5 file, where the key becomes the dataset name and the value
     is stored as the dataset.
-    
+
     Parameters
     ----------
     datadict: dict[str, _ot.ArrayLike]
@@ -438,12 +439,12 @@ def save_dict(
         Full path where to save the HDF5 file. Should end with '.h5' or '.hdf5'
     overwrite: bool, optional
         If True, overwrites existing file. Default is True.
-    
+
     Raises
     ------
     FileExistsError
         If file exists and overwrite is False
-    
+
     Examples
     --------
     >>> datadict = {
@@ -452,30 +453,28 @@ def save_dict(
     ... }
     >>> save_dict(datadict, '/path/to/data.h5')
     """
-    if not filepath.endswith(('.h5', '.hdf5')):
-        filepath += '.h5'
-    
+    if not filepath.endswith((".h5", ".hdf5")):
+        filepath += ".h5"
+
     if _os.path.exists(filepath) and not overwrite:
         raise FileExistsError(f"File {filepath} already exists and overwrite=False")
-    
-    with _h5.File(filepath, 'w') as hf:
+
+    with _h5.File(filepath, "w") as hf:
         # Store metadata
-        hf.attrs['n_keys'] = len(datadict)
-        hf.attrs['creation_date'] = newtn()
-        
+        hf.attrs["n_keys"] = len(datadict)
+        hf.attrs["creation_date"] = newtn()
+
         # Store each array as a dataset
         for key, data in datadict.items():
             if not isinstance(data, _np.ndarray):
                 data = _np.asarray(data)
-            
+
             original_dtype = data.dtype.type
-            
+
             # Reduce precision if requested
             if reduce_precision:
                 data, conversion_info = _reduce_dtype_safely(
-                    data, 
-                    preserve_float64=False,
-                    return_info = True
+                    data, preserve_float64=False, return_info=True
                 )
             else:
                 conversion_info = None
@@ -484,28 +483,27 @@ def save_dict(
             hf.create_dataset(
                 key,
                 data=data,
-                compression='gzip',
+                compression="gzip",
                 compression_opts=4,  # Compression level 0-9
-                chunks=True  # Enable chunking for better I/O performance
+                chunks=True,  # Enable chunking for better I/O performance
             )
-            
+
             # Store shape information as attributes for verification
-            hf[key].attrs['shape'] = data.shape
-            hf[key].attrs['dtype'] = str(data.dtype.type)
-            hf[key].attrs['original_dtype'] = str(original_dtype)
-            
+            hf[key].attrs["shape"] = data.shape
+            hf[key].attrs["dtype"] = str(data.dtype.type)
+            hf[key].attrs["original_dtype"] = str(original_dtype)
+
             if conversion_info is not None:
                 for attr_key, attr_value in conversion_info.items():
                     hf[key].attrs[attr_key] = attr_value
 
 
 def load_dict(
-    filepath: str,
-    keys: _ot.Optional[list[str]] = None
-) -> dict[str,_ot.ArrayLike]:
+    filepath: str, keys: _ot.Optional[list[str]] = None
+) -> dict[str, _ot.ArrayLike]:
     """
     Loads a dictionary of data arrays from an HDF5 file.
-    
+
     Parameters
     ----------
     filepath: str
@@ -513,39 +511,39 @@ def load_dict(
     keys: list[str], optional
         If provided, only loads the specified keys. Otherwise loads all datasets.
         This is useful for memory management when dealing with large files.
-    
+
     Returns
     -------
     dict: dict[str, _ot.ArrayLike]
         Dictionary with keys as dataset names and values as numpy arrays
-    
+
     Raises
     ------
     FileNotFoundError
         If the specified file does not exist
     KeyError
         If a requested key is not found in the file
-    
+
     Examples
     --------
     >>> # Load all data
     >>> buffer_dict = loadBufferDataDict('/path/to/buffer_data.h5')
-    >>> 
+    >>>
     >>> # Load only specific keys (memory efficient)
     >>> datadict = load_dict(
     ...     '/path/to/data.h5',
     ...     keys=['sensor_1', 'sensor_3']
     ... )
     """
-    if not filepath.endswith(('.h5', '.hdf5')):
-        filepath += '.h5'
-    
+    if not filepath.endswith((".h5", ".hdf5")):
+        filepath += ".h5"
+
     if not _os.path.exists(filepath):
         raise FileNotFoundError(f"File {filepath} not found")
-    
+
     datadict = {}
-    
-    with _h5.File(filepath, 'r') as hf:
+
+    with _h5.File(filepath, "r") as hf:
         # Get list of keys to load
         if keys is None:
             keys_to_load = list(hf.keys())
@@ -555,19 +553,21 @@ def load_dict(
             if missing_keys:
                 raise KeyError(f"Keys not found in file: {missing_keys}")
             keys_to_load = keys
-        
+
         # Load each dataset
         for key in keys_to_load:
             datadict[key] = hf[key][:]  # [:] loads data into memory
-            
+
             # Verify shape if needed (for debugging)
-            expected_shape = hf[key].attrs.get('shape', None)
+            expected_shape = hf[key].attrs.get("shape", None)
             if expected_shape is not None:
                 actual_shape = tuple(datadict[key].shape)
                 if actual_shape != tuple(expected_shape):
-                    print(f"Warning: Shape mismatch for key '{key}': "
-                          f"expected {expected_shape}, got {actual_shape}")
-    
+                    print(
+                        f"Warning: Shape mismatch for key '{key}': "
+                        f"expected {expected_shape}, got {actual_shape}"
+                    )
+
     return datadict
 
 
@@ -575,9 +575,9 @@ def get_h5file_info(filepath: str) -> dict[str, _ot.Any]:
     """
     Retrieves metadata and information about the dict data file without loading
     the full datasets into memory.
-    
+
     This is useful for inspecting large HDF5 files without memory overhead.
-    
+
     Parameters
     ----------
     filepath: str
@@ -601,33 +601,34 @@ def get_h5file_info(filepath: str) -> dict[str, _ot.Any]:
     >>> print(f"Keys: {info['keys']}")
     >>> print(f"Shapes: {info['shapes']}")
     """
-    if not filepath.endswith(('.h5', '.hdf5')):
-        filepath += '.h5'
+    if not filepath.endswith((".h5", ".hdf5")):
+        filepath += ".h5"
 
     if not _os.path.exists(filepath):
         raise FileNotFoundError(f"File {filepath} not found")
 
     info = {
-        'keys': [],
-        'shapes': {},
-        'dtypes': {},
+        "keys": [],
+        "shapes": {},
+        "dtypes": {},
     }
 
-    with _h5.File(filepath, 'r') as hf:
+    with _h5.File(filepath, "r") as hf:
         # Get file-level metadata
-        info['n_keys'] = hf.attrs.get('n_keys', len(hf.keys()))
-        info['creation_date'] = hf.attrs.get('creation_date', 'unknown')
+        info["n_keys"] = hf.attrs.get("n_keys", len(hf.keys()))
+        info["creation_date"] = hf.attrs.get("creation_date", "unknown")
 
         # Get dataset information
         for key in hf.keys():
-            info['keys'].append(key)
-            info['shapes'][key] = tuple(hf[key].shape)
-            info['dtypes'][key] = str(hf[key].dtype.type)
+            info["keys"].append(key)
+            info["shapes"][key] = tuple(hf[key].shape)
+            info["dtypes"][key] = str(hf[key].dtype.type)
 
     # Get file size
     file_size_bytes = _os.path.getsize(filepath)
-    info['file_size_mb'] = file_size_bytes / (1024 * 1024)
+    info["file_size_mb"] = file_size_bytes / (1024 * 1024)
     return info
+
 
 def newtn() -> str:
     """
@@ -696,19 +697,18 @@ def _ensure_on_cpu(data: _ot.ArrayLike) -> _ot.ArrayLike:
         import xupy as _xu
 
         if _xu.on_gpu:
-            
+
             # Handle both FitsMA and plain MA (on gpu)
             if isinstance(data, _xu.ma.MaskedArray):
                 data_cpu = data.asmarray()
                 return data_cpu
-            
+
             # Handling normal Arrays/FitsArrays (on gpu)
             elif isinstance(data, _xu.ndarray):
                 if isinstance(data, _fa.FitsArrayGpu):
                     data_cpu = _fa.fits_array(
-                                    _xu.asnumpy(data),
-                                    header=data.header.copy()
-                                )
+                        _xu.asnumpy(data), header=data.header.copy()
+                    )
                     return data_cpu
                 else:
                     return _xu.asnumpy(data)
@@ -725,18 +725,16 @@ def _ensure_on_cpu(data: _ot.ArrayLike) -> _ot.ArrayLike:
 
 
 def _reduce_dtype_safely(
-    data: _ot.ArrayLike,
-    preserve_float64: bool = True,
-    return_info: bool = False
-) -> tuple[_ot.ArrayLike, dict[str,_ot.Any]]:
+    data: _ot.ArrayLike, preserve_float64: bool = True, return_info: bool = False
+) -> tuple[_ot.ArrayLike, dict[str, _ot.Any]]:
     """
     Reduces the dtype of an array to save space, with safety checks.
-    
+
     This function performs intelligent dtype reduction:
     - Checks if data range fits in smaller dtype
     - Estimates precision loss for floating point conversions
     - Preserves float64 if precision loss is significant
-    
+
     Parameters
     ----------
     data: np.ndarray
@@ -744,7 +742,7 @@ def _reduce_dtype_safely(
     preserve_float64: bool, optional
         If True, keeps float64 when conversion would cause significant
         precision loss. Default is True.
-    
+
     Returns
     -------
     reduced_data: np.ndarray
@@ -754,7 +752,7 @@ def _reduce_dtype_safely(
         - 'conversion': description of the conversion performed
         - 'precision_loss': estimated relative precision loss (for floats)
         - 'space_saving_ratio': ratio of reduced size to original
-    
+
     Notes
     -----
     Precision loss is estimated as the relative error in representing
@@ -763,26 +761,27 @@ def _reduce_dtype_safely(
     original_dtype = data.dtype.type
     reduced_data = data
     conversion_info = {
-        'conversion': 'none',
-        'precision_loss': 0.0,
-        'space_saving_ratio': 1.0
+        "conversion": "none",
+        "precision_loss": 0.0,
+        "space_saving_ratio": 1.0,
     }
-    
+
     # Handle floating point types
     if original_dtype == _np.float64:
         # Check if we can safely convert to float32
         if data.size > 0:
             max_val = _np.abs(data).max()
             min_val = _np.abs(data[data != 0]).min() if _np.any(data != 0) else 0
-            
+
             # float32 has ~7 significant decimal digits
             # Check dynamic range: can float32 represent both max and min?
             float32_max = _np.finfo(_np.float32).max
             float32_min = _np.finfo(_np.float32).tiny
-            
-            can_convert = (max_val < float32_max * 0.9 and 
-                          (min_val == 0 or min_val > float32_min * 10))
-            
+
+            can_convert = max_val < float32_max * 0.9 and (
+                min_val == 0 or min_val > float32_min * 10
+            )
+
             if can_convert:
                 # Estimate precision loss
                 test_val = data.flat[data.size // 2]  # Middle value
@@ -791,54 +790,63 @@ def _reduce_dtype_safely(
                     rel_error = abs(test_float32 - test_val) / abs(test_val)
                 else:
                     rel_error = 0
-                
+
                 # Only convert if precision loss is acceptable
                 if not preserve_float64 or rel_error < 1e-6:
                     reduced_data = data.astype(_np.float32)
-                    conversion_info['conversion'] = 'float64 → float32'
-                    conversion_info['precision_loss'] = float(rel_error)
-                    conversion_info['space_saving_ratio'] = 0.5
+                    conversion_info["conversion"] = "float64 → float32"
+                    conversion_info["precision_loss"] = float(rel_error)
+                    conversion_info["space_saving_ratio"] = 0.5
                 else:
-                    conversion_info['conversion'] = 'float64 preserved (precision)'
+                    conversion_info["conversion"] = "float64 preserved (precision)"
         else:
             # Empty array, safe to convert
             reduced_data = data.astype(_np.float32)
-            conversion_info['conversion'] = 'float64 → float32 (empty array)'
-            conversion_info['space_saving_ratio'] = 0.5
-    
+            conversion_info["conversion"] = "float64 → float32 (empty array)"
+            conversion_info["space_saving_ratio"] = 0.5
+
     # Handle integer types
     elif original_dtype == _np.int64:
         if data.size > 0:
             min_val, max_val = data.min(), data.max()
-            
+
             # Try int32 first
-            if _np.iinfo(_np.int32).min <= min_val and max_val <= _np.iinfo(_np.int32).max:
+            if (
+                _np.iinfo(_np.int32).min <= min_val
+                and max_val <= _np.iinfo(_np.int32).max
+            ):
                 reduced_data = data.astype(_np.int32)
-                conversion_info['conversion'] = 'int64 → int32'
-                conversion_info['space_saving_ratio'] = 0.5
-                
+                conversion_info["conversion"] = "int64 → int32"
+                conversion_info["space_saving_ratio"] = 0.5
+
                 # Try int16 if range allows
-                if _np.iinfo(_np.int16).min <= min_val and max_val <= _np.iinfo(_np.int16).max:
+                if (
+                    _np.iinfo(_np.int16).min <= min_val
+                    and max_val <= _np.iinfo(_np.int16).max
+                ):
                     reduced_data = data.astype(_np.int16)
-                    conversion_info['conversion'] = 'int64 → int16'
-                    conversion_info['space_saving_ratio'] = 0.25
+                    conversion_info["conversion"] = "int64 → int16"
+                    conversion_info["space_saving_ratio"] = 0.25
         else:
             reduced_data = data.astype(_np.int32)
-            conversion_info['conversion'] = 'int64 → int32 (empty array)'
-            conversion_info['space_saving_ratio'] = 0.5
-    
+            conversion_info["conversion"] = "int64 → int32 (empty array)"
+            conversion_info["space_saving_ratio"] = 0.5
+
     elif original_dtype == _np.int32:
         if data.size > 0:
             min_val, max_val = data.min(), data.max()
-            if _np.iinfo(_np.int16).min <= min_val and max_val <= _np.iinfo(_np.int16).max:
+            if (
+                _np.iinfo(_np.int16).min <= min_val
+                and max_val <= _np.iinfo(_np.int16).max
+            ):
                 reduced_data = data.astype(_np.int16)
-                conversion_info['conversion'] = 'int32 → int16'
-                conversion_info['space_saving_ratio'] = 0.5
+                conversion_info["conversion"] = "int32 → int16"
+                conversion_info["space_saving_ratio"] = 0.5
         else:
             reduced_data = data.astype(_np.int16)
-            conversion_info['conversion'] = 'int32 → int16 (empty array)'
-            conversion_info['space_saving_ratio'] = 0.5
-        
+            conversion_info["conversion"] = "int32 → int16 (empty array)"
+            conversion_info["space_saving_ratio"] = 0.5
+
     if return_info:
         return reduced_data, conversion_info
     else:

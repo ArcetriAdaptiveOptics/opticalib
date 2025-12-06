@@ -131,7 +131,7 @@ class IFFCapturePreparation:
         # Provide manually the cmdMatrixHistory
         elif cmdMat is not None:
             _, _, infoIF = _getAcqInfo()
-            trailing_zeros = _np.zeros((cmdMat.shape[0], infoIF['paddingZeros']))
+            trailing_zeros = _np.zeros((cmdMat.shape[0], infoIF["paddingZeros"]))
             self._cmdMatrix = cmdMat
             cmdMat = _np.hstack((cmdMat, trailing_zeros))
             self.cmdMatHistory = cmdMat
@@ -239,7 +239,7 @@ class IFFCapturePreparation:
             self._indexingList = _np.arange(0, len(modesList), 1)
         n_frame = len(self._modesList) * n_push_pull
         cmd_matrixHistory = _np.zeros(
-            (self._NActs, n_frame + zeroScheme + infoIF['paddingZeros'])
+            (self._NActs, n_frame + zeroScheme + infoIF["paddingZeros"])
         )  # TODO -> fix it by reading a new configuration entry, like 'paddingZeros'
         k = zeroScheme
         for i in range(nModes):

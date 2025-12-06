@@ -138,6 +138,13 @@ class Flattening:
         """
         return self._rec._intMat
 
+    @property
+    def analysisMask(self) -> _ot.MaskData:
+        """
+        Analysis mask property.
+        """
+        return self._rec._analysisMask
+
     def applyFlatCommand(
         self,
         dm: _ot.DeformableMirrorDevice,
@@ -158,16 +165,16 @@ class Flattening:
             Interferometer object to acquire phasemaps.
         modes2flat : int | ArrayLike
             Modes to flatten.
-        nframes : int, optional
-            Number of frames to average for phasemap acquisition. Default is 5.
         modes2discard : int, optional
             Number of modes to discard when computing the reconstruction matrix. Default is 3.
+        nframes : int, optional
+            Number of frames to average for phasemap acquisition. Default is 5.
         """
         new_tn = _ts()
         imgstart = interf.acquire_map(nframes, rebin=self.rebin)
         self.loadImage2Shape(imgstart, compute=modes2discard)
         deltacmd = self.computeFlatCmd(modes2flat)
-        cmd = dm.get_shape()
+        cmd = dm.get_shape()  # TODO: check if this is correct for DP
         dm.set_shape(deltacmd, differential=True)
         imgflat = interf.acquire_map(nframes, rebin=self.rebin)
         files = [

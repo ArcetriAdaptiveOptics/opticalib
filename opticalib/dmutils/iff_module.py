@@ -12,7 +12,6 @@ Author(s):
 import os as _os
 import numpy as _np
 from opticalib.core.root import folders as _fn
-from opticalib.core.fitsarray import fits_array as _fa
 from opticalib.core import read_config as _rif, exceptions as _oe
 from . import iff_acquisition_preparation as _ifa
 from opticalib.ground import osutils as _osu
@@ -65,9 +64,11 @@ def iffDataAcquisition(
         The tracking number of the dataset acquired, saved in the OPDImages folder
     """
     ifc = _ifa.IFFCapturePreparation(dm)
-    tch = ifc.createTimedCmdHistory(modesList=modesList, modesAmp=amplitude, template=template, shuffle=shuffle)
+    tch = ifc.createTimedCmdHistory(
+        modesList=modesList, modesAmp=amplitude, template=template, shuffle=shuffle
+    )
     info = ifc.getInfoToSave()
-    tn,_ = _prepareData2Save(info)
+    tn, _ = _prepareData2Save(info)
     _rif.copyIffConfigFile(tn)
     for param, value in zip(
         ["modeid", "modeamp", "template"], [modesList, amplitude, template]
@@ -94,6 +95,7 @@ def iffDataAcquisition(
         dm.runCmdHistory(interf, save=tn, differential=differential)
     return tn
 
+
 def acquirePistonData(
     dm: _ot.DeformableMirrorDevice,
     interf: _ot.InterferometerDevice,
@@ -104,12 +106,12 @@ def acquirePistonData(
     nstep: int = 50,
     reverse: bool = False,
     differential: bool = False,
-    read_buffer: bool = False
+    read_buffer: bool = False,
 ) -> str:
     """
-    This is the user-lever function for the acquisition of piston data of a 
-    segmented DM. 
-    
+    This is the user-lever function for the acquisition of piston data of a
+    segmented DM.
+
     The logic is to leave one of the segments fixed at "0" for reference and
     to move all the others with a stepping function which pistons all actuators
     back a forth on a Push-Pull basis.
@@ -144,18 +146,26 @@ def acquirePistonData(
     """
     ifc = _ifa.IFFCapturePreparation(dm)
     amps = _prepareSteppingAmplitudes(template, nstep, stepamp, reverse)
-    cmdmat = _np.full((dm.nActs, len(amps)), 0.0)
-    # FIXME
-    if segmentID == 0:
-        cmdmat[:111, :] = 1.0
-    elif segmentID == 1:
-        cmdmat[111:222, :] = 1.0
-    cmdmat *= amps[None, :]
+    cmdmat = _np.full((dm.nActs, len(amps)), 1.0)
 
-    # create compatible amp vector
+    # check if dm is segmented
+    try:
+        if dm.is_segmented and not segmentID > dm.nSegments - 1:
+            for ns in range(dm.nSegments):
+                if not ns == segmentID:
+                    idx = ns * dm.nActsPerSegment
+                    cmdmat[idx : idx + dm.nActsPerSegment, :] = 0.0
+    except AttributeError:
+        print(
+            f"--WARNING-- `{dm.__class__.__name__}` does not have the `is_segmented` attribute. Assuming monolitic DM."
+        )
+    finally:
+        cmdmat *= amps[None, :]
+
+    # create AmpVector compatible with iff processing
     ampvec = []
     ki = 0
-    for kf in range(ki+len(template)-1, len(amps), len(template)):
+    for kf in range(ki + len(template) - 1, len(amps), len(template)):
         ampvec.append(amps[ki:kf].max())
         ki = kf
 
@@ -163,15 +173,15 @@ def acquirePistonData(
 
     tch = ifc.createTimedCmdHistory(cmdmat, modeslist, ampvec, template, shuffle=False)
     info = ifc.getInfoToSave()
-    
+
     # Hacking the standard IFF procedure
-    info['ampVector'] = _np.asarray(ampvec)
-    info['template'] = _np.asarray(template)
-    info['cmdMatrix'] = _np.full((dm.nActs, len(amps)), 1.0)
-    info['modesVector'] = modeslist
-    info['indexList'] = modeslist
-    info['shuffle'] = 0
-    tn,_= _prepareData2Save(info)
+    info["ampVector"] = _np.asarray(ampvec)
+    info["template"] = _np.asarray(template)
+    info["cmdMatrix"] = _np.full((dm.nActs, len(amps)), 1.0)
+    info["modesVector"] = modeslist
+    info["indexList"] = modeslist
+    info["shuffle"] = 0
+    tn, _ = _prepareData2Save(info)
 
     _rif.copyIffConfigFile(tn)
     for param, value in zip(
@@ -216,16 +226,16 @@ def saveBufferData(dm: _ot.DeformableMirrorDevice, tn_or_fp: str):
             f"The `{dm.__class__.__name__}` device cannot read buffer data."
         )
     if _osu.is_tn(tn_or_fp):
-        iffpath = _os.path.join(_fn.IFFUNCTIONS_ROOT_FOLDER, tn_or_fp, 'buffer_data.h5')
+        iffpath = _os.path.join(_fn.IFFUNCTIONS_ROOT_FOLDER, tn_or_fp, "buffer_data.h5")
     elif not _os.path.exists(tn_or_fp):
         raise _oe.PathError(f"The path `{tn_or_fp}` does not exist.")
     else:
-        iffpath = _os.path.join(tn_or_fp, 'buffer_data.h5')
+        iffpath = _os.path.join(tn_or_fp, "buffer_data.h5")
     bdata = dm.bufferData.copy()
     _osu.save_dict(bdata, iffpath, overwrite=True)
 
 
-def _prepareData2Save(info: dict[str, _ot.Any]) -> tuple[str,str]:
+def _prepareData2Save(info: dict[str, _ot.Any]) -> tuple[str, str]:
     """
     Manages the creation of the folder to save the IFF data and saves
     the info dictionary in it, which comprehends:
@@ -234,12 +244,12 @@ def _prepareData2Save(info: dict[str, _ot.Any]) -> tuple[str,str]:
     - the modes list
     - the template used
     - the shuffle flag
-    
+
     Parameters
     ----------
     info: dict[str, Any]
         The info dictionary to be saved, gotten from the IFFCapturePreparation object
-    
+
     Returns
     -------
     tn: str
@@ -261,20 +271,20 @@ def _prepareData2Save(info: dict[str, _ot.Any]) -> tuple[str,str]:
                 with open(_os.path.join(iffpath, f"{key}.dat"), "w") as f:
                     f.write(str(value))
             else:
-                _osu.save_fits(_os.path.join(iffpath, f"{key}.fits"), tvalue, overwrite=True)
+                _osu.save_fits(
+                    _os.path.join(iffpath, f"{key}.fits"), tvalue, overwrite=True
+                )
     except KeyError as e:
         print(f"KeyError: {key}, {e}")
     return tn, iffpath
 
+
 def _prepareSteppingAmplitudes(
-    template: list[int],
-    nstep: int,
-    stepamp: float = 70e-9,
-    reverse: bool = False
+    template: list[int], nstep: int, stepamp: float = 70e-9, reverse: bool = False
 ) -> _ot.ArrayLike:
     """
     Prepares a stepping amplitude sequence based on the provided template.
-    
+
     Parameters
     ----------
     template: list[int]
@@ -293,9 +303,12 @@ def _prepareSteppingAmplitudes(
     if not M % 2:
         raise ValueError("Template must return to starting point (e.g, [1,-1,1])")
 
-    fk = _np.array(
-        [i + (j % 2 == 0) for i in range(nstep) for j in range(1, M + 1)] + [nstep]
-        ) * stepamp
+    fk = (
+        _np.array(
+            [i + (j % 2 == 0) for i in range(nstep) for j in range(1, M + 1)] + [nstep]
+        )
+        * stepamp
+    )
 
     if reverse:
         fk = _np.concatenate((fk, _np.flip(fk)[1:]))

@@ -49,13 +49,14 @@ class ComputeReconstructor:
         self._intMatCube = interaction_matrix_cube
         self._cubeMask = self._intersectCubeMask()
         self._imgMask = self._mask2intersect(mask2intersect)
-        self._analysisMask = self._setAnalysisMask()
+        self._analysisMask: _ot.MaskData | None = None
         self._intMat = self._computeIntMat()
         self._intMat_U = None
         self._intMat_S = None
         self._intMat_Vt = None
         self._threshold = None
         self._filtered_sv = None
+        self._setAnalysisMask()
 
     def run(
         self, sv_threshold: int | float = None, interactive: bool = False
@@ -189,10 +190,10 @@ class ComputeReconstructor:
         try:
             self._setAnalysisMask()
             # New efficient way - TOTRY
-           # n_images = self._intMatCube.shape[2]
-           # reshaped = self._intMatCube.data.reshape(-1, n_images)
-           # mask_flat = (self._analysisMask == 0).ravel()
-           # intMat = reshaped[mask_flat, :].T
+            # n_images = self._intMatCube.shape[2]
+            # reshaped = self._intMatCube.data.reshape(-1, n_images)
+            # mask_flat = (self._analysisMask == 0).ravel()
+            # intMat = reshaped[mask_flat, :].T
             self._intMat = _np.array(
                 [
                     (self._intMatCube[:, :, i].data)[self._analysisMask == 0]
@@ -205,7 +206,7 @@ class ComputeReconstructor:
         self._logger.info("Computed interaction matrix of shape %s", self._intMat.shape)
         return self._intMat
 
-    def _setAnalysisMask(self):
+    def _setAnalysisMask(self) -> _ot.MaskData:
         """
         Sets the analysis mask as the mask resulting from the 'logical_or' between
         the cube mask and the image to flatten mask.

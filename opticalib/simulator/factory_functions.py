@@ -11,7 +11,9 @@ _alpao_list = os.path.join(
 )
 
 
-def getAlpaoCoordsMask(nacts: int, shape: tuple[int] = (512, 512)) -> tuple[_t.ArrayLike, _t.MaskData]:
+def getAlpaoCoordsMask(
+    nacts: int, shape: tuple[int] = (512, 512)
+) -> tuple[_t.ArrayLike, _t.MaskData]:
     """
     Generates the coordinates of the DM actuators for a given DM size and actuator sequence.
 
@@ -185,7 +187,10 @@ def generateZernikeMatrix(modes: int | list[int], mask: _t.MaskData):
         ZM[:, i] = masked_data
     return ZM
 
-def getPetalmirrorMask(shape: tuple[int, int], pupil_radius: int, central_segment_radius: int|None = None) -> _t.MaskData:
+
+def getPetalmirrorMask(
+    shape: tuple[int, int], pupil_radius: int, central_segment_radius: int | None = None
+) -> _t.MaskData:
     """
     Generates a petal-shaped mask.
 
@@ -206,9 +211,13 @@ def getPetalmirrorMask(shape: tuple[int, int], pupil_radius: int, central_segmen
     """
     if central_segment_radius is None:
         central_segment_radius = np.ceil(0.266666666666 * pupil_radius)
-    
-    hexagon_outer = geo.draw_hexagonal_mask(shape, radius=central_segment_radius+10, masked=True)
-    hexagon_inner = geo.draw_hexagonal_mask(shape, radius=central_segment_radius, masked=False)
+
+    hexagon_outer = geo.draw_hexagonal_mask(
+        shape, radius=central_segment_radius + 10, masked=True
+    )
+    hexagon_inner = geo.draw_hexagonal_mask(
+        shape, radius=central_segment_radius, masked=False
+    )
 
     hexagon_ring = hexagon_inner ^ hexagon_outer
 
@@ -217,15 +226,15 @@ def getPetalmirrorMask(shape: tuple[int, int], pupil_radius: int, central_segmen
     line3 = geo.create_line_mask(shape, angle_deg=180, width=10)
 
     cross = ~(line1 ^ line2 ^ line3)
-    cross[hexagon_inner==False] = True
+    cross[hexagon_inner == False] = True
 
     segmask = hexagon_ring ^ cross
 
     pupil = geo.draw_circular_pupil(shape, radius=pupil_radius, masked=False)
 
-    segmask[pupil==1] = 1
-    segmask[hexagon_ring==0] = 1
-    
+    segmask[pupil == 1] = 1
+    segmask[hexagon_ring == 0] = 1
+
     return segmask
 
 

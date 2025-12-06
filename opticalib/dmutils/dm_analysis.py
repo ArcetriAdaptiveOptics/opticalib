@@ -50,42 +50,20 @@ def get_buffer_mean_values(
     cmd_ids = _np.array(cmd_ids, dtype=int)
     cmd_ids = cmd_ids[:, 3:]  # remove trigger
 
-    # startIds = cmd_ids[:, :-1]
-    # endIds = cmd_ids[:, 1:]
-
-    # Define the minimum command length and crop all commands to the same number of samples
-    #minCmdLen = _np.min(endIds - startIds)
-    #endIds = startIds + minCmdLen
- 
-    minCmdLen = _np.min(cmd_ids[:,1:] - cmd_ids[:,:-1])
+    minCmdLen = _np.min(cmd_ids[:, 1:] - cmd_ids[:, :-1])
     startIds = cmd_ids.copy()
     nCmds = _np.shape(startIds)[1]
-
-    # Full vectorized version
-    # potentially memory hungry
-    # to try
-    # cmdIds = _np.tile(_np.arange(minCmdLen),(nActs,nCmds))
-    # cmdIds += _np.repeat(startIds,(minCmdLen,)).reshape([nActs,-1])
-    # cmd_indices = cmdIds.reshape(nActs, nCmds, minCmdLen)[:, :, k:]
-    # act_idx = _np.arange(nActs)[:, None, None]
-    # posMeans = _np.mean(position[act_idx, cmd_indices], axis=2)
 
     cmdIds = _np.tile(_np.arange(minCmdLen), (nActs, nCmds))
     cmdIds += _np.repeat(startIds, (minCmdLen,)).reshape([nActs, -1])
     posMeans = _np.zeros((nActs, nCmds))
 
-    # Da provare
-    chunk_size = 10  # Processa 10 actuatori alla volta
+    chunk_size = 10  # 10 acts at a time
     posMeans = _np.zeros((nActs, nCmds))
     for i in range(0, nActs, chunk_size):
         end_i = min(i + chunk_size, nActs)
         cmd_indices = cmdIds[i:end_i].reshape(-1, nCmds, minCmdLen)[:, :, k:]
         act_idx = _np.arange(end_i - i)[:, None, None]
         posMeans[i:end_i] = _np.mean(position[i:end_i][act_idx, cmd_indices], axis=2)
-
-    # Potentially slow
-    # for i in range(nActs):
-    #     for j in range(nCmds):
-    #         posMeans[i,j] = _np.mean(position[i,cmdIds[i,j*minCmdLen+k:(j+1)*minCmdLen]])
 
     return posMeans, cmdIds
