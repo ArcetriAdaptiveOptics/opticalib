@@ -118,21 +118,21 @@ class Flattening:
         self._flatteningModes = None
 
     @property
-    def RM(self):
+    def RM(self) -> _ot.MatrixLike:
         """
         Reconstruction matrix property.
         """
         return self._recMat
 
     @property
-    def CM(self):
+    def CM(self) -> _ot.MatrixLike:
         """
         Command matrix property.
         """
         return self._cmdMat
 
     @property
-    def IM(self):
+    def IM(self) -> _ot.MatrixLike:
         """
         Interaction cube property.
         """

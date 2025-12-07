@@ -58,6 +58,7 @@ INFLUENCE.FUNCTIONS:
   DM:
     nacts: 88
     slaveIds: []
+    borderIds: []
     timing: 1
     delay: 0.0
     triggeredMode: # if not using triggerMode, put false and comment next 2 lines (for Microgate DMs)

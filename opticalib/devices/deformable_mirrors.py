@@ -416,7 +416,8 @@ class AlpaoDm(_api.BaseAlpaoMirror, _api.base_devices.BaseDeformableMirror):
         super().__init__(ip, port, nacts)
         self.baseDataPath = _opdi
         self.is_segmented = False
-        self._slaveIds = _dmc()["slaveIds"]
+        self._slaveIds = _dmc().get("slaveIds", [])
+        self._borderIds = _dmc().get("borderIds", [])
         self.has_slaved_acts = False if len(self._slaveIds) == 0 else True
 
     @property
