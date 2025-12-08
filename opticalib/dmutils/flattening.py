@@ -4,7 +4,7 @@ mirror, given an imput shape and a (filtered) interaction cube.
 
 Author(s)
 ---------
-    - Pietro Ferraiuolo : written in 2024
+- Pietro Ferraiuolo : written in 2024
 
 Description
 -----------
@@ -43,11 +43,11 @@ dedicated folder in the flat root folder.
 
 import os as _os
 import numpy as _np
-from . import iff_processing as _ifp
+from opticalib import typings as _ot
 from opticalib.ground import osutils as _osu
 from opticalib.core.root import folders as _fn
 from opticalib.ground import computerec as _crec
-from opticalib import typings as _ot
+from . import iff_processing as _ifp, utils as _ut
 
 _ts = _osu.newtn
 
@@ -152,6 +152,7 @@ class Flattening:
         modes2flat: int | _ot.ArrayLike,
         modes2discard: _ot.Optional[int] = None,
         nframes: int = 5,
+        **setshape_kwargs: dict[str, _ot.Any],
     ) -> None:
         f"""
         Computes, applies and saves the computed flat command to the DM, given
@@ -175,7 +176,11 @@ class Flattening:
         self.loadImage2Shape(imgstart, compute=modes2discard)
         deltacmd = self.computeFlatCmd(modes2flat)
         cmd = dm.get_shape()  # TODO: check if this is correct for DP
-        dm.set_shape(deltacmd, differential=True)
+
+        # handle diverse DM set_shape args
+        _ = setshape_kwargs.pop("differential", None)
+        dm.set_shape(deltacmd, differential=True, **setshape_kwargs)
+
         imgflat = interf.acquire_map(nframes, rebin=self.rebin)
         files = [
             "flatCommand.fits",

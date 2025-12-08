@@ -5,7 +5,7 @@ from opticalib.core import exceptions as _oe
 
 
 def compute_slave_cmd(
-    dm: _ot.DeformableMirror,
+    dm: _ot.DeformableMirrorDevice,
     cmd: _ot.ArrayLike,
     method: str = "zero-force",
 ) -> _ot.ArrayLike:
@@ -36,7 +36,7 @@ def compute_slave_cmd(
     -------
     slaved_cmd : opticalib.ArrayLike
         The recomputed command with slaved actuators following the specified method.
-        
+
     Raises
     ------
     DeviceError
@@ -45,7 +45,7 @@ def compute_slave_cmd(
         If an unknown slaving method is specified.
     """
     sid = _np.array(sorted(dm.slaveIds))  # slave ids
-    
+
     if sid.size == 0:
         raise _oe.ValueError("No slave actuator IDs found in the deformable mirror.")
 
@@ -73,7 +73,7 @@ def compute_slave_cmd(
 
 
 def compute_slaved_IM(
-    dm: _ot.DeformableMirror,
+    dm: _ot.DeformableMirrorDevice,
     IM: _ot.MatrixLike,
 ) -> _ot.MatrixLike:
     """
@@ -174,16 +174,16 @@ def _zero_force_slaving(
     -------
     slaved_cmd : ArrayLike
         Command vector including slaved actuators.
-        
+
     Acknowledgements
     ----------------
     Method from <a href="https://arxiv.org/abs/2101.04801"> Riccardi,A.; 2021 (arXiv:2101.04801)</a>
     """
     cmd = _xp.asarray(cmd)
-    
+
     K = _get_decomposed_ffwd(slaveIds, masterIds, ffwd, method="zero-force")
-    Kss = K['ss']
-    Kms = K['ms']
+    Kss = K["ss"]
+    Kms = K["ms"]
 
     # slave 2 master matrix
     Q = -_xp.linalg.pinv(Kss) @ Kms
@@ -191,32 +191,39 @@ def _zero_force_slaving(
     cmd[slaveIds] = Q @ cmd[masterIds]
     return _xp.asnumpy(cmd)
 
-def _minimum_rms_slaving(slaveIds: _ot.ArrayLike, borderIds: _ot.ArrayLike, masterIds: _ot.ArrayLike, ffwd: _ot.MatrixLike, cmd: _ot.ArrayLike) -> _ot.ArrayLike:
+
+def _minimum_rms_slaving(
+    slaveIds: _ot.ArrayLike,
+    borderIds: _ot.ArrayLike,
+    masterIds: _ot.ArrayLike,
+    ffwd: _ot.MatrixLike,
+    cmd: _ot.ArrayLike,
+) -> _ot.ArrayLike:
     """
     Computes the slave-to-master matrix using the minimum-RMS-force method,
     and updates the command vector accordingly.
-    
+
     With this method, the actuators are deviden in three groups:
     - slave actuators: actuators that are slaved (`s`)
     - border actuators: master actuators in a given area surrounding the border between master and slaved actuators (`b`)
     - master actuators: The rest of the master actuator (`m`)
-    
+
     The minimum-RMS-force method sets the slave actuators to positions that minimize
-    the overall force applied by the joint set of slaved and border actuators. 
+    the overall force applied by the joint set of slaved and border actuators.
     In this way the slaved actuators can drive forces helping the border actuators in keeping
-    their commanded positions, but reducing their peak force. 
-    
+    their commanded positions, but reducing their peak force.
+
     The feed-forward matrix can be rewritten as:
-    
+
     ... math::
         K = \\begin{pmatrix} K_{mm} & K_{mb} & K_{ms} \\\\ K_{bm} & K_{bb} & K_{bs} \\\\ K_{sm} & K_{sb} & K_{ss} \\end{pmatrix}
-    
+
     and the slaved command is computed as:
-    
+
     ... math::
         c_s =   = - (K^T_{bs}K_{bs} + K_{ss}K_{ss})^{-1} \\big[(K^T_{bs}K_{bi} + K^T_{ss}K_{si})c_i \,+\, (K^T_{bs}K_{bb} + K^T_{ss}K_{sb})c_b\\big]
 
-    
+
     Parameters
     ----------
     slaveIds : ArrayLike
@@ -242,11 +249,11 @@ def _minimum_rms_slaving(slaveIds: _ot.ArrayLike, borderIds: _ot.ArrayLike, mast
     cmd = _xp.asarray(cmd)
     K = _get_decomposed_ffwd(slaveIds, masterIds, ffwd, borderIds, method="minimum-rms")
 
-    Q0 = - _xp.linalg.pinv(K['bs'].T @ K['bs'] + K['ss'].T @ K['ss'])
-    
-    ci = (K['bs'].T @ K['bi'] + K['ss'].T @ K['si']) @ cmd[masterIds]
-    cb = (K['bs'].T @ K['bb'] + K['ss'].T @ K['sb']) @ cmd[borderIds]
-    
+    Q0 = -_xp.linalg.pinv(K["bs"].T @ K["bs"] + K["ss"].T @ K["ss"])
+
+    ci = (K["bs"].T @ K["bi"] + K["ss"].T @ K["si"]) @ cmd[masterIds]
+    cb = (K["bs"].T @ K["bb"] + K["ss"].T @ K["sb"]) @ cmd[borderIds]
+
     cmd[slaveIds] = Q0 @ (ci + cb)
     return _xp.asnumpy(cmd)
 
@@ -255,7 +262,7 @@ def _get_decomposed_ffwd(
     slaveIds: _ot.ArrayLike,
     masterIds: _ot.ArrayLike,
     ffwd: _ot.MatrixLike,
-    borderIds: _ot.ArrayLike|None = None,
+    borderIds: _ot.ArrayLike | None = None,
     method: str = "zero-force",
 ) -> dict[str, _ot.MatrixLike]:
     """
@@ -285,25 +292,25 @@ def _get_decomposed_ffwd(
         Sub-matrix K_mm.
     """
     K = _xp.asarray(ffwd)
-    
+
     if method == "zero-force":
         nK = {
-        'mm': K[_xp.ix_(masterIds, masterIds)],
-        'ms': K[_xp.ix_(masterIds, slaveIds)],
-        'sm': K[_xp.ix_(slaveIds, masterIds)],
-        'ss': K[_xp.ix_(slaveIds, slaveIds)],
-    }
+            "mm": K[_xp.ix_(masterIds, masterIds)],
+            "ms": K[_xp.ix_(masterIds, slaveIds)],
+            "sm": K[_xp.ix_(slaveIds, masterIds)],
+            "ss": K[_xp.ix_(slaveIds, slaveIds)],
+        }
     elif method == "minimum-rms":
         nK = {
-        'ii': K[_xp.ix_(masterIds, masterIds)],
-        'ib': K[_xp.ix_(masterIds, borderIds)],
-        'is': K[_xp.ix_(masterIds, slaveIds)],
-        'bi': K[_xp.ix_(borderIds, masterIds)],
-        'bb': K[_xp.ix_(borderIds, borderIds)],
-        'bs': K[_xp.ix_(borderIds, slaveIds)],
-        'si': K[_xp.ix_(slaveIds, masterIds)],
-        'sb': K[_xp.ix_(slaveIds, borderIds)],
-        'ss': K[_xp.ix_(slaveIds, slaveIds)],
-    }
-    
+            "ii": K[_xp.ix_(masterIds, masterIds)],
+            "ib": K[_xp.ix_(masterIds, borderIds)],
+            "is": K[_xp.ix_(masterIds, slaveIds)],
+            "bi": K[_xp.ix_(borderIds, masterIds)],
+            "bb": K[_xp.ix_(borderIds, borderIds)],
+            "bs": K[_xp.ix_(borderIds, slaveIds)],
+            "si": K[_xp.ix_(slaveIds, masterIds)],
+            "sb": K[_xp.ix_(slaveIds, borderIds)],
+            "ss": K[_xp.ix_(slaveIds, slaveIds)],
+        }
+
     return nK

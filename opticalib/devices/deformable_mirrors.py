@@ -15,13 +15,12 @@ import numpy as _np
 import time as _time
 from . import _API as _api
 from opticalib import typings as _ot
+from opticalib.core import exceptions as _oe
 from contextlib import contextmanager as _contextmanager
-from opticalib.ground.logger import set_up_logger as _sul, log as _log
+from opticalib.core.read_config import getDmIffConfig as _dmc
 from opticalib.core.root import OPD_IMAGES_ROOT_FOLDER as _opdi
 from opticalib.ground.osutils import newtn as _ts, save_fits as _sf
-from opticalib.core import exceptions as _oe
-from opticalib.core.read_config import getDmIffConfig as _dmc
-import types as _types
+from opticalib.ground.logger import set_up_logger as _sul, log as _log
 
 
 class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
@@ -36,12 +35,16 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
         self._name = "AdOpticaDM"
         super().__init__(tn)
         self._lastCmd = _np.zeros(self.nActs)
-        self._slaveIds = _dmc()["slaveIds"]
-        self.has_slaved_acts = False if len(self._slaveIds) == 0 else True
+        self._slaveIds = _dmc().get("slaveIds", [])
+        self._borderIds = _dmc().get("borderIds", [])
 
     @property
     def slaveIds(self):
         return self._slaveIds
+
+    @property
+    def borderIds(self):
+        return self._borderIds
 
     def get_shape(self):
         """
@@ -55,6 +58,8 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
         cmd: _ot.ArrayLike | list[float],
         differential: bool = False,
         incremental: float | int = False,
+        *,
+        slaving_method: str = "zero-force",
     ) -> None:
         """
         Applies the given command to the DM actuators.
@@ -75,11 +80,21 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
             If incremental is positive, the command is applied from the current
             shape to the target shape, while if negative, it is applied in reverse
             (so, if a `lastCmd` is available, it returns to it, else it goes to 0 cmd).
+        slaving_method : str, optional
+            Method to compute the master-to-slave matrix. Options are:
+            - 'zero-force' : zero-force slaving, in which the slave actuators are
+                commanded a position which needs zero force to be used (my require
+                nearby actuators to apply more force)
+            - 'minimum-rms' : minimum-RMS-force slaving, in which the slave actuators
+                are set to minimize the overall force of nearby actuators.
         """
         if not len(cmd) == self.nActs:
             raise _oe.CommandError(
                 f"Command length {len(cmd)} does not match the number of actuators {self.nActs}."
             )
+
+        cmd = self._slaveCmd(cmd=cmd, method=slaving_method)
+
         fc1 = self._get_frame_counter()
 
         # Incremental case
@@ -233,6 +248,23 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
                         _sf(path, img)
                 _log("Command history execution completed")
 
+    def _get_frame_counter(self) -> int:
+        """
+        Get the current frame counter from the AO client
+
+        Returns
+        -------
+        total_skipped_frames : int
+            Current total skipped frames counter value
+        """
+        cc = self._aoClient.getCounters()
+        values = []
+        keyse = ["skipByCommand", "skipByDeltaCommand", "skipByForce"]
+        for key in keyse:
+            values.append(getattr(cc, key))
+        total_skipped_frames = sum(values)
+        return total_skipped_frames
+
 
 class DP(AdOpticaDm):
     """
@@ -248,12 +280,8 @@ class DP(AdOpticaDm):
         self._logger = _sul(self._name + "_" + _ts())
         self.bufferData = None
         self.is_segmented = True
-        self.nSegments = 2
-        self.nActsPerSegment = 111
-
-    @property
-    def slaveIds(self):
-        return self._slaveIds
+        self.nSegments: int = 2
+        self.nActsPerSegment: int = 111
 
     @_contextmanager
     def read_buffer(
@@ -367,23 +395,6 @@ class DP(AdOpticaDm):
             # Store in both the yielded dict and class attribute
             self.bufferData = result.copy()
 
-    def _get_frame_counter(self) -> int:
-        """
-        Get the current frame counter from the AO client
-
-        Returns
-        -------
-        total_skipped_frames : int
-            Current total skipped frames counter value
-        """
-        cc = self._aoClient.getCounters()
-        values = []
-        keyse = ["skipByCommand", "skipByDeltaCommand", "skipByForce"]
-        for key in keyse:
-            values.append(getattr(cc, key))
-        total_skipped_frames = sum(values)
-        return total_skipped_frames
-
 
 class M4AU(AdOpticaDm):
     """
@@ -424,6 +435,10 @@ class AlpaoDm(_api.BaseAlpaoMirror, _api.base_devices.BaseDeformableMirror):
     def slaveIds(self):
         return self._slaveIds
 
+    @property
+    def borderIds(self):
+        return self._borderIds
+
     def get_shape(self) -> _ot.ArrayLike:
         shape = self._dm.get_shape()
         return shape
@@ -457,8 +472,9 @@ class AlpaoDm(_api.BaseAlpaoMirror, _api.base_devices.BaseDeformableMirror):
             raise _oe.MatrixError("No Command History to run!")
         s = self.get_shape()
         if isinstance(interf, tuple):
-            if isinstance(interf[0], (_types.FunctionType, _types.MethodType)):
-                # interf = interf[0](*interf[1:]) That is how to call
+            import types
+
+            if isinstance(interf[0], (types.FunctionType, types.MethodType)):
                 tn = []
                 for i, cmd in enumerate(self.cmdHistory.T):
                     if differential:
@@ -504,6 +520,16 @@ class SplattDm(_api.base_devices.BaseDeformableMirror):
         self.baseDataPath = _opdi
         self.refAct = 16
         self.is_segmented = False
+        self._slaveIds = _dmc().get("slaveIds", [])
+        self._borderIds = _dmc().get("borderIds", [])
+
+    @property
+    def slaveIds(self):
+        return self._slaveIds
+
+    @property
+    def borderIds(self):
+        return self._borderIds
 
     def get_shape(self):
         shape = self._dm.get_position()

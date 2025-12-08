@@ -111,3 +111,12 @@ class BaseDeformableMirror(ABC):
         Must be implemented by subclasses.
         """
         pass
+
+    def _slaveCmd(self, cmd, method: str):
+        """ """
+        from opticalib.dmutils.utils import compute_slave_cmd
+
+        if len(self.slaveIds) == 0:
+            return cmd
+        else:
+            return compute_slave_cmd(self, cmd, method=method)
