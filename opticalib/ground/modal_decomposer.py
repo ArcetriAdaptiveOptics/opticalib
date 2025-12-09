@@ -287,6 +287,8 @@ class _ModeFitter(ABC):
             raise ValueError(
                 "Either an image must be provided or a fitting mask must be set."
             )
+
+        # An image has been passed
         elif image is not None:
             image = self._make_sure_on_cpu(image)
             mm = _np.where(image.mask == 0)
@@ -294,6 +296,8 @@ class _ModeFitter(ABC):
             coeff, mat = self.fit(image, modes)
             surface[mm] = _np.dot(mat, coeff)
             surface = _np.ma.masked_array(surface, mask=image.mask)
+
+        # No image, but a fitting mask is available
         elif image is None and self._mgen is not None:
             if isinstance(modes, int):
                 modes = [modes]
@@ -302,11 +306,12 @@ class _ModeFitter(ABC):
                 for mode in modes[1:]:
                     surface += self._get_mode_from_generator(mode)
             surface[self.auxmask == 1] = 0.0
+
         return surface
 
     def makeSurfaceOnRoi(
-        self, modes: int | list[int], image: _t.ImageData
-    ) -> list[_t.ImageData]:
+        self, modes: int | list[int], image: _t.ImageData, mode: str = 'local'
+    ) -> _t.ImageData | list[_t.ImageData]:
         """
         Fits modes on each ROI found in the image, and returns an image with
         the modal surface for each ROI.
@@ -317,11 +322,17 @@ class _ModeFitter(ABC):
             Number of modes to fit on each ROI.
         image : ImageData
             Image for fit.
+        mode : str, optional
+            Mode of fitting.
+            - `global` will return the mean of the fitted coefficient of each ROI
+            - `local` will return the vector of fitted coefficient for each ROI
+
+            Default is 'local'.
 
         Returns
         -------
-        list[ImageData]
-            List of images with modal surfaces for each ROI.
+        surface : _t.ImageData | list[_t.ImageData]
+            Image or list of images with modal surfaces for each ROI.
         """
         roiimg = _roi.roiGenerator(image)
         nroi = len(roiimg)
@@ -332,16 +343,27 @@ class _ModeFitter(ABC):
                 "Found less than 2 ROIs. Using `makeSurface` instead.", UserWarning
             )
             return self.makeSurface(modes, image)
-        print("Found " + str(nroi) + " ROI")
-        surfs = []
-        for r in roiimg:
-            img2fit = _np.ma.masked_array(image.data, mask=r)
-            surf = self.makeSurface(modes, img2fit)
-            surfs.append(surf)
-        surface = _np.ma.empty_like(image)
-        surface.mask = image.mask.copy()
-        for i in range(nroi):
-            surface.data[roiimg[i] == 0] = surfs[i].data[roiimg[i] == 0]
+
+        if mode == 'local':
+            print("Found " + str(nroi) + " ROI")
+            surfs = []
+            for r in roiimg:
+                img2fit = _np.ma.masked_array(image.data, mask=r)
+                surf = self.makeSurface(modes, img2fit)
+                surfs.append(surf)
+            surface = _np.ma.empty_like(image)
+            surface.mask = image.mask.copy()
+            for i in range(nroi):
+                surface.data[roiimg[i] == 0] = surfs[i].data[roiimg[i] == 0]
+
+        elif mode == 'global':
+            mcoeffs = self.fitOnRoi(image, modes2fit=modes, mode='global')
+            surface = _np.ma.zeros_like(image)
+            for r in roiimg:
+                with self._temporary_mgen_from_image(r):
+                    mat = self._create_fitting_matrix(modes, r)
+                surface.data[r == 0] = _np.dot(mat, mcoeffs)
+
         return surface
 
     def filterModes(
@@ -392,6 +414,31 @@ class _ModeFitter(ABC):
             self._mgen = None
             self.auxmask = None
             yield self
+        finally:
+            self._fit_mask = prev_fit_mask
+            self._mgen = prev_mgen
+            self.auxmask = prev_auxmask
+    
+    @_contextmanager
+    def temporary_fit_mask(self, fit_mask: _t.MaskData):
+        """
+        Context manager to temporarily set a fitting mask.
+
+        Parameters
+        ----------
+        fit_mask : ImageData
+            Mask to be used for fitting.
+
+        Yields
+        ------
+        None
+        """
+        prev_fit_mask = self._fit_mask
+        prev_mgen = self._mgen
+        prev_auxmask = self.auxmask.copy()
+        try:
+            self.setFitMask(fit_mask)
+            yield
         finally:
             self._fit_mask = prev_fit_mask
             self._mgen = prev_mgen

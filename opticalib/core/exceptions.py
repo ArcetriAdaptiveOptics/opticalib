@@ -20,6 +20,12 @@ class DeviceError(Exception):
     def __init__(self, device_name: str, device_type: str):
         super().__init__(f"Device '{device_name}' is not a valid {device_type}.")
 
+class DeviceAttributeError(Exception):
+    """Exception raised when a device attribute is missing or invalid."""
+
+    def __init__(self, message: str):
+        super().__init__(message)
+
 
 class MatrixError(Exception):
     """Exception raised when a matrix is not valid."""

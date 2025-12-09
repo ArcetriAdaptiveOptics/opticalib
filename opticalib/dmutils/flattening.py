@@ -333,14 +333,14 @@ class Flattening:
             if self.filtered:
                 print("Cube already filtered, skipping...")
                 return
-        else:
-            print("Filtering cube...")
-            self._oldCube = self._intCube.copy()
-            zern2fit = zernModes if zernModes is not None else [1, 2, 3]
-            self._intCube, new_tn = _ifp.filterZernikeCube(self.tn, zern2fit)
-            self.loadNewTn(new_tn)
-            self.filtered = True
-            self.filteredModes = zern2fit
+            else:
+                print("Filtering cube...")
+                self._oldCube = self._intCube.copy()
+                zern2fit = zernModes if zernModes is not None else [1, 2, 3]
+                self._intCube, new_tn = _ifp.filterZernikeCube(self.tn, zern2fit)
+                self.loadNewTn(new_tn)
+                self.filtered = True
+                self.filteredModes = zern2fit
         return self
 
     def loadNewTn(self, tn: str) -> None:
@@ -529,3 +529,12 @@ class Flattening:
         """
         self.tn = tn
         self._path = _os.path.join(_ifp._intMatFold, self.tn)
+
+    def __repr__(self) -> str:
+        """
+        String representation of the class instance.
+        """
+        tn = self.tn
+        filtered = self.filteredModes if self.filtered else False
+        r = self.rebin
+        return f"Flattening(tn={tn}, filtered={filtered}, rebin={r})"

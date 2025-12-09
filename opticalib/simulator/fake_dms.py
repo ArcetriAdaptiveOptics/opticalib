@@ -1,9 +1,9 @@
 import os
 import time
 import numpy as np
+from ._API import *
 from matplotlib import pyplot as plt
 from opticalib.ground import osutils as osu
-from ._API import *
 from opticalib import folders as fp, typings as _t
 from opticalib.ground.modal_decomposer import ZernikeFitter as _ZF
 
@@ -20,6 +20,30 @@ class AlpaoDm(BaseFakeAlpao):
         self._produce_random_shape()
         self._zern = _ZF(self._mask)
         self.is_segmented = False
+    
+    @property
+    def slaveIds(self) -> _t.ArrayLike:
+        """
+        Returns the list of slave actuator IDs for the deformable mirror.
+
+        Returns
+        -------
+        np.array
+            List of slave actuator IDs.
+        """
+        return self._slaveIds
+
+    @property
+    def borderIds(self) -> _t.ArrayLike:
+        """
+        Returns the list of border actuator IDs for the deformable mirror.
+
+        Returns
+        -------
+        np.array
+            List of border actuator IDs.
+        """
+        return self._borderIds
 
     def set_shape(
         self, command: _t.ArrayLike, differential: bool = False, modal: bool = False
@@ -269,6 +293,7 @@ class DP(BaseFakeDp):
         self.is_segmented = True
         self.nSegments = 2
         self.nActsPerSegment = 111
+
 
     def set_shape(
         self, command: _t.ArrayLike, differential: bool = False, modal: bool = False

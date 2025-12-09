@@ -4,6 +4,7 @@ import numpy as np
 from ... import typings as _t
 from ..factory_functions import *
 from ...core import root as _root
+from ...core.read_config import getDmIffConfig as _dmc
 from abc import ABC, abstractmethod
 from opticalib.ground import osutils as osu
 from scipy.interpolate import RBFInterpolator
@@ -29,6 +30,17 @@ class BaseFakeAlpao(ABC):
         self.ZM = None
         self.RM = None
         self._load_matrices()
+        dmc = _dmc()
+        self._slaveIds = dmc.get('slaveIds', [])
+        self._borderIds = dmc.get('borderIds', [])
+    
+    @property
+    def slaveIds(self):
+        return self._slaveIds
+    
+    @property
+    def borderIds(self):
+        return self._borderIds
 
     @abstractmethod
     def set_shape(self, command: _t.ArrayLike, differential: bool = False):

@@ -1,13 +1,14 @@
 import os
 import numpy as np
 import xupy as xp
-from opticalib import folders as fp, typings as _t
+from opticalib import typings as _t
 from opticalib.core.read_config import load_yaml_config as cl
 from opticalib.ground.modal_decomposer import ZernikeFitter
 from opticalib.ground import geometry as geo
 
 _alpao_list = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "alpao_conf.yaml"
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), '_API'), 
+    "alpao_conf.yaml"
 )
 
 

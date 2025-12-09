@@ -8,6 +8,7 @@ from opticalib import folders as fp
 from opticalib import typings as _t
 from opticalib.ground import geometry as geo
 from opticalib import load_fits as lf, save_fits as sf
+from opticalib.core.read_config import getDmIffConfig as _dmc
 from opticalib.ground.modal_decomposer import ZernikeFitter as _ZF
 
 join = os.path.join
@@ -17,9 +18,11 @@ class BaseFakeDp:
 
     def __init__(self):
         """The constuctor"""
+        dmc = _dmc()
         self._name = "AdOpticaDP"
         self._rootDataDir = join(os.path.dirname(__file__), "AdOpticaData")
         self.mirrorModes = lf(os.path.join(self._rootDataDir, "dp_cmdmat.fits"))
+        self.ff = lf(os.path.join(self._rootDataDir, "dp_ffwd.fits"))
         self.nActs = self.mirrorModes.shape[0]
         self._createDpMaskAndCoords()
         self.cmdHistory = None
@@ -31,6 +34,18 @@ class BaseFakeDp:
         self._ccalcurve = self._getCapsensCalibration()
         self._biasCmd = self._getBiasCmd()
         self.set_shape(np.zeros(self.nActs))  # initialize to flat + offset
+        self._slaveIds = dmc.get('slaveIds', [])
+        self._borderIds = dmc.get('borderIds', [])
+    
+    @property
+    def slaveIds(self) -> list[int]:
+        """List of indices of the slaved actuators."""
+        return self._slaveIds
+
+    @property
+    def borderIds(self) -> list[int]:
+        """List of indices of the border actuators."""
+        return self._borderIds
 
     @property
     def actCoords(self) -> _t.ArrayLike:
@@ -107,7 +122,7 @@ class BaseFakeDp:
         np.array
             Processed shape based on the command.
         """
-        cmd = self._applyCSCalibration(cmd)
+        # cmd = self._applyCSCalibration(cmd)
         cmd0 = cmd[: self.nActs // 2].copy()
         cmd1 = cmd[self.nActs // 2 :].copy()
         tomove = [0, 1]

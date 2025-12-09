@@ -52,7 +52,7 @@ def compute_slave_cmd(
     mid = _np.array([_i for _i in range(dm.nActs) if _i not in sid])  # master ids
 
     if not hasattr(dm, "ff"):
-        raise _oe.DeviceError(
+        raise _oe.DeviceAttributeError(
             f"Feed-Forward matrix not available in {dm.__class__.__name__}."
         )
 
@@ -61,7 +61,7 @@ def compute_slave_cmd(
     elif method == "minimum-rms":
         bid = _np.array(sorted(dm.borderIds))  # border ids
         if bid.size == 0:
-            raise _oe.DeviceError(
+            raise _oe.DeviceAttributeError(
                 "Border actuator IDs are required for minimum-RMS slaving but not found."
             )
         return _minimum_rms_slaving(sid, mid, bid, dm.ff, cmd)
@@ -100,7 +100,7 @@ def compute_slaved_IM(
     try:
         ffwd = _xp.asarray(dm.ff)
     except AttributeError:
-        raise _oe.DeviceError(
+        raise _oe.DeviceAttributeError(
             f"Feed-Forward matrix not available in {dm.__class__.__name__}."
         )
 
@@ -157,7 +157,7 @@ def _zero_force_slaving(
     the slaved command is computed as:
 
     ... math::
-        c_s = -K_{ss}^{T} K_{sm} c_m
+        c_s = -K_{ss}^{-1} K_{sm} c_m
 
     Parameters
     ----------
@@ -183,10 +183,10 @@ def _zero_force_slaving(
 
     K = _get_decomposed_ffwd(slaveIds, masterIds, ffwd, method="zero-force")
     Kss = K["ss"]
-    Kms = K["ms"]
+    Ksm = K["sm"]
 
     # slave 2 master matrix
-    Q = -_xp.linalg.pinv(Kss) @ Kms
+    Q = -_xp.linalg.pinv(Kss) @ Ksm
 
     cmd[slaveIds] = Q @ cmd[masterIds]
     return _xp.asnumpy(cmd)
@@ -221,7 +221,7 @@ def _minimum_rms_slaving(
     and the slaved command is computed as:
 
     ... math::
-        c_s =   = - (K^T_{bs}K_{bs} + K_{ss}K_{ss})^{-1} \\big[(K^T_{bs}K_{bi} + K^T_{ss}K_{si})c_i \,+\, (K^T_{bs}K_{bb} + K^T_{ss}K_{sb})c_b\\big]
+        c_s = - (K^T_{bs}K_{bs} + K_{ss}K_{ss})^{-1} \\big[(K^T_{bs}K_{bi} + K^T_{ss}K_{si})c_i + (K^T_{bs}K_{bb} + K^T_{ss}K_{sb})c_b\\big]
 
 
     Parameters
