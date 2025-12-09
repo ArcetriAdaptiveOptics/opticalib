@@ -12,7 +12,7 @@ from skimage import measure as _meas
 from opticalib import typings as _ot
 
 
-def roiGenerator(img: _ot.ImageData) -> list[_ot.ImageData]:
+def roiGenerator(img: _ot.ImageData, island_pixel_threshold: int = 100) -> list[_ot.ImageData]:
     """
     This function generates a list of `n_masks` roi from the input image.
 
@@ -20,6 +20,8 @@ def roiGenerator(img: _ot.ImageData) -> list[_ot.ImageData]:
     ----------
     img: ImageData | np.ma.maskedArray
         input image from which the roi are generated.
+    island_pixel_threshold : int
+        Minimum number of pixels for an island to be considered a valid ROI.
 
     Returns
     -------
@@ -34,10 +36,39 @@ def roiGenerator(img: _ot.ImageData) -> list[_ot.ImageData]:
         maski[_np.where(labels == i)] = 1
         final_roi = _np.ma.mask_or(_np.invert(maski), img.mask)
         # Eliminating possible islands with less than 100 pixels
-        if _np.invert(final_roi).sum() < 100:
+        if _np.invert(final_roi).sum() < island_pixel_threshold:
             continue
         roiList.append(final_roi)
     return roiList
+
+def countRois(img: _ot.ImageData, island_pixel_threshold: int = 100) -> int:
+    """
+    Counts the number of distinct regions of interest (ROIs) in a masked image.
+
+    Parameters
+    ----------
+    img : np.ma.maskedArray
+        The input masked image array.
+    island_pixel_threshold : int
+        Minimum number of pixels for an island to be considered a valid ROI.
+
+    Returns
+    -------
+    n_rois : int
+        The number of distinct ROIs found in the image.
+    """
+    # Labelled pixel islands in image mask
+    labels = _meas.label(_np.invert(img.mask))
+    n_rois = 0
+    for i in range(1, labels.max() + 1):
+        maski = _np.zeros(labels.shape, dtype=bool)
+        maski[_np.where(labels == i)] = 1
+        final_roi = _np.ma.mask_or(_np.invert(maski), img.mask)
+        # Eliminating possible islands with less than 100 pixels
+        if _np.invert(final_roi).sum() < island_pixel_threshold:
+            continue
+        n_rois += 1
+    return n_rois
 
 
 def imgCut(img: _ot.ImageData):
