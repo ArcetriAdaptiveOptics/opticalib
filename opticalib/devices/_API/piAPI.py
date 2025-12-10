@@ -1,6 +1,6 @@
 import numpy as np
 from pipython import GCSDevice
-from opticalib.typings import _ot
+from opticalib import typings as _ot
 from pipython.pidevice.interfaces.pisocket import PISocket
 from opticalib.core.read_config import getDmConfig, getDmIffConfig as _dmc
 from opticalib.ground import logger

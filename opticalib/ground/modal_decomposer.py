@@ -371,10 +371,10 @@ class _ModeFitter(ABC):
                         # TODO: evaluate this point
                         # UPDATE: it indeed fitted the same coefficients on all ROIs
                         # so, using `no_mask`
-                        with self.no_mask():
-                            # Here `makeSurface` goes always to the Single ROI branch
-                            # and with no mask
-                            surf = self.makeSurface(modes_indices, img2fit)
+                        # with self.no_mask():
+                        #     # Here `makeSurface` goes always to the Single ROI branch
+                        #     # and with no mask
+                        surf = self.makeSurface(modes_indices, img2fit)
 
                         surfs.append(surf)
                     surface = _np.ma.empty_like(image)
@@ -532,10 +532,7 @@ class _ModeFitter(ABC):
             Filtered image.
         """
         image = self._make_sure_on_cpu(image)
-        if _roi.countRois(image) > 1:
-            surf = self.makeSurfaceOnRoi(mode_index_vector, image, mode=mode)
-        else:
-            surf = self.makeSurface(mode_index_vector, image)
+        surf = self.makeSurface(mode_index_vector, image, mode=mode)
         return _np.ma.masked_array((image - surf).data, mask=image.mask)
 
     @_contextmanager

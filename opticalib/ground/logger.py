@@ -41,8 +41,8 @@ def getSystemLogger() -> _l.Logger:
     logging.Logger
         The root logger instance.
     """
-    return _l.getLogger(
-        "system", level=_l.INFO, format="%(asctime)s -- [%(levelname)s] -- %(message)s"
+    return set_up_logger(
+        "system", logging_level=_l.INFO, format="%(asctime)s -- [%(levelname)s] -- %(message)s"
     )
 
 
