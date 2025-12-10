@@ -213,11 +213,13 @@ class _ModeFitter(ABC):
         """
         image = self._make_sure_on_cpu(image)
 
+        # FIXME: now handles the case of mgen is available, but 
+        # need to rethink how it works when no mask is available
         with self._temporary_mgen_from_image(image) as (pimage, _):
-            mask = pimage.mask == 0
+            mask = image.mask == 0
             mat = self._create_fitting_matrix(mode_index_vector, mask)
             A = mat.T
-            B = _np.transpose(pimage.compressed())
+            B = _np.transpose(image.compressed())
             coeffs = _np.linalg.lstsq(A, B, rcond=None)[0]
             return coeffs, A
 
@@ -371,12 +373,13 @@ class _ModeFitter(ABC):
 
                 # GLOBAL
                 elif mode == 'global':
-                    mcoeffs = self.fitOnRoi(image, modes2fit=modes_indices, mode='global')
+                    if coeffs is None:
+                        coeffs = self.fitOnRoi(image, modes2fit=modes_indices, mode='global')
                     surface = _np.ma.zeros_like(image)
                     for r in roiimg:
                         with self.temporary_fit_mask(r):
                             mat = self._create_fitting_matrix(modes_indices, r)
-                        surface.data[r] = _np.dot(mat.T, mcoeffs)
+                        surface.data[r] = _np.dot(mat.T, coeffs)
 
                 else:
                     raise ValueError("mode for ROI fitting must be 'global' or 'local'")
@@ -392,7 +395,7 @@ class _ModeFitter(ABC):
                 with self._temporary_mgen_from_image(image) as (pimage, _):
                     fm = pimage.mask == 0
                     fmidx_ = _np.where(pimage.mask == 0)
-                
+
                 # We did not get coeffs/mat, so we need to fit
                 if coeffs is None and mat is None:
                     coeffs, mat = self.fit(image, modes_indices)
