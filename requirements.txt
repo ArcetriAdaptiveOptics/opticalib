@@ -3,6 +3,7 @@ astropy
 scikit-image
 scikit-learn
 vmbpy
+pipython
 scipy
 plico_dm
 ruamel.yaml

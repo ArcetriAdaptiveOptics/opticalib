@@ -23,6 +23,108 @@ from opticalib.ground.osutils import newtn as _ts, save_fits as _sf
 from opticalib.ground.logger import set_up_logger as _sul, log as _log
 
 
+class PetalMirror(_api.BasePetalMirror, _api.base_devices.BaseDeformableMirror):
+    """
+    Petal Deformable Mirror interface.
+
+    Used with the AdOptica AO Client.
+    """
+
+    def __init__(self, ip_addresses: _ot.Optional[list[str]] = None):
+        """The Constructor"""
+        self._name = "PetalDM"
+        super().__init__(ip_addresses)
+        self.cmdHistory = None
+
+    def get_shape(self) -> _ot.ArrayLike:
+        """
+        Retrieve the actuators positions
+        """
+        return self._read_act_position()
+
+    def set_shape(self, cmd: _ot.ArrayLike, differential: bool = False) -> None:
+        """
+        Applies the given command to the DM actuators.
+
+        Parameters
+        ----------
+        cmd : ArrayLike
+            The command to be applied to the DM actuators, of lenght equal
+            the number of actuators.
+        differential : bool, optional
+            If True, the command will be applied as a differential command
+            with respect to the current shape (default is False).
+        """
+        self._mirror_command(cmd, differential)
+
+    def uploadCmdHistory(self, tcmdhist: _ot.MatrixLike) -> None:
+        """
+        Uploads the (timed) command history to the DM.
+
+        Parameters
+        ----------
+        tcmdhist : _ot.MatrixLike
+            The command history to be uploaded, of shape (nActs, nmodes).
+        """
+        if not _ot.isinstance_(tcmdhist, "MatrixLike"):
+            raise _oe.MatrixError(
+                f"Expecting a 2D Matrix of shape (nActs, nmodes), got instead: {tcmdhist.shape}"
+            )
+        self.cmdHistory = tcmdhist
+
+    def runCmdHistory(
+        self,
+        interf: _ot.Optional[_ot.InterferometerDevice] = None,
+        differential: bool = False,
+        save: _ot.Optional[str] = None,
+    ) -> None:
+        """
+        Runs the loaded command history on the DM.
+
+        Parameters
+        ----------
+        interf : _ot.InterferometerDevice
+            The interferometer device to be used for acquiring images during the command history run.
+        differential : bool, optional
+            If True, the commands will be applied as differential commands (default is False).
+        save : str, optional
+            If provided, the data will be saved in a folder with this name, instead of a freshly
+            generated timestamp.
+        """
+        iff_config = _dmc()
+
+        if self.cmdHistory is None:
+            raise _oe.MatrixError("No Command History to run!")
+
+        else:
+            tn = _ts() if save is None else save
+            print(f"{tn} - {self.cmdHistory.shape[-1]} images to go.")
+
+            # Create the Data folder
+            datafold = _os.path.join(_opdi, tn)
+            if not _os.path.exists(datafold) and interf is not None:
+                _os.mkdir(datafold)
+
+            # Getting starting position for differential commands
+            s = self.get_shape()
+
+            # Main loop for running the history
+            for i, cmd in enumerate(self.cmdHistory.T):
+                print(f"{i+1}/{self.cmdHistory.shape[-1]}", end="\r", flush=True)
+
+                if differential:
+                    cmd = cmd + s
+                self.set_shape(cmd)
+
+                if interf is not None:
+                    _time.sleep(iff_config.get("delay", 0.0))
+                    img = interf.acquire_map()
+                    _sf(_os.path.join(datafold, f"image_{i:05d}.fits"), img)
+
+            # Return to starting position
+            self.set_shape(s)
+
+
 class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
     """
     AdOptica Deformable Mirror interface.
@@ -464,13 +566,18 @@ class AlpaoDm(_api.BaseAlpaoMirror, _api.base_devices.BaseDeformableMirror):
     def runCmdHistory(
         self,
         interf: _ot.InterferometerDevice = None,
-        delay: int | float = 0.2,
         save: str = None,
         differential: bool = True,
     ) -> str:
+        """ """
+        iff_config = _dmc()
+        delay: float = iff_config.get("delay", 0.0)
+
         if self.cmdHistory is None:
             raise _oe.MatrixError("No Command History to run!")
+
         s = self.get_shape()
+
         if isinstance(interf, tuple):
             import types
 
@@ -484,12 +591,15 @@ class AlpaoDm(_api.BaseAlpaoMirror, _api.base_devices.BaseDeformableMirror):
                         _time.sleep(delay)
                         img = interf[0](*interf[1:])
                         tn.append(img)
+
         else:
-            tn = _ts.now() if save is None else save
+
+            tn = _ts() if save is None else save
             print(f"{tn} - {self.cmdHistory.shape[-1]} images to go.")
-            datafold = _os.path.join(self.baseDataPath, tn)
+            datafold = _os.path.join(_opdi, tn)
             if not _os.path.exists(datafold) and interf is not None:
                 _os.mkdir(datafold)
+
             for i, cmd in enumerate(self.cmdHistory.T):
                 print(f"{i+1}/{self.cmdHistory.shape[-1]}", end="\r", flush=True)
                 if differential:
@@ -498,8 +608,7 @@ class AlpaoDm(_api.BaseAlpaoMirror, _api.base_devices.BaseDeformableMirror):
                 if interf is not None:
                     _time.sleep(delay)
                     img = interf.acquire_map()
-                    path = _os.path.join(datafold, f"image_{i:05d}.fits")
-                    _sf(path, img)
+                    _sf(_os.path.join(datafold, f"image_{i:05d}.fits"), img)
         self.set_shape(s)
         return tn
 

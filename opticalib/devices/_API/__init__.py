@@ -17,6 +17,7 @@ from .alpaoAPI import BaseAlpaoMirror
 from .i4d import I4D
 from .base_devices import BaseInterferometer
 from .micAPI import BaseAdOpticaDm
+from .piAPI import BasePetalMirror
 
 __all__ = [
     "SPLATTEngine",

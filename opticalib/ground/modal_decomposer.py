@@ -213,7 +213,7 @@ class _ModeFitter(ABC):
         """
         image = self._make_sure_on_cpu(image)
 
-        # FIXME: now handles the case of mgen is available, but 
+        # FIXME: now handles the case of mgen is available, but
         # need to rethink how it works when no mask is available
         with self._temporary_mgen_from_image(image) as (pimage, _):
             mask = image.mask == 0
@@ -268,7 +268,13 @@ class _ModeFitter(ABC):
             coeff = coeff.mean(axis=0)
         return coeff
 
-    def makeSurface(self, modes_indices: list[int], image: _t.ImageData = None, mode: str = "full-aperture", **kwargs: dict[str,_t.Any]) -> _t.ImageData:
+    def makeSurface(
+        self,
+        modes_indices: list[int],
+        image: _t.ImageData = None,
+        mode: str = "full-aperture",
+        **kwargs: dict[str, _t.Any]
+    ) -> _t.ImageData:
         """
         Generate modal surface from image.
 
@@ -284,7 +290,7 @@ class _ModeFitter(ABC):
             the mask where the surface is defined.
 
             If also the `mat` argument is provided, it will be used as fitting matrix
-            instead of computing it from the image, leaving the `image` argument not 
+            instead of computing it from the image, leaving the `image` argument not
             needed.
 
         modes_indices : list[int], optional
@@ -317,7 +323,7 @@ class _ModeFitter(ABC):
         mat = kwargs.get("mat", None)
         k_rois = kwargs.get("rois", None)
 
-        if (image is None and self._mgen is None):
+        if image is None and self._mgen is None:
             raise ValueError(
                 "Either an image must be provided or a fitting mask must be set."
             )
@@ -336,20 +342,25 @@ class _ModeFitter(ABC):
             # or th left-over rois should be zeroed (idk, it's a modal surface...)
             if k_rois is not None:
                 import warnings
+
                 warnings.warn(
-                    "Overriding automatically detected ROIs (" + str(nroi) + ") with provided ones (" + str(len(k_rois)) + ").",
+                    "Overriding automatically detected ROIs ("
+                    + str(nroi)
+                    + ") with provided ones ("
+                    + str(len(k_rois))
+                    + ").",
                     UserWarning,
                 )
                 roiimg = k_rois
                 nroi = len(roiimg)
 
             # Got more than one ROI branch
-            if nroi > 1 and mode != 'full-aperture':
+            if nroi > 1 and mode != "full-aperture":
 
-            # Here we don't try to overwrite coeffs/mat, as it would not make sense
+                # Here we don't try to overwrite coeffs/mat, as it would not make sense
 
-                # LOCAL 
-                if mode == 'local':
+                # LOCAL
+                if mode == "local":
                     print("Found " + str(nroi) + " ROI")
                     surfs = []
                     for r in roiimg:
@@ -372,9 +383,11 @@ class _ModeFitter(ABC):
                         surface.data[roiimg[i] == 0] = surfs[i].data[roiimg[i] == 0]
 
                 # GLOBAL
-                elif mode == 'global':
+                elif mode == "global":
                     if coeffs is None:
-                        coeffs = self.fitOnRoi(image, modes2fit=modes_indices, mode='global')
+                        coeffs = self.fitOnRoi(
+                            image, modes2fit=modes_indices, mode="global"
+                        )
                     surface = _np.ma.zeros_like(image)
                     for r in roiimg:
                         with self.temporary_fit_mask(r):
@@ -434,7 +447,7 @@ class _ModeFitter(ABC):
         return surface
 
     def makeSurfaceOnRoi(
-        self, modes: int | list[int], image: _t.ImageData, mode: str = 'local'
+        self, modes: int | list[int], image: _t.ImageData, mode: str = "local"
     ) -> _t.ImageData | list[_t.ImageData]:
         """
         Fits modes on each ROI found in the image, and returns an image with
@@ -468,7 +481,7 @@ class _ModeFitter(ABC):
             )
             return self.makeSurface(modes, image)
 
-        if mode == 'local':
+        if mode == "local":
             print("Found " + str(nroi) + " ROI")
             surfs = []
             for r in roiimg:
@@ -480,8 +493,8 @@ class _ModeFitter(ABC):
             for i in range(nroi):
                 surface.data[roiimg[i] == 0] = surfs[i].data[roiimg[i] == 0]
 
-        elif mode == 'global':
-            mcoeffs = self.fitOnRoi(image, modes2fit=modes, mode='global')
+        elif mode == "global":
+            mcoeffs = self.fitOnRoi(image, modes2fit=modes, mode="global")
             surface = _np.ma.zeros_like(image)
             for r in roiimg:
                 with self.temporary_fit_mask(r):
@@ -494,10 +507,7 @@ class _ModeFitter(ABC):
         return surface
 
     def filterModes(
-        self,
-        image: _t.ImageData,
-        mode_index_vector: list[int],
-        mode: str = 'global'
+        self, image: _t.ImageData, mode_index_vector: list[int], mode: str = "global"
     ) -> _t.ImageData:
         """
         Remove modes from the image using the current fit mask.
@@ -513,7 +523,7 @@ class _ModeFitter(ABC):
             controls how the modes are computed:
             - `global` will compute the mean of the fitted coefficient of each ROI
             - `local` will compute the fitted coefficient for each ROI
-            
+
             Defaults to 'global'.
 
         Returns
@@ -554,7 +564,7 @@ class _ModeFitter(ABC):
             self._fit_mask = prev_fit_mask
             self._mgen = prev_mgen
             self.auxmask = prev_auxmask
-    
+
     @_contextmanager
     def temporary_fit_mask(self, fit_mask: _t.MaskData):
         """
@@ -675,7 +685,10 @@ class ZernikeFitter(_ModeFitter):
         super().__init__(fit_mask)
 
     def removeZernike(
-        self, image: _t.ImageData, zernike_index_vector: list[int] = None, mode: str = 'global'
+        self,
+        image: _t.ImageData,
+        zernike_index_vector: list[int] = None,
+        mode: str = "global",
     ) -> _t.ImageData:
         """
         Remove Zernike modes from the image using the current fit mask.
@@ -691,7 +704,7 @@ class ZernikeFitter(_ModeFitter):
             controls how the modes are computed:
             - `global` will compute the mean of the fitted coefficient of each ROI
             - `local` will compute the fitted coefficient for each ROI
-            
+
             Defaults to 'global'.
 
         Returns
@@ -701,7 +714,9 @@ class ZernikeFitter(_ModeFitter):
         """
         if zernike_index_vector is None:
             zernike_index_vector = [1, 2, 3]
-        return self.filterModes(image=image, mode_index_vector=zernike_index_vector, mode='global')
+        return self.filterModes(
+            image=image, mode_index_vector=zernike_index_vector, mode="global"
+        )
 
     def _create_modes_generator(self, mask: _CircularMask) -> _CircularMask:
         """

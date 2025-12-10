@@ -12,7 +12,9 @@ from skimage import measure as _meas
 from opticalib import typings as _ot
 
 
-def roiGenerator(img: _ot.ImageData, island_pixel_threshold: int = 100) -> list[_ot.ImageData]:
+def roiGenerator(
+    img: _ot.ImageData, island_pixel_threshold: int = 100
+) -> list[_ot.ImageData]:
     """
     This function generates a list of `n_masks` roi from the input image.
 
@@ -40,6 +42,7 @@ def roiGenerator(img: _ot.ImageData, island_pixel_threshold: int = 100) -> list[
             continue
         roiList.append(final_roi)
     return roiList
+
 
 def countRois(img: _ot.ImageData, island_pixel_threshold: int = 100) -> int:
     """

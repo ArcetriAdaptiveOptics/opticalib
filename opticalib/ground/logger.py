@@ -32,7 +32,23 @@ import logging as _l
 import logging.handlers as _lh
 
 
-def set_up_logger(filename: str, logging_level: int = _l.DEBUG) -> _l.Logger:
+def getSystemLogger() -> _l.Logger:
+    """
+    Get the root system logger.
+
+    Returns
+    -------
+    logging.Logger
+        The root logger instance.
+    """
+    return _l.getLogger(
+        "system", level=_l.INFO, format="%(asctime)s -- [%(levelname)s] -- %(message)s"
+    )
+
+
+def set_up_logger(
+    filename: str, logging_level: int = _l.DEBUG, format: str | None = None
+) -> _l.Logger:
     """
     Set up a rotating file logger.
 
@@ -67,8 +83,11 @@ def set_up_logger(filename: str, logging_level: int = _l.DEBUG) -> _l.Logger:
     from opticalib.core.root import LOGGING_ROOT_FOLDER
 
     file_path = os.path.join(LOGGING_ROOT_FOLDER, filename)
-    FORMAT = "[%(levelname)s] - %(asctime)s - %(name)s : %(message)s"
-    formato = _l.Formatter(fmt=FORMAT)
+    if format is not None:
+        FORMAT = format
+    else:
+        FORMAT = "[%(levelname)s] - %(asctime)s - %(name)s : %(message)s"
+    formato = _l.Formatter(fmt=FORMAT, datefmt="%Y%m%d_%H%M%S")
     handler = _lh.RotatingFileHandler(
         file_path, encoding="utf8", maxBytes=10000000, backupCount=1
     )

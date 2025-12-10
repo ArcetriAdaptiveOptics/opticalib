@@ -24,7 +24,7 @@ Contents:
 """
 
 from .interferometer import PhaseCam, AccuFiz, Processer4D
-from .deformable_mirrors import SplattDm, AlpaoDm, AdOpticaDm, DP, M4AU
+from .deformable_mirrors import SplattDm, AlpaoDm, AdOpticaDm, DP, M4AU, PetalMirror
 from .cameras import AVTCamera
 
 __all__ = [

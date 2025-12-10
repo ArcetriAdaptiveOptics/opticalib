@@ -46,6 +46,14 @@ DEVICES:
       ip:
       port:
       diameter:
+    PetalDM:
+      ip0:   
+      ip1: 
+      ip2: 
+      ip3: 
+      ip4: 
+      ip5: 
+
   CAMERAS:
     AVT_MANTA_5G: # example camera
       id: DEV_000F314DE425

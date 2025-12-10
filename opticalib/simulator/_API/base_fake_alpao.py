@@ -31,13 +31,13 @@ class BaseFakeAlpao(ABC):
         self.RM = None
         self._load_matrices()
         dmc = _dmc()
-        self._slaveIds = dmc.get('slaveIds', [])
-        self._borderIds = dmc.get('borderIds', [])
-    
+        self._slaveIds = dmc.get("slaveIds", [])
+        self._borderIds = dmc.get("borderIds", [])
+
     @property
     def slaveIds(self):
         return self._slaveIds
-    
+
     @property
     def borderIds(self):
         return self._borderIds

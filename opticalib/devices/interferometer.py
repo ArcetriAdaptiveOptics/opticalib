@@ -321,6 +321,7 @@ class _4DInterferometer(_api.BaseInterferometer):
         idx, idy = _np.where(_np.isnan(data))
         mask = _np.zeros((data.shape[0], data.shape[1]))
         mask[idx, idy] = 1
+        data[idx, idy] = 0.0  # Patch to prevent nan values
         masked_ima = _np.ma.masked_array(data, mask=mask.astype(bool))
         return masked_ima
 

@@ -34,9 +34,9 @@ class BaseFakeDp:
         self._ccalcurve = self._getCapsensCalibration()
         self._biasCmd = self._getBiasCmd()
         self.set_shape(np.zeros(self.nActs))  # initialize to flat + offset
-        self._slaveIds = dmc.get('slaveIds', [])
-        self._borderIds = dmc.get('borderIds', [])
-    
+        self._slaveIds = dmc.get("slaveIds", [])
+        self._borderIds = dmc.get("borderIds", [])
+
     @property
     def slaveIds(self) -> list[int]:
         """List of indices of the slaved actuators."""
