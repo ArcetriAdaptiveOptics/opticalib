@@ -202,7 +202,9 @@ def updateIffConfig(tn: str, item: str, value: _Any):
         vmax = _np.max(value)
         vmin = _np.min(value)
         step = value[1] - value[0] if len(value) > 1 else 1
-        if _np.array_equal(value, _np.arange(vmin, vmax + 1, step)):
+        if step == 0.:
+            config[key][item] = f"[{','.join(str(v) for v in [vmax]*len(value))}]"
+        elif _np.array_equal(value, _np.arange(vmin, vmax + 1, step)):
             config[key][item] = f"np.arange({vmin}, {vmax + 1}, {step})"
         else:
             config[key][item] = f"[{','.join(str(v) for v in value)}]"

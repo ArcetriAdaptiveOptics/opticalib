@@ -1,6 +1,7 @@
 import numpy as np
 import xupy as xp
 from matplotlib.pyplot import *
+ion()
 import opticalib
 from os.path import join
 from opticalib import dmutils

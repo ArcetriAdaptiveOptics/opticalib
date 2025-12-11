@@ -59,7 +59,7 @@ class ComputeReconstructor:
         self._setAnalysisMask()
 
     def run(
-        self, sv_threshold: int | float = None, interactive: bool = False
+        self, sv_threshold: int | float | None = None, interactive: bool = False
     ) -> _ot.MatrixLike:
         """
         Compute the reconstruction matrix from the interaction matrix and the image

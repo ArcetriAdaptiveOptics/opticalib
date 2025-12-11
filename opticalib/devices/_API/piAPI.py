@@ -25,7 +25,7 @@ class BasePetalMirror:
         self._had_error = False
 
         if ip_addresses is None:
-            self._ip_addresses = getDmConfig("PetalDM")
+            self._ip_addresses = [ip for ip in getDmConfig("PetalDM").values()]
         else:
             self._ip_addresses = ip_addresses
 
@@ -40,7 +40,7 @@ class BasePetalMirror:
         else:
             L.info("All connections to petal mirror segments established")
             self._check_servos()
-            self._enable_axes()
+#            self._enable_axes()
             self._morning_routine()
 
         self.is_segmented = True

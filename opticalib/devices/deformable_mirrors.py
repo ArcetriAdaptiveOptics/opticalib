@@ -20,8 +20,9 @@ from contextlib import contextmanager as _contextmanager
 from opticalib.core.read_config import getDmIffConfig as _dmc
 from opticalib.core.root import OPD_IMAGES_ROOT_FOLDER as _opdi
 from opticalib.ground.osutils import newtn as _ts, save_fits as _sf
-from opticalib.ground.logger import set_up_logger as _sul, log as _log
+from opticalib.ground.logger import getSystemLogger as _gsl
 
+_L = _gsl()
 
 class PetalMirror(_api.BasePetalMirror, _api.base_devices.BaseDeformableMirror):
     """
@@ -34,6 +35,7 @@ class PetalMirror(_api.BasePetalMirror, _api.base_devices.BaseDeformableMirror):
         """The Constructor"""
         self._name = "PetalDM"
         super().__init__(ip_addresses)
+        self.mirrorModes = None
         self.cmdHistory = None
 
     def get_shape(self) -> _ot.ArrayLike:
@@ -67,10 +69,12 @@ class PetalMirror(_api.BasePetalMirror, _api.base_devices.BaseDeformableMirror):
             The command history to be uploaded, of shape (nActs, nmodes).
         """
         if not _ot.isinstance_(tcmdhist, "MatrixLike"):
+            _L.error("MatrixError: Expecting a 2D Matrix of shape (nActs, nmodes), got instead: {tcmdhist.shape}")
             raise _oe.MatrixError(
                 f"Expecting a 2D Matrix of shape (nActs, nmodes), got instead: {tcmdhist.shape}"
             )
         self.cmdHistory = tcmdhist
+        _L.info('Loaded Timed command history')
 
     def runCmdHistory(
         self,
@@ -91,6 +95,8 @@ class PetalMirror(_api.BasePetalMirror, _api.base_devices.BaseDeformableMirror):
             If provided, the data will be saved in a folder with this name, instead of a freshly
             generated timestamp.
         """
+        _L.info('Starting to run the command history')
+
         iff_config = _dmc()
 
         if self.cmdHistory is None:
@@ -117,7 +123,7 @@ class PetalMirror(_api.BasePetalMirror, _api.base_devices.BaseDeformableMirror):
                 self.set_shape(cmd)
 
                 if interf is not None:
-                    _time.sleep(iff_config.get("delay", 0.0))
+                    _time.sleep(iff_config["delay"])
                     img = interf.acquire_map()
                     _sf(_os.path.join(datafold, f"image_{i:05d}.fits"), img)
 

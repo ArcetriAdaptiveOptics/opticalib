@@ -199,7 +199,7 @@ def saveCube(
     return cube
 
 
-def stackCubes(tnlist: str, cubeNames: _ot.Optional[list[str]]) -> None:
+def stackCubes(tnlist: str, cubeNames: _ot.Optional[list[str]] = None) -> None:
     """
     Stack the cubes sontained in the corresponding tracking number folder, creating
     a new cube, along with stacked command matrix and modes vector.
@@ -217,13 +217,11 @@ def stackCubes(tnlist: str, cubeNames: _ot.Optional[list[str]]) -> None:
     stacked_cube : masked_array
         Final cube, stacked along the 3th axis.
     """
-    # TODO: aggiungere variabile `cubeNames: str|list[str]` che deve matchare
-    # `len(tnlist)` e che contiene il nome del file da caricare per ogni tn
     new_tn = _ts()
     stacked_cube_fold = _os.path.join(_intMatFold, new_tn)
     _os.mkdir(stacked_cube_fold)
     cube_parameters = _getCubeList(tnlist, cubeNames)
-    flag = _checkStackedCubes(tnlist)
+    flag = _checkStackedCubes(tnlist)['Flag']['Cube type']
     # Stacking the cube and the matrices
     stacked_cube = _np.ma.dstack(cube_parameters[0])
     stacked_cmat = _np.hstack(cube_parameters[1])

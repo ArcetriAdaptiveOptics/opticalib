@@ -145,6 +145,38 @@ class Flattening:
         """
         return self._rec._analysisMask
 
+    def closedLoopFlattening(self, iterations: int | None = None, **kwargs: dict[str,_ot.Any]) -> None:
+        """
+        Computes, applies and saves the computed flat command to the DM in 
+        closed loop, until an input to stop is provided.
+
+        The parameters are the same of 
+
+        Parameters
+        ----------
+        iterations : int, optional
+            It is the number of flattening iterations to perform. If not provided,
+            the loop will stop at the user's input.
+        kwargs: dict
+            The arguments for the `applyFlatCommand` function:
+            - dm : DeformableMirrorDevice
+                Deformable mirror object.
+            - interf : InterferometerDevice
+                Interferometer object to acquire phasemaps.
+            - modes2flat : int | ArrayLike
+                Modes to flatten.
+            - modes2discard : int, optional
+                Number of modes to discard when computing the reconstruction matrix. Default is 3.
+            - nframes : int, optional
+                Number of frames to average for phasemap acquisition. Default is 5.
+        """
+        if iterations is not None:
+            for _ in range(iterations):
+                self.applyFlatCommand(**kwargs)
+        else:
+            raise NotImplementedError('e che ce vo')
+
+
     def applyFlatCommand(
         self,
         dm: _ot.DeformableMirrorDevice,
@@ -173,7 +205,8 @@ class Flattening:
         """
         new_tn = _ts()
         imgstart = interf.acquire_map(nframes, rebin=self.rebin)
-        self.loadImage2Shape(imgstart, compute=modes2discard)
+        self.loadImage2Shape(imgstart)
+        self.computeRecMat(modes2discard)
         deltacmd = self.computeFlatCmd(modes2flat)
         cmd = dm.get_shape()  # TODO: check if this is correct for DP
 
