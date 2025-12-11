@@ -398,9 +398,10 @@ class Flattening:
             (cubemask.shape[0] - img.shape[0]) // 2,
             (cubemask.shape[1] - img.shape[1]) // 2,
         )
-        img = _np.ma.masked_array(
-            _np.pad(img.data, pad_shape), mask=~_np.pad(~img.mask, pad_shape)
-        )
+        if not any([x <= 0 for x in pad_shape]):
+            img = _np.ma.masked_array(
+                _np.pad(img.data, pad_shape), mask=~_np.pad(~img.mask, pad_shape)
+            )
         if img.shape != cubemask.shape:
             xdiff = cubemask.shape[1] - img.shape[1]
             ydiff = cubemask.shape[0] - img.shape[0]
