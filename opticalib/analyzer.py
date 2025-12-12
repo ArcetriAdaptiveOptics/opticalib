@@ -193,7 +193,8 @@ def openAverage(tn: str):
 
 
 def runningDiff(
-    tn_or_fl: str | list[str] | list[_ot.ImageData] | _ot.CubeData, gap: int = 2
+    tn_or_fl: str | list[str] | list[_ot.ImageData] | _ot.CubeData, gap: int = 2,
+    remove_zernikes: bool | list[int] = False
 ):
     """
     Computes the running difference of the frames in a given tracking number.
@@ -208,6 +209,8 @@ def runningDiff(
         - a CubeData object.
     gap : int, optional
         Number of frames to skip between each difference calculation. The default is 2.
+    remove_zernikes : bool or list[int]
+        If not False, the zernikes modes to remove from the difference, before computing the std
 
     Returns
     -------
@@ -215,30 +218,24 @@ def runningDiff(
         Array of standard deviations for each frame difference.
 
     """
+    from tqdm import trange
     zfit = zern.ZernikeFitter()
     if isinstance(tn_or_fl, str):
         if osu.is_tn(tn_or_fl):
-            fl = osu.getFileList(tn_or_fl)
-            llist = [osu.load_fits(x) for x in fl]
+            llist = osu.getFileList(tn_or_fl)
         else:
             raise ValueError("Invalid tracking number")
-    elif isinstance(tn_or_fl, list):
-        if all(isinstance(item, str) for item in tn_or_fl):
-            llist = [osu.load_fits(x) for x in tn_or_fl]
-        elif all(_ot.isinstance_(item, "ImageData") for item in tn_or_fl):
-            llist = [item.file for item in tn_or_fl]
-        else:
-            raise TypeError("Invalid list elements")
-    elif _ot.isinstance_(tn_or_fl, "CubeData"):
-        llist = tn_or_fl.transpose(2, 0, 1).tolist()
+    else:
+        llist = tn_or_fl
     nfile = len(llist)
     npoints = int(nfile / gap) - 2
     idx0 = _np.arange(0, npoints * gap, gap)
     idx1 = idx0 + 1
     svec = _np.empty(npoints)
-    for i in range(npoints):
-        diff = llist[idx1[i]] - llist[idx0[i]]
-        diff = zfit.removeZernike(diff)
+    for i in trange(npoints, total=npoints, ncols=88, unit=' diffs'):
+        diff = frame(idx1[i], llist) - frame(idx0[i], llist)
+        if remove_zernikes:
+            diff = zfit.removeZernike(diff, remove_zernikes)
         svec[i] = diff.std()
     return svec
 
