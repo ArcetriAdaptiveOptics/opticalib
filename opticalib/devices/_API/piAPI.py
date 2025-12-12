@@ -40,7 +40,6 @@ class BasePetalMirror:
         else:
             L.info("All connections to petal mirror segments established")
             self._check_servos()
-#            self._enable_axes()
             self._morning_routine()
 
         self.is_segmented = True
@@ -235,23 +234,33 @@ class BasePetalMirror:
     
     def _enable_axes(self) -> None:
         """
-        Check the axis status of all segments.
-        
-        If any axis is disabled, enable it.
+        Enable axes.
+        - GCS3: use EAX/qEAX.
+        - GCS2 fallback: use SVO/qSVO (servo on).
         """
         try:
             for k, dev in enumerate(self._devices):
                 L.log(20, f"Checking segment {k} : {self._ip_addresses[k]}")
-                status = dev.qEAX()
-                L.log(20, f"         Axis status : {status}")
-                for axis, value in status.items():
-                    if value == 0:
-                        L.log(20, f"         Enabling axis {axis}")
-                        dev.EAX({axis: 1})
+                try:
+                    # Preferred for GCS3.x
+                    status = dev.qEAX()
+                    L.log(20, f"         Axis status (EAX): {status}")
+                    for axis, value in status.items():
+                        if value == 0:
+                            L.log(20, f"         Enabling axis {axis} via EAX")
+                            dev.EAX({axis: 1})
+                            dev.checkerror()
+                except (AttributeError, GCSError) as err:
+                    # Fallback for GCS2.x
+                    L.log(20, f"EAX/qEAX not supported ({err}); falling back to SVO")
+                    status = dev.qSVO()
+                    L.log(20, f"         Servo status (SVO): {status}")
+                    to_enable = {ax: 1 for ax, val in status.items() if val == 0}
+                    if to_enable:
+                        L.log(20, f"         Enabling servos via SVO: {to_enable}")
+                        dev.SVO(to_enable)
                         dev.checkerror()
         except GCSError as err:
             L.error(f"Error checking/enabling axes: {err}")
             self._had_error = True
             raise RuntimeError("Failed to check/enable axes") from err
-    
-    
