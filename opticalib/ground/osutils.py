@@ -323,8 +323,8 @@ def read_phasemap(file_path: str) -> _ot.ImageData:
 
 
 def load_fits(
-    filepath: str, return_header: bool = False, on_gpu: bool = False
-) -> tuple[_ot.ImageData | _ot.CubeData | _ot.MatrixLike | _ot.ArrayLike, _ot.Any]:
+    filepath: str, on_gpu: bool = False
+) -> _ot.FitsData:
     """
     Loads a FITS file.
 
@@ -332,18 +332,15 @@ def load_fits(
     ----------
     filepath : str
         Path to the FITS file.
-    return_header: bool
-        Wether to return the header of the loaded fits file. Default is False.
     on_gpu : bool, optional
         Whether to load the data on GPU as a `cupy.ndarray` or a
         `xupy.ma.MaskedArray` (if masked). Default is False.
 
     Returns
     -------
-    fit : np.ndarray or np.ma.MaskedArray of cupy.ndarray or xupy.ma.MaskedArray
-        The loaded FITS file data.
-    header : dict | fits.Header, optional
-        The header of the loaded fits file.
+    fit : ArrayLike
+        The loaded FITS file data (masked) array, on CPU or GPU, with attached header
+        (as Fits<...>Array).
     """
     with _fits.open(filepath) as hdul:
         fit = hdul[0].data
@@ -365,10 +362,8 @@ def load_fits(
             fit = _xu.ma.MaskedArray(fit)
         else:
             fit = _xu.asarray(fit)
-    if return_header:
-        out = _fa.fits_array(fit, header=header)
-    else:
-        out = fit
+
+    out = _fa.fits_array(fit, header=header)
     return out
 
 
@@ -640,6 +635,26 @@ def newtn() -> str:
         Current time in a string format.
     """
     return _time.strftime("%Y%m%d_%H%M%S")
+
+def create_data_folder(basepath: str = _fn.OPD_IMAGES_ROOT_FOLDER) -> str:
+    """
+    Creates a new data folder with a unique tracking number in the specified base path.
+    
+    Parameters
+    ----------
+    basepath : str, optional
+        The base directory where the new tracking number folder will be created.
+        Default is the OPTImages root folder.
+    
+    Returns
+    -------
+    tn_path : str
+        The path to the newly created tracking number folder.
+    """
+    tn = newtn()
+    tn_path = _os.path.join(basepath, tn)
+    _os.makedirs(tn_path, exist_ok=True)
+    return tn_path
 
 
 def _header_from_dict(

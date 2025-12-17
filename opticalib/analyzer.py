@@ -29,12 +29,11 @@ from scipy import stats as _stats, fft as _fft, ndimage as _ndimage
 
 _OPDSER = _foldname.OPD_SERIES_ROOT_FOLDER
 
-
 def averageFrames(
     tn: str,
     first: int = 0,
     last: int = -1,
-    file_selector: list[int] = None,
+    file_selector: list[int] | None = None,
     thresh: bool = False,
 ):
     """
@@ -66,14 +65,7 @@ def averageFrames(
     fl = osu.getFileList(tn, fold=_OPDSER.split("/")[-1], key="20")
     s = slice(first, last) if last != -1 else slice(first, None)
     fl = fl[s] if file_selector is None else fl[file_selector]
-    # elif file_selector is not None:
-    #     first = 0
-    #     last = len(fl)
-    #     fl = [
-    #         fl[x]
-    #         for x in _np.arange(first, last, 1)
-    #         if file_selector is None or x in file_selector
-    #     ]
+
     imcube = createCube(fl)
 
     if thresh is False:
