@@ -193,9 +193,11 @@ def openAverage(tn: str):
 
 
 def runningDiff(
-    tn_or_fl: str | list[str] | list[_ot.ImageData] | _ot.CubeData, gap: int = 2,
-    remove_zernikes: bool | list[int] = False
-):
+    tn_or_fl: str | list[str] | list[_ot.ImageData] | _ot.CubeData,
+    gap: int = 2,
+    remove_zernikes: bool | list[int] = False,
+    stds_out: bool = True,
+) -> tuple[list[_ot.ImageData], _ot.ArrayLike] | list[_ot.ImageData]:
     """
     Computes the running difference of the frames in a given tracking number.
 
@@ -211,14 +213,21 @@ def runningDiff(
         Number of frames to skip between each difference calculation. The default is 2.
     remove_zernikes : bool or list[int]
         If not False, the zernikes modes to remove from the difference, before computing the std
+    stds_out : bool, optional
+        If True, returns the standard deviations of the differences. The default is True.
 
     Returns
     -------
-    svec : ndarray
+    diff_vec : list[ImageData]
+        Array of differences between frames.
+    svec : ArrayLike
         Array of standard deviations for each frame difference.
 
     """
     from tqdm import trange
+    import sys as _sys
+    from io import StringIO as _sIO
+
     zfit = zern.ZernikeFitter()
     if isinstance(tn_or_fl, str):
         if osu.is_tn(tn_or_fl):
@@ -232,12 +241,19 @@ def runningDiff(
     idx0 = _np.arange(0, npoints * gap, gap)
     idx1 = idx0 + 1
     svec = _np.empty(npoints)
+    diff_vec = []
     for i in trange(npoints, total=npoints, ncols=88, unit=' diffs'):
         diff = frame(idx1[i], llist) - frame(idx0[i], llist)
         if remove_zernikes:
-            diff = zfit.removeZernike(diff, remove_zernikes)
+            old_stdout = _sys.stdout
+            _sys.stdout = _sIO()
+            diff = zfit.removeZernike(diff)
+            _sys.stdout = old_stdout
+        diff_vec.append(diff)
         svec[i] = diff.std()
-    return svec
+    if stds_out:
+        return diff_vec, svec
+    return diff_vec
 
 
 # TODO: TO REMOVE
@@ -831,7 +847,7 @@ def createCube(fl_or_il: list[str], register: bool = False):
     ----------
     fl_or_il : list of str
         Either:
-        - the list of image files;
+        - the list of image file paths;
         - a list of ImageData.
     register : int or tuple, optional
         If not False, and int or a tuple of int must be passed as value, and
@@ -846,15 +862,23 @@ def createCube(fl_or_il: list[str], register: bool = False):
     # check it is a list
     if not isinstance(fl_or_il, list):
         raise TypeError("filelist must be a list of strings or images")
+
     # check if it is composed of file paths to load
     if all(isinstance(item, str) for item in fl_or_il):
         fl_or_il = [osu.read_phasemap(f) for f in fl_or_il]
+        # Is the list now full of images?
         if not all(_ot.isinstance_(item, "ImageData") for item in fl_or_il):
             raise TypeError("Data different from `images` loaded. Check filelist.")
+
     # finally check if it is a list of ImageData
     elif not all(_ot.isinstance_(item, "ImageData") for item in fl_or_il):
         raise TypeError("filelist must be either a list of strings or ImageData")
+
+    if register:
+        print("Registration Not implemented yet!")
+
     cube = _np.ma.dstack(fl_or_il)
+
     return cube
 
 

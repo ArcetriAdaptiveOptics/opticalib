@@ -1,6 +1,7 @@
+import vmbpy as _vmbpy
+from .. import typings as _ot
 from ..core.read_config import getCamerasConfig as _gcc
 from contextlib import contextmanager as _contextmanager
-import vmbpy as _vmbpy
 
 
 class AVTCamera:
@@ -70,7 +71,7 @@ class AVTCamera:
         timeout: int = 1000,
         mode: str = "sync",
         allocation_mode: int = 0,
-    ):
+    ) -> _ot.ImageData | _ot.CubeData:
         """
         Acquires frames from the camera.
 
@@ -136,6 +137,11 @@ class AVTCamera:
         frames = [f.squeeze(0) if f.shape[0] == 1 else f for f in frames]
         if len(frames) == 1:
             frames = frames[0]
+        else:
+            from ..analyzer import createCube as _cC
+            
+            frames = _cC(frames)
+
         return frames
 
     @_contextmanager
