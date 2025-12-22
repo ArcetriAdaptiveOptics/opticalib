@@ -280,6 +280,8 @@ class _ModeFitter(ABC):
 
         Parameters
         ----------
+        modes_indices : list[int], optional
+            List of modes indices. Defaults to [1].
         image : ImageData, optional
             Image to fit to retrieve the modal coefficients needed for the surface to compute.
             If no image is provided, a surface defined in the `fitter` pupil normalized at 1
@@ -292,13 +294,9 @@ class _ModeFitter(ABC):
             If also the `mat` argument is provided, it will be used as fitting matrix
             instead of computing it from the image, leaving the `image` argument not
             needed.
-
-        modes_indices : list[int], optional
-            List of modes indices. Defaults to [1].
-
         mode : str, optional
             If more than one ROI is detected, it's the mode of ROI fitting. Options are:
-            - 'full-aperture' : generate the surface on the full aperture pupil (as if no ROIs were present)
+            - `full-aperture` : generate the surface on the full aperture pupil (as if no ROIs were present)
             - `global` : will be created a surface from the mean of the modal coefficients of each fitted ROI
             - `local` : will return a surface in which heach roi has it's own modal surface reconstructed inside
 
@@ -433,76 +431,16 @@ class _ModeFitter(ABC):
         # No image, but a fitting mask is available
         elif self._mgen is not None:
 
-            if isinstance(modes, int):
-                modes = [modes]
+            if isinstance(modes_indices, int):
+                modes_indices = [modes_indices]
 
-            surface = self._get_mode_from_generator(modes[0])
+            surface = self._get_mode_from_generator(modes_indices[0])
 
-            if len(modes) > 1:
-                for mode in modes[1:]:
+            if len(modes_indices) > 1:
+                for mode in modes_indices[1:]:
                     surface += self._get_mode_from_generator(mode)
 
             surface[self.auxmask == 1] = 0.0
-
-        return surface
-
-    def makeSurfaceOnRoi(
-        self, modes: int | list[int], image: _t.ImageData, mode: str = "local"
-    ) -> _t.ImageData | list[_t.ImageData]:
-        """
-        Fits modes on each ROI found in the image, and returns an image with
-        the modal surface for each ROI.
-
-        Parameters
-        ----------
-        modes_indices : int | list[int]
-            Number of modes to fit on each ROI.
-        image : ImageData
-            Image for fit.
-        mode : str, optional
-            Mode of fitting.
-            - `global` will return the mean of the fitted coefficient of each ROI
-            - `local` will return the vector of fitted coefficient for each ROI
-
-            Default is 'local'.
-
-        Returns
-        -------
-        surface : _t.ImageData | list[_t.ImageData]
-            Image or list of images with modal surfaces for each ROI.
-        """
-        roiimg = _roi.roiGenerator(image)
-        nroi = len(roiimg)
-        if not nroi > 1:
-            import warnings
-
-            warnings.warn(
-                "Found less than 2 ROIs. Using `makeSurface` instead.", UserWarning
-            )
-            return self.makeSurface(modes, image)
-
-        if mode == "local":
-            print("Found " + str(nroi) + " ROI")
-            surfs = []
-            for r in roiimg:
-                img2fit = _np.ma.masked_array(image.data, mask=r)
-                surf = self.makeSurface(modes, img2fit)
-                surfs.append(surf)
-            surface = _np.ma.empty_like(image)
-            surface.mask = image.mask.copy()
-            for i in range(nroi):
-                surface.data[roiimg[i] == 0] = surfs[i].data[roiimg[i] == 0]
-
-        elif mode == "global":
-            mcoeffs = self.fitOnRoi(image, modes2fit=modes, mode="global")
-            surface = _np.ma.zeros_like(image)
-            for r in roiimg:
-                with self.temporary_fit_mask(r):
-                    mat = self._create_fitting_matrix(modes, r)
-                surface.data[r] = _np.dot(mat.T, mcoeffs)
-
-        else:
-            raise ValueError("mode must be 'global' or 'local'")
 
         return surface
 

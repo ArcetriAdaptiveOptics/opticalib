@@ -223,7 +223,12 @@ def stackCubes(tnlist: str, cubeNames: _ot.Optional[list[str]] = None) -> None:
     cube_parameters = _getCubeList(tnlist, cubeNames)
     flag = _checkStackedCubes(tnlist)['Flag']['Cube type']
     # Stacking the cube and the matrices
-    stacked_cube = _np.ma.dstack(cube_parameters[0])
+    # Convert FitsMaskedArrayGpu to regular masked arrays for dstack
+    cube_list = [
+        cube.asmarray() if hasattr(cube, 'asmarray') else cube
+        for cube in cube_parameters[0]
+    ]
+    stacked_cube = _np.ma.dstack(cube_list)
     stacked_cmat = _np.hstack(cube_parameters[1])
     stacked_mvec = _np.dstack(cube_parameters[2])
     # Saving everithing to a new file into a new tn
@@ -749,8 +754,7 @@ def _checkStackedCubes(tnlist: str) -> dict[str, _ot.Any]:
     Returns
     -------
     flag : dict
-        Dictionary containing the flagging information about the stacked cube,
-        to be later dump into the 'flag.txt' file.
+        Dictionary containing the flagging information about the stacked cube.
     """
     _, _, modesVectList, rebin = _getCubeList(tnlist)
     nmodes = len(modesVectList[0])

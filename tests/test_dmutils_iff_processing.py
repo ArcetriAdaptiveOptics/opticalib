@@ -129,16 +129,21 @@ class TestStackCubes:
         os.makedirs(tn2_folder, exist_ok=True)
 
         # Create second cube with same number of modes as first (10)
-        cube2 = ma.masked_array(
-            np.random.randn(100, 100, 10).astype(np.float32),
-            mask=np.ones((100, 100, 10), dtype=bool),
-        )
-        osutils.save_fits(
-            os.path.join(tn2_folder, "IMCube.fits"),
-            cube2,
-            overwrite=True,
+        # Use compatible mask structure (2D mask broadcast to 3D, like the first cube)
+        from skimage.draw import disk
+        from opticalib.core.fitsarray import FitsMaskedArray
+        
+        mask2 = np.ones((100, 100), dtype=bool)
+        rr, cc = disk((50, 50), 30)
+        mask2[rr, cc] = False
+        # Create actual 3D mask array (not a broadcast view) to ensure it's saved properly
+        mask3d = np.broadcast_to(mask2[..., np.newaxis], (100, 100, 10)).copy()
+        cube2_data = np.random.randn(100, 100, 10).astype(np.float32)
+        cube2 = FitsMaskedArray(
+            ma.masked_array(cube2_data, mask=mask3d),
             header={"REBIN": 1},
         )
+        cube2.writeto(os.path.join(tn2_folder, "IMCube.fits"), overwrite=True)
 
         cmd_mat2 = np.random.randn(100, 10).astype(np.float32)
         osutils.save_fits(
@@ -151,7 +156,7 @@ class TestStackCubes:
         )
 
         tnlist = [tn1, tn2]
-        monkeypatch.setattr(ifp, "_checkStackedCubes", lambda tn_list: 0)
+        monkeypatch.setattr(ifp, "_checkStackedCubes", lambda tn_list: {'Flag':{'Cube type': 'sequential stack'}})
         ifp.stackCubes(tnlist, cubeNames=None)
 
         # Verify stacked cube was created

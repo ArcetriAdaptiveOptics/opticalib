@@ -84,14 +84,12 @@ class TestFitsArray:
 
     def test_fromfits_uses_load_fits(self, monkeypatch):
         """Test that fromFits properly handles load_fits return value."""
-        # load_fits returns a FitsArray when return_header=True
         fake_fits_array = FitsArray(
             np.arange(4, dtype=float).reshape(2, 2), header=_sample_header()
         )
 
-        def fake_load(filename, return_header=False):
+        def fake_load(filename):
             assert filename == "plain.fits"
-            assert return_header is True
             return fake_fits_array
 
         monkeypatch.setattr("opticalib.ground.osutils.load_fits", fake_load)
@@ -181,9 +179,8 @@ class TestFitsMaskedArray:
             header=_sample_header(),
         )
 
-        def fake_load(filename, return_header=False):
+        def fake_load(filename):
             assert filename == "file.fits"
-            assert return_header is True
             return fake_fits_masked
 
         monkeypatch.setattr("opticalib.ground.osutils.load_fits", fake_load)

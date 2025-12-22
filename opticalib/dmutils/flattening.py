@@ -461,7 +461,7 @@ class Flattening:
         intCube : CubeData
             The interaction cube data array.
         """
-        intCube = _osu.load_fits(_os.path.join(self._path, _ifp.cubeFile), True)
+        intCube = _osu.load_fits(_os.path.join(self._path, _ifp.cubeFile))
         try:
             import warnings
 

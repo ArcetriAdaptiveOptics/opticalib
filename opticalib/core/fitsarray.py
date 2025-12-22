@@ -77,8 +77,7 @@ class FitsArray(_np.ndarray):
     def fromFits(cls, filename: str) -> "FitsArray":
         from opticalib.ground.osutils import load_fits
 
-        data = load_fits(filename, return_header=True)
-        return cls(data, header=data.header)
+        return load_fits(filename)
 
 
 class FitsMaskedArray(_np.ma.MaskedArray):
@@ -156,9 +155,7 @@ class FitsMaskedArray(_np.ma.MaskedArray):
     def fromFits(cls, filename: str) -> "FitsMaskedArray":
         from opticalib.ground.osutils import load_fits
 
-        data = load_fits(filename, return_header=True)
-        return cls(data, header=data.header)
-
+        return load_fits(filename)
 
 class FitsArrayGpu(_xp.ndarray):
     """
@@ -218,8 +215,7 @@ class FitsArrayGpu(_xp.ndarray):
     def fromFits(cls, filename: str) -> "FitsArrayGpu":
         from opticalib.ground.osutils import load_fits
 
-        data = load_fits(filename, return_header=True)
-        return cls(_xp.asarray(data), header=data.header)
+        return load_fits(filename)
 
 
 class FitsMaskedArrayGpu(_xp.ma.masked_array):
@@ -253,8 +249,7 @@ class FitsMaskedArrayGpu(_xp.ma.masked_array):
     def fromFits(cls, filename: str) -> "FitsArrayGpu":
         from opticalib.ground.osutils import load_fits
 
-        data = load_fits(filename, return_header=True)
-        return cls(data=data, header=data.header)
+        return load_fits(filename)
 
     def asmarray(self, **kwargs: dict[str, _ot.Any]) -> "FitsMaskedArray":
         """

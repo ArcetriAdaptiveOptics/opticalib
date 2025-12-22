@@ -169,7 +169,7 @@ class TestLoadFits:
         fits_file = os.path.join(temp_dir, "test_header.fits")
         fits.writeto(fits_file, data, header=header)
 
-        result = osutils.load_fits(fits_file, return_header=True)
+        result = osutils.load_fits(fits_file)
         assert isinstance(result, _fa.FitsArray)
         assert "TESTKEY" in result.header
         assert result.header["TESTKEY"] == "testvalue"
@@ -218,8 +218,9 @@ class TestSaveFits:
             assert hdul[0].header["TESTKEY"] == "testvalue"
 
         # Also verify data loads correctly
-        loaded = osutils.load_fits(fits_file, return_header=False)
+        loaded = osutils.load_fits(fits_file)
         assert loaded is not None
+        assert hasattr(loaded, "header")
 
     def test_save_fits_overwrite(self, temp_dir):
         """Test saving FITS file with overwrite."""

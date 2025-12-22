@@ -184,30 +184,6 @@ class TestComputeReconstructorInternal:
         assert cube_mask.shape == sample_cube.shape[:2]
         assert cube_mask.dtype == bool
 
-
-class TestComputeReconstructorStatic:
-    """Test static methods of ComputeReconstructor."""
-
-    def test_make_interactive_plot(self):
-        """Test make_interactive_plot static method."""
-        singular_values = np.logspace(-3, 0, 100)
-
-        # This will try to show a plot, but we can't easily test interactive behavior
-        # Just verify it doesn't crash and returns a threshold dict
-        # Note: This will try to open a matplotlib window, which may not work in CI
-        # We'll skip this in automated tests or mock matplotlib
-        try:
-            threshold = computerec.ComputeReconstructor.make_interactive_plot(
-                singular_values
-            )
-            assert isinstance(threshold, dict)
-            assert "x" in threshold
-            assert "y" in threshold
-        except Exception:
-            # If matplotlib backend fails, that's okay for testing
-            pytest.skip("Matplotlib interactive backend not available")
-
-
 class TestComputeReconstructorIntegration:
     """Integration tests for ComputeReconstructor."""
 

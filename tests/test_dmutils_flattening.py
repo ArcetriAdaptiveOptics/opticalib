@@ -133,20 +133,45 @@ class TestFlattening:
         assert isinstance(Vt, np.ndarray)
 
     @patch("opticalib.dmutils.flattening._ifp.filterZernikeCube")
-    def test_filter_int_cube(self, mock_filter, sample_int_matrix_folder):
+    @patch("opticalib.dmutils.flattening.Flattening._loadCmdMat")
+    @patch("opticalib.dmutils.flattening.Flattening._loadReconstructor")
+    def test_filter_int_cube(self, mock_rec, mock_cmd, mock_filter, sample_int_matrix_folder):
         """Test filtering interaction cube."""
+        import os
+        from opticalib.ground import osutils
+
         tn, tn_folder = sample_int_matrix_folder
 
-        mock_filter.return_value = (
-            ma.masked_array(np.random.randn(50, 50, 10)),
-            "new_tn",
+        # Create filtered cube with same shape as original
+        from skimage.draw import disk
+        mask = np.ones((100, 100), dtype=bool)
+        rr, cc = disk((50, 50), 30)
+        mask[rr, cc] = False
+        filtered_cube = ma.masked_array(
+            np.random.randn(100, 100, 10).astype(np.float32),
+            mask=np.broadcast_to(mask[..., np.newaxis], (100, 100, 10)),
         )
 
+        new_tn = "new_tn"
+        mock_filter.return_value = (filtered_cube, new_tn)
+        
+        # Mock the command matrix loading to return the original
         f = flt.Flattening(tn)
+        original_cmd = f._cmdMat
+        mock_cmd.return_value = original_cmd
+        
+        # Mock the reconstructor to return a mock that can load the new cube
+        from unittest.mock import MagicMock
+        mock_reconstructor = MagicMock()
+        mock_reconstructor.loadInteractionCube.return_value = None
+        mock_rec.return_value = mock_reconstructor
+        f._rec = mock_reconstructor
+
         result = f.filterIntCube(zernModes=[1, 2, 3])
 
         assert result is f  # Should return self
-        # Note: filterIntCube may skip if already filtered
+        # Verify that filterZernikeCube was called
+        mock_filter.assert_called_once_with(tn, [1, 2, 3])
 
     def test_load_new_tn(self, sample_int_matrix_folder):
         """Test loading new tracking number."""

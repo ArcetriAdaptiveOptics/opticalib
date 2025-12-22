@@ -146,7 +146,7 @@ class TestZernikeFitter:
         fitter = md.ZernikeFitter(fit_mask=circular_mask)
 
         modes = [1, 2, 3]
-        surface = fitter.makeSurface(modes)
+        surface = fitter.makeSurface(modes_indices=modes)
 
         assert surface is not None
 
