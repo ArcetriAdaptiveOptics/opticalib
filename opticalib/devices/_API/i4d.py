@@ -365,11 +365,15 @@ class I4D:
         }
         self._readJsonData(url, data)
 
-    def setTriggerMode(self, trigger):
+    def setTriggerMode(self, trigger: int):
         """
+        Enables/Disables external triggering mode.
+
         Parameters
         ----------
-        trigger:
+        trigger: int
+            0 = Disabled
+            1 = Enabled
         """
         url = "%s%s" % (self._systemServiceAddress, "SetTriggerMode")
         data = {"CameraIsExternallyTriggered": trigger}

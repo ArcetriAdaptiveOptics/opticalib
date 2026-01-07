@@ -448,7 +448,7 @@ class Flattening:
         if self.filteredModes is not None:
             from opticalib.ground.modal_decomposer import ZernikeFitter
 
-            zfit = ZernikeFitter()
+            zfit = ZernikeFitter(cubemask)
             img = zfit.removeZernike(img, self.filteredModes)
         return img
 

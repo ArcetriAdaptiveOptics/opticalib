@@ -27,9 +27,103 @@ Example::
     txt_log = txtLogger('simple_log.txt')
     txt_log.log("This is a message written to a text file.")
 """
-
 import logging as _l
 import logging.handlers as _lh
+
+class SystemLogger():
+    """
+    A class to manage the system logger instance.
+    """
+    def __init__(self, the_class: type | None = None):
+        """
+        Initializes the SystemLogger instance.
+        
+        Parameters
+        ----------
+        the_class : type, optional
+            The class this instance of SystemLogger is associated with. If provided, 
+            as `__class__`, the class name will be included in the log messages. 
+            
+            The default is None.
+        """
+        self.logger = getSystemLogger()
+        self.the_class = the_class
+
+    def log(self, **kwargs: dict[str,str]) -> None:
+        """
+        Logs a message using the system logger.
+
+        Parameters
+        ----------
+        message : str
+            The message to log.
+        level : str, optional
+            The logging level to use for the message. This should be one of the
+            following strings: 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'. (can
+            use lowercase too).
+            The default is 'INFO'.
+        no_class : bool, False
+            If True, the class name will not be included in the log message, in the
+            case it is available.
+        """
+        no_class = kwargs.pop("no_class", False)
+        the_class = None if no_class else self.the_class
+        log(self.logger, the_class=the_class, **kwargs)
+
+    def info(self, message: str) -> None:
+        """
+        Logs an informational message.
+
+        Parameters
+        ----------
+        message : str
+            The message to log.
+        """
+        self.log(message=message, level="INFO")
+
+    def debug(self, message: str) -> None:
+        """
+        Logs a debug message.
+
+        Parameters
+        ----------
+        message : str
+            The message to log.
+        """
+        self.log(message=message, level="DEBUG")
+
+    def warning(self, message: str) -> None:
+        """
+        Logs a warning message.
+
+        Parameters
+        ----------
+        message : str
+            The message to log.
+        """
+        self.log(message=message, level="WARNING")
+
+    def error(self, message: str) -> None:
+        """
+        Logs an error message.
+
+        Parameters
+        ----------
+        message : str
+            The message to log.
+        """
+        self.log(message=message, level="ERROR")
+
+    def critical(self, message: str) -> None:
+        """
+        Logs a critical message.
+
+        Parameters
+        ----------
+        message : str
+            The message to log.
+        """
+        self.log(message=message, level="CRITICAL")
 
 
 def getSystemLogger() -> _l.Logger:
@@ -100,14 +194,19 @@ def set_up_logger(
     return root_logger
 
 
-def log(message: str, level: str = "INFO") -> None:
+def log(logger: _l.Logger, message: str, the_class: type | None = None, level: str = "INFO") -> None:
     """
     Log a message at the specified level.
 
     Parameters
     ----------
+    logger : logging.Logger
+        The logger instance to use for logging the message.
     message : str
         The message to log.
+    the_class : type, optional
+        The class from which the log is being made. If provided, as `__class__`, 
+        the class name will be included in the log message. The default is None.
     level : str, optional
         The logging level to use for the message. This should be one of the
         following strings: 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'. (can
@@ -116,11 +215,12 @@ def log(message: str, level: str = "INFO") -> None:
 
     Notes
     -----
-    - The message will be logged using the logger configured by `set_up_logger`.
     - The message will be logged with the specified level.
     - If the specified level is not recognized, the message will be logged at the
       'DEBUG' level.
     """
+    if the_class is not None:
+        message = f"[{the_class.__qualname__}] {message}"
     level = level.upper()
     if level == "DEBUG":
         _l.debug(message)

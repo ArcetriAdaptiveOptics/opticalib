@@ -20,9 +20,7 @@ from contextlib import contextmanager as _contextmanager
 from opticalib.core.read_config import getDmIffConfig as _dmc
 from opticalib.core.root import OPD_IMAGES_ROOT_FOLDER as _opdi
 from opticalib.ground.osutils import newtn as _ts, save_fits as _sf
-from opticalib.ground.logger import getSystemLogger as _gsl
-
-_L = _gsl()
+from opticalib.ground.logger import SystemLogger as _SL
 
 class PetalMirror(_api.BasePetalMirror, _api.base_devices.BaseDeformableMirror):
     """
@@ -37,6 +35,7 @@ class PetalMirror(_api.BasePetalMirror, _api.base_devices.BaseDeformableMirror):
         super().__init__(ip_addresses)
         self.mirrorModes = None
         self.cmdHistory = None
+        self._logger = _SL(the_class=__class__)
 
     def get_shape(self) -> _ot.ArrayLike:
         """
@@ -69,12 +68,12 @@ class PetalMirror(_api.BasePetalMirror, _api.base_devices.BaseDeformableMirror):
             The command history to be uploaded, of shape (nActs, nmodes).
         """
         if not _ot.isinstance_(tcmdhist, "MatrixLike"):
-            _L.error("MatrixError: Expecting a 2D Matrix of shape (nActs, nmodes), got instead: {tcmdhist.shape}")
+            self._logger.error(f"MatrixError: Expecting a 2D Matrix of shape (nActs, nmodes), got instead: {tcmdhist.shape}")
             raise _oe.MatrixError(
                 f"Expecting a 2D Matrix of shape (nActs, nmodes), got instead: {tcmdhist.shape}"
             )
         self.cmdHistory = tcmdhist
-        _L.info('Loaded Timed command history')
+        self._logger.info(f'Loaded Timed command history of shape {tcmdhist.shape}')
 
     def runCmdHistory(
         self,
@@ -95,15 +94,17 @@ class PetalMirror(_api.BasePetalMirror, _api.base_devices.BaseDeformableMirror):
             If provided, the data will be saved in a folder with this name, instead of a freshly
             generated timestamp.
         """
-        _L.info('Starting to run the command history')
+        self._logger.info('Starting to run the command history')
 
         iff_config = _dmc()
 
         if self.cmdHistory is None:
+            self._logger.error("MatrixError: No Command History to run!")
             raise _oe.MatrixError("No Command History to run!")
 
         else:
             tn = _ts() if save is None else save
+            self._logger.info(f"Acquiring {tn} - {self.cmdHistory.shape[-1]} images")
             print(f"{tn} - {self.cmdHistory.shape[-1]} images to go.")
 
             # Create the Data folder
@@ -253,10 +254,7 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
         _time.sleep(0.2)  # needed to get fc updated
         fc2 = self._get_frame_counter()
         if not fc2 == fc1:
-            _log(
-                f"FRAME SKIPPED.",
-                level="ERROR",
-            )
+            self._logger.error(f"FRAME SKIPPED.")
         else:
             self._lastCmd = cmd.copy()
 
@@ -283,7 +281,7 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
         self.cmdHistory = tcmdhist.copy()
         if trig is not False:
             self._aoClient.timeHistoryUpload(tcmdhist)
-        _log(f"Command History uploaded to the {self._name} DM.")
+        self._logger.info(f"Command History uploaded to the {self._name} DM.")
         print("Command History uploaded!")
 
     def runCmdHistory(
@@ -326,13 +324,13 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
             freq = triggered.get("frequency", 1.0)
             tdelay = triggered.get("cmdDelay", 0.8)
             ins = self._lastCmd.copy()
-            _log("Executing Command history")
+            self._logger.info("Executing Command history")
             nframes = self.cmdHistory.shape[-1]
             self._aoClient.timeHistoryRun(freq, 0, tdelay)
             if interf is not None:
                 interf.capture(nframes - 2, save)
             self.set_shape(ins)
-            _log("Command history execution completed")
+            self._logger.info("Command history execution completed")
         else:
             if self.cmdHistory is None:
                 raise _oe.CommandError("No Command History uploaded!")
@@ -343,7 +341,7 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
                 s = self.get_shape() - self._biasCmd
                 if not _os.path.exists(datafold) and interf is not None:
                     _os.mkdir(datafold)
-                _log("Executing Command history")
+                self._logger.info("Executing Command history")
                 for i, cmd in enumerate(self.cmdHistory.T):
                     print(f"{i+1}/{self.cmdHistory.shape[-1]}", end="\r", flush=True)
                     if differential:
@@ -354,7 +352,7 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
                         img = interf.acquire_map()
                         path = _os.path.join(datafold, f"image_{i:05d}.fits")
                         _sf(path, img)
-                _log("Command history execution completed")
+                self._logger.info("Command history execution completed")
 
     def _get_frame_counter(self) -> int:
         """
@@ -385,7 +383,7 @@ class DP(AdOpticaDm):
         """The Constructor"""
         super().__init__(tn)
         self._name = self._name.replace("DM", "DP")
-        self._logger = _sul(self._name + "_" + _ts())
+        self._logger = _SL(the_class=__class__)
         self.bufferData = None
         self.is_segmented = True
         self.nSegments: int = 2
@@ -455,10 +453,10 @@ class DP(AdOpticaDm):
             decFactor=diagdecim,
             startPointer=0,
         )
-        _log(
+        self._logger.info(
             f"DP Buffer readout configured: {buffer_len} samples at {clockfreq/diagdecim:1.2f} Hz"
         )
-        _log("Starting DP Buffer readout")
+        self._logger.info("Starting DP Buffer readout")
         subsys.support.diagBuf.start()
 
         # Create a result container that will be populated on exit
@@ -473,7 +471,7 @@ class DP(AdOpticaDm):
             # Cleanup: Stop acquisition and read data
             subsys.support.diagBuf.waitStop()
             bufData = subsys.support.diagBuf.read()
-            _log("DP Buffer readout completed")
+            self._logger.info("DP Buffer readout completed")
             # Process the buffer data
             keys = [
                 "globCounter",  #  0
@@ -538,6 +536,7 @@ class AlpaoDm(_api.BaseAlpaoMirror, _api.base_devices.BaseDeformableMirror):
         self._slaveIds = _dmc().get("slaveIds", [])
         self._borderIds = _dmc().get("borderIds", [])
         self.has_slaved_acts = False if len(self._slaveIds) == 0 else True
+        self._logger = _SL(the_class=__class__)
 
     @property
     def slaveIds(self):
@@ -637,6 +636,7 @@ class SplattDm(_api.base_devices.BaseDeformableMirror):
         self.is_segmented = False
         self._slaveIds = _dmc().get("slaveIds", [])
         self._borderIds = _dmc().get("borderIds", [])
+        self._logger = _SL(the_class=__class__)
 
     @property
     def slaveIds(self):

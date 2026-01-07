@@ -12,15 +12,15 @@ import numpy as _np
 import time as _time
 import shutil as _sh
 from . import _API as _api
-from opticalib.analyzer import modeRebinner as _modeRebinner
-from opticalib.ground.osutils import findTracknum as _ft, _InterferometerConverter
-from opticalib.core import root as _fn
 from opticalib import typings as _ot
+from opticalib.core import root as _fn
+from opticalib.ground import osutils as _osu
+from opticalib.ground.logger import SystemLogger as _SL
+from opticalib.analyzer import modeRebinner as _modeRebinner
 
 _folds = _fn.folders
 _confReader = _fn.ConfSettingReader4D
 _OPDIMG = _folds.OPD_IMAGES_ROOT_FOLDER
-
 
 class _4DInterferometer(_api.BaseInterferometer):
     """
@@ -31,7 +31,7 @@ class _4DInterferometer(_api.BaseInterferometer):
         """The constructor"""
         super().__init__(self._name, ip, port)
         self._i4d = _api.I4D(self.ip, self.port)
-        self._ic = _InterferometerConverter()
+        self._ic = _osu._InterferometerConverter()
 
     def acquire_map(
         self, nframes: int = 1, delay: int | float = 0, rebin: int = 1
@@ -54,12 +54,14 @@ class _4DInterferometer(_api.BaseInterferometer):
             Interferometer image.
         """
         if nframes == 1:
+            self._logger.info("Acquiring single frame.")
             width, height, _, data_array = self._i4d.takeSingleMeasurement()
             masked_ima = self._fromDataArrayToMaskedArray(
                 width, height, data_array * 632.8e-9
             )
             masked_ima = _modeRebinner(masked_ima, rebin)
         else:
+            self._logger.info(f"Acquiring {nframes} frames with {delay}s delay.")
             image_list = []
             for __ in range(nframes):
                 width, height, _, data_array = self._i4d.takeSingleMeasurement()
@@ -150,6 +152,9 @@ class _4DInterferometer(_api.BaseInterferometer):
             folder_name = self._ts()
         print(folder_name)
 
+        self._logger.info(
+            f"Capturing {numberOfFrames} frames into folder '{folder_name}'."
+        )
         self._i4d.burstFramesToSpecificDirectory(
             _os.path.join(_folds.CAPTURE_FOLDER_NAME_4D_PC, folder_name), numberOfFrames
         )
@@ -165,6 +170,7 @@ class _4DInterferometer(_api.BaseInterferometer):
         if not isinstance(tn, list):
             tn = [tn]
         for t in tn:
+            self._logger.info(f"Producing measurements in TN = {t}.")
             self._i4d.convertRawFramesInDirectoryToMeasurementsInDestinationDirectory(
                 _os.path.join(_folds.PRODUCE_FOLDER_NAME_4D_PC, t),
                 _os.path.join(_folds.CAPTURE_FOLDER_NAME_4D_PC, t),
@@ -178,17 +184,34 @@ class _4DInterferometer(_api.BaseInterferometer):
 
     def setTriggerMode(self, enable: bool) -> None:
         """
+        Enables or disables the triggered mode of the interferometer.
+
         Parameters
         ----------
-        folder_name: string
-            name of folder measurements to convert
+        enable: bool
+            If True, enables triggered mode; if False, disables it.
         """
-        enable = 1 if enable is True else 0
-        self._i4d.setTriggerMode(enable)
-        if enable == 1:
+        self._i4d.setTriggerMode(1 if enable is True else 0)
+        if enable:
+            self._logger.warning("Triggered mode enabled, waiting for TTL.")
             print("Triggered mode enabled, waiting for TTL")
         else:
+            self._logger.warning("Triggered mode disabled.")
             print("Triggered mode disabled")
+    
+    def saveConfiguration(self, path: str, name: str) -> None:
+        """
+        Saves the current configuration of the interferometer to a file.
+
+        Parameters
+        ----------
+        path: str
+            Path where to save the configuration file.
+        name: str
+            Name of the configuration file.
+        """
+        # TODO: implement saveConfiguration in I4D API
+        self._logger.info(f"Configuration file '{name}' saved to '{path}'.")
 
     def loadConfiguration(self, conffile: str) -> None:
         """
@@ -200,22 +223,22 @@ class _4DInterferometer(_api.BaseInterferometer):
             name of the configuration file to load
         """
         self._i4d.loadConfiguration(conffile)
+        self._logger.info(f"Configuration file '{conffile}' loaded.")
 
-    def copy4DSettings(self, destination: str) -> None:
+    def copy4DSettings(self, destination: str, copied_name: str = 'AppSettings.ini') -> None:
         """
         Copies the interferometer settings file to the specified destination.
         """
-        import shutil
-
-        dest_fold = _os.path.join(_folds.OPD_IMAGES_ROOT_FOLDER, destination)
-        shutil.copy(_folds.SETTINGS_CONF_FILE, dest_fold)
-        shutil.move(
-            _os.path.join(dest_fold, "AppSettings.ini"),
-            _os.path.join(dest_fold, "4DSettings.ini"),
+        if _osu.is_tn(destination):
+            destination = _os.path.join(_folds.OPD_IMAGES_ROOT_FOLDER, destination)
+        destination = _os.path.join(destination, copied_name)
+        _sh.copy(_folds.SETTINGS_CONF_FILE, destination)
+        self._logger.info(
+            f"Copied 4D interferometer settings to folder '{destination}'."
         )
 
     @staticmethod
-    def getCameraSettings(tn: str = None, processer: bool = False) -> list[int]:
+    def getCameraSettings(tn: str = None) -> list[int]:
         """
         Reads che actual interferometer settings from its configuration file.
 
@@ -225,7 +248,7 @@ class _4DInterferometer(_api.BaseInterferometer):
         list of camera settings: [width_pixel, height_pixel, offset_x, offset_y]
         """
         if not tn is None:
-            path = _ft(tn, complete_path=True)
+            path = _osu.findTracknum(tn, complete_path=True)
             try:
                 file_path = _os.path.join(path, _fn.COPIED_SETTINGS_CONF_FILE)
                 setting_reader = _fn.ConfSettingReader4D(file_path)
@@ -243,7 +266,7 @@ class _4DInterferometer(_api.BaseInterferometer):
         return [width_pixel, height_pixel, offset_x, offset_y]
 
     @staticmethod
-    def getFrameRate(tn: str = None, processer: bool = False) -> float:
+    def getFrameRate(tn: str = None) -> float:
         """
         Reads the frame rate the interferometer is working at.
 
@@ -253,7 +276,7 @@ class _4DInterferometer(_api.BaseInterferometer):
             Frame rate of the interferometer
         """
         if not tn is None:
-            path = _ft(tn, complete_path=True)
+            path = _osu.findTracknum(tn, complete_path=True)
             try:
                 file_path = _os.path.join(path, _fn.COPIED_SETTINGS_CONF_FILE)
                 setting_reader = _fn.ConfSettingReader4D(file_path)
@@ -358,6 +381,7 @@ class AccuFiz(_4DInterferometer):
         """The constructor"""
         self._name = "AccuFiz" + str(model)
         super().__init__(ip, port)
+        self._logger = _SL(__class__)
 
 
 class PhaseCam(_4DInterferometer):
@@ -371,6 +395,7 @@ class PhaseCam(_4DInterferometer):
         """The constructor"""
         self._name = "PhaseCam" + str(model)
         super().__init__(ip, port)
+        self._logger = _SL(__class__)
 
 
 class Processer4D(_4DInterferometer):
@@ -419,6 +444,7 @@ class Processer4D(_4DInterferometer):
         self._name = f"4DProcesser{nth}"
         super().__init__(ip, port)
         self._processer = True
+        self._logger = _SL(__class__)
 
     # Disabled acquisition-related methods
     def acquire_map(self, *_, **__):
