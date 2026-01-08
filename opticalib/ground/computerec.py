@@ -183,7 +183,7 @@ class ComputeReconstructor:
         class variable.
         """
         self._logger.info(
-            "Computing interaction matrix from cube of size %s", self._intMatCube.shape
+            f"Computing interaction matrix from cube of size {self._intMatCube.shape}"
         )
         print("Computing Interaction Matrix", end="\a")
         print("...", end="\a", flush=True)
@@ -196,9 +196,9 @@ class ComputeReconstructor:
                 ]
             )
         except Exception as e:
-            self._logger.error("Error in computing interaction matrix from cube:%s", e)
+            self._logger.error(f"Error in computing interaction matrix from cube: {e}")
             raise e
-        self._logger.info("Computed interaction matrix of shape %s", self._intMat.shape)
+        self._logger.info(f"Computed interaction matrix of shape {self._intMat.shape}")
         return self._intMat
 
     def _setAnalysisMask(self) -> _ot.MaskData:

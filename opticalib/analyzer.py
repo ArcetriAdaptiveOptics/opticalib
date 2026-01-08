@@ -247,8 +247,6 @@ def runningDiff(
         return diff_vec, svec
     return diff_vec
 
-
-# TODO: TO REMOVE
 def frame(idx: int, mylist: list[_ot.ImageData] | _ot.CubeData) -> _ot.ImageData:
     """
     Returns a single frame from a list of files or from a cube.

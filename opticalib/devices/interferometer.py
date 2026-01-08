@@ -381,8 +381,8 @@ class AccuFiz(_4DInterferometer):
     ):
         """The constructor"""
         self._name = "AccuFiz" + str(model)
-        super().__init__(ip, port)
         self._logger = _SL(__class__)
+        super().__init__(ip, port)
 
 
 class PhaseCam(_4DInterferometer):
@@ -395,8 +395,8 @@ class PhaseCam(_4DInterferometer):
     ):
         """The constructor"""
         self._name = "PhaseCam" + str(model)
-        super().__init__(ip, port)
         self._logger = _SL(__class__)
+        super().__init__(ip, port)
 
 
 class Processer4D(_4DInterferometer):
@@ -443,9 +443,9 @@ class Processer4D(_4DInterferometer):
             The port number of the processer.
         """
         self._name = f"4DProcesser{nth}"
+        self._logger = _SL(__class__)
         super().__init__(ip, port)
         self._processer = True
-        self._logger = _SL(__class__)
 
     # Disabled acquisition-related methods
     def acquire_map(self, *_, **__):

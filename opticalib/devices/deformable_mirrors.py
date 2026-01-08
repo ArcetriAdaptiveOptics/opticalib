@@ -32,10 +32,10 @@ class PetalMirror(_api.BasePetalMirror, _api.base_devices.BaseDeformableMirror):
     def __init__(self, ip_addresses: _ot.Optional[list[str]] = None):
         """The Constructor"""
         self._name = "PetalDM"
+        self._logger = _SL(the_class=__class__)
         super().__init__(ip_addresses)
         self.mirrorModes = None
         self.cmdHistory = None
-        self._logger = _SL(the_class=__class__)
 
     def get_shape(self) -> _ot.ArrayLike:
         """
@@ -381,9 +381,9 @@ class DP(AdOpticaDm):
 
     def __init__(self, tn: _ot.Optional[str] = None):
         """The Constructor"""
+        self._logger = _SL(the_class=__class__)
         super().__init__(tn)
         self._name = self._name.replace("DM", "DP")
-        self._logger = _SL(the_class=__class__)
         self.bufferData = None
         self.is_segmented = True
         self.nSegments: int = 2
@@ -530,13 +530,13 @@ class AlpaoDm(_api.BaseAlpaoMirror, _api.base_devices.BaseDeformableMirror):
         port: _ot.Optional[int] = None,
     ):
         """The Contructor"""
+        self._logger = _SL(the_class=__class__)
         super().__init__(ip, port, nacts)
         self.baseDataPath = _opdi
         self.is_segmented = False
         self._slaveIds = _dmc().get("slaveIds", [])
         self._borderIds = _dmc().get("borderIds", [])
         self.has_slaved_acts = False if len(self._slaveIds) == 0 else True
-        self._logger = _SL(the_class=__class__)
 
     @property
     def slaveIds(self):

@@ -65,57 +65,159 @@ class TestSetUpLogger:
         assert len(rotating_handlers) > 0
 
 
-class TestLog:
-    """Test log function."""
+class TestSystemLogger:
+    """Test SystemLogger class."""
 
-    def test_log_debug(self, caplog):
-        """Test logging at DEBUG level."""
+    def test_system_logger_init(self):
+        """Test SystemLogger initialization."""
+        sys_logger = logger.SystemLogger()
+        assert sys_logger.logger is not None
+        assert isinstance(sys_logger.logger, logging.Logger)
+
+    def test_system_logger_with_class(self):
+        """Test SystemLogger initialization with a class."""
+        class TestClass:
+            pass
+
+        sys_logger = logger.SystemLogger(TestClass)
+        assert sys_logger.the_class == TestClass
+
+    def test_system_logger_info(self, caplog):
+        """Test SystemLogger info method."""
+        sys_logger = logger.SystemLogger()
+        with caplog.at_level(logging.INFO):
+            sys_logger.info("Info message")
+            assert "Info message" in caplog.text
+
+    def test_system_logger_debug(self, caplog):
+        """Test SystemLogger debug method."""
+        sys_logger = logger.SystemLogger()
         with caplog.at_level(logging.DEBUG):
-            logger.log("Debug message", "DEBUG")
+            sys_logger.debug("Debug message")
             assert "Debug message" in caplog.text
 
-    def test_log_info(self, caplog):
-        """Test logging at INFO level."""
-        with caplog.at_level(logging.INFO):
-            logger.log("Info message", "INFO")
-            assert "Info message" in caplog.text
-
-    def test_log_warning(self, caplog):
-        """Test logging at WARNING level."""
+    def test_system_logger_warning(self, caplog):
+        """Test SystemLogger warning method."""
+        sys_logger = logger.SystemLogger()
         with caplog.at_level(logging.WARNING):
-            logger.log("Warning message", "WARNING")
+            sys_logger.warning("Warning message")
             assert "Warning message" in caplog.text
 
-    def test_log_error(self, caplog):
-        """Test logging at ERROR level."""
+    def test_system_logger_error(self, caplog):
+        """Test SystemLogger error method."""
+        sys_logger = logger.SystemLogger()
         with caplog.at_level(logging.ERROR):
-            logger.log("Error message", "ERROR")
+            sys_logger.error("Error message")
             assert "Error message" in caplog.text
 
-    def test_log_critical(self, caplog):
-        """Test logging at CRITICAL level."""
+    def test_system_logger_critical(self, caplog):
+        """Test SystemLogger critical method."""
+        sys_logger = logger.SystemLogger()
         with caplog.at_level(logging.CRITICAL):
-            logger.log("Critical message", "CRITICAL")
+            sys_logger.critical("Critical message")
             assert "Critical message" in caplog.text
 
-    def test_log_lowercase(self, caplog):
-        """Test logging with lowercase level."""
+    def test_system_logger_log_with_level(self, caplog):
+        """Test SystemLogger log method with explicit level."""
+        sys_logger = logger.SystemLogger()
+        with caplog.at_level(logging.DEBUG):
+            sys_logger.log(message="Debug message", level="DEBUG")
+            assert "Debug message" in caplog.text
+
+    def test_system_logger_log_with_class_name(self, caplog):
+        """Test SystemLogger log method includes class name."""
+        class TestClass:
+            pass
+
+        sys_logger = logger.SystemLogger(TestClass)
         with caplog.at_level(logging.INFO):
-            logger.log("Info message", "info")
+            sys_logger.info("Test message")
+            assert "TestClass" in caplog.text
+            assert "Test message" in caplog.text
+
+    def test_system_logger_log_without_class_name(self, caplog):
+        """Test SystemLogger log method without class name."""
+        class TestClass:
+            pass
+
+        sys_logger = logger.SystemLogger(TestClass)
+        with caplog.at_level(logging.INFO):
+            sys_logger.log(message="Test message", level="INFO", no_class=True)
+            assert "TestClass" not in caplog.text
+            assert "Test message" in caplog.text
+
+
+class TestLogFunction:
+    """Test log function."""
+
+    def test_log_function_debug(self, caplog):
+        """Test logging at DEBUG level."""
+        test_logger = logger.getSystemLogger()
+        with caplog.at_level(logging.DEBUG):
+            logger.log(test_logger, message="Debug message", level="DEBUG")
+            assert "Debug message" in caplog.text
+
+    def test_log_function_info(self, caplog):
+        """Test logging at INFO level."""
+        test_logger = logger.getSystemLogger()
+        with caplog.at_level(logging.INFO):
+            logger.log(test_logger, message="Info message", level="INFO")
             assert "Info message" in caplog.text
 
-    def test_log_invalid_level(self, caplog):
+    def test_log_function_warning(self, caplog):
+        """Test logging at WARNING level."""
+        test_logger = logger.getSystemLogger()
+        with caplog.at_level(logging.WARNING):
+            logger.log(test_logger, message="Warning message", level="WARNING")
+            assert "Warning message" in caplog.text
+
+    def test_log_function_error(self, caplog):
+        """Test logging at ERROR level."""
+        test_logger = logger.getSystemLogger()
+        with caplog.at_level(logging.ERROR):
+            logger.log(test_logger, message="Error message", level="ERROR")
+            assert "Error message" in caplog.text
+
+    def test_log_function_critical(self, caplog):
+        """Test logging at CRITICAL level."""
+        test_logger = logger.getSystemLogger()
+        with caplog.at_level(logging.CRITICAL):
+            logger.log(test_logger, message="Critical message", level="CRITICAL")
+            assert "Critical message" in caplog.text
+
+    def test_log_function_lowercase(self, caplog):
+        """Test logging with lowercase level."""
+        test_logger = logger.getSystemLogger()
+        with caplog.at_level(logging.INFO):
+            logger.log(test_logger, message="Info message", level="info")
+            assert "Info message" in caplog.text
+
+    def test_log_function_invalid_level(self, caplog):
         """Test logging with invalid level defaults to DEBUG."""
+        test_logger = logger.getSystemLogger()
         with caplog.at_level(logging.DEBUG):
-            logger.log("Invalid level message", "INVALID")
+            logger.log(test_logger, message="Invalid level message", level="INVALID")
             assert "Invalid level message" in caplog.text
             assert "Invalid log level" in caplog.text
 
-    def test_log_default_level(self, caplog):
+    def test_log_function_default_level(self, caplog):
         """Test logging with default level (INFO)."""
+        test_logger = logger.getSystemLogger()
         with caplog.at_level(logging.INFO):
-            logger.log("Default level message")
+            logger.log(test_logger, message="Default level message")
             assert "Default level message" in caplog.text
+
+    def test_log_function_with_class(self, caplog):
+        """Test log function with class name."""
+        test_logger = logger.getSystemLogger()
+
+        class TestClass:
+            pass
+
+        with caplog.at_level(logging.INFO):
+            logger.log(test_logger, message="Test message", the_class=TestClass)
+            assert "TestClass" in caplog.text
+            assert "Test message" in caplog.text
 
 
 class TestTxtLogger:

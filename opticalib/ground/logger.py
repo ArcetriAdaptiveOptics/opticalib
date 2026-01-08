@@ -46,7 +46,7 @@ class SystemLogger():
             
             The default is None.
         """
-        self.logger = getSystemLogger()
+        self.logger = SystemLogger.getSystemLogger()
         self.the_class = the_class
 
     def log(self, **kwargs: dict[str,str]) -> None:
@@ -61,6 +61,7 @@ class SystemLogger():
             The logging level to use for the message. This should be one of the
             following strings: 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'. (can
             use lowercase too).
+
             The default is 'INFO'.
         no_class : bool, False
             If True, the class name will not be included in the log message, in the
@@ -125,19 +126,19 @@ class SystemLogger():
         """
         self.log(message=message, level="CRITICAL")
 
+    @staticmethod
+    def getSystemLogger() -> _l.Logger:
+        """
+        Get the root system logger.
 
-def getSystemLogger() -> _l.Logger:
-    """
-    Get the root system logger.
-
-    Returns
-    -------
-    logging.Logger
-        The root logger instance.
-    """
-    return set_up_logger(
-        "system", logging_level=_l.INFO, format="%(asctime)s -- [%(levelname)s] -- %(message)s"
-    )
+        Returns
+        -------
+        logging.Logger
+            The root logger instance.
+        """
+        return set_up_logger(
+            "system", logging_level=_l.INFO, format="%(asctime)s -- [%(levelname)s] -- %(message)s"
+        )
 
 
 def set_up_logger(
@@ -193,7 +194,6 @@ def set_up_logger(
     handler.doRollover()
     return root_logger
 
-
 def log(logger: _l.Logger, message: str, the_class: type | None = None, level: str = "INFO") -> None:
     """
     Log a message at the specified level.
@@ -211,6 +211,7 @@ def log(logger: _l.Logger, message: str, the_class: type | None = None, level: s
         The logging level to use for the message. This should be one of the
         following strings: 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'. (can
         use lowercase too).
+
         The default is 'INFO'.
 
     Notes
@@ -223,19 +224,18 @@ def log(logger: _l.Logger, message: str, the_class: type | None = None, level: s
         message = f"[{the_class.__qualname__}] {message}"
     level = level.upper()
     if level == "DEBUG":
-        _l.debug(message)
+        logger.debug(message)
     elif level == "INFO":
-        _l.info(message)
+        logger.info(message)
     elif level == "WARNING":
-        _l.warning(message)
+        logger.warning(message)
     elif level == "ERROR":
-        _l.error(message)
+        logger.error(message)
     elif level == "CRITICAL":
-        _l.critical(message)
+        logger.critical(message)
     else:
-        _l.debug(message)
-        _l.warning(f"Invalid log level '{level}'. Defaulting to 'DEBUG'.")
-
+        logger.debug(message)
+        logger.warning(f"Invalid log level '{level}'. Defaulting to 'DEBUG'.")
 
 class txtLogger:
     """

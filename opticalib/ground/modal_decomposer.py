@@ -233,7 +233,7 @@ class _ModeFitter(ABC):
         image: _t.ImageData,
         modes2fit: _t.Optional[list[int]] = None,
         mode: str = "global",
-    ) -> tuple[_t.ArrayLike, _t.ArrayLike]:
+    ) -> _t.ArrayLike:
         """
         Computes modal coefficients over a segmented fitting area, i.e. a pupil
         mask divided into Regions Of Interest (ROI). The computation is based on
@@ -639,8 +639,8 @@ class ZernikeFitter(_ModeFitter):
 
     def __init__(self, fit_mask: _t.Optional[_t.ImageData] = None, method: str = "COG"):
         """The Initiator."""
-        super().__init__(fit_mask)
         self._logger = _SL(__class__)
+        super().__init__(fit_mask)
 
     def removeZernike(
         self,
@@ -673,7 +673,7 @@ class ZernikeFitter(_ModeFitter):
         if zernike_index_vector is None:
             zernike_index_vector = [1, 2, 3]
         return self.filterModes(
-            image=image, mode_index_vector=zernike_index_vector, mode="global"
+            image=image, mode_index_vector=zernike_index_vector, mode=mode
         )
 
     def _create_modes_generator(self, mask: _CircularMask) -> _CircularMask:
@@ -724,8 +724,8 @@ class KLFitter(_ModeFitter):
     ):
         """The Initiator"""
         self.nModes = nKLModes
-        super().__init__(fit_mask, method)
         self._logger = _SL(__class__)
+        super().__init__(fit_mask, method)
 
     def _create_modes_generator(self, mask: _CircularMask) -> _CircularMask:
         """
@@ -788,8 +788,8 @@ class RBFitter(_ModeFitter):
         self.rbfFunction = rbfFunction
         self._coordinates = coords
         self._eps = eps
-        super().__init__(fit_mask, method)
         self._logger = _SL(__class__)
+        super().__init__(fit_mask, method)
 
     def _create_modes_generator(self, mask: _CircularMask) -> _CircularMask:
         """

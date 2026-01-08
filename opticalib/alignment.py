@@ -181,9 +181,8 @@ class Alignment:
         self._template = _sc.push_pull_template
         self._correct_cavity = True
         self._dataPath = _fn.ALIGNMENT_ROOT_FOLDER
-        self._logPath = _os.path.join(_fn.LOGGING_ROOT_FOLDER, "alignment.log")
-        self._txt = _logger.txtLogger(self._logPath.strip(".log") + "Record.txt")
-        _logger.set_up_logger(self._logPath, 20)
+        self._txt = _logger.txtLogger(_os.path.join(_fn.LOGGING_ROOT_FOLDER,  "Record.txt"))
+        self._logger = _logger.SystemLogger(__class__)
 
     def correct_alignment(
         self,
@@ -225,13 +224,14 @@ class Alignment:
         reconstruction matrix, calculates the reduced command, and either applies the
         correction command or returns it.
         """
-        _logger.log(f"{self.correct_alignment.__qualname__}")
+        self._logger.info(f"{self.correct_alignment.__qualname__}")
         self._correct_cavity = True
         image = self._acquire[0](nframes=n_frames)
         zernike_coeff = self._zern_routine(image)
         if self.intMat is not None:
             intMat = self.intMat
         else:
+            self._logger.error("No internal matrix found for alignment correction.")
             raise AttributeError(
                 "No internal matrix found. Please calibrate the alignment first."
             )
@@ -242,6 +242,7 @@ class Alignment:
         f_cmd = -_np.dot(reduced_cmdMat, reduced_cmd)
         print(f"Resulting Command: {f_cmd}")
         if apply:
+            self._logger.info('Appliying alignment correction command...')
             print("Applying correction command...")
             self._apply_command(f_cmd)
             print("Alignment Corrected\n")
@@ -288,9 +289,10 @@ class Alignment:
         5. Optionally saves the internal matrix to a FITS file.
         """
         self._correct_cavity = False
-        _logger.log(f"Cavity correction: False", level="INFO")
+        self._logger.info(f"{self.calibrate_alignment.__qualname__}")
+        self._logger.info("Starting calibration.")
         self._calibtn = _ts()
-        _logger.log(f"{self.calibrate_alignment.__qualname__}")
+        self._logger.info(f"Cavity correction: False")
         self._cmdAmp = cmdAmp
         template = template if template is not None else self._template
         imglist = self._images_production(template, n_frames, n_repetitions)
@@ -303,8 +305,8 @@ class Alignment:
                 _os.mkdir(path)
             filename = _os.path.join(path, "InteractionMatrix.fits")
             _sfits(filename, self.intMat, overwrite=True)
-            _logger.log(f"{_sfits.__qualname__}")
-            _logger.log(f"Calibration saved in '{filename}'", level="INFO")
+            self._logger.info(f"{_sfits.__qualname__}")
+            self._logger.info(f"Calibration saved in '{filename}'")
             print(f"Calibration saved in '{filename}'\nReady for Alignment...")
         return tn
 
@@ -317,7 +319,7 @@ class Alignment:
         pos : ArrayLike
             The list of current positions of the devices.
         """
-        _logger.log(f"{self.read_positions.__qualname__}")
+        self._logger.info(f"{self.read_positions.__qualname__}")
         logMsg = ""
         pos = []
         logMsg += "Current Positions\n"
@@ -347,9 +349,10 @@ class Alignment:
         str
             A message indicating the successful loading of the file.
         """
+        self._logger.info(f"Loading fitting surface from '{filepath}'")
         surf = _rfits(filepath)
         self._surface = surf
-        print(f"Correctly loaded '{filepath}'")
+        print(f"Fitting surface '{filepath}' loaded")
 
     def load_calibration(self, tn: str) -> None:
         """
@@ -361,6 +364,7 @@ class Alignment:
         tn : str
             The tracking number of the calibration to be loaded.
         """
+        self._logger.info(f"Loading calibration from tracking number '{tn}'")
         self._calibtn = tn
         self.intMat = self.__loadIntMat(tn)
         print(f"Calibration loaded from '{tn}'")
@@ -385,6 +389,8 @@ class Alignment:
         n_results : CubeData
             The list of produced images.
         """
+        self._logger.info(f"Starting image acquisition: {n_frames} in {template} template")
+        self._logger.info(f"Number of repetitions: {n_repetitions}")
         results = []
         n_results = []
         for i in range(n_repetitions):
@@ -467,22 +473,21 @@ class Alignment:
         intMat : MatrixLike
             The interaction matrix created from the images.
         """
-        _logger.log(f"{self._zern_routine.__qualname__}")
+        self._logger.info(f"Starting Zernike routine...")
         coefflist = []
         if not isinstance(imglist, list):
             imglist = [imglist]
         for img in imglist:
             if self._surface is None:
                 coeff, _ = self._zfit.fit(img, self._zvec2fit)
-                _logger.log(f"{self._zfit.fit.__qualname__}")
             else:
                 if self._correct_cavity is True:
                     img -= 2 * self._surface
-                coeff = self._zfit.fitOnROi(img, self._zvec2fit, "global")
-                _logger.log(f"{self._zfit.fitOnROi.__qualname__}")
+                coeff = self._zfit.fitOnRoi(img, self._zvec2fit, "global")
             coefflist.append(coeff[self._zvec2use])
         if len(coefflist) == 1:
             coefflist = _np.array([c for c in coefflist[0]])
+        self._logger.info('Creating Interaction Matrix')
         intMat = _np.array(coefflist).T
         return intMat
 
@@ -545,7 +550,7 @@ class Alignment:
         recMat : MatrixLike
             Reconstruction matrix.
         """
-        _logger.log(f"{self._create_rec_mat.__qualname__}")
+        self._logger.info(f"Creating reconstruction matrix from interaction matrix")
         recMat = _np.linalg.pinv(intMat)
         self.recMat = recMat
         return recMat
@@ -593,7 +598,7 @@ class Alignment:
         device_commands : ArrayLike
             The list of commands to be applied to each device.
         """
-        _logger.log(f"{self._extract_cmds_to_apply.__qualname__}")
+        self._logger.info(f"Creating command vectors for each device...")
         commands = []
         for d, dof in enumerate(self._dof):
             dev_cmd = _np.zeros(self._dofTot[d])
@@ -628,8 +633,6 @@ class Alignment:
         imglist : CubeData
             The list of acquired images.
         """
-        _logger.log(f"{self._img_acquisition.__qualname__}")
-        _logger.log(f"{self._acquire[0].__qualname__}")
         imglist = [self._acquire[0](nframes=n_frames)]
         for t in template:
             logMsg = ""
@@ -638,7 +641,6 @@ class Alignment:
             logMsg += f" - Full Command : {cmd}"
             print(logMsg)
             self._apply_command(cmd)
-            _logger.log(f"{self._acquire[0].__qualname__}")
             imglist.append(self._acquire[0](nframes=n_frames))
         return imglist
 
@@ -660,18 +662,23 @@ class Alignment:
         image : ImageData
             The reduced image.
         """
-        _logger.log(f"{self._push_pull_redux.__qualname__}")
+        self._logger.info(f"Starting Push-Pull Reduction Algorithm...")
         template.insert(0, 1)
-        image = _np.zeros((imglist[0].shape[0], imglist[0].shape[1]))
-        for x in range(1, len(imglist)):
-            opd2add = imglist[x] * template[x] + imglist[x - 1] * template[x - 1]
-            mask2add = _np.ma.mask_or(imglist[x].mask, imglist[x - 1].mask)
-            if x == 1:
-                master_mask = mask2add
-            else:
-                master_mask = _np.ma.mask_or(master_mask, mask2add)
-            image += opd2add
-        image = _np.ma.masked_array(image, mask=master_mask) / 6
+        
+        ## OLD ALGORITHM - TO BE DELETED LATER
+        # image = _np.zeros((imglist[0].shape[0], imglist[0].shape[1]))
+        # for x in range(1, len(imglist)):
+        #     opd2add = imglist[x] * template[x] + imglist[x - 1] * template[x - 1]
+        #     mask2add = _np.ma.mask_or(imglist[x].mask, imglist[x - 1].mask)
+        #     if x == 1:
+        #         master_mask = mask2add
+        #     else:
+        #         master_mask = _np.ma.mask_or(master_mask, mask2add)
+        #     image += opd2add
+        # image = _np.ma.masked_array(image, mask=master_mask) / 6
+        
+        image = _ppr(imglist, template, normalization=6)
+        
         template.pop(0)
         return image
 
@@ -700,9 +707,13 @@ class Alignment:
             _fn.ALIGN_CALIBRATION_ROOT_FOLDER, calibtn, "InteractionMatrix.fits"
         )
         if not _os.path.exists(filename):
+            self._logger.error(
+                f"Interaction matrix file '{filename}' does not exist."
+            )
             raise FileNotFoundError(
                 f"Interaction matrix file '{filename}' does not exist."
             )
+        self._logger.info(f"Loading interaction matrix from '{filename}'")
         intMat = _rfits(filename)
         return intMat
 

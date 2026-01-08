@@ -12,8 +12,8 @@ from opticalib.ground.modal_decomposer import ZernikeFitter as _ZF
 class AlpaoDm(BaseFakeAlpao):
 
     def __init__(self, nActs: int):
-        super(AlpaoDm, self).__init__(nActs)
         self._logger = _SL(__class__)
+        super(AlpaoDm, self).__init__(nActs)
         self.cmdHistory = None
         self._shape = np.ma.masked_array(self._mask * 0, mask=self._mask, dtype=float)
         self._idx = np.where(self._mask == 0)
@@ -298,11 +298,11 @@ class DP(BaseFakeDp):
         The constructor for the DPSimulator class.
         """
         self._live = False
+        self._logger = _SL(__class__)
         super().__init__()
         self.is_segmented = True
         self.nSegments = 2
         self.nActsPerSegment = 111
-        self._logger = _SL(__class__)
 
     def set_shape(
         self, command: _t.ArrayLike, differential: bool = False, modal: bool = False
