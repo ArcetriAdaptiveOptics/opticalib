@@ -48,9 +48,9 @@ from opticalib.ground import osutils as _osu
 from opticalib.core.root import folders as _fn
 from opticalib.ground import computerec as _crec
 from . import iff_processing as _ifp, utils as _ut
+from ..ground.logger import SystemLogger as _SL
 
 _ts = _osu.newtn
-
 
 class Flattening:
     """
@@ -113,9 +113,11 @@ class Flattening:
         self._frameCenter = None
         self._flatOffset = None
         self._cavityOffset = None
-        self._synthFlat = None
-        self._flatResidue = None
-        self._flatteningModes = None
+        # self._synthFlat = None
+        # self._flatResidue = None
+        # self._flatteningModes = None
+        self._logger = _SL(__class__)
+        
 
     @property
     def RM(self) -> _ot.MatrixLike:
@@ -171,6 +173,7 @@ class Flattening:
                 Number of frames to average for phasemap acquisition. Default is 5.
         """
         if iterations is not None:
+            self._logger.info(f"Starting closed-loop flattening for {iterations} iterations.")
             for _ in range(iterations):
                 self.applyFlatCommand(**kwargs)
         else:
@@ -212,6 +215,7 @@ class Flattening:
 
         # handle diverse DM set_shape args
         _ = setshape_kwargs.pop("differential", None)
+        self._logger.info(f'Applying flat command to the {dm._name}')
         dm.set_shape(deltacmd, differential=True, **setshape_kwargs)
 
         imgflat = interf.acquire_map(nframes, rebin=self.rebin)
@@ -235,6 +239,7 @@ class Flattening:
             path = _os.path.join(fold, f)
             _osu.save_fits(path, d, header=header)
         print(f"Flat command saved in .../{'/'.join(fold.split('/')[-2:])}")
+        self._logger.info(f"Flat command and images saved in {fold}.")
 
     def computeFlatCmd(self, n_modes: int | _ot.ArrayLike) -> _ot.ArrayLike:
         """
@@ -252,6 +257,7 @@ class Flattening:
         flat_cmd : ndarray
             Flat command.
         """
+        self._logger.info("Computing flat command...")
         img = _np.ma.masked_array(self.shape2flat, mask=self._getMasterMask())
         _cmd = -_np.dot(img.compressed(), self._recMat)
         cmdMat = self._cmdMat.copy()
@@ -265,6 +271,7 @@ class Flattening:
                 _scmd[i] = _cmd[mode]
             flat_cmd = _cmdMat @ _scmd
         else:
+            self._logger.error(f"`n_modes` must be either an int or a list of int: {type(n_modes)}")
             raise TypeError(
                 f"`n_modes` must be either an int or a list of int: {type(n_modes)}"
             )
@@ -288,6 +295,7 @@ class Flattening:
         """
         self.shape2flat = self._alignImgAndCubeMasks(img)
         self._rec = self._rec.loadShape2Flat(self.shape2flat)
+        self._logger.info("Image to shape loaded to Reconstructor class.")
         if compute is not None:
             self.computeRecMat(compute)
 
@@ -303,6 +311,7 @@ class Flattening:
             computed eigenvalues for the reconstruction (float). Default is None.
         """
         print("Computing recontruction matrix...")
+        self._logger.info("Starting reconstruction matrix computation...")
         self._recMat = self._rec.run(sv_threshold=threshold)
 
     def getSVDmatrices(self) -> tuple[_ot.ArrayLike, _ot.ArrayLike, _ot.ArrayLike]:
@@ -355,6 +364,10 @@ class Flattening:
                 "filtering flag in `flag.txt` file is deprecated and will be removed in a future version of `opticalib`.",
                 DeprecationWarning,
             )
+            self._logger.warning(
+                "filtering flag in `flag.txt` file is deprecated and will be removed in a future version of `opticalib`."
+            )
+            # Backwards compatibility for rebinning
             with open(
                 _os.path.join(self._path, _ifp.flagFile), "r", encoding="utf-8"
             ) as f:
@@ -364,12 +377,14 @@ class Flattening:
                 return
         except FileNotFoundError:
             if self.filtered:
+                self._logger.warning("Cube already filtered, skipping...")
                 print("Cube already filtered, skipping...")
                 return
             else:
                 print("Filtering cube...")
                 self._oldCube = self._intCube.copy()
                 zern2fit = zernModes if zernModes is not None else [1, 2, 3]
+                self._logger.info(f"Filtering cube of zernike modes {zern2fit}...")
                 self._intCube, new_tn = _ifp.filterZernikeCube(self.tn, zern2fit)
                 self.loadNewTn(new_tn)
                 self.filtered = True
@@ -407,6 +422,7 @@ class Flattening:
         """
         Creates the intersection mask of the interaction cube.
         """
+        self._logger.info("Creating master mask from interaction cube...")
         cubeMask = _np.sum(self._intCube.mask.astype(int), axis=2)
         master_mask = _np.zeros(cubeMask.shape, dtype=_np.bool_)
         master_mask[_np.where(cubeMask > 0)] = True
@@ -426,6 +442,7 @@ class Flattening:
         aligned_img : ImageData
             Aligned image.
         """
+        self._logger.info("Aligning image and cube masks...")
         cubemask = self._getMasterMask()
         pad_shape = (
             (cubemask.shape[0] - img.shape[0]) // 2,
@@ -436,6 +453,7 @@ class Flattening:
                 _np.pad(img.data, pad_shape), mask=~_np.pad(~img.mask, pad_shape)
             )
         if img.shape != cubemask.shape:
+            self._logger.info("Padding image to match cube mask shape...")
             xdiff = cubemask.shape[1] - img.shape[1]
             ydiff = cubemask.shape[0] - img.shape[0]
             nimg = _np.pad(img.data, ((ydiff, 0), (0, xdiff)))
@@ -446,9 +464,11 @@ class Flattening:
         roll = (xcm - xci, ycm - yci)
         img = _np.roll(img, roll, axis=(0, 1))
         if self.filteredModes is not None:
+            self._logger.info("Removing Zernike modes from the image to match the loaded calibration...")
             from opticalib.ground.modal_decomposer import ZernikeFitter
 
             zfit = ZernikeFitter(cubemask)
+            self._logger.info(f"Filtered modes: {self.filteredModes}")
             img = zfit.removeZernike(img, self.filteredModes)
         return img
 

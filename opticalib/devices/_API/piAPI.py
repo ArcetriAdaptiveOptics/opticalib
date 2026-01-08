@@ -1,11 +1,9 @@
 import numpy as np
-from pipython import GCSDevice, GCSError
-from opticalib.ground import logger
 from opticalib import typings as _ot
+from pipython import GCSDevice, GCSError
+from opticalib.ground.logger import SystemLogger as _SL
 from pipython.pidevice.interfaces.pisocket import PISocket
 from opticalib.core.read_config import getDmConfig, getDmIffConfig as _dmc
-
-L = logger.getSystemLogger()
 
 class BasePetalMirror:
     """
@@ -35,10 +33,10 @@ class BasePetalMirror:
         ]
 
         if not all([dev.connected for dev in self._devices]):
-            L.error("Some connection did not get established")
+            self._logger.error("Some connection did not get established")
             raise RuntimeError("Some connection did not get established")
         else:
-            L.info("All connections to petal mirror segments established")
+            self._logger.info("All connections to petal mirror segments established")
             self._check_servos()
             self._morning_routine()
 
@@ -72,13 +70,13 @@ class BasePetalMirror:
         try:
             acc = []
             for k, dev in enumerate(self._devices):
-                L.log(20, f"Getting acceleration from segment {k} : {self._ip_addresses[k]}")
+                self._logger.info(f"Getting acceleration from segment {k} : {self._ip_addresses[k]}")
                 accx = dev.qACC()
                 accx = [accx["1"], accx["2"], accx["3"]]
                 acc.extend(accx)
             return np.asarray(acc)
         except GCSError as err:
-            L.error(f"Error getting acceleration: {err}")
+            self._logger.error(f"Error getting acceleration: {err}")
             self._had_error = True
             raise RuntimeError("Failed to get acceleration") from err
     
@@ -117,13 +115,13 @@ class BasePetalMirror:
         try:
             pos = []
             for k, dev in enumerate(self._devices):
-                L.log(20, f"Reading position from segment {k} : {self._ip_addresses[k]}")
+                self._logger.info(f"Reading position from segment {k} : {self._ip_addresses[k]}")
                 posx = dev.qPOS()
                 posx = [posx["1"], posx["2"], posx["3"]]
                 pos.extend(posx)
             return np.asarray(pos)
         except GCSError as err:
-            L.error(f"Error reading actuator positions: {err}")
+            self._logger.error(f"Error reading actuator positions: {err}")
             self._had_error = True
             raise RuntimeError("Failed to read actuator positions") from err
 
@@ -140,16 +138,15 @@ class BasePetalMirror:
         try:
             pos = []
             for k, dev in enumerate(self._devices):
-                L.log(
-                    20,
-                    f"Getting target position from segment {k} : {self._ip_addresses[k]}",
+                self._logger.info(
+                    f"Getting target position from segment {k} : {self._ip_addresses[k]}"
                 )
                 posx = dev.qMOV()
                 posx = [posx["1"], posx["2"], posx["3"]]
                 pos.extend(posx)
             return np.asarray(pos)
         except GCSError as err:
-            L.error(f"Error getting last command positions: {err}")
+            self._logger.error(f"Error getting last command positions: {err}")
             self._had_error = True
             raise RuntimeError("Failed to get last command positions") from err
 
@@ -174,13 +171,13 @@ class BasePetalMirror:
         self._check_axes()
         try:
             for k, dev in enumerate(self._devices):
-                L.log(20, f"Commanding position for segment {k} : {self._ip_addresses[k]}")
+                self._logger.info(f"Commanding position for segment {k} : {self._ip_addresses[k]}")
                 segcmd = cmd[k * 3 : k * 3 + 3]
                 odict = {"1": segcmd[0], "2": segcmd[1], "3": segcmd[2]}
                 dev.MOV(odict)
                 dev.checkerror()
         except GCSError as err:
-            L.error(f"Error sending mirror command: {err}")
+            self._logger.error(f"Error sending mirror command: {err}")
             self._had_error = True
             raise RuntimeError("Failed to send mirror command") from err
 
@@ -190,14 +187,17 @@ class BasePetalMirror:
         mode back and forth from `start->mid->end->mid->start` a few times, 
         settling at mid range in the end.
         """
+        import time
+
         try:
             for k, dev in enumerate(self._devices):
-                L.log(20, f"Warming up piezos for segment {k} : {self._ip_addresses[k]}")
+                self._logger.info(f"Warming up piezos for segment {k} : {self._ip_addresses[k]}")
                 for c in [0,6,12,6,0,6,12,6,0,6]:
                     dev.MOV({"1": c})
+                    time.sleep(0.25)
                     dev.checkerror()
         except GCSError as err:
-            L.error(f"Error during warming up: {err}")
+            self._logger.error(f"Error during warming up: {err}")
             self._had_error = True
             raise RuntimeError("Morning routine failed") from err
     
@@ -210,15 +210,15 @@ class BasePetalMirror:
         self._check_axes()
         try:
             for k, dev in enumerate(self._devices):
-                L.log(20, f"Checking servos for segment {k} : {self._ip_addresses[k]}")
+                self._logger.info(f"Checking servos for segment {k} : {self._ip_addresses[k]}")
                 status = dev.qSVO()
-                L.log(20, f"Servo status for segment {k}: {status}")
+                self._logger.info(f"Servo status for segment {k}: {status}")
                 if all(value == 0 for value in status.values()):
-                    L.log(20, f"Enabling servos for segment {k}")
+                    self._logger.info(f"Enabling servos for segment {k}")
                     dev.SVO({"1": 1, "2": 1, "3": 1})
                     dev.checkerror()
         except GCSError as err:
-            L.error(f"Error checking/enabling servos: {err}")
+            self._logger.error(f"Error checking/enabling servos: {err}")
             self._had_error = True
             raise RuntimeError("Failed to check/enable servos") from err
     
@@ -229,7 +229,7 @@ class BasePetalMirror:
         If any axis is disabled, enable it.
         """
         if self._had_error:
-            L.warning("Previous error detected, enabling axes")
+            self._logger.warning("Previous error detected, enabling axes")
             self._enable_axes()
     
     def _enable_axes(self) -> None:
@@ -240,27 +240,27 @@ class BasePetalMirror:
         """
         try:
             for k, dev in enumerate(self._devices):
-                L.log(20, f"Checking segment {k} : {self._ip_addresses[k]}")
+                self._logger.info(f"Checking segment {k} : {self._ip_addresses[k]}")
                 try:
                     # Preferred for GCS3.x
                     status = dev.qEAX()
-                    L.log(20, f"         Axis status (EAX): {status}")
+                    self._logger.info(f"         Axis status (EAX): {status}")
                     for axis, value in status.items():
                         if value == 0:
-                            L.log(20, f"         Enabling axis {axis} via EAX")
+                            self._logger.info(f"         Enabling axis {axis} via EAX")
                             dev.EAX({axis: 1})
                             dev.checkerror()
                 except (AttributeError, GCSError) as err:
                     # Fallback for GCS2.x
-                    L.log(20, f"EAX/qEAX not supported ({err}); falling back to SVO")
+                    self._logger.info(f"EAX/qEAX not supported ({err}); falling back to SVO")
                     status = dev.qSVO()
-                    L.log(20, f"         Servo status (SVO): {status}")
+                    self._logger.info(f"         Servo status (SVO): {status}")
                     to_enable = {ax: 1 for ax, val in status.items() if val == 0}
                     if to_enable:
-                        L.log(20, f"         Enabling servos via SVO: {to_enable}")
+                        self._logger.info(f"         Enabling servos via SVO: {to_enable}")
                         dev.SVO(to_enable)
                         dev.checkerror()
         except GCSError as err:
-            L.error(f"Error checking/enabling axes: {err}")
+            self._logger.error(f"Error checking/enabling axes: {err}")
             self._had_error = True
             raise RuntimeError("Failed to check/enable axes") from err

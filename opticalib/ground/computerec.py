@@ -10,10 +10,10 @@ Author(s):
 
 import numpy as _np
 import xupy as _xp
-from . import logger as _log
 from . import osutils as _osu
 import matplotlib.pyplot as _plt
 from opticalib import typings as _ot
+from .logger import SystemLogger as _SL
 from opticalib.core.root import folders as _fn
 
 _intMatFold = _fn.INTMAT_ROOT_FOLDER
@@ -45,7 +45,7 @@ class ComputeReconstructor:
         mask2intersect: _ot.Optional[_ot.MatrixLike] = None,
     ):
         """The constructor"""
-        self._logger = _log.getSystemLogger()
+        self._logger = _SL(__class__)
         self._intMatCube = interaction_matrix_cube
         self._cubeMask = self._intersectCubeMask()
         self._imgMask = self._mask2intersect(mask2intersect)
@@ -81,9 +81,9 @@ class ComputeReconstructor:
         recMat : MatrixLike
             Reconstruction matrix.
         """
-        self._logger.info(f"[{self.__class__.__qualname__}] Reconstructor Computation:")
+        self._logger.info("Reconstructor Computation:")
         self._computeIntMat()
-        self._logger.info(f"[{self.__class__.__qualname__}] SVD of Interaction Matrix")
+        self._logger.info("SVD of Interaction Matrix")
         IM = _xp.asarray(self._intMat, dtype=_xp.float)
         U, S, Vt = _xp.linalg.svd(IM, full_matrices=False)
         self._intMat_U, self._intMat_S, self._intMat_Vt = [
@@ -111,7 +111,7 @@ class ComputeReconstructor:
             1 / sv_threshold[0 : self._threshold["x"]]
         )
         self._filtered_sv = sv_inv_threshold
-        self._logger.info(f"[{self.__class__.__qualname__}] Computing Reconstructor Matrix: Vt.T @ S_inv @ U.T")
+        self._logger.info("Computing Reconstructor Matrix: Vt.T @ S_inv @ U.T")
         return _xp.asnumpy(Vt.T @ _xp.diag(sv_inv_threshold) @ U.T)
 
     def getSVD(self):
@@ -183,7 +183,7 @@ class ComputeReconstructor:
         class variable.
         """
         self._logger.info(
-            f"[{self.__class__.__qualname__}] Computing interaction matrix from cube of size %s", self._intMatCube.shape
+            "Computing interaction matrix from cube of size %s", self._intMatCube.shape
         )
         print("Computing Interaction Matrix", end="\a")
         print("...", end="\a", flush=True)

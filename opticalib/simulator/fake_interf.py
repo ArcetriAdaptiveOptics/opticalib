@@ -3,6 +3,7 @@ import matplotlib.pyplot as _plt
 from opticalib import typings as _t
 from opticalib.analyzer import modeRebinner as rebinned
 from matplotlib.animation import FuncAnimation as _FuncAnimation
+from opticalib.ground.logger import SystemLogger as _SL
 
 _conf = {
     "width": 512,
@@ -12,7 +13,6 @@ _conf = {
     "x-offset": 0,
     "y-offset": 0,
 }
-
 
 class Fake4DInterf:
 
@@ -42,6 +42,7 @@ class Fake4DInterf:
         None
         """
         self._name = "4DFakeInterferometer"
+        self._logger = _SL(__class__)
         self._set_live_settings(**kwargs)
         self._live = False
         self._dm = dm
@@ -83,6 +84,8 @@ class Fake4DInterf:
             self.shapeRemoval(zernike2remove)
         global _anim
         cmap = kwargs.get("cmap", "gray")
+        
+        self._logger.info('Going Live!')
 
         self._live = True
         self._dm._live = True
@@ -177,6 +180,7 @@ class Fake4DInterf:
         np.array
             Phase map of the interferometer.
         """
+        self._logger.info(f"Acquiring {nframes} surface map(s) with rebin factor {rebin}")
         imglist = []
         for _ in range(nframes):
             img = self._dm._shape
@@ -258,6 +262,7 @@ class Fake4DInterf:
         modes : np.array
             Modes to be filtered out.
         """
+        self._logger.info(f"Toggling shape removal: removing modes {modes}")
         self.shapesRemoved = modes
 
     def toggleSurfaceView(self):
@@ -267,6 +272,7 @@ class Fake4DInterf:
         In reality, instead of the fringes, it will show the surface
         shape acquired of the dm.
         """
+        self._logger.info(f"Toggling surface view: now {'on' if not self._surf else 'off'}")
         self._surf = not self._surf
 
     def toggleAcquisitionLiveFreeze(self):
@@ -274,12 +280,14 @@ class Fake4DInterf:
         Freezes the live wavefront when acquiring, to show the
         measured surface.
         """
+        self._logger.info(f"Toggling freeze on acquisition: now {'on' if not self._freeze else 'off'}")
         self._freeze = not self._freeze
 
     def toggleLiveNoise(self):
         """
         Adds noise to the live wavefront.
         """
+        self._logger.info(f"Toggling live noise: now {'on' if not self._noisy else 'off'}")
         self._noisy = not self._noisy
 
     def live_info(self):

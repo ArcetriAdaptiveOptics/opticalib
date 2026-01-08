@@ -1,5 +1,6 @@
 import vmbpy as _vmbpy
 from .. import typings as _ot
+from ..ground.logger import SystemLogger as _sl
 from ..core.read_config import getCamerasConfig as _gcc
 from contextlib import contextmanager as _contextmanager
 
@@ -37,6 +38,8 @@ class AVTCamera:
             raise RuntimeError(
                 f"Could not connect to camera {self._name} with ID {self.cam_id}."
             ) from e
+        
+        self._logger = _sl(__class__)
 
     def get_exptime(self) -> float:
         """
@@ -62,6 +65,7 @@ class AVTCamera:
             The exposure time in micro-seconds.
         """
         with self._prepare_camera() as cam:
+            self._logger.info('Setting exposure time to {} us'.format(exptime_us))
             exptimeFeat = cam.get_feature_by_name("ExposureTimeAbs")
             exptimeFeat.set(exptime_us)
 
@@ -92,6 +96,8 @@ class AVTCamera:
         with self._prepare_camera() as cam:
 
             if mode == "sync":
+                self._logger.info('Starting synchronous acquisition')
+                self._logger.info(f'Acquiring {n_frames} frames with timeout {timeout} ms')
                 if n_frames > 1:
                     for f in cam.get_frame_generator(
                         limit=n_frames, timeout_ms=timeout
@@ -105,6 +111,8 @@ class AVTCamera:
                     )
 
             elif mode == "async":
+                self._logger.info('Starting asynchronous acquisition')
+                self._logger.info(f'Acquiring frames until Enter is pressed')
                 aframes = []
 
                 def frame_handler(
@@ -120,6 +128,7 @@ class AVTCamera:
                         if allocation_mode == 0
                         else _vmbpy.AllocationMode.AllocAndAnnounceFrame
                     )
+                    self._logger.info("Waiting for stop trigger (Enter)...")
                     cam.start_streaming(
                         handler=frame_handler, buffer_count=10, allocation_mode=am
                     )
@@ -131,6 +140,7 @@ class AVTCamera:
                 frames = [f.as_numpy_ndarray().transpose(2, 0, 1) for f in aframes]
 
             else:
+                self._logger.error('Invalid acquisition mode specified')
                 raise ValueError("Invalid mode. Choose either 'sync' or 'async'.")
 
         # Remove first dimension, since it's 1
@@ -149,6 +159,7 @@ class AVTCamera:
         """
         Context manager to prepare the camera for use.
         """
+        self._logger.info('Retrieving camera instance')
         with _vmbpy.VmbSystem.get_instance():
             with self._get_camera() as cam:
                 # Try to adjust GeV packet size. This Feature is only available for GigE - Cameras.
@@ -160,6 +171,7 @@ class AVTCamera:
 
                 except (AttributeError, _vmbpy.VmbFeatureError):
                     pass
+                self._logger.info('Camera instance ready')
                 yield cam
 
     def _get_camera(self):
@@ -171,6 +183,7 @@ class AVTCamera:
         cam : vmbpy.Camera
             The camera object.
         """
+        self._logger.info(f'Getting camera with ID: {self.cam_id}')
         with _vmbpy.VmbSystem.get_instance() as vimba:
             return vimba.get_camera_by_id(self.cam_id)
 

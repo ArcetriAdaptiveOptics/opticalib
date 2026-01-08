@@ -5,6 +5,7 @@ from ._API import *
 from matplotlib import pyplot as plt
 from opticalib.ground import osutils as osu
 from opticalib import folders as fp, typings as _t
+from opticalib.ground.logger import SystemLogger as _SL
 from opticalib.ground.modal_decomposer import ZernikeFitter as _ZF
 
 
@@ -12,6 +13,7 @@ class AlpaoDm(BaseFakeAlpao):
 
     def __init__(self, nActs: int):
         super(AlpaoDm, self).__init__(nActs)
+        self._logger = _SL(__class__)
         self.cmdHistory = None
         self._shape = np.ma.masked_array(self._mask * 0, mask=self._mask, dtype=float)
         self._idx = np.where(self._mask == 0)
@@ -60,6 +62,7 @@ class AlpaoDm(BaseFakeAlpao):
             If True, the command is applied differentially.
         """
         scaled_cmd = command * 1e-5  # more realistic command
+        self._logger.info(f"Sending mirror command to {self._name}")
         self._mirror_command(scaled_cmd, differential, modal)
         if self._live:
             time.sleep(0.15)
@@ -81,6 +84,7 @@ class AlpaoDm(BaseFakeAlpao):
         Upload the command history to the deformable mirror memory.
         Ready to run the `runCmdHistory` method.
         """
+        self._logger.info(f'Uploading command history of shape {cmdhist.shape} to {self._name}')
         self.cmdHistory = cmdhist
 
     def runCmdHistory(
@@ -113,8 +117,10 @@ class AlpaoDm(BaseFakeAlpao):
             Timestamp of the data saved.
         """
         if self.cmdHistory is None:
+            self._logger.error("No Command History found in memory!")
             raise Exception("No Command History to run!")
         else:
+            self._logger.info(f"Running command history of shape {self.cmdHistory.shape}")
             if all([interf is not None, interf._live is True, interf._surf is False]):
                 interf.toggleSurfaceView()
             tn = osu.newtn() if save is None else save
@@ -239,6 +245,7 @@ class AlpaoDm(BaseFakeAlpao):
             Random shape for the deformable mirror.
         """
         try:
+            self._logger.info(f'Loading base shape for {self._name} from file')
             shape = osu.load_fits(
                 os.path.join(
                     fp.SIMULATED_DM_PATH(self._name, self.nActs), f"baseShape.fits"
@@ -246,6 +253,7 @@ class AlpaoDm(BaseFakeAlpao):
             )
             self._shape = np.ma.masked_array(shape)
         except FileNotFoundError:
+            self._logger.info(f'No base shape file found for {self._name}, generating random shape')
             mat = np.eye(self.nActs)
             tx = mat[0]
             ty = mat[1]
@@ -257,6 +265,7 @@ class AlpaoDm(BaseFakeAlpao):
                 + rand(0.005, 0.0005) * f
             )
             self.set_shape(cmd, modal=True)
+            self._logger.info(f'Saving generated base shape for {self._name} to file')
             osu.save_fits(
                 os.path.join(
                     fp.SIMULATED_DM_PATH(self._name, self.nActs), f"baseShape.fits"
@@ -293,6 +302,7 @@ class DP(BaseFakeDp):
         self.is_segmented = True
         self.nSegments = 2
         self.nActsPerSegment = 111
+        self._logger = _SL(__class__)
 
     def set_shape(
         self, command: _t.ArrayLike, differential: bool = False, modal: bool = False
@@ -308,6 +318,7 @@ class DP(BaseFakeDp):
         differential : bool
             If True, the command is applied differentially.
         """
+        self._logger.info(f"Sending mirror command to {self._name}")
         self._mirror_command(command, differential, modal)
         if self._live:
             time.sleep(0.15)
@@ -330,6 +341,7 @@ class DP(BaseFakeDp):
         Upload the command history to the deformable mirror memory.
         Ready to run the `runCmdHistory` method.
         """
+        self._logger.info(f'Uploading command history of shape {cmdhist.shape} to {self._name}')
         self.cmdHistory = cmdhist
 
     def runCmdHistory(
@@ -364,8 +376,10 @@ class DP(BaseFakeDp):
         import time
 
         if self.cmdHistory is None:
+            self._logger.error("No Command History found in memory!")
             raise Exception("No Command History to run!")
         else:
+            self._logger.info(f"Running command history of shape {self.cmdHistory.shape}")
             tn = osu.newtn() if save is None else save
             print(f"{tn} - {self.cmdHistory.shape[-1]} images to go.")
             datafold = os.path.join(fp.OPD_IMAGES_ROOT_FOLDER, tn)
