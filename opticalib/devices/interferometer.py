@@ -198,20 +198,21 @@ class _4DInterferometer(_api.BaseInterferometer):
         else:
             self._logger.warning("Triggered mode disabled.")
             print("Triggered mode disabled")
-    
-    def saveConfiguration(self, path: str, name: str) -> None:
+
+    def saveConfiguration(self, newConfigurationPath: str, filename: str|None = None) -> None:
         """
         Saves the current configuration of the interferometer to a file.
 
         Parameters
         ----------
-        path: str
-            Path where to save the configuration file.
-        name: str
-            Name of the configuration file.
+        newConfigurationPath: str
+            file path for configuration to save
+        filename: str
+            name of the configuration file (optional). If None, the original file
+            name is used
         """
-        # TODO: implement saveConfiguration in I4D API
-        self._logger.info(f"Configuration file '{name}' saved to '{path}'.")
+        self._i4d.saveConfiguration(newConfigurationPath)
+        self._logger.info(f"Configuration file saved to '{newConfigurationPath}'.")
 
     def loadConfiguration(self, conffile: str) -> None:
         """
@@ -219,7 +220,7 @@ class _4DInterferometer(_api.BaseInterferometer):
 
         Parameters
         ----------
-        conffile: string
+        conffile: str
             name of the configuration file to load
         """
         self._i4d.loadConfiguration(conffile)

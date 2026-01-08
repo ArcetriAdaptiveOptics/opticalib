@@ -389,6 +389,16 @@ class I4D:
         url = "%s%s" % (self._systemServiceAddress, "TakeAveragedMeasurement")
         data = numberOfSamples
         self._readJsonData(url, data)
+    
+    def saveConfiguration(self, newConfigurationPath: str):
+        """
+        Parameters
+        ---------
+        configurationPath: string
+            file path for configuration to save
+        """
+        url = "%s%s" % (self._systemServiceAddress, "SaveConfiguration")
+        self._readJsonData(url, newConfigurationPath)
 
     def loadConfiguration(self, configurationPath: str):
         """
