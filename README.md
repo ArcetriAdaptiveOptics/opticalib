@@ -20,13 +20,21 @@ The `OPTICALIB` package serves two main purposes:
 
 - Providing routines for Deformable Mirrors calibrations.
 
-It can be installed from the repository, while waiting for an official release, as
+The latests, stable, version can be installed from pypi:
+
+```bash
+pip install opticalib
+```
+
+The in-development version can be installed directly from this repository:
 
 ```bash
 pip install git+"https://github.com/pietroferraiuolo/labott.git"
 ```
 
-The software will create an entry point script called `calpy`, which is usefull to set up a specific experiment's environment. Let's say we have an optical bench composed of an interferometer 4D PhaseCam6110 and an Alpao Deformable mirror, say DM820. We can create the experiment's environment just like:
+**but do expect some bugs!**
+
+Upon installation, the software will create an entry point script called `calpy`, which is usefull to set up a specific experiment's environment. Let's say we have an optical bench composed of an interferometer 4D PhaseCam6110 and an Alpao Deformable mirror, say DM820. We can create the experiment's environment just like:
 
 ```bash
 calpy -f ~/alpao_experiment --create
