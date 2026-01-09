@@ -49,6 +49,7 @@ from opticalib.core.root import _folds
 from opticalib.core import fitsarray as _fa
 from opticalib.core import read_config as _rif
 from concurrent.futures import ThreadPoolExecutor as _tpe
+from opticalib.analyzer import cubeRebinner as _cr, makeCubeMasterMask as _cmm
 from opticalib.ground import modal_decomposer as _zern, osutils as _osu, roi as _roi
 
 # from scripts.misc.IFFPackage import actuator_identification_lib as _fa
@@ -73,7 +74,7 @@ flagFile = "flag.txt"  # DEPRECATED
 
 
 def process(
-    tn: str,
+    tn: str | list[str],
     register: bool = False,
     save: bool = False,
     rebin: int = 1,
@@ -89,8 +90,8 @@ def process(
 
     Parameters
     ----------
-    tn : str
-        Tracking number of the data in the OPDImages folder.
+    tn : str | list of str
+        (List of) Tracking number of the data in the OPDImages folder.
     register : bool, optional
         Parameter which enables the registration option. The default is False.
     save : bool, optional
@@ -107,6 +108,18 @@ def process(
     nmode_prefetch : int, optional
         Number of modes to prefetch during the processing. The default is 1.
     """
+    if isinstance(tn, list) and all([isinstance(t, str) for t in tn]):
+        for t in tn:
+            process(
+                t,
+                register=register,
+                save=save,
+                rebin=rebin,
+                trigger_roi=trigger_roi,
+                nworkers=nworkers,
+                nmode_prefetch=nmode_prefetch,
+            )
+        return
     ampVector, modesVector, template, _, registrationActs, shuffle = _getAcqPar(tn)
     if not modesVector.dtype.type is _np.int_:
         modesVector = modesVector.astype(int)
@@ -135,6 +148,108 @@ def process(
     if save:
         saveCube(tn, rebin=rebin, register=dx)
 
+# TODO: Choose a good name
+def cubeRoiProcessing(
+    tn: str,
+    activeRoiID: int,
+    detrend: bool = False,
+    roinull: bool = False,
+    rebin: int = 1,
+    fitting_mask: _ot.MaskData = None
+) -> str:
+    """
+    This function groups together some image manipulations in presence of
+    Region Of Interest (ROI). We assume that we have in the image an
+    activeRoi, with given I, corresponding to the region of the actuated
+    segment; and one or more auxiliaryRois, corresponding to the regions
+    of the non-actuated segments, to be used as an optical reference.
+
+    Parameters
+    ----------
+    tn: str
+        The tracking number of the dataset to be processed.
+    activeRoiID: int
+        The ID of the active ROI, corresponding to the actuated segment.
+    detrend: bool, optional
+        If True, perform a tilt detrend over the activeRoi, using the other detected
+        rois as reference.
+    roinull: bool, optional
+        If True, set to zero the pixels outside the activeRoi.
+    rebin: int, optional
+        Rebin factor for the final cube.
+
+    Returns
+    -------
+    newtn: str
+    The tracking number of the new processed dataset.
+    """
+    newtn = _osu.newtn()
+    load_path = _os.path.join(_fn.INTMAT_ROOT_FOLDER, tn)
+
+    cube = _osu.load_fits(
+        _os.path.join(load_path, "IMCube.fits"), True
+    ).transpose(2, 0, 1)
+    mat = _osu.load_fits(
+        _os.path.join(load_path, "cmdMatrix.fits")
+    )
+    modesvec = _osu.load_fits(
+        _os.path.join(load_path, "modesVector.fits")
+    )
+
+    nframes = cube.shape[0]
+    zfitter = _zern.ZernikeFitter(_cmm(cube) if fitting_mask is None else fitting_mask)
+
+    # Main Loop over cube images
+    newcube = []
+    for i in range(nframes):
+        v = cube[i]
+        auxRois = _roi.roiGenerator(v)
+        activeRoi = auxRois.pop(activeRoiID)
+
+        # TODO: the tilt detrend loop
+        if detrend:
+            for r in auxRois:
+                r2rImage = _np.ma.masked_array(v, mask=r)
+                surf2Remove = zfitter.makeSurface([1, 2, 3], r2rImage)
+                s2rmean = surf2Remove.mean()
+                surf2Remove.data[activeRoi == 0] = 0
+                surf2Remove.mask[activeRoi == 0] = False
+
+                v -= surf2Remove
+                v -= s2rmean
+
+        # Setting to zero the non active ROIs
+        if roinull:
+            v[activeRoi == 1] = 0
+
+        newcube.append(v)
+
+    # Creating, rebinning and saving the new cube
+    newcube = _fa.fits_array(_np.ma.masked_array(newcube))
+    newcube.header = cube.header.copy()
+
+    if rebin < cube.header.get("REBIN", 1):
+        raise ValueError("Rebin factor must be >= original cube rebin factor")
+    elif not rebin == cube.header.get("REBIN", 1):
+        newcube = _cr(newcube.transpose(1, 2, 0), rebin)
+        newcube.header["REBIN"] = rebin
+
+    save_path = _os.path.join(_fn.INTMAT_ROOT_FOLDER, newtn)
+
+    if not _os.path.exists(save_path):
+        _os.makedirs(save_path)
+
+    _osu.save_fits(
+        _os.path.join(save_path, "IMCube.fits"), newcube, overwrite=True
+    )
+    _osu.save_fits(
+        _os.path.join(save_path, "cmdMatrix.fits"), mat, overwrite=True
+    )
+    _osu.save_fits(
+        _os.path.join(save_path, "modesVector.fits"), modesvec, overwrite=True
+    )
+    
+    return newtn
 
 def saveCube(
     tn: str,
@@ -166,8 +281,6 @@ def saveCube(
     cube : masked_array
         Data cube of the images, with shape (npx, npx, nmodes).
     """
-    from opticalib.analyzer import cubeRebinner
-
     cube = _osu.loadCubeFromFilelist(tn_or_fl=tn, fold=_ifFold, key="mode_")
     # cube.mask = _roi.cubeMasterMask(cube) # w/ DP weird behavior
 
@@ -183,7 +296,7 @@ def saveCube(
     if cube_header is not None:
         header.update(cube_header)
     if rebin > 1:
-        cube = cubeRebinner(cube, rebin)
+        cube = _cr(cube, rebin)
     # Saving the cube
     new_fold = _os.path.join(_intMatFold, tn)
     if not _os.path.exists(new_fold):
