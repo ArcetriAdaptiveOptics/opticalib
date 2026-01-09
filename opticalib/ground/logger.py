@@ -137,7 +137,7 @@ class SystemLogger():
             The root logger instance.
         """
         return set_up_logger(
-            "system", logging_level=_l.INFO, format="%(asctime)s -- [%(levelname)s] -- %(message)s"
+            "system.log", logging_level=_l.INFO, format="%(asctime)s -- [%(levelname)s] -- %(message)s"
         )
 
 
