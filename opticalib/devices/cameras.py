@@ -19,6 +19,7 @@ class AVTCamera:
         """
         self._name = name
         self._cam_config = _gcc(device_name=self._name)
+        self._logger = _sl()
 
         # retrieve device ID or IP
         try:
