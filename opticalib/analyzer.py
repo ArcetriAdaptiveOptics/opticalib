@@ -847,7 +847,7 @@ def createCube(fl_or_il: list[str], register: bool = False):
     Returns
     -------
     cube : ndarray
-        Data cube containing the images/frames stacked.
+        Data cube containing the images/frames stacked, with shape (npx, npy, nframes).
     """
     # check it is a list
     if not isinstance(fl_or_il, list):

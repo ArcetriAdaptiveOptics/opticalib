@@ -150,8 +150,10 @@ class AVTCamera:
             frames = frames[0]
         else:
             from ..analyzer import createCube as _cC
+            from numpy.ma import mean
             
             frames = _cC(frames)
+            frames = mean(frames, axis=2)
 
         return frames
 
