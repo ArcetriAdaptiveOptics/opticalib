@@ -73,7 +73,7 @@ class AVTCamera:
     def acquire_frames(
         self,
         n_frames: int = 1,
-        timeout: int = 1000,
+        timeout: int = 10000,
         mode: str = "sync",
         allocation_mode: int = 0,
     ) -> _ot.ImageData | _ot.CubeData:
