@@ -72,7 +72,8 @@ class AVTCamera:
 
     def acquire_frames(
         self,
-        n_frames: int = 1,
+        n_frames: int | None = None,
+        multiframe_out_mode: str = "mean",
         timeout: int = 10000,
         mode: str = "sync",
         allocation_mode: int = 0,
@@ -82,8 +83,14 @@ class AVTCamera:
 
         Parameters:
         -----------
-        n_frames : int
-            The number of frames to acquire.
+        n_frames : int | None
+            The number of frames to acquire. If in `sync` mode and None, acquires a single frame,
+            while if in `async` mode and None, acquires frames until stopped.
+        multiframe_out_mode : str
+            The output mode for multiple frames. Can be 'cube' to return a cube of frames,
+            or 'mean' to return the mean frame.
+            
+            Defaults to `mean`
         timeout : int
             The timeout in milliseconds.
         mode : str
@@ -99,11 +106,13 @@ class AVTCamera:
             if mode == "sync":
                 self._logger.info('Starting synchronous acquisition')
                 self._logger.info(f'Acquiring {n_frames} frames with timeout {timeout} ms')
-                if n_frames > 1:
+                if n_frames is not None and n_frames > 1:
+                    import copy
+
                     for f in cam.get_frame_generator(
                         limit=n_frames, timeout_ms=timeout
                     ):
-                        frames.append(f.as_numpy_ndarray().transpose(2, 0, 1))
+                        frames.append(copy.deepcopy(f).as_numpy_ndarray().transpose(2, 0, 1))
                 else:
                     frames.append(
                         cam.get_frame(timeout_ms=timeout)
@@ -112,6 +121,10 @@ class AVTCamera:
                     )
 
             elif mode == "async":
+                import time
+                
+                exposure_time = cam.get_feature_by_name("ExposureTimeAbs").get()
+
                 self._logger.info('Starting asynchronous acquisition')
                 self._logger.info(f'Acquiring frames until Enter is pressed')
                 aframes = []
@@ -123,24 +136,22 @@ class AVTCamera:
                     aframes.append(frame)
                     cam.queue_frame(frame)
 
-                try:
-                    am = (
-                        _vmbpy.AllocationMode.AnnounceFrame
-                        if allocation_mode == 0
-                        else _vmbpy.AllocationMode.AllocAndAnnounceFrame
-                    )
-                    self._logger.info("Waiting for stop trigger (Enter)...")
-                    cam.start_streaming(
-                        handler=frame_handler, buffer_count=10, allocation_mode=am
-                    )
-#                    input()
-                    import time
-                    time.sleep(5)
+                am = (
+                    _vmbpy.AllocationMode.AnnounceFrame
+                    if allocation_mode == 0
+                    else _vmbpy.AllocationMode.AllocAndAnnounceFrame
+                )
+                self._logger.info("Waiting for stop trigger (Enter)...")
+                cam.start_streaming(
+                    handler=frame_handler, buffer_count=10, allocation_mode=am
+                )
+                if n_frames is None:
+                    input()  # wait until Enter is pressed
                     cam.stop_streaming()
-
-                finally:
-                    print('è finita')
-               #     cam.stop_streaming()
+                else:
+                    while len(aframes) < n_frames:
+                        time.sleep(exposure_time / 1_000_000)
+                    cam.stop_streaming()
 
                 frames = [f.as_numpy_ndarray().transpose(2, 0, 1) for f in aframes]
 
@@ -154,10 +165,13 @@ class AVTCamera:
             frames = frames[0]
         else:
             from ..analyzer import createCube as _cC
-            from numpy.ma import mean
             
             frames = _cC(frames)
-            frames = mean(frames, axis=2)
+            
+            if multiframe_out_mode == 'mean':
+                from numpy.ma import mean
+
+                frames = mean(frames, axis=2)
 
         return frames
 
