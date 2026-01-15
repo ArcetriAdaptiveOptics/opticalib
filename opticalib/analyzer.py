@@ -854,15 +854,19 @@ def createCube(fl_or_il: list[str], register: bool = False):
         raise TypeError("filelist must be a list of strings or images")
 
     # check if it is composed of file paths to load
-    if all(isinstance(item, str) for item in fl_or_il):
+    if all([isinstance(item, str) for item in fl_or_il]):
         fl_or_il = [osu.read_phasemap(f) for f in fl_or_il]
         # Is the list now full of images?
-        if not all(_ot.isinstance_(item, "ImageData") for item in fl_or_il):
+        if not all([_ot.isinstance_(item, "ImageData") for item in fl_or_il]):
             raise TypeError("Data different from `images` loaded. Check filelist.")
 
     # finally check if it is a list of ImageData
-    elif not all(_ot.isinstance_(item, "ImageData") for item in fl_or_il):
-        raise TypeError("filelist must be either a list of strings or ImageData")
+    elif not all([_ot.isinstance_(item, "ImageData") for item in fl_or_il]):
+        try:
+            cube = _np.dstack(fl_or_il)
+            return cube
+        except Exception as e:
+            raise TypeError("filelist must be either a list of strings or ImageData") from e
 
     if register:
         print("Registration Not implemented yet!")

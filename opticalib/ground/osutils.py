@@ -55,7 +55,7 @@ def is_tn(string: str) -> bool:
         return False
 
 
-def findTracknum(tn: str, complete_path: bool = False) -> str | list[str]:
+def findTracknum(tn: str, *, starting_folder: str | None = _OPTDATA, complete_path: bool = False) -> str | list[str]:
     """
     Search for the tracking number given in input within all the data path subfolders.
 
@@ -74,8 +74,39 @@ def findTracknum(tn: str, complete_path: bool = False) -> str | list[str]:
         tracking number is present, sorted in alphabetical order.
     """
     tn_path = []
-    for fold in _os.listdir(_OPTDATA):
-        search_fold = _os.path.join(_OPTDATA, fold)
+    for fold in _os.listdir(starting_folder):
+        search_fold = _os.path.join(starting_folder, fold)
+
+        ### EXPERIMENTAL ###
+#        def recursive_folder_depth_search(starting_search_fold, fold2search):
+#            if not _os.path.isdir(starting_search_fold):
+#                pass
+#            d2fold = _os.listdir(starting_search_fold)
+#            if isinstance(d2fold, list) and len(d2fold) > 1:
+#                for fold in d2fold:
+#                    newbsf = _os.path.join(starting_search_fold, fold)
+#                    if is_tn(fold):
+#                        if fold2search in fold:
+#                            return _os.path.join(starting_search_fold, fold2search)
+#                        elif _os.path.isdir(_os.path.join(starting_search_fold, fold)):
+#                            newbsf = _os.path.join(starting_search_fold, fold)
+#                            result = recursive_folder_depth_search(newbsf, fold2search)
+#                            if fold2search in result:
+#                                return _os.path.join(newbsf, fold2search)
+#                            else:
+#                                continue
+#                        else:
+#                            continue
+#            else:
+#                return starting_search_fold
+#
+#        found_folder = recursive_folder_depth_search(search_fold, tn)
+#        if complete_path:
+#            tn_path.append(found_folder)
+#        else:
+#            tn_path.append(found_folder.split('/')[-1])
+
+        ###              ###
         if not _os.path.isdir(search_fold):
             continue
         if tn in _os.listdir(search_fold):
@@ -83,6 +114,7 @@ def findTracknum(tn: str, complete_path: bool = False) -> str | list[str]:
                 tn_path.append(_os.path.join(search_fold, tn))
             else:
                 tn_path.append(fold)
+
     path_list = sorted(tn_path)
     if len(path_list) == 1:
         path_list = path_list[0]

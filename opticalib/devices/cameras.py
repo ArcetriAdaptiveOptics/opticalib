@@ -133,10 +133,14 @@ class AVTCamera:
                     cam.start_streaming(
                         handler=frame_handler, buffer_count=10, allocation_mode=am
                     )
-                    input()
+#                    input()
+                    import time
+                    time.sleep(5)
+                    cam.stop_streaming()
 
                 finally:
-                    cam.stop_streaming()
+                    print('è finita')
+               #     cam.stop_streaming()
 
                 frames = [f.as_numpy_ndarray().transpose(2, 0, 1) for f in aframes]
 
