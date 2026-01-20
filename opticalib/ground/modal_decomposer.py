@@ -205,7 +205,6 @@ class _ModeFitter(ABC):
             Image for modal fit.
         mode_index_vector : list[int]
             List containing the index of modes to be fitted.
-            If they are Zernike modes, the first index is 1.
 
         Returns
         -------
@@ -245,11 +244,11 @@ class _ModeFitter(ABC):
             Image for modal fit.
         modes2fit : list[int], optional
             List containing the index of modes to be fitted.
-            If they are Zernike modes, the first index is 1.
         mode : str, optional
             Mode of fitting.
-            - `global` will return the mean of the fitted coefficient of each ROI
-            - `local` will return the vector of fitted coefficient for each ROI
+            - `global` will return the mean of the fitted coefficient of each ROI.
+            - `local` will return the vector of fitted coefficient for each ROI.
+
             Default is 'global'.
 
         Returns
@@ -283,29 +282,33 @@ class _ModeFitter(ABC):
         **kwargs: dict[str, _t.Any]
     ) -> _t.ImageData:
         """
-        Generate modal surface from image.
+        Generate a modal surface map, from:
+        - the modal generator, if only the modes indices are provided;
+        - an input image, if provided, to compute the modal coefficients;
+        - the modal coefficients, if provided.
 
         Parameters
         ----------
         modes_indices : list[int], optional
             List of modes indices. Defaults to [1].
         image : ImageData, optional
-            Image to fit to retrieve the modal coefficients needed for the surface to compute.
-            If no image is provided, a surface defined in the `fitter` pupil normalized at 1
-            is generated.
+            Image to fit to retrieve the modal coefficients needed for the 
+            surface to compute. If no image is provided, a surface defined in the
+            `fitting` pupil (`auxmask`) normalized at 1 is generated.
 
-            If the additional argument `coeffs` is provided, they will be used
-            instead of computing them from the image, and the latter is interpreted as
-            the mask where the surface is defined.
+            If both `image` and the additional argument `coeffs` are provided, 
+            the latter will be used instead of fitting the image, while the image 
+            is interpreted as the mask where the surface is defined.
 
-            If also the `mat` argument is provided, it will be used as fitting matrix
-            instead of computing it from the image, leaving the `image` argument not
-            needed.
+            If also the `mat` argument is provided, it will be used as fitting 
+            matrix instead of computing it from the image, leaving the `image` 
+            argument not needed.
         mode : str, optional
-            If more than one ROI is detected, it's the mode of ROI fitting. Options are:
+            If more than one ROI is detected, it's the mode of ROI fitting. 
+            Options are:
             - `full-aperture` : generate the surface on the full aperture pupil (as if no ROIs were present)
             - `global` : will be created a surface from the mean of the modal coefficients of each fitted ROI
-            - `local` : will return a surface in which heach roi has it's own modal surface reconstructed inside
+            - `local` : will return a surface in which each roi has its own modal surface reconstructed inside
 
             Default is 'full-aperture'.
 
@@ -410,12 +413,8 @@ class _ModeFitter(ABC):
 
                 # Got an image with no ROIs, or asked for full-aperture surface
 
-                # Extract the correct mask indices to use
-                # We handle the case in which we have a fitting mask (auxmask), so we need to
-                # recreate the surface on that fitting mask, and then remask the result
-                with self._temporary_mgen_from_image(image) as (pimage, _):
-                    fm = pimage.mask == 0
-                    fmidx_ = _np.where(pimage.mask == 0)
+                # Extract the correct mask indices to use, of the input mask
+                fmidx_ = _np.where(image.mask == 0)
 
                 # We did not get coeffs/mat, so we need to fit
                 if coeffs is None and mat is None:
@@ -424,9 +423,9 @@ class _ModeFitter(ABC):
                 # we interpret the passed image argument as the mask for the Matrix computation
                 elif mat is None:
                     # Extra safety in case we don't have a fitting mask initialized
+                    with self._temporary_mgen_from_image(image) as (pimage, _):
+                        fm = pimage.mask == 0
                     mat = self._create_fitting_matrix(modes_indices, fm)
-
-                # TODO: consider the case mat is passed but not coeffs? Not a lot of sense...
 
                 # Check matrix orientation, for extra safety
                 if not mat.shape[1] < mat.shape[0]:
@@ -489,15 +488,20 @@ class _ModeFitter(ABC):
     def no_mask(self):
         """
         Context manager to temporarily clear the fitting mask and Zernike generator.
-
-        Usage
-        -----
-        with zfitter.no_mask():
-            coeffs, mat = zfitter.fit(image, modes)
+        
+        This is usefull when the Fitter is instanced with a fitting mask, and,
+        for any reason, some fitting operations are to be done without using it.
 
         Within the context, ``self._fit_mask``, ``self._zgen`` and ``self.auxmask``
         are set to ``None`` so that ``fit`` will lazily create a temporary mask
         from the provided image. On exit, the previous values are restored.
+
+        Usage
+        -----
+        ```python
+        with zfitter.no_mask():
+            coeffs, mat = zfitter.fit(image, modes)
+        ```
         """
         self._logger.warning('Entering the `no mask` context...')
         prev_fit_mask = self._fit_mask
@@ -519,15 +523,17 @@ class _ModeFitter(ABC):
     def temporary_fit_mask(self, fit_mask: _t.MaskData):
         """
         Context manager to temporarily set a fitting mask.
+        
+        This is effectively the opposite of the `no_mask` context manager.
+        
+        Within the context, ``self._fit_mask``, ``self._zgen`` and ``self.auxmask``
+        are set to the provided `fit_mask`. On exit, the previous values are restored.
 
         Parameters
         ----------
         fit_mask : ImageData
             Mask to be used for fitting.
 
-        Yields
-        ------
-        None
         """
         self._logger.warning('Entering the `temporary fit mask` context')
         prev_fit_mask = self._fit_mask
@@ -558,7 +564,8 @@ class _ModeFitter(ABC):
         Yields
         ------
         tuple
-            (modified_image, was_temporary), where was_temporary indicates if a temp generator was created
+            (modified_image, was_temporary), where was_temporary indicates if a 
+            temporary generator was created
         """
         prev_mgen = self._mgen
         was_temporary = False
