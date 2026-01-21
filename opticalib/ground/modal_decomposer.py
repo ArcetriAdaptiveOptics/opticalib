@@ -350,7 +350,7 @@ class _ModeFitter(ABC):
 
             # FIXME: handle the case of passed ROIs
             # in particular, new image should only have those passed rois
-            # or th left-over rois should be zeroed (idk, it's a modal surface...)
+            # or the left-over rois should be zeroed (idk, it's a modal surface...)
             if k_rois is not None:
                 import warnings
 
@@ -376,17 +376,7 @@ class _ModeFitter(ABC):
                     surfs = []
                     for r in roiimg:
                         img2fit = _np.ma.masked_array(image.data, mask=r)
-
-                        # Considering to use the `no_mask` context manager
-                        # Does it make sense to have a local fitting on a global mask?
-                        # TODO: evaluate this point
-                        # UPDATE: it indeed fitted the same coefficients on all ROIs
-                        # so, using `no_mask`
-                        # with self.no_mask():
-                        #     # Here `makeSurface` goes always to the Single ROI branch
-                        #     # and with no mask
                         surf = self.makeSurface(modes_indices, img2fit)
-
                         surfs.append(surf)
                     surface = _np.ma.empty_like(image)
                     surface.mask = image.mask.copy()
@@ -401,6 +391,8 @@ class _ModeFitter(ABC):
                         )
                     surface = _np.ma.zeros_like(image)
                     for r in roiimg:
+                        # ???: Does it make sense to set the fitting mask as the
+                        #      ROI of the segment?
                         with self.temporary_fit_mask(r):
                             mat = self._create_fitting_matrix(modes_indices, r)
                         surface.data[r] = _np.dot(mat.T, coeffs)
