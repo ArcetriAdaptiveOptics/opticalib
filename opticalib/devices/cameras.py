@@ -20,6 +20,7 @@ class AVTCamera:
         self._name = name
         self._cam_config = _gcc(device_name=self._name)
         self._logger = _sl()
+        self._base_timeout = 2000 # milliseconds, time for accessing the camera
 
         # retrieve device ID or IP
         try:
@@ -41,6 +42,7 @@ class AVTCamera:
             ) from e
         
         self._logger = _sl(__class__)
+        self._exptime = None
 
     def get_exptime(self) -> float:
         """
@@ -51,10 +53,12 @@ class AVTCamera:
         exposure_time : float
             The exposure time in micro-seconds.
         """
-        with self._prepare_camera() as cam:
-            exptimeFeat = cam.get_feature_by_name("ExposureTimeAbs")
-            exposure_time = exptimeFeat.get()
-        return exposure_time
+        if self._exptime is None:
+            with self._prepare_camera() as cam:
+                exptimeFeat = cam.get_feature_by_name("ExposureTimeAbs")
+                exposure_time = exptimeFeat.get()
+            self._exptime = exposure_time / 1000 # ms
+        return self._exptime
 
     def set_exptime(self, exptime_us: float):
         """
@@ -69,6 +73,7 @@ class AVTCamera:
             self._logger.info('Setting exposure time to {} us'.format(exptime_us))
             exptimeFeat = cam.get_feature_by_name("ExposureTimeAbs")
             exptimeFeat.set(exptime_us)
+        self._exptime = exptime_us / 1000 # ms
 
     def acquire_frames(
         self,
@@ -105,17 +110,17 @@ class AVTCamera:
 
             if mode == "sync":
                 self._logger.info('Starting synchronous acquisition')
-                self._logger.info(f'Acquiring {n_frames} frames with timeout {timeout} ms')
+                self._logger.info(f'Acquiring {n_frames} frames with timeout {self._base_timeout*self._exptime} ms')
                 if n_frames is not None and n_frames > 1:
                     import copy
 
                     for f in cam.get_frame_generator(
-                        limit=n_frames, timeout_ms=timeout
+                        limit=n_frames, timeout_ms=self._base_timeout*self._exptime*n_frames
                     ):
                         frames.append(copy.deepcopy(f).as_numpy_ndarray().transpose(2, 0, 1))
                 else:
                     frames.append(
-                        cam.get_frame(timeout_ms=timeout)
+                        cam.get_frame(timeout_ms=self._base_timeout*self._exptime)
                         .as_numpy_ndarray()
                         .transpose(2, 0, 1)
                     )
