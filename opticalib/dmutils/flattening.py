@@ -249,18 +249,26 @@ class Flattening:
         save : bool, optional
             Whether to save the computed flat command and related data. Default is True.
         """
+        # if `DM` is not present, register the one provided
         if dm is None:
             if self._dm is None:
                 self._logger.error("Deformable mirror device must be provided either as an argument or during class instantiation.")
                 raise ValueError("Deformable mirror device must be provided either as an argument or during class instantiation.")
             else:
                 dm = self._dm
+        else:
+            self._dm = dm
+        
+        # if `Interf` is not present, register the one provided
         if interf is None:
             if self._interf is None:
                 self._logger.error("Interferometer device must be provided either as an argument or during class instantiation.")
                 raise ValueError("Interferometer device must be provided either as an argument or during class instantiation.")
             else:
                 interf = self._interf
+        else:
+            self._interf = interf
+
         if modes2flat is None:
             modes2flat = dm.nActs
 
