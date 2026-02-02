@@ -55,7 +55,7 @@ def is_tn(string: str) -> bool:
         return False
 
 
-def findTracknum(tn:str , complete_path: bool = False) -> str | list[str]:
+def findTracknum(tn: str, complete_path: bool = False) -> str | list[str]:
     """
     Search for the tracking number given in input within all the data path subfolders.
 
@@ -320,9 +320,7 @@ def read_phasemap(file_path: str) -> _ot.ImageData:
     return image
 
 
-def load_fits(
-    filepath: str, on_gpu: bool = False
-) -> _ot.FitsData:
+def load_fits(filepath: str, on_gpu: bool = False) -> _ot.FitsData:
     """
     Loads a FITS file.
 
@@ -634,16 +632,17 @@ def newtn() -> str:
     """
     return _time.strftime("%Y%m%d_%H%M%S")
 
+
 def create_data_folder(basepath: str = _fn.OPD_IMAGES_ROOT_FOLDER) -> str:
     """
     Creates a new data folder with a unique tracking number in the specified base path.
-    
+
     Parameters
     ----------
     basepath : str, optional
         The base directory where the new tracking number folder will be created.
         Default is the OPTImages root folder.
-    
+
     Returns
     -------
     tn_path : str

@@ -14,6 +14,7 @@ _conf = {
     "y-offset": 0,
 }
 
+
 class Fake4DInterf:
 
     def __init__(self, dm: _t.FakeDeformableMirrorDevice, **kwargs: dict[str, _t.Any]):
@@ -84,8 +85,8 @@ class Fake4DInterf:
             self.shapeRemoval(zernike2remove)
         global _anim
         cmap = kwargs.get("cmap", "gray")
-        
-        self._logger.info('Going Live!')
+
+        self._logger.info("Going Live!")
 
         self._live = True
         self._dm._live = True
@@ -180,7 +181,9 @@ class Fake4DInterf:
         np.array
             Phase map of the interferometer.
         """
-        self._logger.info(f"Acquiring {nframes} surface map(s) with rebin factor {rebin}")
+        self._logger.info(
+            f"Acquiring {nframes} surface map(s) with rebin factor {rebin}"
+        )
         imglist = []
         for _ in range(nframes):
             img = self._dm._shape
@@ -272,7 +275,9 @@ class Fake4DInterf:
         In reality, instead of the fringes, it will show the surface
         shape acquired of the dm.
         """
-        self._logger.info(f"Toggling surface view: now {'on' if not self._surf else 'off'}")
+        self._logger.info(
+            f"Toggling surface view: now {'on' if not self._surf else 'off'}"
+        )
         self._surf = not self._surf
 
     def toggleAcquisitionLiveFreeze(self):
@@ -280,14 +285,18 @@ class Fake4DInterf:
         Freezes the live wavefront when acquiring, to show the
         measured surface.
         """
-        self._logger.info(f"Toggling freeze on acquisition: now {'on' if not self._freeze else 'off'}")
+        self._logger.info(
+            f"Toggling freeze on acquisition: now {'on' if not self._freeze else 'off'}"
+        )
         self._freeze = not self._freeze
 
     def toggleLiveNoise(self):
         """
         Adds noise to the live wavefront.
         """
-        self._logger.info(f"Toggling live noise: now {'on' if not self._noisy else 'off'}")
+        self._logger.info(
+            f"Toggling live noise: now {'on' if not self._noisy else 'off'}"
+        )
         self._noisy = not self._noisy
 
     def live_info(self):

@@ -84,7 +84,9 @@ class AlpaoDm(BaseFakeAlpao):
         Upload the command history to the deformable mirror memory.
         Ready to run the `runCmdHistory` method.
         """
-        self._logger.info(f'Uploading command history of shape {cmdhist.shape} to {self._name}')
+        self._logger.info(
+            f"Uploading command history of shape {cmdhist.shape} to {self._name}"
+        )
         self.cmdHistory = cmdhist
 
     def runCmdHistory(
@@ -120,7 +122,9 @@ class AlpaoDm(BaseFakeAlpao):
             self._logger.error("No Command History found in memory!")
             raise Exception("No Command History to run!")
         else:
-            self._logger.info(f"Running command history of shape {self.cmdHistory.shape}")
+            self._logger.info(
+                f"Running command history of shape {self.cmdHistory.shape}"
+            )
             if all([interf is not None, interf._live is True, interf._surf is False]):
                 interf.toggleSurfaceView()
             tn = osu.newtn() if save is None else save
@@ -245,7 +249,7 @@ class AlpaoDm(BaseFakeAlpao):
             Random shape for the deformable mirror.
         """
         try:
-            self._logger.info(f'Loading base shape for {self._name} from file')
+            self._logger.info(f"Loading base shape for {self._name} from file")
             shape = osu.load_fits(
                 os.path.join(
                     fp.SIMULATED_DM_PATH(self._name, self.nActs), f"baseShape.fits"
@@ -253,7 +257,9 @@ class AlpaoDm(BaseFakeAlpao):
             )
             self._shape = np.ma.masked_array(shape)
         except FileNotFoundError:
-            self._logger.info(f'No base shape file found for {self._name}, generating random shape')
+            self._logger.info(
+                f"No base shape file found for {self._name}, generating random shape"
+            )
             mat = np.eye(self.nActs)
             tx = mat[0]
             ty = mat[1]
@@ -265,7 +271,7 @@ class AlpaoDm(BaseFakeAlpao):
                 + rand(0.005, 0.0005) * f
             )
             self.set_shape(cmd, modal=True)
-            self._logger.info(f'Saving generated base shape for {self._name} to file')
+            self._logger.info(f"Saving generated base shape for {self._name} to file")
             osu.save_fits(
                 os.path.join(
                     fp.SIMULATED_DM_PATH(self._name, self.nActs), f"baseShape.fits"
@@ -341,7 +347,9 @@ class DP(BaseFakeDp):
         Upload the command history to the deformable mirror memory.
         Ready to run the `runCmdHistory` method.
         """
-        self._logger.info(f'Uploading command history of shape {cmdhist.shape} to {self._name}')
+        self._logger.info(
+            f"Uploading command history of shape {cmdhist.shape} to {self._name}"
+        )
         self.cmdHistory = cmdhist
 
     def runCmdHistory(
@@ -379,7 +387,9 @@ class DP(BaseFakeDp):
             self._logger.error("No Command History found in memory!")
             raise Exception("No Command History to run!")
         else:
-            self._logger.info(f"Running command history of shape {self.cmdHistory.shape}")
+            self._logger.info(
+                f"Running command history of shape {self.cmdHistory.shape}"
+            )
             tn = osu.newtn() if save is None else save
             print(f"{tn} - {self.cmdHistory.shape[-1]} images to go.")
             datafold = os.path.join(fp.OPD_IMAGES_ROOT_FOLDER, tn)

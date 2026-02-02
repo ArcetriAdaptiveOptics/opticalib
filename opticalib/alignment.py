@@ -181,7 +181,9 @@ class Alignment:
         self._template = _sc.push_pull_template
         self._correct_cavity = True
         self._dataPath = _fn.ALIGNMENT_ROOT_FOLDER
-        self._txt = _logger.txtLogger(_os.path.join(_fn.LOGGING_ROOT_FOLDER,  "Record.txt"))
+        self._txt = _logger.txtLogger(
+            _os.path.join(_fn.LOGGING_ROOT_FOLDER, "Record.txt")
+        )
         self._logger = _logger.SystemLogger(__class__)
 
     def correct_alignment(
@@ -242,7 +244,7 @@ class Alignment:
         f_cmd = -_np.dot(reduced_cmdMat, reduced_cmd)
         print(f"Resulting Command: {f_cmd}")
         if apply:
-            self._logger.info('Appliying alignment correction command...')
+            self._logger.info("Appliying alignment correction command...")
             print("Applying correction command...")
             self._apply_command(f_cmd)
             print("Alignment Corrected\n")
@@ -389,7 +391,9 @@ class Alignment:
         n_results : CubeData
             The list of produced images.
         """
-        self._logger.info(f"Starting image acquisition: {n_frames} in {template} template")
+        self._logger.info(
+            f"Starting image acquisition: {n_frames} in {template} template"
+        )
         self._logger.info(f"Number of repetitions: {n_repetitions}")
         results = []
         n_results = []
@@ -487,7 +491,7 @@ class Alignment:
             coefflist.append(coeff[self._zvec2use])
         if len(coefflist) == 1:
             coefflist = _np.array([c for c in coefflist[0]])
-        self._logger.info('Creating Interaction Matrix')
+        self._logger.info("Creating Interaction Matrix")
         intMat = _np.array(coefflist).T
         return intMat
 
@@ -664,7 +668,7 @@ class Alignment:
         """
         self._logger.info(f"Starting Push-Pull Reduction Algorithm...")
         template.insert(0, 1)
-        
+
         ## OLD ALGORITHM - TO BE DELETED LATER
         # image = _np.zeros((imglist[0].shape[0], imglist[0].shape[1]))
         # for x in range(1, len(imglist)):
@@ -676,9 +680,9 @@ class Alignment:
         #         master_mask = _np.ma.mask_or(master_mask, mask2add)
         #     image += opd2add
         # image = _np.ma.masked_array(image, mask=master_mask) / 6
-        
+
         image = _ppr(imglist, template, normalization=6)
-        
+
         template.pop(0)
         return image
 
@@ -707,9 +711,7 @@ class Alignment:
             _fn.ALIGN_CALIBRATION_ROOT_FOLDER, calibtn, "InteractionMatrix.fits"
         )
         if not _os.path.exists(filename):
-            self._logger.error(
-                f"Interaction matrix file '{filename}' does not exist."
-            )
+            self._logger.error(f"Interaction matrix file '{filename}' does not exist.")
             raise FileNotFoundError(
                 f"Interaction matrix file '{filename}' does not exist."
             )

@@ -5,6 +5,7 @@ from opticalib.ground.logger import SystemLogger as _SL
 from pipython.pidevice.interfaces.pisocket import PISocket
 from opticalib.core.read_config import getDmConfig, getDmIffConfig as _dmc
 
+
 class BasePetalMirror:
     """
     Base class for controlling a petal mirror device.
@@ -56,7 +57,7 @@ class BasePetalMirror:
     def borderIds(self):
         """Get the IDs of the border segments."""
         return self._borderIds
-    
+
     def get_acc(self) -> float:
         """
         Get the acceleration setting for the piezo actuators.
@@ -70,7 +71,9 @@ class BasePetalMirror:
         try:
             acc = []
             for k, dev in enumerate(self._devices):
-                self._logger.info(f"Getting acceleration from segment {k} : {self._ip_addresses[k]}")
+                self._logger.info(
+                    f"Getting acceleration from segment {k} : {self._ip_addresses[k]}"
+                )
                 accx = dev.qACC()
                 accx = [accx["1"], accx["2"], accx["3"]]
                 acc.extend(accx)
@@ -79,7 +82,7 @@ class BasePetalMirror:
             self._logger.error(f"Error getting acceleration: {err}")
             self._had_error = True
             raise RuntimeError("Failed to get acceleration") from err
-    
+
     # TODO: Is this needed?
     # def set_acc(self, acc: float|_ot.ArrayLike) -> None:
     #     """
@@ -115,7 +118,9 @@ class BasePetalMirror:
         try:
             pos = []
             for k, dev in enumerate(self._devices):
-                self._logger.info(f"Reading position from segment {k} : {self._ip_addresses[k]}")
+                self._logger.info(
+                    f"Reading position from segment {k} : {self._ip_addresses[k]}"
+                )
                 posx = dev.qPOS()
                 posx = [posx["1"], posx["2"], posx["3"]]
                 pos.extend(posx)
@@ -171,7 +176,9 @@ class BasePetalMirror:
         self._check_axes()
         try:
             for k, dev in enumerate(self._devices):
-                self._logger.info(f"Commanding position for segment {k} : {self._ip_addresses[k]}")
+                self._logger.info(
+                    f"Commanding position for segment {k} : {self._ip_addresses[k]}"
+                )
                 segcmd = cmd[k * 3 : k * 3 + 3]
                 odict = {"1": segcmd[0], "2": segcmd[1], "3": segcmd[2]}
                 dev.MOV(odict)
@@ -184,15 +191,17 @@ class BasePetalMirror:
     def _morning_routine(self) -> None:
         """
         On system startup, this will warm up the piezos by moving the piston
-        mode back and forth from `start->mid->end->mid->start` a few times, 
+        mode back and forth from `start->mid->end->mid->start` a few times,
         settling at mid range in the end.
         """
         import time
 
         try:
             for k, dev in enumerate(self._devices):
-                self._logger.info(f"Warming up piezos for segment {k} : {self._ip_addresses[k]}")
-                for c in [0,6,12,6,0,6,12,6,0,6]:
+                self._logger.info(
+                    f"Warming up piezos for segment {k} : {self._ip_addresses[k]}"
+                )
+                for c in [0, 6, 12, 6, 0, 6, 12, 6, 0, 6]:
                     dev.MOV({"1": c})
                     time.sleep(0.25)
                     dev.checkerror()
@@ -200,17 +209,19 @@ class BasePetalMirror:
             self._logger.error(f"Error during warming up: {err}")
             self._had_error = True
             raise RuntimeError("Morning routine failed") from err
-    
+
     def _check_servos(self) -> None:
         """
         Check the servo status of all segments.
-        
+
         If servos are disabled, enable them.
         """
         self._check_axes()
         try:
             for k, dev in enumerate(self._devices):
-                self._logger.info(f"Checking servos for segment {k} : {self._ip_addresses[k]}")
+                self._logger.info(
+                    f"Checking servos for segment {k} : {self._ip_addresses[k]}"
+                )
                 status = dev.qSVO()
                 self._logger.info(f"Servo status for segment {k}: {status}")
                 if all(value == 0 for value in status.values()):
@@ -221,17 +232,17 @@ class BasePetalMirror:
             self._logger.error(f"Error checking/enabling servos: {err}")
             self._had_error = True
             raise RuntimeError("Failed to check/enable servos") from err
-    
+
     def _check_axes(self) -> None:
         """
         Check the axis status of all segments.
-        
+
         If any axis is disabled, enable it.
         """
         if self._had_error:
             self._logger.warning("Previous error detected, enabling axes")
             self._enable_axes()
-    
+
     def _enable_axes(self) -> None:
         """
         Enable axes.
@@ -252,12 +263,16 @@ class BasePetalMirror:
                             dev.checkerror()
                 except (AttributeError, GCSError) as err:
                     # Fallback for GCS2.x
-                    self._logger.info(f"EAX/qEAX not supported ({err}); falling back to SVO")
+                    self._logger.info(
+                        f"EAX/qEAX not supported ({err}); falling back to SVO"
+                    )
                     status = dev.qSVO()
                     self._logger.info(f"         Servo status (SVO): {status}")
                     to_enable = {ax: 1 for ax, val in status.items() if val == 0}
                     if to_enable:
-                        self._logger.info(f"         Enabling servos via SVO: {to_enable}")
+                        self._logger.info(
+                            f"         Enabling servos via SVO: {to_enable}"
+                        )
                         dev.SVO(to_enable)
                         dev.checkerror()
         except GCSError as err:

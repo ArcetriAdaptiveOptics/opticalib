@@ -116,7 +116,7 @@ class _ModeFitter(ABC):
         mat : MatrixLike
             Fitting matrix for the specified modes.
         """
-        self._logger.info('Getting fitting matrix for modes: ' + str(modes))
+        self._logger.info("Getting fitting matrix for modes: " + str(modes))
         return _np.vstack(
             [self._get_mode_from_generator(zmode)[mask] for zmode in modes]
         )
@@ -167,7 +167,7 @@ class _ModeFitter(ABC):
         method : str, optional
             Method used by the `CircularMask.fromMaskedArray` function. Default is 'COG'.
         """
-        self._logger.info('Creating Fitting Mask')
+        self._logger.info("Creating Fitting Mask")
         import warnings
 
         with warnings.catch_warnings():
@@ -214,14 +214,14 @@ class _ModeFitter(ABC):
             Modes matrix.
         """
         image = self._make_sure_on_cpu(image)
-        self._logger.info('Fitting image with modal decomposition')
+        self._logger.info("Fitting image with modal decomposition")
 
         # FIXME: now handles the case of mgen is available, but
         # need to rethink how it works when no mask is available
         with self._temporary_mgen_from_image(image) as (_, _):
             mask = image.mask == 0
             mat = self._create_fitting_matrix(mode_index_vector, mask)
-            self._logger.info('Solving least squares for fitting coefficients')
+            self._logger.info("Solving least squares for fitting coefficients")
             A = mat.T
             B = _np.transpose(image.compressed())
             coeffs = _np.linalg.lstsq(A, B, rcond=None)[0]
@@ -262,9 +262,9 @@ class _ModeFitter(ABC):
             raise ValueError("mode must be 'global' or 'local'")
         roiimg = _roi.roiGenerator(image)
         nroi = len(roiimg)
-        self._logger.info(f'Fitting modes {modes2fit} on image\'s ROIs with mode {mode}')
+        self._logger.info(f"Fitting modes {modes2fit} on image's ROIs with mode {mode}")
         print("Found " + str(nroi) + " ROI")
-        self._logger.info(f'Found {nroi} ROIs to fit')
+        self._logger.info(f"Found {nroi} ROIs to fit")
         coeff = _np.zeros([nroi, len(modes2fit)])
         for i in range(nroi):
             img2fit = _np.ma.masked_array(image.data, mask=roiimg[i])
@@ -279,7 +279,7 @@ class _ModeFitter(ABC):
         modes_indices: list[int],
         image: _t.ImageData = None,
         mode: str = "full-aperture",
-        **kwargs: dict[str, _t.Any]
+        **kwargs: dict[str, _t.Any],
     ) -> _t.ImageData:
         """
         Generate a modal surface map, from:
@@ -292,19 +292,19 @@ class _ModeFitter(ABC):
         modes_indices : list[int], optional
             List of modes indices. Defaults to [1].
         image : ImageData, optional
-            Image to fit to retrieve the modal coefficients needed for the 
+            Image to fit to retrieve the modal coefficients needed for the
             surface to compute. If no image is provided, a surface defined in the
             `fitting` pupil (`auxmask`) normalized at 1 is generated.
 
-            If both `image` and the additional argument `coeffs` are provided, 
-            the latter will be used instead of fitting the image, while the image 
+            If both `image` and the additional argument `coeffs` are provided,
+            the latter will be used instead of fitting the image, while the image
             is interpreted as the mask where the surface is defined.
 
-            If also the `mat` argument is provided, it will be used as fitting 
-            matrix instead of computing it from the image, leaving the `image` 
+            If also the `mat` argument is provided, it will be used as fitting
+            matrix instead of computing it from the image, leaving the `image`
             argument not needed.
         mode : str, optional
-            If more than one ROI is detected, it's the mode of ROI fitting. 
+            If more than one ROI is detected, it's the mode of ROI fitting.
             Options are:
             - `full-aperture` : generate the surface on the full aperture pupil (as if no ROIs were present)
             - `global` : will be created a surface from the mean of the modal coefficients of each fitted ROI
@@ -330,11 +330,13 @@ class _ModeFitter(ABC):
         coeffs = kwargs.get("coeffs", None)
         mat = kwargs.get("mat", None)
         k_rois = kwargs.get("rois", None)
-        
-        self._logger.info(f'Generating modal surface for modes {modes_indices} with mode {mode}')
+
+        self._logger.info(
+            f"Generating modal surface for modes {modes_indices} with mode {mode}"
+        )
 
         if image is None and self._mgen is None:
-            self._logger.error('No image or fitting mask available to generate surface')
+            self._logger.error("No image or fitting mask available to generate surface")
             raise ValueError(
                 "Either an image must be provided or a fitting mask must be set."
             )
@@ -470,17 +472,17 @@ class _ModeFitter(ABC):
         new_ima : ImageData
             Filtered image.
         """
-        self._logger.info(f'Removing modes {mode_index_vector} from image')
+        self._logger.info(f"Removing modes {mode_index_vector} from image")
         image = self._make_sure_on_cpu(image)
         surf = self.makeSurface(mode_index_vector, image, mode=mode)
-        self._logger.info('Subtraction...')
+        self._logger.info("Subtraction...")
         return _np.ma.masked_array((image - surf).data, mask=image.mask)
 
     @_contextmanager
     def no_mask(self):
         """
         Context manager to temporarily clear the fitting mask and Zernike generator.
-        
+
         This is usefull when the Fitter is instanced with a fitting mask, and,
         for any reason, some fitting operations are to be done without using it.
 
@@ -495,18 +497,18 @@ class _ModeFitter(ABC):
             coeffs, mat = zfitter.fit(image, modes)
         ```
         """
-        self._logger.warning('Entering the `no mask` context...')
+        self._logger.warning("Entering the `no mask` context...")
         prev_fit_mask = self._fit_mask
         prev_mgen = self._mgen
         prev_auxmask = self.auxmask.copy()
         try:
-            self._logger.info('Temporarily removing fitting mask and modal generator')
+            self._logger.info("Temporarily removing fitting mask and modal generator")
             self._fit_mask = None
             self._mgen = None
             self.auxmask = None
             yield self
         finally:
-            self._logger.info('Restoring previous fitting mask and modal generator')
+            self._logger.info("Restoring previous fitting mask and modal generator")
             self._fit_mask = prev_fit_mask
             self._mgen = prev_mgen
             self.auxmask = prev_auxmask
@@ -515,9 +517,9 @@ class _ModeFitter(ABC):
     def temporary_fit_mask(self, fit_mask: _t.MaskData):
         """
         Context manager to temporarily set a fitting mask.
-        
+
         This is effectively the opposite of the `no_mask` context manager.
-        
+
         Within the context, ``self._fit_mask``, ``self._zgen`` and ``self.auxmask``
         are set to the provided `fit_mask`. On exit, the previous values are restored.
 
@@ -527,17 +529,17 @@ class _ModeFitter(ABC):
             Mask to be used for fitting.
 
         """
-        self._logger.warning('Entering the `temporary fit mask` context')
+        self._logger.warning("Entering the `temporary fit mask` context")
         prev_fit_mask = self._fit_mask
         prev_mgen = self._mgen
         prev_auxmask = self.auxmask.copy() if not self.auxmask is None else None
         try:
-            self._logger.info('Temporarily setting a new fitting mask')
+            self._logger.info("Temporarily setting a new fitting mask")
             if prev_fit_mask is None:
                 self.setFitMask(fit_mask)
             yield
         finally:
-            self._logger.info('Restoring previous fitting mask')
+            self._logger.info("Restoring previous fitting mask")
             self._fit_mask = prev_fit_mask
             self._mgen = prev_mgen
             self.auxmask = prev_auxmask
@@ -556,15 +558,17 @@ class _ModeFitter(ABC):
         Yields
         ------
         tuple
-            (modified_image, was_temporary), where was_temporary indicates if a 
+            (modified_image, was_temporary), where was_temporary indicates if a
             temporary generator was created
         """
         prev_mgen = self._mgen
         was_temporary = False
-        self._logger.warning('Entering the `temporary modal generator from image` context')
+        self._logger.warning(
+            "Entering the `temporary modal generator from image` context"
+        )
 
         try:
-            self._logger.info('Creating temporary modal generator from image if needed')
+            self._logger.info("Creating temporary modal generator from image if needed")
             if self._mgen is None:
                 self._mgen = self._create_fit_mask_from_img(image)
                 was_temporary = True
@@ -573,7 +577,7 @@ class _ModeFitter(ABC):
             )
             yield image, was_temporary
         finally:
-            self._logger.info('Restoring previous modal generator if it was temporary')
+            self._logger.info("Restoring previous modal generator if it was temporary")
             if was_temporary:
                 self._mgen = prev_mgen
 
@@ -586,7 +590,7 @@ class _ModeFitter(ABC):
         fit_mask : CircularMask
             Default fitting mask.
         """
-        self._logger.info('Creating fitting mask from image')
+        self._logger.info("Creating fitting mask from image")
         if not isinstance(image, _np.ma.masked_array):
             try:
                 image = _np.ma.masked_array(image, mask=image == 0)
@@ -700,7 +704,7 @@ class ZernikeFitter(_ModeFitter):
         mode_image : ImageData
             The Zernike mode image corresponding to the given index.
         """
-        self._logger.info(f'Getting mode {mode_index} from generator')
+        self._logger.info(f"Getting mode {mode_index} from generator")
         return self._mgen.getZernike(mode_index).copy()
 
 
@@ -760,7 +764,7 @@ class KLFitter(_ModeFitter):
         mode_image : ImageData
             The mode image corresponding to the given index.
         """
-        self._logger.info(f'Getting mode {mode_index} from generator')
+        self._logger.info(f"Getting mode {mode_index} from generator")
         return self._mgen.getKL(mode_index)
 
 
@@ -827,5 +831,5 @@ class RBFitter(_ModeFitter):
         mode_image : ImageData
             The mode image corresponding to the given index.
         """
-        self._logger.info(f'Getting mode {mode_index} from generator')
+        self._logger.info(f"Getting mode {mode_index} from generator")
         return self._mgen.getRBF(mode_index)

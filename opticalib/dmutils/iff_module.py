@@ -90,7 +90,9 @@ def iffDataAcquisition(
                 try:
                     interf.setTriggerMode(True)
                 except Exception as e:
-                    interf._logger.error(f"Could not enable triggered mode on the interferometer.\nError: {e}")
+                    interf._logger.error(
+                        f"Could not enable triggered mode on the interferometer.\nError: {e}"
+                    )
                     pass
                 dm.runCmdHistory(interf, save=tn, differential=differential)
             saveBufferData(dm, tn)

@@ -20,7 +20,7 @@ class AVTCamera:
         self._name = name
         self._cam_config = _gcc(device_name=self._name)
         self._logger = _sl()
-        self._base_timeout = 2000 # milliseconds, time for accessing the camera
+        self._base_timeout = 2000  # milliseconds, time for accessing the camera
 
         # retrieve device ID or IP
         try:
@@ -40,7 +40,7 @@ class AVTCamera:
             raise RuntimeError(
                 f"Could not connect to camera {self._name} with ID {self.cam_id}."
             ) from e
-        
+
         self._logger = _sl(__class__)
         self._exptime = None
 
@@ -57,7 +57,7 @@ class AVTCamera:
             with self._prepare_camera() as cam:
                 exptimeFeat = cam.get_feature_by_name("ExposureTimeAbs")
                 exposure_time = exptimeFeat.get()
-            self._exptime = exposure_time / 1000 # ms
+            self._exptime = exposure_time / 1000  # ms
         return self._exptime
 
     def set_exptime(self, exptime_us: float):
@@ -70,10 +70,10 @@ class AVTCamera:
             The exposure time in micro-seconds.
         """
         with self._prepare_camera() as cam:
-            self._logger.info('Setting exposure time to {} us'.format(exptime_us))
+            self._logger.info("Setting exposure time to {} us".format(exptime_us))
             exptimeFeat = cam.get_feature_by_name("ExposureTimeAbs")
             exptimeFeat.set(exptime_us)
-        self._exptime = exptime_us / 1000 # ms
+        self._exptime = exptime_us / 1000  # ms
 
     def acquire_frames(
         self,
@@ -94,7 +94,7 @@ class AVTCamera:
         multiframe_out_mode : str
             The output mode for multiple frames. Can be 'cube' to return a cube of frames,
             or 'mean' to return the mean frame.
-            
+
             Defaults to `mean`
         timeout : int
             The timeout in milliseconds.
@@ -109,29 +109,34 @@ class AVTCamera:
         with self._prepare_camera() as cam:
 
             if mode == "sync":
-                self._logger.info('Starting synchronous acquisition')
-                self._logger.info(f'Acquiring {n_frames} frames with timeout {self._base_timeout*self._exptime} ms')
+                self._logger.info("Starting synchronous acquisition")
+                self._logger.info(
+                    f"Acquiring {n_frames} frames with timeout {self._base_timeout*self._exptime} ms"
+                )
                 if n_frames is not None and n_frames > 1:
                     import copy
 
                     for f in cam.get_frame_generator(
-                        limit=n_frames, timeout_ms=self._base_timeout*self._exptime*n_frames
+                        limit=n_frames,
+                        timeout_ms=self._base_timeout * self._exptime * n_frames,
                     ):
-                        frames.append(copy.deepcopy(f).as_numpy_ndarray().transpose(2, 0, 1))
+                        frames.append(
+                            copy.deepcopy(f).as_numpy_ndarray().transpose(2, 0, 1)
+                        )
                 else:
                     frames.append(
-                        cam.get_frame(timeout_ms=self._base_timeout*self._exptime)
+                        cam.get_frame(timeout_ms=self._base_timeout * self._exptime)
                         .as_numpy_ndarray()
                         .transpose(2, 0, 1)
                     )
 
             elif mode == "async":
                 import time
-                
+
                 exposure_time = cam.get_feature_by_name("ExposureTimeAbs").get()
 
-                self._logger.info('Starting asynchronous acquisition')
-                self._logger.info(f'Acquiring frames until Enter is pressed')
+                self._logger.info("Starting asynchronous acquisition")
+                self._logger.info(f"Acquiring frames until Enter is pressed")
                 aframes = []
 
                 def frame_handler(
@@ -161,7 +166,7 @@ class AVTCamera:
                 frames = [f.as_numpy_ndarray().transpose(2, 0, 1) for f in aframes]
 
             else:
-                self._logger.error('Invalid acquisition mode specified')
+                self._logger.error("Invalid acquisition mode specified")
                 raise ValueError("Invalid mode. Choose either 'sync' or 'async'.")
 
         # Remove first dimension, since it's 1
@@ -170,10 +175,10 @@ class AVTCamera:
             frames = frames[0]
         else:
             from ..analyzer import createCube as _cC
-            
+
             frames = _cC(frames)
-            
-            if multiframe_out_mode == 'mean':
+
+            if multiframe_out_mode == "mean":
                 from numpy.ma import mean
 
                 frames = mean(frames, axis=2)
@@ -185,7 +190,7 @@ class AVTCamera:
         """
         Context manager to prepare the camera for use.
         """
-        self._logger.info('Retrieving camera instance')
+        self._logger.info("Retrieving camera instance")
         with _vmbpy.VmbSystem.get_instance():
             with self._get_camera() as cam:
                 # Try to adjust GeV packet size. This Feature is only available for GigE - Cameras.
@@ -197,7 +202,7 @@ class AVTCamera:
 
                 except (AttributeError, _vmbpy.VmbFeatureError):
                     pass
-                self._logger.info('Camera instance ready')
+                self._logger.info("Camera instance ready")
                 yield cam
 
     def _get_camera(self):
@@ -209,7 +214,7 @@ class AVTCamera:
         cam : vmbpy.Camera
             The camera object.
         """
-        self._logger.info(f'Getting camera with ID: {self.cam_id}')
+        self._logger.info(f"Getting camera with ID: {self.cam_id}")
         with _vmbpy.VmbSystem.get_instance() as vimba:
             return vimba.get_camera_by_id(self.cam_id)
 

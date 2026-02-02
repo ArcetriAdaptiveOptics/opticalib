@@ -22,6 +22,7 @@ _folds = _fn.folders
 _confReader = _fn.ConfSettingReader4D
 _OPDIMG = _folds.OPD_IMAGES_ROOT_FOLDER
 
+
 class _4DInterferometer(_api.BaseInterferometer):
     """
     Class for the 4D Laser Interferometer.
@@ -199,7 +200,9 @@ class _4DInterferometer(_api.BaseInterferometer):
             self._logger.warning("Triggered mode disabled.")
             print("Triggered mode disabled")
 
-    def saveConfiguration(self, newConfigurationPath: str, filename: str|None = None) -> None:
+    def saveConfiguration(
+        self, newConfigurationPath: str, filename: str | None = None
+    ) -> None:
         """
         Saves the current configuration of the interferometer to a file.
 
@@ -226,7 +229,9 @@ class _4DInterferometer(_api.BaseInterferometer):
         self._i4d.loadConfiguration(conffile)
         self._logger.info(f"Configuration file '{conffile}' loaded.")
 
-    def copy4DSettings(self, destination: str, copied_name: str = 'AppSettings.ini') -> None:
+    def copy4DSettings(
+        self, destination: str, copied_name: str = "AppSettings.ini"
+    ) -> None:
         """
         Copies the interferometer settings file to the specified destination.
         """

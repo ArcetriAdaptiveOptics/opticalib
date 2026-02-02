@@ -52,6 +52,7 @@ from ..ground.logger import SystemLogger as _SL
 
 _ts = _osu.newtn
 
+
 class Flattening:
     """
     Class for computing and applying flattening commands to deformable mirrors.
@@ -96,7 +97,12 @@ class Flattening:
         >>> f.applyFlatCommand(dm, interf, modes2flat=10)
     """
 
-    def __init__(self, tn: str, dm: _ot.Optional[_ot.DeformableMirrorDevice] = None, interf: _ot.Optional[_ot.InterferometerDevice] = None) -> None:
+    def __init__(
+        self,
+        tn: str,
+        dm: _ot.Optional[_ot.DeformableMirrorDevice] = None,
+        interf: _ot.Optional[_ot.InterferometerDevice] = None,
+    ) -> None:
         """The Constructor"""
         self.tn = tn
         self._oldtn = tn
@@ -153,12 +159,14 @@ class Flattening:
         """
         return self._rec._analysisMask
 
-    def closedLoopFlattening(self, iterations: int | None = None, **kwargs: dict[str,_ot.Any]) -> None:
+    def closedLoopFlattening(
+        self, iterations: int | None = None, **kwargs: dict[str, _ot.Any]
+    ) -> None:
         """
-        Computes, applies and saves the computed flat command to the DM in 
+        Computes, applies and saves the computed flat command to the DM in
         closed loop, until an input to stop is provided.
 
-        The parameters are the same of 
+        The parameters are the same of
 
         Parameters
         ----------
@@ -179,7 +187,9 @@ class Flattening:
                 Number of frames to average for phasemap acquisition. Default is 5.
         """
         if iterations is not None:
-            self._logger.info(f"Starting closed-loop flattening for {iterations} iterations.")
+            self._logger.info(
+                f"Starting closed-loop flattening for {iterations} iterations."
+            )
             for _ in range(iterations):
                 self.applyFlatCommand(**kwargs)
         else:
@@ -209,7 +219,9 @@ class Flattening:
                         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
 
             stop_event = threading.Event()
-            listener_thread = threading.Thread(target=_listen_for_keypress, args=(stop_event,), daemon=True)
+            listener_thread = threading.Thread(
+                target=_listen_for_keypress, args=(stop_event,), daemon=True
+            )
             listener_thread.start()
 
             iteration = 0
@@ -231,7 +243,7 @@ class Flattening:
         **setshape_kwargs: dict[str, _ot.Any],
     ) -> None:
         """
-        Computes, applies and (optionally) saves the computed flat command to 
+        Computes, applies and (optionally) saves the computed flat command to
         the DM, given the calibration's TN.
 
         Parameters
@@ -252,18 +264,26 @@ class Flattening:
         # if `DM` is not present, register the one provided
         if dm is None:
             if self._dm is None:
-                self._logger.error("Deformable mirror device must be provided either as an argument or during class instantiation.")
-                raise ValueError("Deformable mirror device must be provided either as an argument or during class instantiation.")
+                self._logger.error(
+                    "Deformable mirror device must be provided either as an argument or during class instantiation."
+                )
+                raise ValueError(
+                    "Deformable mirror device must be provided either as an argument or during class instantiation."
+                )
             else:
                 dm = self._dm
         else:
             self._dm = dm
-        
+
         # if `Interf` is not present, register the one provided
         if interf is None:
             if self._interf is None:
-                self._logger.error("Interferometer device must be provided either as an argument or during class instantiation.")
-                raise ValueError("Interferometer device must be provided either as an argument or during class instantiation.")
+                self._logger.error(
+                    "Interferometer device must be provided either as an argument or during class instantiation."
+                )
+                raise ValueError(
+                    "Interferometer device must be provided either as an argument or during class instantiation."
+                )
             else:
                 interf = self._interf
         else:
@@ -282,21 +302,21 @@ class Flattening:
 
         # handle diverse DM set_shape args
         _ = setshape_kwargs.pop("differential", None)
-        self._logger.info(f'Applying flat command to the {dm._name}')
+        self._logger.info(f"Applying flat command to the {dm._name}")
         dm.set_shape(deltacmd, differential=True, **setshape_kwargs)
 
         self._lastFlatImg = interf.acquire_map(nframes, rebin=self.rebin)
-        
+
         if save:
             header = {}
             header["CALDATA"] = (self.tn, "calibration data used")
             header["MODFLAT"] = (
                 str(modes2flat) if not isinstance(modes2flat, int) else int(modes2flat),
-                "modes used for flattening"
+                "modes used for flattening",
             )
             header["MDISCAR"] = (
-                0 if modes2discard is None else modes2discard, 
-                "modes discarded in reconstructor"
+                0 if modes2discard is None else modes2discard,
+                "modes discarded in reconstructor",
             )
             header["DMNAME"] = (dm._name, "deformable mirror name")
             header["INTERF"] = (interf._name, "interferometer used")
@@ -335,7 +355,9 @@ class Flattening:
                 _scmd[i] = _cmd[mode]
             flat_cmd = _cmdMat @ _scmd
         else:
-            self._logger.error(f"`n_modes` must be either an int or a list of int: {type(n_modes)}")
+            self._logger.error(
+                f"`n_modes` must be either an int or a list of int: {type(n_modes)}"
+            )
             raise TypeError(
                 f"`n_modes` must be either an int or a list of int: {type(n_modes)}"
             )
@@ -466,15 +488,17 @@ class Flattening:
         """
         self.__update_tn(tn)
         self._reloadClass(tn)
-    
-    def saveFlatData(self, cmd: _ot.ArrayLike, header: _ot.Header | dict[str,_ot.Any]) -> str:
+
+    def saveFlatData(
+        self, cmd: _ot.ArrayLike, header: _ot.Header | dict[str, _ot.Any]
+    ) -> str:
         """
         Saves flattening data information:
         - Starting Surface Map
         - Flattened Surface Map
         - Flat Command
         - Delta Command
-        
+
         Parameters
         ----------
         cmd : ArrayLike
@@ -497,7 +521,7 @@ class Flattening:
         imgflat = self._lastFlatImg.copy()
         deltacmd = self.flatCmd.copy()
         data = [cmd, deltacmd, imgstart, imgflat]
-        if hasattr(self._dm, 'get_force'):
+        if hasattr(self._dm, "get_force"):
             # Could compute as FF x deltaCmd, but better to save actual forces
             force = self._dm.get_force()
             files.append("flatTotalForces.fits")
@@ -506,7 +530,6 @@ class Flattening:
         for file, dat in zip(files, data):
             _osu.save_fits(_os.path.join(path, file), dat, header=header)
         return path
-
 
     def _reloadClass(self, tn: str) -> None:
         """
@@ -569,7 +592,9 @@ class Flattening:
         roll = (xcm - xci, ycm - yci)
         img = _np.roll(img, roll, axis=(0, 1))
         if self.filteredModes is not None:
-            self._logger.info("Removing Zernike modes from the image to match the loaded calibration...")
+            self._logger.info(
+                "Removing Zernike modes from the image to match the loaded calibration..."
+            )
             from opticalib.ground.modal_decomposer import ZernikeFitter
 
             zfit = ZernikeFitter(cubemask)

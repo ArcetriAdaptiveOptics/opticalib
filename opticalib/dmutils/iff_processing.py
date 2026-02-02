@@ -148,6 +148,7 @@ def process(
     if save:
         saveCube(tn, rebin=rebin, register=dx)
 
+
 # TODO: Choose a good name
 def cubeRoiProcessing(
     tn: str,
@@ -155,7 +156,7 @@ def cubeRoiProcessing(
     detrend: bool = False,
     roinull: bool = False,
     rebin: int = 1,
-    fitting_mask: _ot.MaskData = None
+    fitting_mask: _ot.MaskData = None,
 ) -> str:
     """
     This function groups together some image manipulations in presence of
@@ -186,15 +187,11 @@ def cubeRoiProcessing(
     newtn = _osu.newtn()
     load_path = _os.path.join(_fn.INTMAT_ROOT_FOLDER, tn)
 
-    cube = _osu.load_fits(
-        _os.path.join(load_path, "IMCube.fits"), True
-    ).transpose(2, 0, 1)
-    mat = _osu.load_fits(
-        _os.path.join(load_path, "cmdMatrix.fits")
+    cube = _osu.load_fits(_os.path.join(load_path, "IMCube.fits"), True).transpose(
+        2, 0, 1
     )
-    modesvec = _osu.load_fits(
-        _os.path.join(load_path, "modesVector.fits")
-    )
+    mat = _osu.load_fits(_os.path.join(load_path, "cmdMatrix.fits"))
+    modesvec = _osu.load_fits(_os.path.join(load_path, "modesVector.fits"))
 
     nframes = cube.shape[0]
     zfitter = _zern.ZernikeFitter(_cmm(cube) if fitting_mask is None else fitting_mask)
@@ -239,17 +236,14 @@ def cubeRoiProcessing(
     if not _os.path.exists(save_path):
         _os.makedirs(save_path)
 
-    _osu.save_fits(
-        _os.path.join(save_path, "IMCube.fits"), newcube, overwrite=True
-    )
-    _osu.save_fits(
-        _os.path.join(save_path, "cmdMatrix.fits"), mat, overwrite=True
-    )
+    _osu.save_fits(_os.path.join(save_path, "IMCube.fits"), newcube, overwrite=True)
+    _osu.save_fits(_os.path.join(save_path, "cmdMatrix.fits"), mat, overwrite=True)
     _osu.save_fits(
         _os.path.join(save_path, "modesVector.fits"), modesvec, overwrite=True
     )
-    
+
     return newtn
+
 
 def saveCube(
     tn: str,
@@ -334,11 +328,11 @@ def stackCubes(tnlist: str, cubeNames: _ot.Optional[list[str]] = None) -> None:
     stacked_cube_fold = _os.path.join(_intMatFold, new_tn)
     _os.mkdir(stacked_cube_fold)
     cube_parameters = _getCubeList(tnlist, cubeNames)
-    flag = _checkStackedCubes(tnlist)['Flag']['Cube type']
+    flag = _checkStackedCubes(tnlist)["Flag"]["Cube type"]
     # Stacking the cube and the matrices
     # Convert FitsMaskedArrayGpu to regular masked arrays for dstack
     cube_list = [
-        cube.asmarray() if hasattr(cube, 'asmarray') else cube
+        cube.asmarray() if hasattr(cube, "asmarray") else cube
         for cube in cube_parameters[0]
     ]
     stacked_cube = _np.ma.dstack(cube_list)

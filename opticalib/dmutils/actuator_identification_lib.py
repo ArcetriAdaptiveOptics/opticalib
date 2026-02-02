@@ -5,6 +5,7 @@ from opticalib.ground import geometry as _geo
 
 center_act = 313
 
+
 def findFrameCoord(imglist, actlist, actcoord):
     """
     returns the position of given actuators from a list of frames
@@ -26,12 +27,12 @@ def findActuator(image: _ot.ImageData) -> _np.ndarray:
     """
     Finds the coordinates of an actuator, given the image with the Influence
     Function masked around the actuators.
-    
+
     Parameters
     ----------
     image: _ot.ImageData
         Image where the actuator is to be searched
-        
+
     Return
     -------
     pos: np.ndarray
@@ -45,14 +46,14 @@ def findActuator(image: _ot.ImageData) -> _np.ndarray:
 def extractPeak(img: _ot.ImageData, radius: int) -> _ot.ImageData:
     """
     Extract a circular area around the peak in the image
-    
+
     Parameters
     ----------
     img: ImageData
         Input image
     radius: int
         Radius of the circular area to extract
-        
+
     Returns
     -------
     imgout: ImageData
@@ -73,6 +74,7 @@ def marker_general_remap(cghf, ottf, pos2t):
     cghf_tra = _np.transpose(_np.dot(_np.transpose(base_cgh), _np.transpose(polycoeff)))
     return cghf_tra
 
+
 def fit_trasformation_parameter(cghf, ottf, forder=10):
     """
     Fits the transformation parameters between cghf and ottf coordinates.
@@ -91,9 +93,9 @@ def fit_trasformation_parameter(cghf, ottf, forder=10):
     polycoeff: np.ndarray
         Coefficients of the polynomial transformation
     """
-    
+
     import scipy.linalg as sl
-    
+
     base_cgh = _expandbase(cghf[0, :], cghf[1, :], forder=forder)
     base_ott = _expandbase(ottf[0, :], ottf[1, :], forder=forder)
 
@@ -101,10 +103,11 @@ def fit_trasformation_parameter(cghf, ottf, forder=10):
     polycoeff = _np.matmul(base_ott, base_cgh_plus)
     return polycoeff
 
+
 def _expandbase(cx: _ot.ArrayLike, cy: _ot.ArrayLike, forder: int = 10):
     """
     Expands the base functions for polynomial fitting of given order.
-    
+
     Parameters
     ----------
     cx: ArrayLike
@@ -113,7 +116,7 @@ def _expandbase(cx: _ot.ArrayLike, cy: _ot.ArrayLike, forder: int = 10):
         y-coordinates
     forder: int, optional
         Order of the polynomial fit (default is 10)
-        
+
     Returns
     -------
     zz: ArrayLike

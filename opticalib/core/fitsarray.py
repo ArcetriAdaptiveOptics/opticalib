@@ -157,6 +157,7 @@ class FitsMaskedArray(_np.ma.MaskedArray):
 
         return load_fits(filename)
 
+
 class FitsArrayGpu(_xp.ndarray):
     """
     Cupy ndarray subclass that keeps a FITS header alongside the numeric data.

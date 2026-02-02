@@ -230,7 +230,9 @@ class TestFlattening:
 
         # Properly configure mock_dm with required attributes
         mock_dm._name = "TestDM"
-        mock_dm.get_shape.return_value = np.zeros(sample_image.shape)
+        mock_dm.nActs = 100
+        mock_dm.get_force.return_value = np.ones(mock_dm.nActs)
+        mock_dm.get_shape.return_value = np.zeros(mock_dm.nActs)
         mock_dm.set_shape.return_value = None
 
         # Setup mock interferometer

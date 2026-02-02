@@ -22,6 +22,7 @@ from opticalib.core.root import OPD_IMAGES_ROOT_FOLDER as _opdi
 from opticalib.ground.osutils import newtn as _ts, save_fits as _sf
 from opticalib.ground.logger import SystemLogger as _SL
 
+
 class PetalMirror(_api.BasePetalMirror, _api.base_devices.BaseDeformableMirror):
     """
     Petal Deformable Mirror interface.
@@ -68,12 +69,14 @@ class PetalMirror(_api.BasePetalMirror, _api.base_devices.BaseDeformableMirror):
             The command history to be uploaded, of shape (nActs, nmodes).
         """
         if not _ot.isinstance_(tcmdhist, "MatrixLike"):
-            self._logger.error(f"MatrixError: Expecting a 2D Matrix of shape (nActs, nmodes), got instead: {tcmdhist.shape}")
+            self._logger.error(
+                f"MatrixError: Expecting a 2D Matrix of shape (nActs, nmodes), got instead: {tcmdhist.shape}"
+            )
             raise _oe.MatrixError(
                 f"Expecting a 2D Matrix of shape (nActs, nmodes), got instead: {tcmdhist.shape}"
             )
         self.cmdHistory = tcmdhist
-        self._logger.info(f'Loaded Timed command history of shape {tcmdhist.shape}')
+        self._logger.info(f"Loaded Timed command history of shape {tcmdhist.shape}")
 
     def runCmdHistory(
         self,
@@ -94,7 +97,7 @@ class PetalMirror(_api.BasePetalMirror, _api.base_devices.BaseDeformableMirror):
             If provided, the data will be saved in a folder with this name, instead of a freshly
             generated timestamp.
         """
-        self._logger.info('Starting to run the command history')
+        self._logger.info("Starting to run the command history")
 
         iff_config = _dmc()
 

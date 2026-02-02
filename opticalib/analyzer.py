@@ -29,6 +29,7 @@ from scipy import stats as _stats, fft as _fft, ndimage as _ndimage
 
 _OPDSER = _foldname.OPD_SERIES_ROOT_FOLDER
 
+
 def averageFrames(
     tn: str,
     first: int = 0,
@@ -234,7 +235,7 @@ def runningDiff(
     idx1 = idx0 + 1
     svec = _np.empty(npoints)
     diff_vec = []
-    for i in trange(npoints, total=npoints, ncols=88, unit=' diffs'):
+    for i in trange(npoints, total=npoints, ncols=88, unit=" diffs"):
         diff = frame(idx1[i], llist) - frame(idx0[i], llist)
         if remove_zernikes:
             old_stdout = _sys.stdout
@@ -246,6 +247,7 @@ def runningDiff(
     if stds_out:
         return diff_vec, svec
     return diff_vec
+
 
 def frame(idx: int, mylist: list[_ot.ImageData] | _ot.CubeData) -> _ot.ImageData:
     """
@@ -381,10 +383,10 @@ def timevec(tn: str) -> _ot.ArrayLike:
         timevector = range(nfile) * tspace
     elif "OPDSeries" in fold:
         # Assuming files named as 'YYYYMMDD_HHMMSS.fits'
-        flist = osu.getFileList(tn, key='20')
+        flist = osu.getFileList(tn, key="20")
         timevector = []
         for f in flist:
-            tni = (f.split("/")[-1]).replace('.fits', '')
+            tni = (f.split("/")[-1]).replace(".fits", "")
             jdi = track2jd(tni)
             timevector.append(jdi)
         timevector = _np.array(timevector)
@@ -868,7 +870,9 @@ def createCube(fl_or_il: list[str], register: bool = False):
             cube = _np.dstack(fl_or_il)
             return cube
         except Exception as e:
-            raise TypeError("filelist must be either a list of strings or ImageData") from e
+            raise TypeError(
+                "filelist must be either a list of strings or ImageData"
+            ) from e
 
     if register:
         print("Registration Not implemented yet!")

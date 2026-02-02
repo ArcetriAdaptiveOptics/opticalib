@@ -40,6 +40,7 @@ Reconstructor: TypeAlias = Union["ComputeReconstructor", None]
 
 Number: TypeAlias = Union[int, float, complex]
 
+
 @runtime_checkable
 class _MatrixProtocol(Protocol):
     def shape(self) -> tuple[int, int]: ...
@@ -52,6 +53,7 @@ class _ImageDataProtocol(_MatrixProtocol, Protocol):
     def mask(self) -> ArrayLike: ...
     def __array__(self) -> ArrayLike: ...
 
+
 class _FitsArrayProtocol(_MatrixProtocol, Protocol):
     def writeto(
         self,
@@ -63,9 +65,11 @@ class _FitsArrayProtocol(_MatrixProtocol, Protocol):
         cls,
         filename: str,
     ) -> Any: ...
-    
+
+
 class _FitsMaskedArrayProtocol(_FitsArrayProtocol, Protocol):
     def mask(self) -> ArrayLike: ...
+
 
 @runtime_checkable
 class _CubeProtocol(Protocol):
@@ -81,6 +85,7 @@ MaskData = TypeVar("MaskData", bound=_MatrixProtocol)
 ImageData = TypeVar("ImageData", bound=_ImageDataProtocol)
 CubeData = TypeVar("CubeData", bound=_CubeProtocol)
 FitsData = TypeVar("FitsData", _FitsArrayProtocol, _FitsMaskedArrayProtocol)
+
 
 @runtime_checkable
 class _InterfProtocol(Protocol):
