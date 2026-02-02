@@ -96,16 +96,24 @@ class Flattening:
         >>> f.applyFlatCommand(dm, interf, modes2flat=10)
     """
 
-    def __init__(self, tn: str):
+    def __init__(self, tn: str, dm: _ot.Optional[_ot.DeformableMirrorDevice] = None, interf: _ot.Optional[_ot.InterferometerDevice] = None) -> None:
         """The Constructor"""
         self.tn = tn
-        self.shape2flat = None
+        self._oldtn = tn
+
+        self._dm = dm
+        self._interf = interf
+        self._logger = _SL(__class__)
+
+        self._path = _os.path.join(_ifp._intMatFold, self.tn)
+
+        ## Flat related attributes
+        self.shape2flat: _ot.ImageData = None
         self.flatCmd = None
         self.rebin = None
         self.filtered = False
         self.filteredModes = None
-        self._path = _os.path.join(_ifp._intMatFold, self.tn)
-        self._oldtn = tn
+        self._lastFlatImg: _ot.ImageData = None
         self._intCube = self._loadIntCube()
         self._cmdMat = self._loadCmdMat()
         self._rec = self._loadReconstructor()
@@ -116,8 +124,6 @@ class Flattening:
         # self._synthFlat = None
         # self._flatResidue = None
         # self._flatteningModes = None
-        self._logger = _SL(__class__)
-        
 
     @property
     def RM(self) -> _ot.MatrixLike:
@@ -177,36 +183,89 @@ class Flattening:
             for _ in range(iterations):
                 self.applyFlatCommand(**kwargs)
         else:
-            raise NotImplementedError('e che ce vo')
+            import sys
+            import threading
+            import msvcrt
+            import tty
+            import termios
 
+            def _listen_for_keypress(stop_event):
+                """Listen for any keypress to stop the loop."""
+                try:
+                    # Windows alternative
+                    while not stop_event.is_set():
+                        if msvcrt.kbhit():
+                            stop_event.set()
+                except ImportError:
+                    # Unix/Linux alternative
+                    fd = sys.stdin.fileno()
+                    old_settings = termios.tcgetattr(fd)
+                    try:
+                        tty.setraw(fd)
+                        while not stop_event.is_set():
+                            if sys.stdin.read(1):
+                                stop_event.set()
+                    finally:
+                        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+
+            stop_event = threading.Event()
+            listener_thread = threading.Thread(target=_listen_for_keypress, args=(stop_event,), daemon=True)
+            listener_thread.start()
+
+            iteration = 0
+            while not stop_event.is_set():
+                self._logger.info(f"Closed-loop flattening iteration {iteration}")
+                self.applyFlatCommand(**kwargs)
+                iteration += 1
+
+            self._logger.info("Closed-loop flattening stopped by user.")
 
     def applyFlatCommand(
         self,
-        dm: _ot.DeformableMirrorDevice,
-        interf: _ot.InterferometerDevice,
-        modes2flat: int | _ot.ArrayLike,
+        dm: _ot.Optional[_ot.DeformableMirrorDevice] = None,
+        interf: _ot.Optional[_ot.InterferometerDevice] = None,
+        modes2flat: _ot.Optional[int | _ot.ArrayLike] = None,
         modes2discard: _ot.Optional[int] = None,
         nframes: int = 5,
+        save: bool = True,
         **setshape_kwargs: dict[str, _ot.Any],
     ) -> None:
         f"""
-        Computes, applies and saves the computed flat command to the DM, given
+        Computes, applies and (optionally) saves the computed flat command to the DM, given
         the {self.tn} calibration.
 
         Parameters
         ----------
-        dm : DeformableMirrorDevice
+        dm : DeformableMirrorDevice, optional
             Deformable mirror object.
-        interf : InterferometerDevice
+        interf : InterferometerDevice, optional
             Interferometer object to acquire phasemaps.
-        modes2flat : int | ArrayLike
+        modes2flat : int | ArrayLike, optional
             Modes to flatten.
         modes2discard : int, optional
             Number of modes to discard when computing the reconstruction matrix. Default is 3.
         nframes : int, optional
             Number of frames to average for phasemap acquisition. Default is 5.
+        save : bool, optional
+            Whether to save the computed flat command and related data. Default is True.
         """
-        new_tn = _ts()
+        if dm is None:
+            if self._dm is None:
+                self._logger.error("Deformable mirror device must be provided either as an argument or during class instantiation.")
+                raise ValueError("Deformable mirror device must be provided either as an argument or during class instantiation.")
+            else:
+                dm = self._dm
+        if interf is None:
+            if self._interf is None:
+                self._logger.error("Interferometer device must be provided either as an argument or during class instantiation.")
+                raise ValueError("Interferometer device must be provided either as an argument or during class instantiation.")
+            else:
+                interf = self._interf
+        if modes2flat is None:
+            modes2flat = dm.nActs
+
+        self._logger.info("Acquiring starting image from interferometer...")
+
         imgstart = interf.acquire_map(nframes, rebin=self.rebin)
         self.loadImage2Shape(imgstart)
         self.computeRecMat(modes2discard)
@@ -218,27 +277,24 @@ class Flattening:
         self._logger.info(f'Applying flat command to the {dm._name}')
         dm.set_shape(deltacmd, differential=True, **setshape_kwargs)
 
-        imgflat = interf.acquire_map(nframes, rebin=self.rebin)
-        files = [
-            "flatCommand.fits",
-            "flatDeltaCommand.fits",
-            "imgstart.fits",
-            "imgflat.fits",
-        ]
-        data = [cmd, deltacmd, imgstart, imgflat]
-        fold = _os.path.join(_fn.FLAT_ROOT_FOLDER, new_tn)
-        header = {}
-        header["CALDATA"] = (self.tn, "calibration data used")
-        header["MODFLAT"] = (str(modes2flat), "modes used for flattening")
-        header["MDISCAR"] = (modes2discard, "modes discarded in reconstructor")
-        header["DMNAME"] = (dm._name, "deformable mirror name")
-        header["INTERF"] = (interf._name, "interferometer used")
-        if not _os.path.exists(fold):
-            _os.mkdir(fold)
-        for f, d in zip(files, data):
-            path = _os.path.join(fold, f)
-            _osu.save_fits(path, d, header=header)
-        print(f"Flat command saved in .../{'/'.join(fold.split('/')[-2:])}")
+        self._lastFlatImg = interf.acquire_map(nframes, rebin=self.rebin)
+        
+        if save:
+            header = {}
+            header["CALDATA"] = (self.tn, "calibration data used")
+            header["MODFLAT"] = (
+                str(modes2flat) if not isinstance(modes2flat, int) else int(modes2flat),
+                "modes used for flattening"
+            )
+            header["MDISCAR"] = (
+                0 if modes2discard is None else modes2discard, 
+                "modes discarded in reconstructor"
+            )
+            header["DMNAME"] = (dm._name, "deformable mirror name")
+            header["INTERF"] = (interf._name, "interferometer used")
+            fold = self.saveFlatData(cmd, header)
+            print(f"Flat command saved in .../{'/'.join(fold.split('/')[-2:])}")
+
         self._logger.info(f"Flat command and images saved in {fold}.")
 
     def computeFlatCmd(self, n_modes: int | _ot.ArrayLike) -> _ot.ArrayLike:
@@ -402,6 +458,47 @@ class Flattening:
         """
         self.__update_tn(tn)
         self._reloadClass(tn)
+    
+    def saveFlatData(self, cmd: _ot.ArrayLike, header: _ot.Header | dict[str,_ot.Any]) -> str:
+        """
+        Saves flattening data information:
+        - Starting Surface Map
+        - Flattened Surface Map
+        - Flat Command
+        - Delta Command
+        
+        Parameters
+        ----------
+        cmd : ArrayLike
+            Starting surface command.
+        header : Header | dict
+            Header information to save with the data.
+
+        Returns
+        -------
+        path : str
+            Path where the data have been saved.
+        """
+        files = [
+            "flatCommand.fits",
+            "flatDeltaCommand.fits",
+            "imgstart.fits",
+            "imgflat.fits",
+        ]
+        imgstart = self.shape2flat.copy()
+        imgflat = self._lastFlatImg.copy()
+        deltacmd = self.flatCmd.copy()
+        data = [cmd, deltacmd, imgstart, imgflat]
+        if hasattr(self._dm, 'get_force'):
+            # Could compute as FF x deltaCmd, but better to save actual forces
+            force = self._dm.get_force()
+            files.append("flatTotalForces.fits")
+            data.append(force)
+        path = _osu.create_data_folder(_fn.FLAT_ROOT_FOLDER)
+        for file, dat in zip(files, data):
+            _osu.save_fits(_os.path.join(path, file), dat, header=header)
+        return path
+
 
     def _reloadClass(self, tn: str) -> None:
         """

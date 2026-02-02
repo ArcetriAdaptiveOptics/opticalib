@@ -374,15 +374,17 @@ def timevec(tn: str) -> _ot.ArrayLike:
 
     """
     fold = osu.findTracknum(tn)
-    flist = osu.getFileList(tn)
-    nfile = len(flist)
     if "OPDImages" in fold:
+        flist = osu.getFileList(tn)
+        nfile = len(flist)
         tspace = 1.0 / 28.57  # TODO: hardcoded!!
         timevector = range(nfile) * tspace
     elif "OPDSeries" in fold:
+        # Assuming files named as 'YYYYMMDD_HHMMSS.fits'
+        flist = osu.getFileList(tn, key='20')
         timevector = []
         for f in flist:
-            tni = f.split("/")[-2]
+            tni = (f.split("/")[-1]).replace('.fits', '')
             jdi = track2jd(tni)
             timevector.append(jdi)
         timevector = _np.array(timevector)
