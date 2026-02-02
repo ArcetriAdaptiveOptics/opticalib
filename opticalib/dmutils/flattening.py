@@ -230,9 +230,9 @@ class Flattening:
         save: bool = True,
         **setshape_kwargs: dict[str, _ot.Any],
     ) -> None:
-        f"""
-        Computes, applies and (optionally) saves the computed flat command to the DM, given
-        the {self.tn} calibration.
+        """
+        Computes, applies and (optionally) saves the computed flat command to 
+        the DM, given the calibration's TN.
 
         Parameters
         ----------
