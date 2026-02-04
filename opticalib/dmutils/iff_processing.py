@@ -193,7 +193,6 @@ def cubeRoiProcessing(
     mat = _osu.load_fits(_os.path.join(load_path, "cmdMatrix.fits"))
     modesvec = _osu.load_fits(_os.path.join(load_path, "modesVector.fits"))
 
-    nframes = cube.shape[0]
     zfitter = _zern.ZernikeFitter(_cmm(cube) if fitting_mask is None else fitting_mask)
 
     # Main Loop over cube images
@@ -205,23 +204,32 @@ def cubeRoiProcessing(
         # TODO: the tilt detrend loop
         if detrend:
             for r in auxRois:
-                r2rImage = _np.ma.masked_array(v, mask=r)
-                surf2Remove = zfitter.makeSurface([1, 2, 3], r2rImage)
-                s2rmean = surf2Remove.mean()
-                surf2Remove.data[activeRoi == 0] = 0
-                surf2Remove.mask[activeRoi == 0] = False
+                r2rImage = _np.ma.masked_array(v.copy(), mask=r)
 
-                v -= surf2Remove
-                v -= s2rmean
+                ## WRONG
+                # surf2Remove = zfitter.makeSurface([1, 2, 3], r2rImage)
+                # s2rmean = surf2Remove.mean()
+                # surf2Remove.data[activeRoi == 0] = 0
+                # surf2Remove.mask[activeRoi == 0] = False
+
+                coeffs, _ = zfitter.fit(r2rImage, [1,2,3])
+                _, mat = zfitter.fit(v, [1,2,3])
+                surf2remove = zfitter.makeSurface([1,2,3], v, coeffs=coeffs, mat=mat)
+
+                activeShellImg = v[activeRoi == 0]
+                mean2remove = activeShellImg.mean()
+
+                v -= surf2remove
+                v -= mean2remove
 
         # Setting to zero the non active ROIs
         if roinull:
-            v[activeRoi == 1] = 0
+            v[activeRoi == 1].data = 0
 
         newcube.append(v)
 
     # Creating, rebinning and saving the new cube
-    newcube = _fa.fits_array(_np.ma.masked_array(newcube))
+    newcube = _fa.fits_array(_np.ma.dstack(newcube))
     newcube.header = cube.header.copy()
 
     if rebin < cube.header.get("REBIN", 1):
