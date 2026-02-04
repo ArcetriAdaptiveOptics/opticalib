@@ -193,7 +193,7 @@ def cubeRoiProcessing(
     mat = _osu.load_fits(_os.path.join(load_path, "cmdMatrix.fits"))
     modesvec = _osu.load_fits(_os.path.join(load_path, "modesVector.fits"))
 
-    zfitter = _zern.ZernikeFitter(_cmm(cube) if fitting_mask is None else fitting_mask)
+    zfitter = _zern.ZernikeFitter() # _cmm(cube) if fitting_mask is None else fitting_mask)
 
     # Main Loop over cube images
     newcube = []
@@ -224,7 +224,7 @@ def cubeRoiProcessing(
 
         # Setting to zero the non active ROIs
         if roinull:
-            v[activeRoi == 1].data = 0
+            v.data[activeRoi == 1] = 0
 
         newcube.append(v)
 
