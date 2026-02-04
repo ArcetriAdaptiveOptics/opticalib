@@ -187,10 +187,10 @@ def cubeRoiProcessing(
     newtn = _osu.newtn()
     load_path = _os.path.join(_fn.INTMAT_ROOT_FOLDER, tn)
 
-    cube = _osu.load_fits(_os.path.join(load_path, "IMCube.fits"), True).transpose(
+    cube = _osu.load_fits(_os.path.join(load_path, "IMCube.fits")).transpose(
         2, 0, 1
     )
-    mat = _osu.load_fits(_os.path.join(load_path, "cmdMatrix.fits"))
+    cmdmat = _osu.load_fits(_os.path.join(load_path, "cmdMatrix.fits"))
     modesvec = _osu.load_fits(_os.path.join(load_path, "modesVector.fits"))
 
     zfitter = _zern.ZernikeFitter() # _cmm(cube) if fitting_mask is None else fitting_mask)
@@ -213,8 +213,8 @@ def cubeRoiProcessing(
                 # surf2Remove.mask[activeRoi == 0] = False
 
                 coeffs, _ = zfitter.fit(r2rImage, [1,2,3])
-                _, mat = zfitter.fit(v, [1,2,3])
-                surf2remove = zfitter.makeSurface([1,2,3], v, coeffs=coeffs, mat=mat)
+                _, matrix = zfitter.fit(v, [1,2,3])
+                surf2remove = zfitter.makeSurface([1,2,3], v, coeffs=coeffs, mat=matrix)
 
                 activeShellImg = v[activeRoi == 0]
                 mean2remove = activeShellImg.mean()
@@ -245,7 +245,7 @@ def cubeRoiProcessing(
         _os.makedirs(save_path)
 
     _osu.save_fits(_os.path.join(save_path, "IMCube.fits"), newcube, overwrite=True)
-    _osu.save_fits(_os.path.join(save_path, "cmdMatrix.fits"), mat, overwrite=True)
+    _osu.save_fits(_os.path.join(save_path, "cmdMatrix.fits"), cmdmat, overwrite=True)
     _osu.save_fits(
         _os.path.join(save_path, "modesVector.fits"), modesvec, overwrite=True
     )
@@ -775,7 +775,7 @@ def _getCubeList(
         cube_name = _os.path.join(fold, cname)
         matrix_name = _os.path.join(fold, "cmdMatrix.fits")
         modesVec_name = _os.path.join(fold, "modesVector.fits")
-        cube = _osu.load_fits(cube_name, True)
+        cube = _osu.load_fits(cube_name)
         cubeList.append(cube)
         matrixList.append(_osu.load_fits(matrix_name))
         modesVectList.append(_osu.load_fits(modesVec_name))
