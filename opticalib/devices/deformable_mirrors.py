@@ -331,7 +331,10 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
             nframes = self.cmdHistory.shape[-1]
             self._aoClient.timeHistoryRun(freq, 0, tdelay)
             if interf is not None:
+                interf.setTriggerMode(True)
+                print('Setting the interferometer in TRIGGERED mode')
                 interf.capture(nframes - 2, save)
+                interf.setTriggerMode(False)
             self.set_shape(ins)
             self._logger.info("Command history execution completed")
         else:
