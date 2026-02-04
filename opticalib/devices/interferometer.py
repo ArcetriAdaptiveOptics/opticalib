@@ -11,6 +11,7 @@ import os as _os
 import numpy as _np
 import time as _time
 import shutil as _sh
+import subprocess as _sb
 from . import _API as _api
 from opticalib import typings as _ot
 from opticalib.core import root as _fn
@@ -156,12 +157,14 @@ class _4DInterferometer(_api.BaseInterferometer):
         self._logger.info(
             f"Capturing {numberOfFrames} frames into folder '{folder_name}'."
         )
+        fold4d = _os.path.join(_folds.CAPTURE_FOLDER_NAME_4D_PC, folder_name)
         self._i4d.burstFramesToSpecificDirectory(
-            _os.path.join(_folds.CAPTURE_FOLDER_NAME_4D_PC, folder_name), numberOfFrames
+            fold4d, numberOfFrames
         )
+        self._i4d.saveConfiguration(fold4d)
         return folder_name
 
-    def produce(self, tn: str | list[str]) -> None:
+    def produce(self, tn: str | list[str], load_interf_config: str|None = None) -> None:
         """
         Parameters
         ----------
@@ -171,17 +174,47 @@ class _4DInterferometer(_api.BaseInterferometer):
         if not isinstance(tn, list):
             tn = [tn]
         for t in tn:
+            if load_interf_config is not None:
+                self.loadConfiguration(load_interf_config)
             self._logger.info(f"Producing measurements in TN = {t}.")
+            produce4d = _os.path.join(_folds.PRODUCE_FOLDER_NAME_4D_PC, t)
+            capture4d = _os.path.join(_folds.CAPTURE_FOLDER_NAME_4D_PC, t)
+            capture_local = _os.path.join(_folds.CAPTURE_FOLDER_NAME_LOCAL_PC, t)
+            produce_local = _os.path.join(_folds.PRODUCE_FOLDER_NAME_LOCAL_PC, t)
+            dest_data_fold = _os.path.join(_folds.OPD_IMAGES_ROOT_FOLDER, t)
             self._i4d.convertRawFramesInDirectoryToMeasurementsInDestinationDirectory(
-                _os.path.join(_folds.PRODUCE_FOLDER_NAME_4D_PC, t),
-                _os.path.join(_folds.CAPTURE_FOLDER_NAME_4D_PC, t),
+                produce4d,
+                capture4d,
             )
-            _sh.move(
-                _os.path.join(_folds.PRODUCE_FOLDER_NAME_LOCAL_PC, t),
-                _folds.OPD_IMAGES_ROOT_FOLDER,
-            )
+            ## prova con RSYNC
+            #_sb.run(['rsync', '-r', '4dlocalpath', 'destinationpath'])
+            ##
+            _sh.move(produce_local, _folds.OPD_IMAGES_ROOT_FOLDER)
             self._rename4D(t)
+            try:
+                _sh.move(
+                    _os.path.join(capture_local, 'InterfConfiguration.4Dini'),
+                    dest_data_fold
+                )
+            except Exception as e:
+                print(e)
             self.copy4DSettings(t)
+    
+    from contextlib import contextmanager
+    @contextmanager
+    def triggered(self):
+        """
+        Context handler for entering triggered mode. 
+
+        On enter, set the interferometer to triggered, while on exit returns to
+        triggered false
+        """
+        try:
+            self.setTriggerMode(True)
+            yield
+        finally:
+            self.setTriggerMode(False)
+    del contextmanager
 
     def setTriggerMode(self, enable: bool) -> None:
         """
@@ -226,6 +259,8 @@ class _4DInterferometer(_api.BaseInterferometer):
         conffile: str
             name of the configuration file to load
         """
+        if not conffile.endswith('.4Dini'):
+            conffile = _os.path.join(conffile, 'InterfConfiguration.4Dini')
         self._i4d.loadConfiguration(conffile)
         self._logger.info(f"Configuration file '{conffile}' loaded.")
 

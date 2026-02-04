@@ -74,11 +74,13 @@ def _updateInterfPaths(paths: dict[str, str]) -> None:
     global CAPTURE_FOLDER_NAME_4D_PC
     global PRODUCE_FOLDER_NAME_4D_PC
     global PRODUCE_FOLDER_NAME_LOCAL_PC
+    global CAPTURE_FOLDER_NAME_LOCAL_PC
     SETTINGS_CONF_FILE = paths["settings"]
     COPIED_SETTINGS_CONF_FILE = paths["copied_settings"]
     CAPTURE_FOLDER_NAME_4D_PC = paths["capture_4dpc"]
     PRODUCE_FOLDER_NAME_4D_PC = paths["produce_4dpc"]
     PRODUCE_FOLDER_NAME_LOCAL_PC = paths["produce"]
+    CAPTURE_FOLDER_NAME_LOCAL_PC = paths['capture']
 
 
 def create_configuration_file(path: str = "", data_path: str | bool = False) -> None:
@@ -238,6 +240,7 @@ COPIED_SETTINGS_CONF_FILE: str = None
 CAPTURE_FOLDER_NAME_4D_PC: str = None
 PRODUCE_FOLDER_NAME_4D_PC: str = None
 PRODUCE_FOLDER_NAME_LOCAL_PC: str = None
+CAPTURE_FOLDER_NAME_LOCAL_PC: str = None
 
 
 ###############################################################################
@@ -270,6 +273,7 @@ class _folds:
         self.CAPTURE_FOLDER_NAME_4D_PC = CAPTURE_FOLDER_NAME_4D_PC
         self.PRODUCE_FOLDER_NAME_4D_PC = PRODUCE_FOLDER_NAME_4D_PC
         self.PRODUCE_FOLDER_NAME_LOCAL_PC = PRODUCE_FOLDER_NAME_LOCAL_PC
+        self.CAPTURE_FOLDER_NAME_LOCAL_PC = CAPTURE_FOLDER_NAME_LOCAL_PC
 
     @property
     def print_all(self):
@@ -289,11 +293,13 @@ class _folds:
         global CAPTURE_FOLDER_NAME_4D_PC
         global PRODUCE_FOLDER_NAME_4D_PC
         global PRODUCE_FOLDER_NAME_LOCAL_PC
+        global CAPTURE_FOLDER_NAME_LOCAL_PC
         self.SETTINGS_CONF_FILE = SETTINGS_CONF_FILE
         self.COPIED_SETTINGS_CONF_FILE = COPIED_SETTINGS_CONF_FILE
         self.CAPTURE_FOLDER_NAME_4D_PC = CAPTURE_FOLDER_NAME_4D_PC
         self.PRODUCE_FOLDER_NAME_4D_PC = PRODUCE_FOLDER_NAME_4D_PC
         self.PRODUCE_FOLDER_NAME_LOCAL_PC = PRODUCE_FOLDER_NAME_LOCAL_PC
+        self.CAPTURE_FOLDER_NAME_LOCAL_PC = CAPTURE_FOLDER_NAME_LOCAL_PC
 
 
 folders = _folds()

@@ -582,7 +582,7 @@ class Alignment:
                 try:
                     logMsg += f"Commanding {cmd} to {dev}\n"
                     fnc(cmd.vect)
-                    _logger.log(f"{fnc.__qualname__} : {cmd.vect}")
+                    self._logger.info(f"{cmd.vect}")
                 except Exception as e:
                     print(e)
         logMsg += "-" * 30

@@ -23,6 +23,7 @@ DEVICES:
         capture_4dpc: 
         produce_4dpc: 
         produce: 
+        capture: 
     AccuFizX:
       ip: 
       port: 
@@ -32,6 +33,7 @@ DEVICES:
         capture_4dpc: 
         produce_4dpc: 
         produce: 
+        capture: 
     4DProcesser1:
       ip: 
       port:
@@ -41,6 +43,7 @@ DEVICES:
         capture_4dpc: 
         produce_4dpc: 
         produce: 
+        capture: 
   DEFORMABLE.MIRRORS:
     AlpaoXXX:
       ip:
