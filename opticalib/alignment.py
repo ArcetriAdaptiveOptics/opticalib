@@ -290,6 +290,7 @@ class Alignment:
         4. Executes a Zernike routine on the image list to generate an internal matrix.
         5. Optionally saves the internal matrix to a FITS file.
         """
+        tn = self._calibtn
         self._correct_cavity = False
         self._logger.info(f"{self.calibrate_alignment.__qualname__}")
         self._logger.info("Starting calibration.")
@@ -297,11 +298,10 @@ class Alignment:
         self._logger.info(f"Cavity correction: False")
         self._cmdAmp = cmdAmp
         template = template if template is not None else self._template
-        imglist = self._images_production(template, n_frames, n_repetitions)
+        imglist = self._images_production(template, n_frames, n_repetitions, tn)
         intMat = self._zern_routine(imglist)
         self.intMat = intMat.copy()
         if save:
-            tn = self._calibtn
             path = _os.path.join(_fn.ALIGN_CALIBRATION_ROOT_FOLDER, tn)
             if not _os.path.exists(path):
                 _os.mkdir(path)
@@ -372,7 +372,7 @@ class Alignment:
         print(f"Calibration loaded from '{tn}'")
 
     def _images_production(
-        self, template: _ot.ArrayLike | list[int], n_frames: int, n_repetitions: int
+        self, template: _ot.ArrayLike | list[int], n_frames: int, n_repetitions: int, tn: str = None
     ) -> _ot.CubeData:
         """
         Acquire images based on the provided template and number of repetitions.
@@ -413,6 +413,7 @@ class Alignment:
                 )  # TODO: 6 -> sum of template weights?
                 template.pop(0)
                 results.append(image)
+                _sfits(_os.path.join(self._dataPath, tn), image)
             if n_repetitions != 1:
                 n_results.append(results)
             else:

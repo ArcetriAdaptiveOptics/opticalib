@@ -198,8 +198,7 @@ def cubeRoiProcessing(
 
     # Main Loop over cube images
     newcube = []
-    for i in range(nframes):
-        v = cube[i]
+    for v in cube:
         auxRois = _roi.roiGenerator(v)
         activeRoi = auxRois.pop(activeRoiID)
 
@@ -228,7 +227,8 @@ def cubeRoiProcessing(
     if rebin < cube.header.get("REBIN", 1):
         raise ValueError("Rebin factor must be >= original cube rebin factor")
     elif not rebin == cube.header.get("REBIN", 1):
-        newcube = _cr(newcube.transpose(1, 2, 0), rebin)
+        # newcube = _np.transpose(newcube, (1,2,0))
+        newcube = _cr(newcube, rebin)
         newcube.header["REBIN"] = rebin
 
     save_path = _os.path.join(_fn.INTMAT_ROOT_FOLDER, newtn)
