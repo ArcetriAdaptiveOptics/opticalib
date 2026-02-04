@@ -73,7 +73,7 @@ class AVTCamera:
             self._logger.info("Setting exposure time to {} us".format(exptime_us))
             exptimeFeat = cam.get_feature_by_name("ExposureTimeAbs")
             exptimeFeat.set(exptime_us)
-        self._exptime = exptime_us / 1000  # ms
+        self._exptime = int(exptime_us / 1000) # ms
 
     def acquire_frames(
         self,
