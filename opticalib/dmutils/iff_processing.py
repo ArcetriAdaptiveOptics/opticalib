@@ -232,7 +232,7 @@ def cubeRoiProcessing(
     newcube = _fa.fits_array(_np.ma.dstack(newcube))
     newcube.header = cube.header.copy()
 
-    if rebin < cube.header.get("REBIN", 1):
+    if rebin > 1 and rebin < cube.header.get("REBIN", 1):
         raise ValueError("Rebin factor must be >= original cube rebin factor")
     elif not rebin == cube.header.get("REBIN", 1):
         # newcube = _np.transpose(newcube, (1,2,0))
