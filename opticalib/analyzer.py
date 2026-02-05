@@ -1000,10 +1000,15 @@ def cubeRebinner(
     newCube : ndarray
         Rebinned cube.
     """
+    if hasattr(cube, 'header'):
+        header = cube.header.copy()
+    else:
+        header = {}
+    
     newCube = []
     for i in range(cube.shape[-1]):
         newCube.append(modeRebinner(cube[:, :, i], rebin, method=method))
-    return _np.ma.dstack(newCube)
+    return _fa.fits_array(_np.ma.dstack(newCube), header=header)
 
 
 # From ARTE #
