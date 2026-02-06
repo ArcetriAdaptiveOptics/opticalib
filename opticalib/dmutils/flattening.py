@@ -415,7 +415,7 @@ class Flattening:
         """
         return self._rec._intMat_U, self._rec._intMat_S, self._rec._intMat_Vt
 
-    def plotEigenvalues(self, **plotkwargs) -> None:
+    def plotEigenvalues(self, **plotkwargs: dict[str,_ot.Any]) -> None:
         """
         Plots the eigenvalues of the interaction matrix.
         """
@@ -423,15 +423,21 @@ class Flattening:
 
         if self._rec._intMat_S is None:
             raise ValueError("Reconstruction matrix not computed yet.")
+
+        xlim = plotkwargs.pop('xlim', None)
+        ylim = plotkwargs.pop('ylim', None)
+
         plt.figure()
         plt.semilogy(self._rec._intMat_S, "o-", **plotkwargs)
         plt.title("Eigenvalues of the interaction matrix")
         plt.xlabel("Mode number")
         plt.ylabel("Eigenvalue")
+        plt.xlim(xlim)
+        plt.ylim(ylim)
         plt.grid()
         plt.show()
 
-    def plotEigenvectors(self, modeid: int, **imshowkwargs):
+    def plotEigenvectors(self, modeid: int, **imshowkwargs: dict[str,_ot.Any]) -> None:
         """
         Plots the eigenvectors of the SVD of the interaction matrix.
 
@@ -443,6 +449,9 @@ class Flattening:
             All the arguments that can go to the `plt.imshow` function.
         """
         import matplotlib.pyplot as plt
+
+        if self._rec._intMat_Vt is None:
+            raise ValueError("Reconstruction matrix not computed yet.")
 
         mask = self._getMasterMask()
         img = _np.ma.masked_array(mask*0., mask=mask)

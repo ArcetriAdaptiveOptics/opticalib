@@ -155,7 +155,6 @@ def cubeRoiProcessing(
     activeRoiID: int,
     detrend: bool = False,
     roinull: bool = False,
-    rebin: int = 1,
     fitting_mask: _ot.MaskData = None,
 ) -> str:
     """
@@ -176,8 +175,8 @@ def cubeRoiProcessing(
         rois as reference.
     roinull: bool, optional
         If True, set to zero the pixels outside the activeRoi.
-    rebin: int, optional
-        Rebin factor for the final cube.
+    fitting_mask: MaskData, optional
+        Mask to be used for the fitting of the detrend surface. Default is None.
 
     Returns
     -------
@@ -229,15 +228,7 @@ def cubeRoiProcessing(
         newcube.append(v)
 
     # Creating, rebinning and saving the new cube
-    newcube = _fa.fits_array(_np.ma.dstack(newcube))
-    newcube.header = cube.header.copy()
-
-    if rebin > 1 and rebin < cube.header.get("REBIN", 1):
-        raise ValueError("Rebin factor must be >= original cube rebin factor")
-    elif not rebin == cube.header.get("REBIN", 1):
-        # newcube = _np.transpose(newcube, (1,2,0))
-        newcube = _cr(newcube, rebin)
-        newcube.header["REBIN"] = rebin
+    newcube = _fa.fits_array(_np.ma.dstack(newcube), header=cube.header.copy())
 
     save_path = _os.path.join(_fn.INTMAT_ROOT_FOLDER, newtn)
 
