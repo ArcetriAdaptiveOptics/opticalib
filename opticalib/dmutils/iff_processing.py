@@ -227,7 +227,6 @@ def cubeRoiProcessing(
 
         newcube.append(v)
 
-    # Creating, rebinning and saving the new cube
     newcube = _fa.fits_array(_np.ma.dstack(newcube), header=cube.header.copy())
 
     save_path = _os.path.join(_fn.INTMAT_ROOT_FOLDER, newtn)
