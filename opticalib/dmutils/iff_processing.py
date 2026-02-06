@@ -354,6 +354,7 @@ def stackCubes(tnlist: str, cubeNames: _ot.Optional[list[str]] = None) -> None:
 def filterZernikeCube(
     tn: str,
     zern_modes: _ot.Optional[list[int]] = None,
+    mode: str = 'global',
     save: bool = True,
 ) -> tuple[_ot.CubeData, str]:
     """
@@ -368,6 +369,8 @@ def filterZernikeCube(
         (piston, tip and tilt).
     save : bool, optional
         If True, the filtered cube will be saved to disk. The default is True.
+    mode : str, optional
+        Mode for Zernike removal. The default is 'global'.
 
     Returns
     -------
@@ -383,7 +386,7 @@ def filterZernikeCube(
     zern_modes = zern_modes if zern_modes is not None else [1, 2, 3]
     from opticalib.analyzer import removeZernikeFromCube
 
-    ffcube = removeZernikeFromCube(cube, zern_modes)
+    ffcube = removeZernikeFromCube(cube, zern_modes, mode=mode)
     # TODO: Problem with master mask... is it the data?
     # ffcube.mask = _roi.cubeMasterMask(ffcube)
 

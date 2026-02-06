@@ -883,7 +883,7 @@ def createCube(fl_or_il: list[str], register: bool = False):
 
 
 def removeZernikeFromCube(
-    cube: _ot.CubeData, zmodes: _ot.ArrayLike = None
+    cube: _ot.CubeData, zmodes: _ot.ArrayLike = None, mode='global'
 ) -> _ot.CubeData:
     """
     Removes Zernike modes from each frame in a cube of images.
@@ -894,6 +894,8 @@ def removeZernikeFromCube(
         Data cube containing the images/frames stacked.
     zmodes : ndarray, optional
         Zernike modes to remove. If None, the first 3 modes are removed.
+    mode : str, optional
+        Mode of Zernike removal, either 'global' or 'local'. The default is 'global'.
 
     Returns
     -------
@@ -918,7 +920,7 @@ def removeZernikeFromCube(
         unit="image",
         ncols=80,
     ):
-        newCube[:, :, i] = zfit.removeZernike(cube[:, :, i], zmodes)
+        newCube[:, :, i] = zfit.removeZernike(cube[:, :, i], zmodes, mode=mode)
     return newCube
 
 

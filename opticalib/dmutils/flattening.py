@@ -472,7 +472,7 @@ class Flattening:
         plt.show()
 
     def filterIntCube(
-        self, zernModes: _ot.Optional[list[int] | _ot.ArrayLike] = None
+        self, zernModes: _ot.Optional[list[int] | _ot.ArrayLike] = None, mode: str = 'global'
     ) -> "Flattening":
         """
         Filter the interaction cube with the given zernike modes
@@ -511,7 +511,7 @@ class Flattening:
                 self._oldCube = self._intCube.copy()
                 zern2fit = zernModes if zernModes is not None else [1, 2, 3]
                 self._logger.info(f"Filtering cube of zernike modes {zern2fit}...")
-                self._intCube, new_tn = _ifp.filterZernikeCube(self.tn, zern2fit)
+                self._intCube, new_tn = _ifp.filterZernikeCube(self.tn, zern2fit, mode=mode)
                 self.loadNewTn(new_tn)
                 self.filtered = True
                 self.filteredModes = zern2fit
