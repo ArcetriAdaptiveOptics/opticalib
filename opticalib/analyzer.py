@@ -867,7 +867,7 @@ def createCube(fl_or_il: list[str], register: bool = False):
     # finally check if it is a list of ImageData
     elif not all([_ot.isinstance_(item, "ImageData") for item in fl_or_il]):
         try:
-            cube = _np.dstack(fl_or_il)
+            cube = _fa.fits_array(_np.ma.dstack(fl_or_il))
             return cube
         except Exception as e:
             raise TypeError(
@@ -877,7 +877,7 @@ def createCube(fl_or_il: list[str], register: bool = False):
     if register:
         print("Registration Not implemented yet!")
 
-    cube = _np.ma.dstack(fl_or_il)
+    cube = _fa.fits_array(_np.ma.dstack(fl_or_il))
 
     return cube
 

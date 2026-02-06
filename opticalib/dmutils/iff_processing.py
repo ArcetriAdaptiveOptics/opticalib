@@ -246,7 +246,6 @@ def cubeRoiProcessing(
 def saveCube(
     tn: str,
     rebin: int = 1,
-    cube_header: _ot.Optional[dict[str, _ot.Any] | _ot.Header] = None,
     register: bool = False,
 ) -> _ot.CubeData:
     """
@@ -285,16 +284,15 @@ def saveCube(
     # Rebinning the cube
     header = {}
     header["REBIN"] = (rebin, "Rebinning factor applied")
-    if cube_header is not None:
-        header.update(cube_header)
     if rebin > 1:
         cube = _cr(cube, rebin)
+    cube.header.update(header)
     # Saving the cube
     new_fold = _os.path.join(_intMatFold, tn)
     if not _os.path.exists(new_fold):
         _os.mkdir(new_fold)
     cube_path = _os.path.join(new_fold, cubeFile)
-    _osu.save_fits(cube_path, cube, overwrite=True, header=header)
+    _osu.save_fits(cube_path, cube, overwrite=True)#, header=cube.header)
     # Copying the cmdMatrix and the ModesVector into the INTMAT Folder
     _copyFromIffToIM(name="cmdMatrix.fits", tn=tn)
     _copyFromIffToIM(name="modesVector.fits", tn=tn)
