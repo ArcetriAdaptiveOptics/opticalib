@@ -833,7 +833,7 @@ def pushPullReductionAlgorithm(
     return image
 
 
-def createCube(fl_or_il: list[str], register: bool = False):
+def createCube(fl_or_il: list[str], register: bool = False) -> _ot.CubeData:
     """
     Creates a cube of images from an images file list
 
@@ -903,6 +903,8 @@ def removeZernikeFromCube(
         Cube with Zernike modes removed from each frame.
     """
     from tqdm import tqdm
+    import sys as _sys
+    from io import StringIO as _sIO
 
     zfit = zern.ZernikeFitter()
     if zmodes is None:
@@ -920,6 +922,10 @@ def removeZernikeFromCube(
         unit="image",
         ncols=80,
     ):
+        old_stdout = _sys.stdout
+        _sys.stdout = _sIO()
+        zfit.removeZernike(cube[:, :, i], zmodes, mode=mode)
+        _sys.stdout = old_stdout
         newCube[:, :, i] = zfit.removeZernike(cube[:, :, i], zmodes, mode=mode)
     return newCube
 

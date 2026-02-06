@@ -437,7 +437,7 @@ class Flattening:
         plt.grid()
         plt.show()
 
-    def plotEigenvectors(self, modeid: int, **imshowkwargs: dict[str,_ot.Any]) -> None:
+    def plotEigenvectors(self, modeid: int, out: bool = False, **imshowkwargs: dict[str,_ot.Any]) -> None:
         """
         Plots the eigenvectors of the SVD of the interaction matrix.
 
@@ -470,6 +470,9 @@ class Flattening:
         plt.ylim(ylim)
         plt.colorbar()
         plt.show()
+        
+        if out:
+            return img
 
     def filterIntCube(
         self, zernModes: _ot.Optional[list[int] | _ot.ArrayLike] = None, mode: str = 'global'

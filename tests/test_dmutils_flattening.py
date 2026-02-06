@@ -171,7 +171,7 @@ class TestFlattening:
 
         assert result is f  # Should return self
         # Verify that filterZernikeCube was called
-        mock_filter.assert_called_once_with(tn, [1, 2, 3])
+        mock_filter.assert_called_once_with(tn, [1, 2, 3], mode='global')
 
     def test_load_new_tn(self, sample_int_matrix_folder):
         """Test loading new tracking number."""

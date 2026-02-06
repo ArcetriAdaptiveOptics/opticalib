@@ -238,6 +238,7 @@ class TestUpdateInterfPaths:
             "capture_4dpc": "/path/to/capture",
             "produce_4dpc": "/path/to/produce_4d",
             "produce": "/path/to/produce",
+            "capture": "/path/to/capture",
         }
 
         root._updateInterfPaths(paths)
@@ -248,3 +249,4 @@ class TestUpdateInterfPaths:
         assert root.CAPTURE_FOLDER_NAME_4D_PC == paths["capture_4dpc"]
         assert root.PRODUCE_FOLDER_NAME_4D_PC == paths["produce_4dpc"]
         assert root.PRODUCE_FOLDER_NAME_LOCAL_PC == paths["produce"]
+        assert root.CAPTURE_FOLDER_NAME_LOCAL_PC == paths["capture"]
