@@ -272,7 +272,8 @@ def saveCube(
         Data cube of the images, with shape (npx, npx, nmodes).
     """
     cube = _osu.loadCubeFromFilelist(tn_or_fl=tn, fold=_ifFold, key="mode_")
-    # cube.mask = _roi.cubeMasterMask(cube) # w/ DP weird behavior
+    new_fold = _os.path.join(_intMatFold, tn)
+    _os.makedirs(new_fold, exist_ok=True)
 
     ## TODO ??
     # if register is not False:
@@ -287,9 +288,8 @@ def saveCube(
         cube = _cr(cube, rebin)
     cube.header.update(header)
     # Saving the cube
-    new_fold, tn = _osu.create_data_folder(_intMatFold, get_tn=True)
     cube_path = _os.path.join(new_fold, cubeFile)
-    _osu.save_fits(cube_path, cube, overwrite=True)#, header=cube.header)
+    _osu.save_fits(cube_path, cube, overwrite=True)
     # Copying the cmdMatrix and the ModesVector into the INTMAT Folder
     _copyFromIffToIM(name="cmdMatrix.fits", tn=tn)
     _copyFromIffToIM(name="modesVector.fits", tn=tn)
