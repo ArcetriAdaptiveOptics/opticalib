@@ -393,6 +393,11 @@ def save_fits(
         data = _reduce_dtype_safely(data)
 
     if hasattr(data, 'writeto'):
+        try:
+            header = _header_from_dict(data.header.copy())
+            data.header = header.copy()
+        except Exception:
+            pass
         data.writeto(filepath, overwrite=overwrite)
         return
 
