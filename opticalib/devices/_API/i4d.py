@@ -399,8 +399,8 @@ class I4D:
         """
         from os.path import join
         url = "%s%s" % (self._systemServiceAddress, "SaveConfiguration")
-        if not newConfigurationPath.endswith('.4Dini'):
-            newConfigurationPath = join(newConfigurationPath, 'InterfConfiguration.4Dini')
+        if not newConfigurationPath.lower().endswith('.4dini'):
+            newConfigurationPath = join(newConfigurationPath, 'InterfConfiguration.4dini')
         self._readJsonData(url, newConfigurationPath)
 
     def loadConfiguration(self, configurationPath: str):

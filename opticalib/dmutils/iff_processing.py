@@ -153,9 +153,10 @@ def process(
 def cubeRoiProcessing(
     tn: str,
     activeRoiID: int,
-    detrend: bool = False,
-    roinull: bool = False,
     fitting_mask: _ot.MaskData = None,
+    tt_detrend: bool = False,
+    mean_subtraction: bool = False,
+    roinull: bool = False,
 ) -> str:
     """
     This function groups together some image manipulations in presence of
@@ -170,18 +171,21 @@ def cubeRoiProcessing(
         The tracking number of the dataset to be processed.
     activeRoiID: int
         The ID of the active ROI, corresponding to the actuated segment.
-    detrend: bool, optional
+    fitting_mask: MaskData, optional
+        Mask to be used for the fitting of the detrend surface. Default is None.
+    tt_detrend: bool, optional
         If True, perform a tilt detrend over the activeRoi, using the other detected
+        rois as reference.
+    mean_subtraction: bool, optional
+        If True, perform a mean subtraction over the activeRoi, using the other detected
         rois as reference.
     roinull: bool, optional
         If True, set to zero the pixels outside the activeRoi.
-    fitting_mask: MaskData, optional
-        Mask to be used for the fitting of the detrend surface. Default is None.
 
     Returns
     -------
     newtn: str
-    The tracking number of the new processed dataset.
+        The tracking number of the new processed dataset.
     """
     newtn = _osu.newtn()
     load_path = _os.path.join(_fn.INTMAT_ROOT_FOLDER, tn)
@@ -192,33 +196,28 @@ def cubeRoiProcessing(
     cmdmat = _osu.load_fits(_os.path.join(load_path, "cmdMatrix.fits"))
     modesvec = _osu.load_fits(_os.path.join(load_path, "modesVector.fits"))
 
-    zfitter = _zern.ZernikeFitter() # _cmm(cube) if fitting_mask is None else fitting_mask)
+    zfitter = _zern.ZernikeFitter(fitting_mask)
 
     # Main Loop over cube images
     newcube = []
     for v in cube:
         auxRois = _roi.roiGenerator(v)
-        activeRoi = auxRois.pop(activeRoiID)
+        activeRoi = auxRois.pop(activeRoiID) # type: ignore
 
-        # TODO: the tilt detrend loop
-        if detrend:
+        if tt_detrend:
             for r in auxRois:
                 r2rImage = _np.ma.masked_array(v.copy(), mask=r)
-
-                ## WRONG
-                # surf2Remove = zfitter.makeSurface([1, 2, 3], r2rImage)
-                # s2rmean = surf2Remove.mean()
-                # surf2Remove.data[activeRoi == 0] = 0
-                # surf2Remove.mask[activeRoi == 0] = False
 
                 coeffs, _ = zfitter.fit(r2rImage, [1,2,3])
                 _, matrix = zfitter.fit(v, [1,2,3])
                 surf2remove = zfitter.makeSurface([1,2,3], v, coeffs=coeffs, mat=matrix)
 
+                v -= surf2remove
+
+        if mean_subtraction:
                 activeShellImg = v[activeRoi == 0]
                 mean2remove = activeShellImg.mean()
 
-                v -= surf2remove
                 v -= mean2remove
 
         # Setting to zero the non active ROIs
@@ -288,9 +287,7 @@ def saveCube(
         cube = _cr(cube, rebin)
     cube.header.update(header)
     # Saving the cube
-    new_fold = _os.path.join(_intMatFold, tn)
-    if not _os.path.exists(new_fold):
-        _os.mkdir(new_fold)
+    new_fold, tn = _osu.create_data_folder(_intMatFold, get_tn=True)
     cube_path = _os.path.join(new_fold, cubeFile)
     _osu.save_fits(cube_path, cube, overwrite=True)#, header=cube.header)
     # Copying the cmdMatrix and the ModesVector into the INTMAT Folder

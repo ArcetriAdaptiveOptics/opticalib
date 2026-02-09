@@ -259,8 +259,8 @@ class _4DInterferometer(_api.BaseInterferometer):
         conffile: str
             name of the configuration file to load
         """
-        if not conffile.endswith('.4Dini'):
-            conffile = _os.path.join(conffile, 'InterfConfiguration.4Dini')
+        if not conffile.lower().endswith('.4dini'):
+            conffile = _os.path.join(conffile, 'InterfConfiguration.4dini')
         self._i4d.loadConfiguration(conffile)
         self._logger.info(f"Configuration file '{conffile}' loaded.")
 

@@ -86,7 +86,7 @@ from .core.root import folders as _fn
 from .core.read_config import getAlignmentConfig as _gac
 from .ground import logger as _logger, roi as roigen
 from .ground.modal_decomposer import ZernikeFitter as _zfitter
-from .ground.osutils import load_fits as _rfits, save_fits as _sfits, newtn as _ts
+from .ground import osutils as _osu
 from . import typings as _ot
 from .analyzer import pushPullReductionAlgorithm as _ppr
 
@@ -151,7 +151,7 @@ class Alignment:
         """
         self.mdev = mechanical_devices
         self.ccd = acquisition_devices
-        self.cmdMat = _rfits(
+        self.cmdMat = _osu.load_fits(
             _os.path.join(_fn.CONTROL_MATRIX_FOLDER, _sc.commandMatrix)
         )
         self._calibtn = calibtn
@@ -159,7 +159,7 @@ class Alignment:
         self.recMat = None
         self._cmdAmp = None
         self._surface = (
-            _rfits(_sc.fitting_surface) if not _sc.fitting_surface == "" else None
+            _osu.load_fits(_sc.fitting_surface) if not _sc.fitting_surface == "" else None
         )
         self._zfit = _zfitter(self._surface)
         self._moveFnc = self.__get_callables(self.mdev, _sc.devices_move_calls)
@@ -190,8 +190,9 @@ class Alignment:
         self,
         modes2correct: _ot.ArrayLike,
         zern2correct: _ot.ArrayLike,
-        apply: bool = False,
         n_frames: int = 15,
+        apply: bool = False,
+        save: bool = False,
     ) -> str | _ot.ArrayLike:
         """
         Corrects the alignment of the system based on Zernike coefficients.
@@ -204,11 +205,13 @@ class Alignment:
             Indices of the Zernike coefficients to correct.
         tn : str, optional
             Tracking number of the intMat.fits to be used
+        n_frames : int, optional
+            Number of frames acquired and averaged the alignment correction. Default is 15.
         apply : bool, optional
             If True, the correction command will be applied to the system.
             If False (default), the correction command will be returned.
-        n_frames : int, optional
-            Number of frames acquired and averaged the alignment correction. Default is 15.
+        save : bool, optional
+            If True, the correction command will be saved to a file. Default is False.
 
         Returns
         -------
@@ -242,6 +245,7 @@ class Alignment:
         recMat = self._create_rec_mat(reduced_intMat)
         reduced_cmd = _np.dot(recMat, zernike_coeff[zern2correct])
         f_cmd = -_np.dot(reduced_cmdMat, reduced_cmd)
+        self._alcmd = f_cmd.copy()
         print(f"Resulting Command: {f_cmd}")
         if apply:
             self._logger.info("Appliying alignment correction command...")
@@ -249,7 +253,16 @@ class Alignment:
             self._apply_command(f_cmd)
             print("Alignment Corrected\n")
             self.read_positions()
-            return
+        if save:
+            files: list[str] = ['AlignmentDeltaCmd.fits']
+            for dev in self._devName:
+                files.append(f"{dev}DeltaCmd.fits")
+            commands = [f_cmd] + self._extract_cmds_to_apply(f_cmd)
+            header = {}
+            header['CALIBTN'] = self._calibtn if self._calibtn is not None else "None"
+            for cmd, filename in zip(commands, files):
+                _osu.save_fits(_os.path.join(self._dataPath, filename), cmd, overwrite=True, header=header)
+                self._logger.info(f"'{filename}' saved!")
         return f_cmd
 
     def calibrate_alignment(
@@ -258,7 +271,6 @@ class Alignment:
         n_frames: int = 15,
         template: _ot.ArrayLike = None,
         n_repetitions: int = 1,
-        save: bool = True,
     ) -> str:
         """
         Calibrate the alignment of the system using the provided command amplitude and template.
@@ -273,8 +285,6 @@ class Alignment:
             A list representing the template for calibration. If not provided, the default template will be used.
         n_repetitions : int, optional
             The number of repetitions for the calibration process. Default is 1.
-        save : bool, optional
-            If True, the resulting internal matrix will be saved to a FITS file. Default is False.
 
         Returns
         -------
@@ -290,27 +300,21 @@ class Alignment:
         4. Executes a Zernike routine on the image list to generate an internal matrix.
         5. Optionally saves the internal matrix to a FITS file.
         """
-        tn = self._calibtn
+        path, tn = _osu.create_data_folder(self._dataPath, get_tn=True)
+        print(f"Calibration will be saved in '{path}'")
+        self._calibtn = tn
         self._correct_cavity = False
-        self._logger.info(f"{self.calibrate_alignment.__qualname__}")
         self._logger.info("Starting calibration.")
-        self._calibtn = _ts()
         self._logger.info(f"Cavity correction: False")
         self._cmdAmp = cmdAmp
         template = template if template is not None else self._template
         imglist = self._images_production(template, n_frames, n_repetitions, tn)
         intMat = self._zern_routine(imglist)
         self.intMat = intMat.copy()
-        if save:
-            path = _os.path.join(_fn.ALIGN_CALIBRATION_ROOT_FOLDER, tn)
-            if not _os.path.exists(path):
-                _os.mkdir(path)
-            filename = _os.path.join(path, "InteractionMatrix.fits")
-            _sfits(filename, self.intMat, overwrite=True)
-            self._logger.info(f"{_sfits.__qualname__}")
-            self._logger.info(f"Calibration saved in '{filename}'")
-            print(f"Calibration saved in '{filename}'\nReady for Alignment...")
-        return tn
+        filename = _os.path.join(path, "InteractionMatrix.fits")
+        _osu.save_fits(filename, self.intMat, overwrite=True)
+        self._logger.info(f"Calibration saved in '{filename}'")
+        print(f"Calibration saved in '{filename}'\nReady for Alignment...")
 
     def read_positions(self, show: bool = True) -> _ot.ArrayLike:
         """
@@ -352,7 +356,7 @@ class Alignment:
             A message indicating the successful loading of the file.
         """
         self._logger.info(f"Loading fitting surface from '{filepath}'")
-        surf = _rfits(filepath)
+        surf = _osu.load_fits(filepath)
         self._surface = surf
         print(f"Fitting surface '{filepath}' loaded")
 
@@ -385,6 +389,8 @@ class Alignment:
             The number of frames acquired and averaged for image production.
         n_repetitions : int
             The number of repetitions for image production.
+        tn : str, optional
+            The tracking number where the data acquired will be saved.
 
         Returns
         -------
@@ -406,14 +412,13 @@ class Alignment:
                 logMsg2 += f"Matrix Column {k+1} : {self.cmdMat.T[k]}"
                 print(f"Matrix Column {k+1} : {self.cmdMat.T[k]}\n")
                 imglist = self._img_acquisition(k, template, n_frames)
-                # image = self._push_pull_redux(imglist, template) / self._cmdAmp[k]
                 template.insert(0, 1)
                 image = _ppr(
-                    imglist, template, normalization=6 * self._cmdAmp[k]
-                )  # TODO: 6 -> sum of template weights?
+                    imglist, template, normalization=6*self._cmdAmp[k]
+                )
                 template.pop(0)
                 results.append(image)
-                _sfits(_os.path.join(self._dataPath, tn), image)
+                _osu.save_fits(_os.path.join(self._dataPath, tn, f'mode_{k:02d}'), image)
             if n_repetitions != 1:
                 n_results.append(results)
             else:
@@ -646,46 +651,48 @@ class Alignment:
             logMsg += f" - Full Command : {cmd}"
             print(logMsg)
             self._apply_command(cmd)
-            imglist.append(self._acquire[0](nframes=n_frames))
+            img = self._acquire[0](nframes=n_frames)
+            _osu.save_fits(_os.path.join(self._dataPath, f"img_k{k}_t{t}"), img)
+            imglist.append(img)
         return imglist
 
-    def _push_pull_redux(
-        self, imglist: _ot.CubeData, template: _ot.ArrayLike
-    ) -> _ot.ImageData:
-        """
-        Reduces the push-pull images based on the given template.
+    # def _push_pull_redux(
+    #     self, imglist: _ot.CubeData, template: _ot.ArrayLike
+    # ) -> _ot.ImageData:
+    #     """
+    #     Reduces the push-pull images based on the given template.
 
-        Parameters
-        ----------
-        imglist : ArrayLike
-            The list of images to be reduced.
-        template : ArrayLike
-            The template used for image reduction.
+    #     Parameters
+    #     ----------
+    #     imglist : ArrayLike
+    #         The list of images to be reduced.
+    #     template : ArrayLike
+    #         The template used for image reduction.
 
-        Returns
-        -------
-        image : ImageData
-            The reduced image.
-        """
-        self._logger.info(f"Starting Push-Pull Reduction Algorithm...")
-        template.insert(0, 1)
+    #     Returns
+    #     -------
+    #     image : ImageData
+    #         The reduced image.
+    #     """
+    #     self._logger.info(f"Starting Push-Pull Reduction Algorithm...")
+    #     template.insert(0, 1)
 
-        ## OLD ALGORITHM - TO BE DELETED LATER
-        # image = _np.zeros((imglist[0].shape[0], imglist[0].shape[1]))
-        # for x in range(1, len(imglist)):
-        #     opd2add = imglist[x] * template[x] + imglist[x - 1] * template[x - 1]
-        #     mask2add = _np.ma.mask_or(imglist[x].mask, imglist[x - 1].mask)
-        #     if x == 1:
-        #         master_mask = mask2add
-        #     else:
-        #         master_mask = _np.ma.mask_or(master_mask, mask2add)
-        #     image += opd2add
-        # image = _np.ma.masked_array(image, mask=master_mask) / 6
+    #     ## OLD ALGORITHM - TO BE DELETED LATER
+    #     # image = _np.zeros((imglist[0].shape[0], imglist[0].shape[1]))
+    #     # for x in range(1, len(imglist)):
+    #     #     opd2add = imglist[x] * template[x] + imglist[x - 1] * template[x - 1]
+    #     #     mask2add = _np.ma.mask_or(imglist[x].mask, imglist[x - 1].mask)
+    #     #     if x == 1:
+    #     #         master_mask = mask2add
+    #     #     else:
+    #     #         master_mask = _np.ma.mask_or(master_mask, mask2add)
+    #     #     image += opd2add
+    #     # image = _np.ma.masked_array(image, mask=master_mask) / 6
 
-        image = _ppr(imglist, template, normalization=6)
+    #     image = _ppr(imglist, template, normalization=6)
 
-        template.pop(0)
-        return image
+    #     template.pop(0)
+    #     return image
 
     def __loadIntMat(self, calibtn: str | None) -> _ot.MatrixLike:
         """
@@ -717,7 +724,7 @@ class Alignment:
                 f"Interaction matrix file '{filename}' does not exist."
             )
         self._logger.info(f"Loading interaction matrix from '{filename}'")
-        intMat = _rfits(filename)
+        intMat = _osu.load_fits(filename)
         return intMat
 
     @staticmethod

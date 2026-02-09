@@ -392,7 +392,7 @@ def save_fits(
     elif any([data.dtype == _np.int64, data.dtype == _np.int32]):
         data = _reduce_dtype_safely(data)
 
-    if isinstance(data, (_fa.FitsArray, _fa.FitsMaskedArray)):
+    if hasattr(data, 'writeto'):
         data.writeto(filepath, overwrite=overwrite)
         return
 
@@ -633,7 +633,7 @@ def newtn() -> str:
     return _time.strftime("%Y%m%d_%H%M%S")
 
 
-def create_data_folder(basepath: str = _fn.OPD_IMAGES_ROOT_FOLDER) -> str:
+def create_data_folder(basepath: str = _fn.OPD_IMAGES_ROOT_FOLDER, get_tn: bool = False) -> str:
     """
     Creates a new data folder with a unique tracking number in the specified base path.
 
@@ -651,7 +651,10 @@ def create_data_folder(basepath: str = _fn.OPD_IMAGES_ROOT_FOLDER) -> str:
     tn = newtn()
     tn_path = _os.path.join(basepath, tn)
     _os.makedirs(tn_path, exist_ok=True)
-    return tn_path
+    out = [tn_path]
+    if get_tn:
+        out.append(tn)
+    return out if len(out) > 1 else out[0]
 
 
 def _header_from_dict(
@@ -726,14 +729,13 @@ def _ensure_on_cpu(data: _ot.ArrayLike) -> _ot.ArrayLike:
                     return _xu.asnumpy(data)
 
             # fallback for cpu data
-            elif "numpy" in str(type(data)):
+            else:
                 return data
         else:
             raise ImportError
     # extra safety
     except ImportError:
         return data
-    return data
 
 
 def _reduce_dtype_safely(
