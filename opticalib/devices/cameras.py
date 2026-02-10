@@ -26,7 +26,17 @@ class AVTCamera:
         try:
             self.cam_id = self._cam_config["id"]
         except KeyError:
-            self.cam_id = self._cam_config["ip"]
+            self.cam_id = None
+
+        try:
+            self.cam_ip = self._cam_config["ip"]
+        except KeyError:
+            self.cam_ip = None
+
+        if all([self.cam_id is None, self.cam_ip is None]):
+            raise ValueError(
+                f"Camera configuration for {self._name} must contain either 'id' or 'ip'."
+            )
 
         # Try to connect to the camera
         try:
@@ -43,6 +53,7 @@ class AVTCamera:
 
         self._logger = _sl(__class__)
         self._exptime = None
+        self._exptime = self.get_exptime()
 
     def get_exptime(self) -> float:
         """
@@ -79,7 +90,6 @@ class AVTCamera:
         self,
         n_frames: int | None = None,
         multiframe_out_mode: str = "mean",
-        timeout: int = 10000,
         mode: str = "sync",
         allocation_mode: int = 0,
     ) -> _ot.ImageData | _ot.CubeData:
@@ -118,14 +128,14 @@ class AVTCamera:
 
                     for f in cam.get_frame_generator(
                         limit=n_frames,
-                        timeout_ms=self._base_timeout * self._exptime * n_frames,
+                        timeout_ms=int(self._base_timeout * self._exptime * n_frames),
                     ):
                         frames.append(
                             copy.deepcopy(f).as_numpy_ndarray().transpose(2, 0, 1)
                         )
                 else:
                     frames.append(
-                        cam.get_frame(timeout_ms=self._base_timeout * self._exptime)
+                        cam.get_frame(timeout_ms=int(self._base_timeout * self._exptime))
                         .as_numpy_ndarray()
                         .transpose(2, 0, 1)
                     )
@@ -185,6 +195,17 @@ class AVTCamera:
 
         return frames
 
+    def set_base_timeout(self, timeout_ms: int):
+        """
+        Sets the base timeout for camera operations.
+
+        Parameters:
+        -----------
+        timeout_ms : int
+            The base timeout in milliseconds.
+        """
+        self._base_timeout = timeout_ms
+
     @_contextmanager
     def _prepare_camera(self):
         """
@@ -215,8 +236,20 @@ class AVTCamera:
             The camera object.
         """
         self._logger.info(f"Getting camera with ID: {self.cam_id}")
-        with _vmbpy.VmbSystem.get_instance() as vimba:
-            return vimba.get_camera_by_id(self.cam_id)
+        try:
+            with _vmbpy.VmbSystem.get_instance() as vimba:
+                return vimba.get_camera_by_id(self.cam_id)
+        except Exception as e:
+            try:
+                with _vmbpy.VmbSystem.get_instance() as vimba:
+                   return vimba.get_camera_by_id(self.cam_ip)
+            except Exception as e:
+                self._logger.error(
+                    f"Could not find camera with ID {self.cam_id} or IP {self.cam_ip}"
+                )
+                raise RuntimeError(
+                    f"Could not find camera with ID {self.cam_id} or IP {self.cam_ip}"
+                ) from e
 
     def __str__(self):
         """
