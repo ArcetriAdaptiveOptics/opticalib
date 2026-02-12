@@ -37,4 +37,5 @@ __all__ = [
     "DP",
     "M4AU",
     "AVTCamera",
+    "PetalMirror",
 ]

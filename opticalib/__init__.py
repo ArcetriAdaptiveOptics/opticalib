@@ -22,7 +22,7 @@ How to Use:
 """
 
 from .__version__ import __version__
-from . import analyzer
+
 from .ground.osutils import load_fits, save_fits, getFileList, read_phasemap
 from .core.root import (
     folders,
@@ -38,8 +38,20 @@ getFrameRate = _4DInterferometer.getFrameRate
 
 del _4DInterferometer
 
+from . import (
+    analyzer,
+    devices,
+    ground,
+    dmutils,
+    simulator,
+)
+
 __all__ = [
     "analyzer",
+    "devices",
+    "ground",
+    "dmutils",
+    "simulator",
     "load_fits",
     "save_fits",
     "read_phasemap",
