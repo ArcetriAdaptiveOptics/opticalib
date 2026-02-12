@@ -31,20 +31,21 @@ _OPDSER = _foldname.OPD_SERIES_ROOT_FOLDER
 
 
 def averageFrames(
-    tn: str,
+    tn_or_fl: str | list[_ot.ImageData] | _ot.CubeData,
     first: int = 0,
     last: int = -1,
     file_selector: list[int] | None = None,
     thresh: bool = False,
-):
+) -> _ot.ImageData:
     """
     Perform the average of a list of images, retrievable through a tracking
     number.
 
     Parameters
     ----------
-    tn : str
-        Data Tracking Number.
+    tn_or_fl : str | list[ImageData] | CubeData
+        The data Tracking Number, the list of images or the cube of images to 
+        average.
     first : int, optional
         Index number of the first file to consider. Defaults to first item
         in the list.
@@ -55,19 +56,25 @@ def averageFrames(
         A list of integers, representing the specific files to load. If None,
         the range (first->last) is considered.
     thresh : bool, optional
-        DESCRIPTION. The default is None.
+        If True, apply a threshold to the averaging process. The default is False.
 
     Returns
     -------
-    aveimg : ndarray
+    aveimg : ImageData
         Final image of averaged frames.
 
     """
-    fl = osu.getFileList(tn, fold=_OPDSER.split("/")[-1], key="20")
     s = slice(first, last) if last != -1 else slice(first, None)
-    fl = fl[s] if file_selector is None else fl[file_selector]
 
-    imcube = createCube(fl)
+    if osu.is_tn(tn_or_fl):
+        fl = osu.getFileList(tn_or_fl, fold=_OPDSER.split("/")[-1], key="20")
+        fl = fl[s] if file_selector is None else fl[file_selector]
+        imcube = createCube(fl)
+    elif _ot.isinstance_(tn_or_fl, "CubeData"):
+        imcube = tn_or_fl[:,:,s] if file_selector is None else tn_or_fl[:,:,file_selector]
+    elif isinstance(tn_or_fl, list) and all(_ot.isinstance_(item, "ImageData") for item in tn_or_fl):
+        fl = tn_or_fl[s] if file_selector is None else [tn_or_fl[i] for i in file_selector]
+        imcube = createCube(fl)
 
     if thresh is False:
         aveimg = _np.ma.mean(imcube, axis=2)
