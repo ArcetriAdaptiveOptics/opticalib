@@ -15,6 +15,7 @@ Description
 
 """
 
+from ast import Not
 import os as _os
 import xupy as _xp
 import numpy as _np
@@ -521,6 +522,46 @@ def zernikePlot(
     zcoeff = _np.array(zlist)
     zcoeff = zcoeff.T
     return zcoeff
+
+
+def piston_unwrap(
+    piston_vec: _ot.ArrayLike,
+    commanded_piston_vec: _ot.ArrayLike = None,
+    wavelength: float = None,
+    period: int = 2
+) -> _ot.ArrayLike:
+    """
+    Unwraps a piston vector by correcting for jumps that exceed a specified threshold.
+
+    Parameters
+    ----------
+    piston_vec : _ot.ArrayLike
+        Input piston vector to be unwrapped.
+    commanded_piston_vec : _ot.ArrayLike, optional
+        Commanded piston vector. The default is None.
+    wavelength : float, optional
+        Wavelength of the piston measurements. If None, the default is 632.8 nm
+        (He-Ne laser).
+    period : int, optional
+        Period for unwrapping. The default is 2.
+
+    Returns
+    -------
+    unwrapped : _ot.ArrayLike
+        Unwrapped piston vector.
+    """
+    if wavelength is None:
+        wavelength = 632.8  # nm
+
+    half_wl = wavelength / period
+    
+    if commanded_piston_vec is None:
+        raise NotImplementedError("How do you do it?")
+
+    k = _np.round((commanded_piston_vec - piston_vec) / half_wl)
+    reconstructed_piston = piston_vec + k*half_wl
+    
+    return reconstructed_piston
 
 
 def strfunct(vect: _ot.ArrayLike, gapvect: _ot.ArrayLike) -> _ot.ArrayLike:
