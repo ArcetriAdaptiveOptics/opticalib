@@ -48,6 +48,7 @@ print(f"ROI-averaged coefficients: {roi_coefficients}")
 ```
 """
 
+import xupy as _xp
 import numpy as _np
 from . import roi as _roi
 from abc import abstractmethod, ABC
@@ -117,8 +118,8 @@ class _ModeFitter(ABC):
             Fitting matrix for the specified modes.
         """
         self._logger.info("Getting fitting matrix for modes: " + str(modes))
-        return _np.vstack(
-            [self._get_mode_from_generator(zmode)[mask] for zmode in modes]
+        return _xp.vstack(
+            [self._get_mode_from_generator(zmode)[_xp.asnumpy(mask)] for zmode in modes]
         )
 
     @abstractmethod
@@ -213,7 +214,8 @@ class _ModeFitter(ABC):
         mat : numpy array
             Modes matrix.
         """
-        image = self._make_sure_on_cpu(image)
+        #image = self._make_sure_on_cpu(image)
+        image = self._ongpu(image)
         self._logger.info("Fitting image with modal decomposition")
 
         # FIXME: now handles the case of mgen is available, but
@@ -223,9 +225,9 @@ class _ModeFitter(ABC):
             mat = self._create_fitting_matrix(mode_index_vector, mask)
             self._logger.info("Solving least squares for fitting coefficients")
             A = mat.T
-            B = _np.transpose(image.compressed())
-            coeffs = _np.linalg.lstsq(A, B, rcond=None)[0]
-            return coeffs, A
+            B = _xp.transpose(image.compressed())
+            coeffs = _xp.linalg.lstsq(A, B, rcond=None)[0]
+            return _xp.asnumpy(coeffs), _xp.asnumpy(mat)
 
     def fitOnRoi(
         self,
@@ -267,7 +269,7 @@ class _ModeFitter(ABC):
         self._logger.info(f"Found {nroi} ROIs to fit")
         coeff = _np.zeros([nroi, len(modes2fit)])
         for i in range(nroi):
-            img2fit = _np.ma.masked_array(image.data, mask=roiimg[i])
+            img2fit = _xp.ma.masked_array(image.data, mask=roiimg[i])
             cc, _ = self.fit(img2fit, modes2fit)
             coeff[i, :] = cc
         if mode == "global":
@@ -344,11 +346,13 @@ class _ModeFitter(ABC):
         # An image has been passed
         elif image is not None:
 
-            image = self._make_sure_on_cpu(image)
+            # image = self._make_sure_on_cpu(image)
 
             # Handle the ROIs case
             roiimg = _roi.roiGenerator(image)
             nroi = len(roiimg)
+
+            image = self._ongpu(image)
 
             # FIXME: handle the case of passed ROIs
             # in particular, new image should only have those passed rois
@@ -377,10 +381,10 @@ class _ModeFitter(ABC):
                     print("Found " + str(nroi) + " ROI")
                     surfs = []
                     for r in roiimg:
-                        img2fit = _np.ma.masked_array(image.data, mask=r)
+                        img2fit = _xp.ma.masked_array(image.data, mask=r)
                         surf = self.makeSurface(modes_indices, img2fit)
                         surfs.append(surf)
-                    surface = _np.ma.empty_like(image)
+                    surface = _xp.ma.empty_like(image)
                     surface.mask = image.mask.copy()
                     for i in range(nroi):
                         surface.data[roiimg[i] == 0] = surfs[i].data[roiimg[i] == 0]
@@ -391,13 +395,13 @@ class _ModeFitter(ABC):
                         coeffs = self.fitOnRoi(
                             image, modes2fit=modes_indices, mode="global"
                         )
-                    surface = _np.ma.zeros_like(image)
+                    surface = _xp.ma.zeros_like(image)
                     for r in roiimg:
                         # ???: Does it make sense to set the fitting mask as the
                         #      ROI of the segment?
                         with self.temporary_fit_mask(r):
                             mat = self._create_fitting_matrix(modes_indices, r)
-                        surface.data[r] = _np.dot(mat.T, coeffs)
+                        surface.data[r] = _xp.dot(mat.T, coeffs)
 
                 else:
                     raise ValueError("mode for ROI fitting must be 'global' or 'local'")
@@ -425,11 +429,11 @@ class _ModeFitter(ABC):
                 if not mat.shape[1] < mat.shape[0]:
                     mat = mat.T
 
-                surface = _np.ma.zeros_like(image)
-                surface[fmidx_] = _np.dot(mat, coeffs)
+                surface = _xp.zeros_like(image)
+                surface[fmidx_] = _xp.dot(mat, coeffs)
 
                 # Remasking
-                surface = _np.ma.masked_array(surface, mask=image.mask)
+                surface = _np.ma.masked_array(_xp.asnumpy(surface), mask=_xp.asnumpy(image.mask))
 
         # No image, but a fitting mask is available
         elif self._mgen is not None:
@@ -572,7 +576,7 @@ class _ModeFitter(ABC):
             if self._mgen is None:
                 self._mgen = self._create_fit_mask_from_img(image)
                 was_temporary = True
-            image = _np.ma.masked_array(
+            image = _xp.ma.masked_array(
                 image.copy().data, mask=self._mgen._boolean_mask.copy()
             )
             yield image, was_temporary
@@ -591,13 +595,21 @@ class _ModeFitter(ABC):
             Default fitting mask.
         """
         self._logger.info("Creating fitting mask from image")
-        if not isinstance(image, _np.ma.masked_array):
+        
+        # if on GPU
+        if isinstance(image, _xp.ma.MaskedArray):
+            image = image.asmarray()
+        
+        # other cases
+        elif not isinstance(image, _np.ma.masked_array):
             try:
                 image = _np.ma.masked_array(image, mask=image == 0)
             except Exception as e:
                 raise ValueError(
                     "Input image must be a numpy masked array or convertible to one."
                 ) from e
+
+        # Create the CircularMask from the masked image using ARTE
         cmask = _CircularMask(image.shape)
         cmask._mask = image.mask
         mgen = self._create_modes_generator(cmask)
@@ -627,6 +639,31 @@ class _ModeFitter(ABC):
             elif isinstance(img, xp.ndarray):
                 img = img.get()
         return img
+
+    def _ongpu(self, image: _t.ImageData) -> _t.ImageData:
+        """
+        Ensure the image is on GPU.
+
+        Parameters
+        ----------
+        img : ImageData
+            Input image.
+
+        Returns
+        -------
+        img_gpu : ImageData
+            Image on GPU.
+        """
+        if isinstance(image, _xp.ma.MaskedArray):
+            return image
+        else:
+            import xupy as xp
+
+            if isinstance(image, _np.ma.masked_array):
+                image = xp.ma.masked_array(image.data, mask=image.mask)
+            elif isinstance(image, _np.ndarray):
+                image = xp.ma.masked_array(image)
+        return image
 
 
 class ZernikeFitter(_ModeFitter):

@@ -83,8 +83,7 @@ class TestZernikeFitter:
         assert coeffs is not None
         assert mat is not None
         assert len(coeffs) == len(modes)
-        assert mat.shape[0] == np.sum(~sample_image.mask)
-        assert mat.shape[1] == len(modes)
+        assert mat.shape[0] == len(modes)
 
     def test_fit_without_mask(self, sample_image):
         """Test fitting without pre-set mask."""

@@ -286,10 +286,192 @@ def frame(idx: int, mylist: list[_ot.ImageData] | _ot.CubeData) -> _ot.ImageData
         img = mylist[:, :, idx]
     return img
 
+def extract_frequency_spectrum(
+    signal: _np.ndarray,
+    sample_rate: float = 1.0,
+    axis: int = -1,
+    window: str | None = None,
+    detrend: str | None = None,
+    scaling: str = "density",
+) -> dict[str, _np.ndarray]:
+    """
+    Extract the frequency spectrum from an input signal using Fast Fourier Transform.
+    
+    This function computes the frequency domain representation of a signal, handling
+    multi-dimensional arrays and providing options for spectral windowing and detrending.
+    
+    Parameters
+    ----------
+    signal : ndarray
+        Input signal array (can be 1D, 2D, or higher dimensional).
+    sample_rate : float, optional
+        Sampling rate of the signal in Hz (default: 1.0). Determines frequency axis scaling.
+    axis : int, optional
+        Axis along which to compute the FFT (default: -1, last axis).
+    window : str or None, optional
+        Window function to apply before FFT to reduce spectral leakage:
+        - None: No windowing (rectangular window)
+        - "hann": Hann window (default, good general purpose)
+        - "hamming": Hamming window
+        - "blackman": Blackman window (excellent side-lobe suppression)
+        - "tukey": Tukey window
+    detrend : str or None, optional
+        Detrending method applied before FFT:
+        - None: No detrending
+        - "constant": Remove mean (default)
+        - "linear": Remove linear trend
+    scaling : str, optional
+        Scaling of the power spectral density:
+        - "density": Power spectral density (default)
+        - "magnitude": Magnitude spectrum
+        
+    Returns
+    -------
+    dict with keys:
+        - "frequencies" : 1D ndarray
+            Frequency axis in Hz
+        - "magnitude" : ndarray
+            Magnitude spectrum (same shape as input except on FFT axis)
+        - "power" : ndarray
+            Power spectral density
+        - "phase" : ndarray
+            Phase spectrum in radians
+        - "fft" : ndarray
+            Raw complex FFT output
+            
+    Examples
+    --------
+    >>> import numpy as np
+    >>> # Create a test signal: sum of 5 Hz and 10 Hz sinusoids
+    >>> fs = 100  # 100 Hz sampling rate
+    >>> t = np.arange(0, 1, 1/fs)
+    >>> signal = np.sin(2*np.pi*5*t) + 0.5*np.sin(2*np.pi*10*t)
+    >>> 
+    >>> result = extract_frequency_spectrum(signal, sample_rate=fs)
+    >>> frequencies = result['frequencies']
+    >>> power = result['power']
+    >>> 
+    >>> # Find dominant frequencies
+    >>> peak_idx = np.argsort(power)[-2:]  # Top 2 peaks
+    >>> print(f"Dominant frequencies: {frequencies[peak_idx]}")
+    """
+    
+    # Input validation
+    signal = _np.asarray(signal)
+    if signal.size == 0:
+        raise ValueError("Input signal cannot be empty")
+    
+    # Normalize axis
+    if axis < 0:
+        axis = signal.ndim + axis
+    if axis < 0 or axis >= signal.ndim:
+        raise ValueError(f"Axis {axis} out of bounds for array of dimension {signal.ndim}")
+    
+    # Apply detrending
+    if detrend is not None:
+        signal = _fft.detrend(signal, axis=axis, type=detrend)
+    
+    # Apply windowing to reduce spectral leakage
+    if window is not None:
+        # Create window with correct shape
+        window_shape = [signal.shape[i] if i == axis else 1 
+                       for i in range(signal.ndim)]
+        window_array = _fft.get_window(window, signal.shape[axis])
+        window_array = window_array.reshape(window_shape)
+        signal = signal * window_array
+    
+    # Compute FFT
+    fft_result = _fft.fft(signal, axis=axis)
+    
+    # Compute magnitude and phase
+    magnitude = _np.abs(fft_result)
+    phase = _np.angle(fft_result)
+    
+    # Compute frequency axis (one-sided spectrum)
+    n_samples = signal.shape[axis]
+    frequencies = _fft.fftfreq(n_samples, d=1/sample_rate)
+    
+    # Compute power spectral density
+    power = magnitude**2 / n_samples
+    
+    # Apply window correction factors if applicable
+    if window is not None:
+        # Correct for window power loss
+        window_power = _np.sum(window_array**2) / n_samples
+        power = power / window_power
+    
+    # For scaling: convert to one-sided spectrum if considering positive frequencies
+    if scaling == "density":
+        # Two-sided to one-sided conversion for positive frequencies
+        power_one_sided = _np.copy(power)
+        slices = [slice(None)] * signal.ndim
+        slices[axis] = slice(1, n_samples // 2)
+        power_one_sided[tuple(slices)] *= 2
+    else:
+        power_one_sided = power
+    
+    return {
+        "frequencies": frequencies,
+        "magnitude": magnitude,
+        "power": power_one_sided,
+        "phase": phase,
+        "fft": fft_result,
+    }
+
+
+def extract_amplitude_spectrum(
+    signal: _np.ndarray,
+    sample_rate: float = 1.0,
+    positive_freqs_only: bool = True,
+    **kwargs
+) -> tuple[_np.ndarray, _np.ndarray]:
+    """
+    Simplified interface for extracting amplitude spectrum (magnitude vs frequency).
+    
+    This is a convenience wrapper around extract_frequency_spectrum for the most
+    common use case: getting the amplitude spectrum.
+    
+    Parameters
+    ----------
+    signal : ndarray
+        Input signal array
+    sample_rate : float, optional
+        Sampling rate in Hz (default: 1.0)
+    positive_freqs_only : bool, optional
+        If True (default), return only positive frequencies (0 to Nyquist)
+    **kwargs
+        Additional arguments passed to extract_frequency_spectrum
+        
+    Returns
+    -------
+    frequencies : ndarray
+        Frequency axis
+    amplitude : ndarray
+        Amplitude (magnitude) spectrum
+        
+    Examples
+    --------
+    >>> signal = np.random.randn(1000)
+    >>> freqs, amplitude = extract_amplitude_spectrum(signal, sample_rate=100)
+    """
+    result = extract_frequency_spectrum(signal, sample_rate=sample_rate, **kwargs)
+    
+    freqs = result["frequencies"]
+    amp = result["magnitude"]
+    
+    if positive_freqs_only:
+        axis = -1  # Default axis
+        n = signal.shape[axis]
+        pos_idx = freqs >= 0
+        slices = [slice(None)] * len(amp.shape)
+        slices[axis] = pos_idx
+        return freqs[pos_idx], amp[tuple(slices)]
+    
+    return freqs, amp
 
 # TODO: Check for hardcoded assumptions on dimensions ecc...
 def spectrum(
-    signal: _ot.ArrayLike, dt: float = 1, show: bool = None
+    signal: _ot.ArrayLike, dt: float = 1, show: bool = False
 ) -> tuple[_ot.ArrayLike, _ot.ArrayLike]:
     """
     Computes the one-dimensional power spectrum of a signal or a set of signals.
@@ -320,7 +502,7 @@ def spectrum(
         spe[0] = 0
     else:
         spe[:, 0] = 0
-    if show is not None:
+    if show:
         _plt.figure()
         for i in range(0, len(spe)):
             _plt.plot(freq, spe[i, :], label=f"Channel {i}")
@@ -551,16 +733,24 @@ def piston_unwrap(
         Unwrapped piston vector.
     """
     if wavelength is None:
+        print("Wavelength not specified, using default value of 632.8 nm\nWARNING! Pass input `piston_vec` in nm")
         wavelength = 632.8  # nm
 
-    half_wl = wavelength / period
-    
-    if commanded_piston_vec is None:
-        raise NotImplementedError("How do you do it?")
+    # checking wavelength and the piston vector units are consistent
+    if wavelength < 1:  # assuming input in m
+        wavelength *= 1e9  # convert to nm
 
-    k = _np.round((commanded_piston_vec - piston_vec) / half_wl)
-    reconstructed_piston = piston_vec + k*half_wl
-    
+    if _np.max(piston_vec) < 1:  # assuming input in nm
+        piston_vec *= 1e9  # convert to nm
+
+    pwl = wavelength / period
+
+    if commanded_piston_vec is None:
+        reconstructed_piston = _np.unwrap(piston_vec, discont=wavelength, period=pwl)
+    else:
+        k = _np.round((commanded_piston_vec - piston_vec) / pwl)
+        reconstructed_piston = piston_vec + k*pwl
+
     return reconstructed_piston
 
 
