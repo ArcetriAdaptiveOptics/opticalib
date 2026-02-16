@@ -349,7 +349,7 @@ def load_fits(filepath: str, on_gpu: bool = False) -> _ot.FitsData:
             fit = [hdu.data for hdu in hdul if hasattr(hdu, "data")]
             if on_gpu:
                 raise NotImplementedError(
-                    "Loading multi-extension FITS files on GPU is not supported."
+                    "Loading multi-extension FITS files on GPU is not supported yet."
                 )
     if on_gpu:
         import xupy as _xu
