@@ -192,6 +192,7 @@ def cubeRoiProcessing(
         +
         [_osu.is_tn(t) for t in tn]
     ):
+
         newtns = [
             cubeRoiProcessing(
                 t,
@@ -204,6 +205,10 @@ def cubeRoiProcessing(
             for t, r in zip(tn, activeRoiID)
         ]
         return stackCubes(newtns)
+
+    import time
+
+    time.sleep(1)  # to avoid conflicts in the newly created tn for the stacking
 
     newtn = _osu.newtn()
     load_path = _os.path.join(_fn.INTMAT_ROOT_FOLDER, tn)

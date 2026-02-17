@@ -264,7 +264,7 @@ class _ModeFitter(ABC):
         """
         if mode not in ["global", "local"]:
             raise ValueError("mode must be 'global' or 'local'")
-        roiimg = _roi.roiGenerator(image)
+        roiimg = _roi.roiGenerator(_xp.asmarray(image))
         nroi = len(roiimg)
         self._logger.info(f"Fitting modes {modes2fit} on image's ROIs with mode {mode}")
         print("Found " + str(nroi) + " ROI")
