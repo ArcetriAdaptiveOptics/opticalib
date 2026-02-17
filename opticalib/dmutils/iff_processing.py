@@ -206,12 +206,15 @@ def cubeRoiProcessing(
             )
             for t, r in zip(tn, activeRoiID)
         ]
-        time.sleep(1)
+        time.sleep(1)# to avoid conflicts in the newly created tn for the stacking
         return stackCubes(newtns)
 
-    time.sleep(1)  # to avoid conflicts in the newly created tn for the stacking
+    time.sleep(0.5)
 
-    newtn = _osu.newtn()
+    save_path, newtn = _osu.create_data_folder(
+        basepath=_fn.INTMAT_ROOT_FOLDER, 
+        get_tn=True
+    )
     load_path = _os.path.join(_fn.INTMAT_ROOT_FOLDER, tn)
 
     cube = _osu.load_fits(_os.path.join(load_path, "IMCube.fits")).transpose(2, 0, 1)
@@ -222,7 +225,7 @@ def cubeRoiProcessing(
 
     # Main Loop over cube images
     newcube = []
-    for v in cube:
+    for v in _tqdm(cube, desc=f"tn: {newtn}", unit="modes", ncols=80):
         activeRoi = _roi.roiGenerator(v).pop(activeRoiID)  # type: ignore
 
         # We do Global ROI Fitting here:
@@ -254,8 +257,6 @@ def cubeRoiProcessing(
         newcube.append(v)
 
     newcube = _fa.fits_array(_np.ma.dstack(newcube), header=cube.header.copy())
-
-    save_path = _os.path.join(_fn.INTMAT_ROOT_FOLDER, newtn)
 
     if not _os.path.exists(save_path):
         _os.makedirs(save_path)

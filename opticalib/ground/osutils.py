@@ -653,9 +653,18 @@ def create_data_folder(basepath: str = _fn.OPD_IMAGES_ROOT_FOLDER, get_tn: bool 
     tn_path : str
         The path to the newly created tracking number folder.
     """
-    tn = newtn()
-    tn_path = _os.path.join(basepath, tn)
-    _os.makedirs(tn_path, exist_ok=True)
+    ex = True
+    while ex:
+        tn = newtn()
+        tn_path = _os.path.join(basepath, tn)
+        if not _os.path.exists(tn_path):
+            try:
+                _os.makedirs(tn_path, exist_ok=True)
+                ex = False
+            except OSError:
+                _time.sleep(0.01)
+        else:
+            _time.sleep(0.01)
     out = [tn_path]
     if get_tn:
         out.append(tn)

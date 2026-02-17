@@ -599,11 +599,11 @@ class _ModeFitter(ABC):
             Default fitting mask.
         """
         self._logger.info("Creating fitting mask from image")
-        
+
         # if on GPU
         if isinstance(image, _xp.ma.MaskedArray):
-            image = image.asmarray()
-        
+            image = _xp.asmarray(image)
+
         # other cases
         elif not isinstance(image, _np.ma.masked_array):
             try:
@@ -636,12 +636,13 @@ class _ModeFitter(ABC):
         if isinstance(img, _np.ma.MaskedArray):
             return img
         else:
-            import xupy as xp
-
-            if isinstance(img, xp.ma.MaskedArray):
-                img = img.asmarray()
-            elif isinstance(img, xp.ndarray):
-                img = img.get()
+            if _xp.on_gpu:
+                if isinstance(img, _xp.ma.MaskedArray):
+                    img = img.asmarray()
+                elif isinstance(img, _xp.ndarray):
+                    img = img.get()
+            else:
+                return img
         return img
 
     def _ongpu(self, image: _t.ImageData) -> _t.ImageData:
@@ -658,16 +659,16 @@ class _ModeFitter(ABC):
         img_gpu : ImageData
             Image on GPU.
         """
-        if isinstance(image, _xp.ma.MaskedArray):
-            return image
+        if _xp.on_gpu:
+            if isinstance(image, _xp.ma.MaskedArray):
+                return image
+            else:
+                if isinstance(image, _np.ma.masked_array):
+                    image = _xp.ma.masked_array(image.data, mask=image.mask)
+                elif isinstance(image, _np.ndarray):
+                    image = _xp.ma.masked_array(image)
         else:
-            import xupy as xp
-
-            if isinstance(image, _np.ma.masked_array):
-                image = xp.ma.masked_array(image.data, mask=image.mask)
-            elif isinstance(image, _np.ndarray):
-                image = xp.ma.masked_array(image)
-        return image
+            return self._make_sure_on_cpu(image)
 
 
 class ZernikeFitter(_ModeFitter):
