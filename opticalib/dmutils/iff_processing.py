@@ -187,6 +187,8 @@ def cubeRoiProcessing(
         The tracking number of the new processed dataset. If a list of TN and
         activeRoiID is passed, then the TN of the stacked cube will be returned.
     """
+    import time
+
     if all(
         [isinstance(x, list) for x in [tn, activeRoiID]]
         +
@@ -204,9 +206,8 @@ def cubeRoiProcessing(
             )
             for t, r in zip(tn, activeRoiID)
         ]
+        time.sleep(1)
         return stackCubes(newtns)
-
-    import time
 
     time.sleep(1)  # to avoid conflicts in the newly created tn for the stacking
 
