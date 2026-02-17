@@ -149,10 +149,9 @@ def process(
         saveCube(tn, rebin=rebin, register=dx)
 
 
-# TODO: Choose a good name
 def cubeRoiProcessing(
-    tn: str,
-    activeRoiID: int,
+    tn: str | list[str],
+    activeRoiID: int | list[int],
     fitting_mask: _ot.MaskData = None,
     tt_detrend: bool = False,
     mean_subtraction: bool = False,
@@ -167,9 +166,9 @@ def cubeRoiProcessing(
 
     Parameters
     ----------
-    tn: str
+    tn: str | list of str
         The tracking number of the dataset to be processed.
-    activeRoiID: int
+    activeRoiID: int | list of int
         The ID of the active ROI, corresponding to the actuated segment.
     fitting_mask: MaskData, optional
         Mask to be used for the fitting of the detrend surface. Default is None.
@@ -185,14 +184,31 @@ def cubeRoiProcessing(
     Returns
     -------
     newtn: str
-        The tracking number of the new processed dataset.
+        The tracking number of the new processed dataset. If a list of TN and
+        activeRoiID is passed, then the TN of the stacked cube will be returned.
     """
+    if all(
+        [isinstance(x, list) for x in [tn, activeRoiID]]
+        +
+        [_osu.is_tn(t) for t in tn]
+    ):
+        newtns = [
+            cubeRoiProcessing(
+                t,
+                r,
+                fitting_mask=fitting_mask,
+                tt_detrend=tt_detrend,
+                mean_subtraction=mean_subtraction,
+                roinull=roinull,
+            )
+            for t, r in zip(tn, activeRoiID)
+        ]
+        return stackCubes(newtns)
+
     newtn = _osu.newtn()
     load_path = _os.path.join(_fn.INTMAT_ROOT_FOLDER, tn)
 
-    cube = _osu.load_fits(_os.path.join(load_path, "IMCube.fits")).transpose(
-        2, 0, 1
-    )
+    cube = _osu.load_fits(_os.path.join(load_path, "IMCube.fits")).transpose(2, 0, 1)
     cmdmat = _osu.load_fits(_os.path.join(load_path, "cmdMatrix.fits"))
     modesvec = _osu.load_fits(_os.path.join(load_path, "modesVector.fits"))
 
@@ -201,24 +217,29 @@ def cubeRoiProcessing(
     # Main Loop over cube images
     newcube = []
     for v in cube:
-        auxRois = _roi.roiGenerator(v)
-        activeRoi = auxRois.pop(activeRoiID) # type: ignore
+        activeRoi = _roi.roiGenerator(v).pop(activeRoiID)  # type: ignore
 
+        # We do Global ROI Fitting here:
+        # Doing Local ROI fitting is equivalent (then right) only the there are
+        # two ROIs, which is not the case in general.
         if tt_detrend:
-            for r in auxRois:
-                r2rImage = _np.ma.masked_array(v.copy(), mask=r)
+            r2rImage = v.copy()
+            r2rImage.mask[activeRoi == 0] = True
 
-                coeffs, _ = zfitter.fit(r2rImage, [1,2,3])
-                _, matrix = zfitter.fit(v, [1,2,3])
-                surf2remove = zfitter.makeSurface([1,2,3], v, coeffs=coeffs, mat=matrix)
+            coeffs = zfitter.fitOnRoi(r2rImage, [1, 2, 3], mode="global")
+            _, matrix = zfitter.fit(v, [1, 2, 3])
+            surf2remove = zfitter.makeSurface(
+                [1, 2, 3], v, coeffs=coeffs, mat=matrix, mode="global"
+            )
 
-                v -= surf2remove
+            v -= surf2remove
 
+        # Equivalent to removing own's segment piston.
         if mean_subtraction:
-                activeShellImg = v[activeRoi == 0]
-                mean2remove = activeShellImg.mean()
+            activeShellImg = v[activeRoi == 0].copy()
+            mean2remove = activeShellImg.mean()
 
-                v -= mean2remove
+            v -= mean2remove
 
         # Setting to zero the non active ROIs
         if roinull:
@@ -351,7 +372,7 @@ def stackCubes(tnlist: str, cubeNames: _ot.Optional[list[str]] = None) -> None:
 def filterZernikeCube(
     tn: str,
     zern_modes: _ot.Optional[list[int]] = None,
-    mode: str = 'global',
+    mode: str = "global",
     save: bool = True,
 ) -> tuple[_ot.CubeData, str]:
     """

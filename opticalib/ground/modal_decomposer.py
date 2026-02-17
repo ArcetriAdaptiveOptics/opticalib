@@ -403,7 +403,9 @@ class _ModeFitter(ABC):
                         #      ROI of the segment?
                         with self.temporary_fit_mask(r):
                             mat = self._create_fitting_matrix(modes_indices, r)
-                        surface.data[r] = _xp.dot(mat.T, coeffs)
+                        surface.data[r] = _xp.dot(mat.T, _xp.asarray(coeffs))
+                    
+                    surface = surface.asmarray()
 
                 else:
                     raise ValueError("mode for ROI fitting must be 'global' or 'local'")
