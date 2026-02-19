@@ -158,13 +158,13 @@ class _4DInterferometer(_api.BaseInterferometer):
             f"Capturing {numberOfFrames} frames into folder '{folder_name}'."
         )
         fold4d = _os.path.join(_folds.CAPTURE_FOLDER_NAME_4D_PC, folder_name)
-        self._i4d.burstFramesToSpecificDirectory(
-            fold4d, numberOfFrames
-        )
+        self._i4d.burstFramesToSpecificDirectory(fold4d, numberOfFrames)
         self._i4d.saveConfiguration(fold4d)
         return folder_name
 
-    def produce(self, tn: str | list[str], load_interf_config: str|None = None) -> None:
+    def produce(
+        self, tn: str | list[str], load_interf_config: str | None = None
+    ) -> None:
         """
         Parameters
         ----------
@@ -187,24 +187,25 @@ class _4DInterferometer(_api.BaseInterferometer):
                 capture4d,
             )
             ## prova con RSYNC
-            #_sb.run(['rsync', '-r', '4dlocalpath', 'destinationpath'])
+            # _sb.run(['rsync', '-r', '4dlocalpath', 'destinationpath'])
             ##
             _sh.move(produce_local, _folds.OPD_IMAGES_ROOT_FOLDER)
             self._rename4D(t)
             try:
                 _sh.move(
-                    _os.path.join(capture_local, 'InterfConfiguration.4Dini'),
-                    dest_data_fold
+                    _os.path.join(capture_local, "InterfConfiguration.4Dini"),
+                    dest_data_fold,
                 )
             except Exception as e:
                 print(e)
             self.copy4DSettings(t)
-    
+
     from contextlib import contextmanager
+
     @contextmanager
     def triggered(self):
         """
-        Context handler for entering triggered mode. 
+        Context handler for entering triggered mode.
 
         On enter, set the interferometer to triggered, while on exit returns to
         triggered false
@@ -214,6 +215,7 @@ class _4DInterferometer(_api.BaseInterferometer):
             yield
         finally:
             self.setTriggerMode(False)
+
     del contextmanager
 
     def setTriggerMode(self, enable: bool) -> None:
@@ -259,8 +261,8 @@ class _4DInterferometer(_api.BaseInterferometer):
         conffile: str
             name of the configuration file to load
         """
-        if not conffile.lower().endswith('.4dini'):
-            conffile = _os.path.join(conffile, 'InterfConfiguration.4dini')
+        if not conffile.lower().endswith(".4dini"):
+            conffile = _os.path.join(conffile, "InterfConfiguration.4dini")
         self._i4d.loadConfiguration(conffile)
         self._logger.info(f"Configuration file '{conffile}' loaded.")
 

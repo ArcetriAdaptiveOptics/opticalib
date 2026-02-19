@@ -45,7 +45,7 @@ def averageFrames(
     Parameters
     ----------
     tn_or_fl : str | list[ImageData] | CubeData
-        The data Tracking Number, the list of images or the cube of images to 
+        The data Tracking Number, the list of images or the cube of images to
         average.
     first : int, optional
         Index number of the first file to consider. Defaults to first item
@@ -72,9 +72,19 @@ def averageFrames(
         fl = fl[s] if file_selector is None else fl[file_selector]
         imcube = createCube(fl)
     elif _ot.isinstance_(tn_or_fl, "CubeData"):
-        imcube = tn_or_fl[:,:,s] if file_selector is None else tn_or_fl[:,:,file_selector]
-    elif isinstance(tn_or_fl, list) and all(_ot.isinstance_(item, "ImageData") for item in tn_or_fl):
-        fl = tn_or_fl[s] if file_selector is None else [tn_or_fl[i] for i in file_selector]
+        imcube = (
+            tn_or_fl[:, :, s]
+            if file_selector is None
+            else tn_or_fl[:, :, file_selector]
+        )
+    elif isinstance(tn_or_fl, list) and all(
+        _ot.isinstance_(item, "ImageData") for item in tn_or_fl
+    ):
+        fl = (
+            tn_or_fl[s]
+            if file_selector is None
+            else [tn_or_fl[i] for i in file_selector]
+        )
         imcube = createCube(fl)
 
     if thresh is False:
@@ -286,6 +296,7 @@ def frame(idx: int, mylist: list[_ot.ImageData] | _ot.CubeData) -> _ot.ImageData
         img = mylist[:, :, idx]
     return img
 
+
 def extract_frequency_spectrum(
     signal: _np.ndarray,
     sample_rate: float = 1.0,
@@ -296,10 +307,10 @@ def extract_frequency_spectrum(
 ) -> dict[str, _np.ndarray]:
     """
     Extract the frequency spectrum from an input signal using Fast Fourier Transform.
-    
+
     This function computes the frequency domain representation of a signal, handling
     multi-dimensional arrays and providing options for spectral windowing and detrending.
-    
+
     Parameters
     ----------
     signal : ndarray
@@ -324,7 +335,7 @@ def extract_frequency_spectrum(
         Scaling of the power spectral density:
         - "density": Power spectral density (default)
         - "magnitude": Magnitude spectrum
-        
+
     Returns
     -------
     dict with keys:
@@ -338,7 +349,7 @@ def extract_frequency_spectrum(
             Phase spectrum in radians
         - "fft" : ndarray
             Raw complex FFT output
-            
+
     Examples
     --------
     >>> import numpy as np
@@ -346,60 +357,61 @@ def extract_frequency_spectrum(
     >>> fs = 100  # 100 Hz sampling rate
     >>> t = np.arange(0, 1, 1/fs)
     >>> signal = np.sin(2*np.pi*5*t) + 0.5*np.sin(2*np.pi*10*t)
-    >>> 
+    >>>
     >>> result = extract_frequency_spectrum(signal, sample_rate=fs)
     >>> frequencies = result['frequencies']
     >>> power = result['power']
-    >>> 
+    >>>
     >>> # Find dominant frequencies
     >>> peak_idx = np.argsort(power)[-2:]  # Top 2 peaks
     >>> print(f"Dominant frequencies: {frequencies[peak_idx]}")
     """
-    
+
     # Input validation
     signal = _np.asarray(signal)
     if signal.size == 0:
         raise ValueError("Input signal cannot be empty")
-    
+
     # Normalize axis
     if axis < 0:
         axis = signal.ndim + axis
     if axis < 0 or axis >= signal.ndim:
-        raise ValueError(f"Axis {axis} out of bounds for array of dimension {signal.ndim}")
-    
+        raise ValueError(
+            f"Axis {axis} out of bounds for array of dimension {signal.ndim}"
+        )
+
     # Apply detrending
     if detrend is not None:
         signal = _fft.detrend(signal, axis=axis, type=detrend)
-    
+
     # Apply windowing to reduce spectral leakage
     if window is not None:
         # Create window with correct shape
-        window_shape = [signal.shape[i] if i == axis else 1 
-                       for i in range(signal.ndim)]
+        window_shape = [signal.shape[i] if i == axis else 1 for i in range(signal.ndim)]
         window_array = _fft.get_window(window, signal.shape[axis])
         window_array = window_array.reshape(window_shape)
         signal = signal * window_array
-    
+
     # Compute FFT
     fft_result = _fft.fft(signal, axis=axis)
-    
+
     # Compute magnitude and phase
     magnitude = _np.abs(fft_result)
     phase = _np.angle(fft_result)
-    
+
     # Compute frequency axis (one-sided spectrum)
     n_samples = signal.shape[axis]
-    frequencies = _fft.fftfreq(n_samples, d=1/sample_rate)
-    
+    frequencies = _fft.fftfreq(n_samples, d=1 / sample_rate)
+
     # Compute power spectral density
     power = magnitude**2 / n_samples
-    
+
     # Apply window correction factors if applicable
     if window is not None:
         # Correct for window power loss
         window_power = _np.sum(window_array**2) / n_samples
         power = power / window_power
-    
+
     # For scaling: convert to one-sided spectrum if considering positive frequencies
     if scaling == "density":
         # Two-sided to one-sided conversion for positive frequencies
@@ -409,7 +421,7 @@ def extract_frequency_spectrum(
         power_one_sided[tuple(slices)] *= 2
     else:
         power_one_sided = power
-    
+
     return {
         "frequencies": frequencies,
         "magnitude": magnitude,
@@ -423,14 +435,14 @@ def extract_amplitude_spectrum(
     signal: _np.ndarray,
     sample_rate: float = 1.0,
     positive_freqs_only: bool = True,
-    **kwargs
+    **kwargs,
 ) -> tuple[_np.ndarray, _np.ndarray]:
     """
     Simplified interface for extracting amplitude spectrum (magnitude vs frequency).
-    
+
     This is a convenience wrapper around extract_frequency_spectrum for the most
     common use case: getting the amplitude spectrum.
-    
+
     Parameters
     ----------
     signal : ndarray
@@ -441,24 +453,24 @@ def extract_amplitude_spectrum(
         If True (default), return only positive frequencies (0 to Nyquist)
     **kwargs
         Additional arguments passed to extract_frequency_spectrum
-        
+
     Returns
     -------
     frequencies : ndarray
         Frequency axis
     amplitude : ndarray
         Amplitude (magnitude) spectrum
-        
+
     Examples
     --------
     >>> signal = np.random.randn(1000)
     >>> freqs, amplitude = extract_amplitude_spectrum(signal, sample_rate=100)
     """
     result = extract_frequency_spectrum(signal, sample_rate=sample_rate, **kwargs)
-    
+
     freqs = result["frequencies"]
     amp = result["magnitude"]
-    
+
     if positive_freqs_only:
         axis = -1  # Default axis
         n = signal.shape[axis]
@@ -466,8 +478,9 @@ def extract_amplitude_spectrum(
         slices = [slice(None)] * len(amp.shape)
         slices[axis] = pos_idx
         return freqs[pos_idx], amp[tuple(slices)]
-    
+
     return freqs, amp
+
 
 # TODO: Check for hardcoded assumptions on dimensions ecc...
 def spectrum(
@@ -710,7 +723,7 @@ def piston_unwrap(
     piston_vec: _ot.ArrayLike,
     commanded_piston_vec: _ot.ArrayLike = None,
     wavelength: float = None,
-    period: int = 2
+    period: int = 2,
 ) -> _ot.ArrayLike:
     """
     Unwraps a piston vector by correcting for jumps that exceed a specified threshold.
@@ -733,7 +746,9 @@ def piston_unwrap(
         Unwrapped piston vector.
     """
     if wavelength is None:
-        print("Wavelength not specified, using default value of 632.8 nm\nWARNING! Pass input `piston_vec` in nm")
+        print(
+            "Wavelength not specified, using default value of 632.8 nm\nWARNING! Pass input `piston_vec` in nm"
+        )
         wavelength = 632.8  # nm
 
     # checking wavelength and the piston vector units are consistent
@@ -749,7 +764,7 @@ def piston_unwrap(
         reconstructed_piston = _np.unwrap(piston_vec, discont=wavelength, period=pwl)
     else:
         k = _np.round((commanded_piston_vec - piston_vec) / pwl)
-        reconstructed_piston = piston_vec + k*pwl
+        reconstructed_piston = piston_vec + k * pwl
 
     return reconstructed_piston
 
@@ -1121,7 +1136,7 @@ def createCube(fl_or_il: list[str], register: bool = False) -> _ot.CubeData:
 
 
 def removeZernikeFromCube(
-    cube: _ot.CubeData, zmodes: _ot.ArrayLike = None, mode='global'
+    cube: _ot.CubeData, zmodes: _ot.ArrayLike = None, mode="global"
 ) -> _ot.CubeData:
     """
     Removes Zernike modes from each frame in a cube of images.
@@ -1246,11 +1261,11 @@ def cubeRebinner(
     newCube : ndarray
         Rebinned cube.
     """
-    if hasattr(cube, 'header'):
+    if hasattr(cube, "header"):
         header = cube.header.copy()
     else:
         header = {}
-    
+
     newCube = []
     for i in range(cube.shape[-1]):
         newCube.append(modeRebinner(cube[:, :, i], rebin, method=method))

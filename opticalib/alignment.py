@@ -159,7 +159,9 @@ class Alignment:
         self.recMat = None
         self._cmdAmp = None
         self._surface = (
-            _osu.load_fits(_sc.fitting_surface) if not _sc.fitting_surface == "" else None
+            _osu.load_fits(_sc.fitting_surface)
+            if not _sc.fitting_surface == ""
+            else None
         )
         self._zfit = _zfitter(self._surface)
         self._moveFnc = self.__get_callables(self.mdev, _sc.devices_move_calls)
@@ -254,14 +256,19 @@ class Alignment:
             print("Alignment Corrected\n")
             self.read_positions()
         if save:
-            files: list[str] = ['AlignmentDeltaCmd.fits']
+            files: list[str] = ["AlignmentDeltaCmd.fits"]
             for dev in self._devName:
                 files.append(f"{dev}DeltaCmd.fits")
             commands = [f_cmd] + self._extract_cmds_to_apply(f_cmd)
             header = {}
-            header['CALIBTN'] = self._calibtn if self._calibtn is not None else "None"
+            header["CALIBTN"] = self._calibtn if self._calibtn is not None else "None"
             for cmd, filename in zip(commands, files):
-                _osu.save_fits(_os.path.join(self._dataPath, filename), cmd, overwrite=True, header=header)
+                _osu.save_fits(
+                    _os.path.join(self._dataPath, filename),
+                    cmd,
+                    overwrite=True,
+                    header=header,
+                )
                 self._logger.info(f"'{filename}' saved!")
         return f_cmd
 
@@ -376,7 +383,11 @@ class Alignment:
         print(f"Calibration loaded from '{tn}'")
 
     def _images_production(
-        self, template: _ot.ArrayLike | list[int], n_frames: int, n_repetitions: int, tn: str = None
+        self,
+        template: _ot.ArrayLike | list[int],
+        n_frames: int,
+        n_repetitions: int,
+        tn: str = None,
     ) -> _ot.CubeData:
         """
         Acquire images based on the provided template and number of repetitions.
@@ -413,12 +424,12 @@ class Alignment:
                 print(f"Matrix Column {k+1} : {self.cmdMat.T[k]}\n")
                 imglist = self._img_acquisition(k, template, n_frames)
                 template.insert(0, 1)
-                image = _ppr(
-                    imglist, template, normalization=6*self._cmdAmp[k]
-                )
+                image = _ppr(imglist, template, normalization=6 * self._cmdAmp[k])
                 template.pop(0)
                 results.append(image)
-                _osu.save_fits(_os.path.join(self._dataPath, tn, f'mode_{k:02d}'), image)
+                _osu.save_fits(
+                    _os.path.join(self._dataPath, tn, f"mode_{k:02d}"), image
+                )
             if n_repetitions != 1:
                 n_results.append(results)
             else:

@@ -80,7 +80,7 @@ def _updateInterfPaths(paths: dict[str, str]) -> None:
     CAPTURE_FOLDER_NAME_4D_PC = paths["capture_4dpc"]
     PRODUCE_FOLDER_NAME_4D_PC = paths["produce_4dpc"]
     PRODUCE_FOLDER_NAME_LOCAL_PC = paths["produce"]
-    CAPTURE_FOLDER_NAME_LOCAL_PC = paths['capture']
+    CAPTURE_FOLDER_NAME_LOCAL_PC = paths["capture"]
 
 
 def create_configuration_file(path: str = "", data_path: str | bool = False) -> None:

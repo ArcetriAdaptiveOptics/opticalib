@@ -232,7 +232,7 @@ def saveBufferData(dm: _ot.DeformableMirrorDevice, tn_or_fp: str):
     else:
         iffpath = _os.path.join(tn_or_fp, "buffer_data.h5")
     bdata = dm.bufferData.copy()
-    _osu.save_dict(bdata, iffpath, overwrite=True)
+    _osu.save_h5(bdata, iffpath, overwrite=True)
 
 
 def _prepareData2Save(info: dict[str, _ot.Any]) -> tuple[str, str]:

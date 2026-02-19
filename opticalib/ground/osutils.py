@@ -55,6 +55,53 @@ def is_tn(string: str) -> bool:
         return False
 
 
+def newtn() -> str:
+    """
+    Returns a timestamp in a string of the format `YYYYMMDD_HHMMSS`.
+
+    Returns
+    -------
+    str
+        Current time in a string format.
+    """
+    return _time.strftime("%Y%m%d_%H%M%S")
+
+
+def create_data_folder(
+    basepath: str = _fn.OPD_IMAGES_ROOT_FOLDER, get_tn: bool = False
+) -> str:
+    """
+    Creates a new data folder with a unique tracking number in the specified base path.
+
+    Parameters
+    ----------
+    basepath : str, optional
+        The base directory where the new tracking number folder will be created.
+        Default is the OPTImages root folder.
+
+    Returns
+    -------
+    tn_path : str
+        The path to the newly created tracking number folder.
+    """
+    ex = True
+    while ex:
+        tn = newtn()
+        tn_path = _os.path.join(basepath, tn)
+        if not _os.path.exists(tn_path):
+            try:
+                _os.makedirs(tn_path, exist_ok=True)
+                ex = False
+            except OSError:
+                _time.sleep(0.01)
+        else:
+            _time.sleep(0.01)
+    out = [tn_path]
+    if get_tn:
+        out.append(tn)
+    return out if len(out) > 1 else out[0]
+
+
 def findTracknum(tn: str, complete_path: bool = False) -> str | list[str]:
     """
     Search for the tracking number given in input within all the data path subfolders.
@@ -87,7 +134,11 @@ def findTracknum(tn: str, complete_path: bool = False) -> str | list[str]:
     return path_list
 
 
-def getFileList(tn: str = None, fold: str = None, key: str = None) -> list[str]:
+def getFileList(
+    tn: _ot.Optional[str] = None,
+    fold: _ot.Optional[str] = None,
+    key: _ot.Optional[str] = None,
+) -> str | list[str] | list[list[str]]:
     """
     Search for files in a given tracking number or complete path, sorts them and
     puts them into a list.
@@ -153,45 +204,78 @@ def getFileList(tn: str = None, fold: str = None, key: str = None) -> list[str]:
     Notice that, in this specific case, it was necessary to include the underscore
     after 'mode' to exclude the 'modesVector.fits' file from the list.
     """
-    if tn is None and fold is not None:
-        fl = sorted([_os.path.join(fold, file) for file in _os.listdir(fold)])
+    if key is not None and not isinstance(key, str):
+        raise TypeError("'key' argument must be a string")
+
+    def _sorted_files(path: str) -> list[str]:
+        return sorted([_os.path.join(path, file) for file in _os.listdir(path)])
+
+    if tn is None:
+        if fold is None:
+            raise ValueError("Either 'tn' or 'fold' must be provided")
+        paths = [fold]
     else:
         try:
-            paths = findTracknum(tn, complete_path=True)
-            if isinstance(paths, str):
-                paths = [paths]
-            for path in paths:
-                if fold is None:
-                    fl = []
-                    fl.append(
-                        sorted(
-                            [_os.path.join(path, file) for file in _os.listdir(path)]
-                        )
-                    )
-                elif fold in path.split("/")[-2]:
-                    fl = sorted(
-                        [_os.path.join(path, file) for file in _os.listdir(path)]
-                    )
-                else:
-                    continue
+            found_paths = findTracknum(tn, complete_path=True)
         except Exception as exc:
             raise FileNotFoundError(
                 f"Invalid Path: no data found for tn '{tn}'"
             ) from exc
-    if len(fl) == 1:
-        fl = fl[0]
+
+        if isinstance(found_paths, str):
+            found_paths = [found_paths]
+
+        if not found_paths:
+            raise FileNotFoundError(f"Invalid Path: no data found for tn '{tn}'")
+
+        if fold is None:
+            paths = found_paths
+        else:
+            fold_name = _os.path.basename(_os.path.normpath(fold))
+            paths = [
+                path
+                for path in found_paths
+                if fold_name in _os.path.basename(_os.path.dirname(path))
+            ]
+            if not paths:
+                raise FileNotFoundError(
+                    f"Invalid Path: no data found for tn '{tn}' in folder '{fold}'"
+                )
+
+    grouped_files = [_sorted_files(path) for path in paths]
+
+    if tn is None or fold is not None:
+        file_list: list[str] | list[list[str]] = [
+            file for group in grouped_files for file in group
+        ]
+    else:
+        file_list = grouped_files
+
     if key is not None:
-        try:
-            selected_list = []
-            for file in fl:
-                if key in file.split("/")[-1]:
-                    selected_list.append(file)
-        except TypeError as err:
-            raise TypeError("'key' argument must be a string") from err
-        fl = selected_list
-    if len(fl) == 1:
-        fl = fl[0]
-    return fl
+        if file_list and isinstance(file_list[0], list):
+            filtered_groups = [
+                [file for file in group if key in _os.path.basename(file)]
+                for group in file_list
+            ]
+            filtered_groups = [group for group in filtered_groups if len(group) > 0]
+            file_list = (
+                filtered_groups[0] if len(filtered_groups) == 1 else filtered_groups
+            )
+        else:
+            file_list = [
+                file for file in file_list if key in _os.path.basename(file)
+            ]
+
+    if isinstance(file_list, list) and len(file_list) == 1:
+        file_list = file_list[0]
+
+    if isinstance(file_list, list):
+        if file_list and not isinstance(file_list[0], list) and len(file_list) == 1:
+            return file_list[0]
+        if file_list and isinstance(file_list[0], list) and len(file_list[0]) == 1:
+            return file_list[0][0]
+
+    return file_list
 
 
 def tnRange(tn0: str, tn1: str, complete_paths: bool = False) -> list[str]:
@@ -392,7 +476,7 @@ def save_fits(
     elif any([data.dtype == _np.int64, data.dtype == _np.int32]):
         data = _reduce_dtype_safely(data)
 
-    if hasattr(data, 'writeto'):
+    if hasattr(data, "writeto"):
         try:
             header = _header_from_dict(data.header.copy())
             data.header = header.copy()
@@ -414,7 +498,45 @@ def save_fits(
         _fits.writeto(filepath, data, header=header, overwrite=overwrite)
 
 
-def save_dict(
+def update_fits_header(
+    file: str | _ot.FitsData,
+    header_updates: dict[str, _ot.Any],
+    updated_filepath: _ot.Optional[str] = None,
+) -> None:
+    """
+    Updates the header of an existing FITS file with new key-value pairs.
+
+    Parameters
+    ----------
+    file : str | FitsArray
+        Path to the existing FITS file or a loaded `FitsArray` object.
+    header_updates : dict[str, any]
+        Dictionary containing the header keys and their new values to be updated.
+    updated_filepath : str, optional
+        Path to save the updated FITS file. If None, the original file updated
+        must have been passed as a string, and it will be overwritten.
+
+    Raises
+    ------
+    FileNotFoundError
+        If the specified FITS file does not exist.
+    """
+    if isinstance(file, str):
+        try:
+            data = load_fits(file)
+        except FileNotFoundError as exc:
+            raise FileNotFoundError(f"File {file} not found") from exc
+
+    data.header.update(header_updates)
+    try:
+        save_fits(updated_filepath or file, data)
+    except Exception as exc:
+        raise IOError(
+            f"Failed to save updated FITS file. Either `file` is given as string or `updated_filepath` is provided."
+        ) from exc
+
+
+def save_h5(
     datadict: dict[str, _ot.ArrayLike],
     filepath: str,
     overwrite: bool = True,
@@ -447,7 +569,7 @@ def save_dict(
     ...     'sensor_1': np.random.randn(111, 100),
     ...     'sensor_2': np.random.randn(111, 100),
     ... }
-    >>> save_dict(datadict, '/path/to/data.h5')
+    >>> save_h5(datadict, '/path/to/data.h5')
     """
     if not filepath.endswith((".h5", ".hdf5")):
         filepath += ".h5"
@@ -494,7 +616,7 @@ def save_dict(
                     hf[key].attrs[attr_key] = attr_value
 
 
-def load_dict(
+def load_h5(
     filepath: str, keys: _ot.Optional[list[str]] = None
 ) -> dict[str, _ot.ArrayLike]:
     """
@@ -523,10 +645,10 @@ def load_dict(
     Examples
     --------
     >>> # Load all data
-    >>> buffer_dict = loadBufferDataDict('/path/to/buffer_data.h5')
+    >>> buffer_dict = load_h5('/path/to/buffer_data.h5')
     >>>
     >>> # Load only specific keys (memory efficient)
-    >>> datadict = load_dict(
+    >>> datadict = load_h5(
     ...     '/path/to/data.h5',
     ...     keys=['sensor_1', 'sensor_3']
     ... )
@@ -625,50 +747,6 @@ def get_h5file_info(filepath: str) -> dict[str, _ot.Any]:
     info["file_size_mb"] = file_size_bytes / (1024 * 1024)
     return info
 
-
-def newtn() -> str:
-    """
-    Returns a timestamp in a string of the format `YYYYMMDD_HHMMSS`.
-
-    Returns
-    -------
-    str
-        Current time in a string format.
-    """
-    return _time.strftime("%Y%m%d_%H%M%S")
-
-
-def create_data_folder(basepath: str = _fn.OPD_IMAGES_ROOT_FOLDER, get_tn: bool = False) -> str:
-    """
-    Creates a new data folder with a unique tracking number in the specified base path.
-
-    Parameters
-    ----------
-    basepath : str, optional
-        The base directory where the new tracking number folder will be created.
-        Default is the OPTImages root folder.
-
-    Returns
-    -------
-    tn_path : str
-        The path to the newly created tracking number folder.
-    """
-    ex = True
-    while ex:
-        tn = newtn()
-        tn_path = _os.path.join(basepath, tn)
-        if not _os.path.exists(tn_path):
-            try:
-                _os.makedirs(tn_path, exist_ok=True)
-                ex = False
-            except OSError:
-                _time.sleep(0.01)
-        else:
-            _time.sleep(0.01)
-    out = [tn_path]
-    if get_tn:
-        out.append(tn)
-    return out if len(out) > 1 else out[0]
 
 
 def _header_from_dict(

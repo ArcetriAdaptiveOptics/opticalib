@@ -91,9 +91,9 @@ class BaseAdOpticaDm:
             col2 = amp[111:]
         else:
             col = col2 = amp
-        s = kwargs.pop('s', 250)
-        eg= kwargs.pop('edgecolors', 'gray')
-        
+        s = kwargs.pop("s", 250)
+        eg = kwargs.pop("edgecolors", "gray")
+
         plt.gca().set_facecolor((0, 0, 0, 0.05))
         plt.scatter(xA, yA, c=col, s=s, edgecolors=eg, **kwargs)
         plt.scatter(xB, yB, c=col2, s=s, edgecolors=eg, **kwargs)

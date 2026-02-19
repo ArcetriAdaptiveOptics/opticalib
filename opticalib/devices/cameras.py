@@ -84,7 +84,7 @@ class AVTCamera:
             self._logger.info("Setting exposure time to {} us".format(exptime_us))
             exptimeFeat = cam.get_feature_by_name("ExposureTimeAbs")
             exptimeFeat.set(exptime_us)
-        self._exptime = int(exptime_us / 1000) # ms
+        self._exptime = int(exptime_us / 1000)  # ms
 
     def acquire_frames(
         self,
@@ -135,7 +135,9 @@ class AVTCamera:
                         )
                 else:
                     frames.append(
-                        cam.get_frame(timeout_ms=int(self._base_timeout * self._exptime))
+                        cam.get_frame(
+                            timeout_ms=int(self._base_timeout * self._exptime)
+                        )
                         .as_numpy_ndarray()
                         .transpose(2, 0, 1)
                     )
@@ -242,7 +244,7 @@ class AVTCamera:
         except Exception as e:
             try:
                 with _vmbpy.VmbSystem.get_instance() as vimba:
-                   return vimba.get_camera_by_id(self.cam_ip)
+                    return vimba.get_camera_by_id(self.cam_ip)
             except Exception as e:
                 self._logger.error(
                     f"Could not find camera with ID {self.cam_id} or IP {self.cam_ip}"

@@ -359,9 +359,9 @@ class TestSaveBufferData:
     """Test saveBufferData function."""
 
     @patch("opticalib.dmutils.iff_module._osu.is_tn")
-    @patch("opticalib.dmutils.iff_module._osu.save_dict")
+    @patch("opticalib.dmutils.iff_module._osu.save_h5")
     def test_save_buffer_data_with_tn(
-        self, mock_save_dict, mock_is_tn, mock_dm, temp_dir, monkeypatch
+        self, mock_save_h5, mock_is_tn, mock_dm, temp_dir, monkeypatch
     ):
         """Test saving buffer data with tracking number."""
         from opticalib.core.root import folders
@@ -379,16 +379,16 @@ class TestSaveBufferData:
         tn = "20240101_120000"
         iff_module.saveBufferData(mock_dm, tn)
 
-        # Verify save_dict was called with correct path
-        mock_save_dict.assert_called_once()
-        call_args = mock_save_dict.call_args
+        # Verify save_h5 was called with correct path
+        mock_save_h5.assert_called_once()
+        call_args = mock_save_h5.call_args
         assert tn in call_args[0][1]  # Check path contains tn
         assert call_args[0][0] == mock_dm.bufferData  # Check data
 
     @patch("opticalib.dmutils.iff_module._osu.is_tn")
-    @patch("opticalib.dmutils.iff_module._osu.save_dict")
+    @patch("opticalib.dmutils.iff_module._osu.save_h5")
     def test_save_buffer_data_with_path(
-        self, mock_save_dict, mock_is_tn, mock_dm, temp_dir
+        self, mock_save_h5, mock_is_tn, mock_dm, temp_dir
     ):
         """Test saving buffer data with full path."""
         mock_is_tn.return_value = False
@@ -397,14 +397,14 @@ class TestSaveBufferData:
         }
 
         # Use directory path since the code checks os.path.exists
-        # and save_dict will append .h5 to create the file
+        # and save_h5 will append .h5 to create the file
         filepath = temp_dir
         os.makedirs(temp_dir, exist_ok=True)
 
         iff_module.saveBufferData(mock_dm, filepath)
 
-        mock_save_dict.assert_called_once()
-        call_args = mock_save_dict.call_args
+        mock_save_h5.assert_called_once()
+        call_args = mock_save_h5.call_args
         expected_path = os.path.join(filepath, 'buffer_data.h5')
         assert call_args[0][1] == expected_path
 

@@ -216,8 +216,7 @@ class _ModeFitter(ABC):
         mat : numpy array
             Modes matrix.
         """
-        #image = self._make_sure_on_cpu(image)
-        image = self._ongpu(image)
+        image = self._put_on_gpu(image)
         self._logger.info("Fitting image with modal decomposition")
 
         # FIXME: now handles the case of mgen is available, but
@@ -348,13 +347,11 @@ class _ModeFitter(ABC):
         # An image has been passed
         elif image is not None:
 
-            # image = self._make_sure_on_cpu(image)
-
             # Handle the ROIs case
             roiimg = _roi.roiGenerator(image)
             nroi = len(roiimg)
 
-            image = self._ongpu(image)
+            image = self._put_on_gpu(image)
 
             # FIXME: handle the case of passed ROIs
             # in particular, new image should only have those passed rois
@@ -404,7 +401,7 @@ class _ModeFitter(ABC):
                         with self.temporary_fit_mask(r):
                             mat = self._create_fitting_matrix(modes_indices, r)
                         surface.data[r] = _xp.dot(mat.T, _xp.asarray(coeffs))
-                    
+
                     surface = surface.asmarray()
 
                 else:
@@ -437,7 +434,9 @@ class _ModeFitter(ABC):
                 surface[fmidx_] = _xp.dot(mat, coeffs)
 
                 # Remasking
-                surface = _np.ma.masked_array(_xp.asnumpy(surface), mask=_xp.asnumpy(image.mask))
+                surface = _np.ma.masked_array(
+                    _xp.asnumpy(surface), mask=_xp.asnumpy(image.mask)
+                )
 
         # No image, but a fitting mask is available
         elif self._mgen is not None:
@@ -638,35 +637,38 @@ class _ModeFitter(ABC):
         else:
             if _xp.on_gpu:
                 if isinstance(img, _xp.ma.MaskedArray):
-                    img = img.asmarray()
+                    return _xp.asmarray(img)
                 elif isinstance(img, _xp.ndarray):
-                    img = img.get()
+                    return _xp.asnumpy(img)
             else:
                 return img
-        return img
 
-    def _ongpu(self, image: _t.ImageData) -> _t.ImageData:
+    def _put_on_gpu(self, image: _t.ImageData) -> _t.ImageData:
         """
         Ensure the image is on GPU.
 
         Parameters
         ----------
-        img : ImageData
+        image : ImageData
             Input image.
 
         Returns
         -------
-        img_gpu : ImageData
+        image_gpu : ImageData
             Image on GPU.
         """
         if _xp.on_gpu:
             if isinstance(image, _xp.ma.MaskedArray):
                 return image
             else:
-                if isinstance(image, _np.ma.masked_array):
-                    image = _xp.ma.masked_array(image.data, mask=image.mask)
-                elif isinstance(image, _np.ndarray):
-                    image = _xp.ma.masked_array(image)
+                try:
+                    if isinstance(image, _np.ma.masked_array):
+                        return _xp.ma.masked_array(image.data, mask=image.mask)
+                    elif isinstance(image, _np.ndarray):
+                        return _xp.ma.masked_array(image)
+                except Exception as e:
+                    self._logger.error(e)
+                    return self._make_sure_on_cpu(image)
         else:
             return self._make_sure_on_cpu(image)
 

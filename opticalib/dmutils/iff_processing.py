@@ -190,9 +190,7 @@ def cubeRoiProcessing(
     import time
 
     if all(
-        [isinstance(x, list) for x in [tn, activeRoiID]]
-        +
-        [_osu.is_tn(t) for t in tn]
+        [isinstance(x, list) for x in [tn, activeRoiID]] + [_osu.is_tn(t) for t in tn]
     ):
 
         newtns = [
@@ -206,14 +204,13 @@ def cubeRoiProcessing(
             )
             for t, r in zip(tn, activeRoiID)
         ]
-        time.sleep(1)# to avoid conflicts in the newly created tn for the stacking
+        time.sleep(1)  # to avoid conflicts in the newly created tn for the stacking
         return stackCubes(newtns)
 
     time.sleep(0.5)
 
     save_path, newtn = _osu.create_data_folder(
-        basepath=_fn.INTMAT_ROOT_FOLDER, 
-        get_tn=True
+        basepath=_fn.INTMAT_ROOT_FOLDER, get_tn=True
     )
     load_path = _os.path.join(_fn.INTMAT_ROOT_FOLDER, tn)
 

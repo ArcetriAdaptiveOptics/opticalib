@@ -415,7 +415,7 @@ class Flattening:
         """
         return self._rec._intMat_U, self._rec._intMat_S, self._rec._intMat_Vt
 
-    def plotEigenvalues(self, **plotkwargs: dict[str,_ot.Any]) -> None:
+    def plotEigenvalues(self, **plotkwargs: dict[str, _ot.Any]) -> None:
         """
         Plots the eigenvalues of the interaction matrix.
         """
@@ -424,8 +424,8 @@ class Flattening:
         if self._rec._intMat_S is None:
             raise ValueError("Reconstruction matrix not computed yet.")
 
-        xlim = plotkwargs.pop('xlim', None)
-        ylim = plotkwargs.pop('ylim', None)
+        xlim = plotkwargs.pop("xlim", None)
+        ylim = plotkwargs.pop("ylim", None)
 
         plt.figure()
         plt.semilogy(self._rec._intMat_S, "o-", **plotkwargs)
@@ -437,7 +437,9 @@ class Flattening:
         plt.grid()
         plt.show()
 
-    def plotEigenvectors(self, modeid: int, out: bool = False, **imshowkwargs: dict[str,_ot.Any]) -> None:
+    def plotEigenvectors(
+        self, modeid: int, out: bool = False, **imshowkwargs: dict[str, _ot.Any]
+    ) -> None:
         """
         Plots the eigenvectors of the SVD of the interaction matrix.
 
@@ -454,12 +456,12 @@ class Flattening:
             raise ValueError("Reconstruction matrix not computed yet.")
 
         mask = self._getMasterMask()
-        img = _np.ma.masked_array(mask*0., mask=mask)
+        img = _np.ma.masked_array(mask * 0.0, mask=mask)
         mode = (self._rec._intMat_Vt).T
-        img[img.mask == 0] = mode[:,modeid]
+        img[img.mask == 0] = mode[:, modeid]
 
-        xlim = imshowkwargs.pop('xlim', None)
-        ylim = imshowkwargs.pop('ylim', None)
+        xlim = imshowkwargs.pop("xlim", None)
+        ylim = imshowkwargs.pop("ylim", None)
 
         plt.figure()
         plt.imshow(img, **imshowkwargs)
@@ -470,12 +472,14 @@ class Flattening:
         plt.ylim(ylim)
         plt.colorbar()
         plt.show()
-        
+
         if out:
             return img
 
     def filterIntCube(
-        self, zernModes: _ot.Optional[list[int] | _ot.ArrayLike] = None, mode: str = 'global'
+        self,
+        zernModes: _ot.Optional[list[int] | _ot.ArrayLike] = None,
+        mode: str = "global",
     ) -> "Flattening":
         """
         Filter the interaction cube with the given zernike modes
@@ -514,7 +518,9 @@ class Flattening:
                 self._oldCube = self._intCube.copy()
                 zern2fit = zernModes if zernModes is not None else [1, 2, 3]
                 self._logger.info(f"Filtering cube of zernike modes {zern2fit}...")
-                self._intCube, new_tn = _ifp.filterZernikeCube(self.tn, zern2fit, mode=mode)
+                self._intCube, new_tn = _ifp.filterZernikeCube(
+                    self.tn, zern2fit, mode=mode
+                )
                 self.loadNewTn(new_tn)
                 self.filtered = True
                 self.filteredModes = zern2fit
