@@ -68,7 +68,7 @@ class AVTCamera:
             with self._prepare_camera() as cam:
                 exptimeFeat = cam.get_feature_by_name("ExposureTimeAbs")
                 exposure_time = exptimeFeat.get()
-            self._exptime = exposure_time / 1000  # ms
+            self._exptime = exposure_time
         return self._exptime
 
     def set_exptime(self, exptime_us: float):
@@ -84,7 +84,7 @@ class AVTCamera:
             self._logger.info("Setting exposure time to {} us".format(exptime_us))
             exptimeFeat = cam.get_feature_by_name("ExposureTimeAbs")
             exptimeFeat.set(exptime_us)
-        self._exptime = int(exptime_us / 1000)  # ms
+        self._exptime = exptime_us
 
     def acquire_frames(
         self,
@@ -119,16 +119,17 @@ class AVTCamera:
         with self._prepare_camera() as cam:
 
             if mode == "sync":
+                exptimeInMs = max(1,int(self._exptime / 1000))
                 self._logger.info("Starting synchronous acquisition")
                 self._logger.info(
-                    f"Acquiring {n_frames} frames with timeout {self._base_timeout*self._exptime} ms"
+                    f"Acquiring {n_frames} frames with timeout {self._base_timeout*exptimeInMs} ms"
                 )
                 if n_frames is not None and n_frames > 1:
                     import copy
 
                     for f in cam.get_frame_generator(
                         limit=n_frames,
-                        timeout_ms=int(self._base_timeout * self._exptime * n_frames),
+                        timeout_ms=int(self._base_timeout * exptimeInMs * n_frames),
                     ):
                         frames.append(
                             copy.deepcopy(f).as_numpy_ndarray().transpose(2, 0, 1)
