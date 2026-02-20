@@ -108,7 +108,7 @@ def process(
     nmode_prefetch : int, optional
         Number of modes to prefetch during the processing. The default is 1.
     """
-    if isinstance(tn, list) and all([isinstance(t, str) for t in tn]):
+    if isinstance(tn, list) and all([_osu.is_tn(t) for t in tn]):
         for t in tn:
             process(
                 t,
@@ -614,7 +614,7 @@ def getTriggerFrame(tn: str, amplitude: int | float = None, roi: int = None) -> 
     infoT, _, _, _ = _getAcqInfo(tn)
     if amplitude is not None:
         infoT["amplitude"] = amplitude
-    fileList = _osu.getFileList(tn)
+    fileList = _osu.getFileList(tn, fold='OPDImages')
     img0 = _osu.read_phasemap(fileList[0])
     go = i = 1
     thresh = infoT["amplitude"] / _np.sqrt(3)
@@ -698,7 +698,7 @@ def getRegFileMatrix(tn: str, trigFrame: int) -> tuple[int, _ot.ArrayLike]:
         _os.path.isdir(fold)
     else:
         fold = None
-    fileList = _osu.getFileList(tn, fold=fold)
+    fileList = _osu.getFileList(tn, fold='OPDImages' if fold is None else fold)
     _, infoR, _, _ = _getAcqInfo(tn)
     regStart, regEnd = getRegFrames(tn, trigFrame)
     regList = fileList[regStart:regEnd]
@@ -727,7 +727,7 @@ def getIffFileMatrix(tn: str, trigFrame: int = None) -> _ot.ArrayLike:
         _os.path.isdir(fold)
     else:
         fold = None
-    fileList = _osu.getFileList(tn, fold=fold)
+    fileList = _osu.getFileList(tn, fold='OPDImages' if fold is None else fold)
     _, _, infoIF, _ = _getAcqInfo(tn)
     _, regEnd = getRegFrames(tn, trigFrame)
     n_useful_frames = len(infoIF["modes"]) * len(infoIF["template"])

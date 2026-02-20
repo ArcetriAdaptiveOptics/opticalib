@@ -32,7 +32,7 @@ The in-development version can be installed directly from this repository:
 pip install git+"https://github.com/pietroferraiuolo/labott.git"
 ```
 
-**but do expect some bugs!**
+**But do expect some bugs!**
 
 Upon installation, the software will create an entry point script called `calpy`, which is usefull to set up a specific experiment's environment. Let's say we have an optical bench composed of an interferometer 4D PhaseCam6110 and an Alpao Deformable mirror, say DM820. We can create the experiment's environment just like:
 
@@ -42,6 +42,8 @@ calpy -f ~/alpao_experiment --create
 
 This will create, in the `~/alpao_experiment` folder, the package's data folder tree, together with a configuration file in the `SysConfig` folder. The [configuration file](./opticalib/core/_configurations/configuration.yaml), documented [here](./opticalib/core/_configurations/DOCS.md), is where all devices must be specified.
 
+### Example usage
+
 Once done with the configuration, we can then start using out instruments:
 
 ```bash
@@ -49,14 +51,18 @@ calpy -f ~/alpao_experiment
 ```
 
 ```python
-# The `calpy` function will automatically import opticalib (with `opt` as alias), as well as the `opticalib.dmutils` as dmutils
+# The `calpy` function will automatically import opticalib (with `opt` 
+# as alias), as well as the `opticalib.dmutils` as dmutils
 
 interf = opt.PhaseCam(6110) # set in the configuration file
 dm = opt.AlpaoDm(820)       # set in the configuration file
 
-# Having the bench set up and the configuration file set, we can acquire an Influence Function by just doing
+# Having the bench set up and the configuration file set, we can acquire
+# an Influence Function by just doing
 
-tn = dmutils.iff_module.iffDataAcquisition(dm, interf) # Optional paramenters are `modesList, modesAmplitude, template`, which if not specified are read from the configuration file
+tn = dmutils.iff_module.iffDataAcquisition(dm, interf) # Optional paramenters
+# are `modesList, modesAmplitude, template`, which if not specified are 
+# read from the configuration file
 ```
 
 ## Documentation

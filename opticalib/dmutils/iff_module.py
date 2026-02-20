@@ -25,7 +25,6 @@ def iffDataAcquisition(
     amplitude: _ot.Optional[float | _ot.ArrayLike] = None,
     template: _ot.Optional[_ot.ArrayLike] = None,
     shuffle: bool = False,
-    differential: bool = False,
     read_buffer: bool | dict[str, _ot.Any] = False,
 ) -> str:
     """
@@ -49,9 +48,6 @@ def iffDataAcquisition(
         template file for the command matrix
     shuffle: bool , optional
         if True, shuffle the modes before acquisition
-    differential: bool , optional
-        if True, applies the commands differentially w.r.t. the initial shape of
-        the DM.
     read_buffer: bool | dict[str, Any], optional
         If False (default) do not read the buffer data during the acquisition.
         If True, read the buffer data with default parameters.
@@ -87,12 +83,12 @@ def iffDataAcquisition(
             else:
                 rb_kwargs = {}
             with dm.read_buffer(**rb_kwargs):
-                dm.runCmdHistory(interf, save=tn, differential=differential)
+                dm.runCmdHistory(interf, save=tn)
             saveBufferData(dm, tn)
         except _oe.BufferError as be:
             print(be)
     else:
-        dm.runCmdHistory(interf, save=tn, differential=differential)
+        dm.runCmdHistory(interf, save=tn)
     return tn
 
 

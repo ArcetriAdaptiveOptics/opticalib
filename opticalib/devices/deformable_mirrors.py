@@ -81,7 +81,7 @@ class PetalMirror(_api.BasePetalMirror, _api.base_devices.BaseDeformableMirror):
     def runCmdHistory(
         self,
         interf: _ot.Optional[_ot.InterferometerDevice] = None,
-        differential: bool = False,
+        differential: bool = True,
         save: _ot.Optional[str] = None,
     ) -> None:
         """
@@ -92,7 +92,7 @@ class PetalMirror(_api.BasePetalMirror, _api.base_devices.BaseDeformableMirror):
         interf : _ot.InterferometerDevice
             The interferometer device to be used for acquiring images during the command history run.
         differential : bool, optional
-            If True, the commands will be applied as differential commands (default is False).
+            If True, the commands will be applied as differential commands (default is True).
         save : str, optional
             If provided, the data will be saved in a folder with this name, instead of a freshly
             generated timestamp.
@@ -290,7 +290,7 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
     def runCmdHistory(
         self,
         interf: _ot.Optional[_ot.InterferometerDevice] = None,
-        differential: bool = False,
+        differential: bool = True,
         save: _ot.Optional[str] = None,
     ) -> None:
         """
@@ -302,7 +302,7 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
         interf : _ot.InterferometerDevice
             The interferometer device to be used for acquiring images during the command history run.
         differential : bool, optional
-            If True, the commands will be applied as differential commands (default is False).
+            If True, the commands will be applied as differential commands (default is True).
         triggered : bool | dict[str, _ot.Any], optional
             If False, the command history will be run in a sequential mode.
             If not False, a dictionary must be provided, where it should contain the keys

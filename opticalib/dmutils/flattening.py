@@ -379,6 +379,11 @@ class Flattening:
             reconstruction matrix computation (int) or the threshold value to discard
             computed eigenvalues for the reconstruction (float). Default is None.
         """
+        if self._cavityOffset is not None:
+            self._logger.info(
+                "Subtracting the cavity offset from loaded image..."
+            )
+            img = img - self._cavityOffset
         self.shape2flat = self._alignImgAndCubeMasks(img)
         self._rec = self._rec.loadShape2Flat(self.shape2flat)
         self._logger.info("Image to shape loaded to Reconstructor class.")
@@ -400,9 +405,26 @@ class Flattening:
         self._logger.info("Starting reconstruction matrix computation...")
         self._recMat = self._rec.run(sv_threshold=threshold)
 
+    def load_cavity_offset(self, cavity_offset: str | _ot.ImageData) -> None:
+        """
+        Load a cavity offset to subtract from the loaded image before computing
+        the flat command.
+
+        Parameters
+        ----------
+        cavity_offset : ImageData or str
+            Cavity offset to subtract from the loaded image. Can be either the
+            image itself or the path to a FITS file to load.
+        """
+        if isinstance(cavity_offset, str):
+            cavity_offset = _osu.load_fits(cavity_offset)
+        self._cavityOffset = cavity_offset.copy()
+        self._logger.info("Cavity offset loaded.")
+
     def getSVDmatrices(self) -> tuple[_ot.ArrayLike, _ot.ArrayLike, _ot.ArrayLike]:
         """
-        Returns the U, S, Vt matrices from the SVD decomposition of the interaction matrix.
+        Returns the U, S, Vt matrices from the SVD decomposition of the interaction
+        matrix.
 
         Returns
         -------
@@ -422,7 +444,13 @@ class Flattening:
         import matplotlib.pyplot as plt
 
         if self._rec._intMat_S is None:
-            raise ValueError("Reconstruction matrix not computed yet.")
+            try:
+                self.computeRecMat()
+            except Exception as e:
+                self._logger.error(
+                    f"Error computing reconstruction matrix for eigenvalue plot: {e}"
+                )
+                raise ValueError("Reconstruction matrix not computed yet.") from e
 
         xlim = plotkwargs.pop("xlim", None)
         ylim = plotkwargs.pop("ylim", None)
@@ -571,7 +599,6 @@ class Flattening:
         deltacmd = self.flatCmd.copy()
         data = [cmd, deltacmd, imgstart, imgflat]
         if hasattr(self._dm, "get_force"):
-            # Could compute as FF x deltaCmd, but better to save actual forces
             force = self._dm.get_force()
             files.append("flatTotalForces.fits")
             data.append(force)

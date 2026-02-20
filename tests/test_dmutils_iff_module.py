@@ -149,51 +149,6 @@ class TestIffDataAcquisition:
         call_args = mock_prep.createTimedCmdHistory.call_args
         assert call_args.kwargs.get('shuffle', False) is True
 
-    @patch("opticalib.dmutils.iff_module._ifa.IFFCapturePreparation")
-    @patch("opticalib.dmutils.iff_module._osu.newtn")
-    @patch("opticalib.dmutils.iff_module._rif")
-    def test_iff_data_acquisition_differential(
-        self,
-        mock_read_config,
-        mock_newtn,
-        mock_iff_prep,
-        mock_dm,
-        mock_interferometer,
-        temp_dir,
-        monkeypatch,
-    ):
-        """Test IFF data acquisition with differential mode."""
-        from opticalib.core.root import folders
-
-        mock_newtn.return_value = "20240101_120000"
-        mock_prep = MagicMock()
-        mock_prep.createTimedCmdHistory.return_value = np.random.randn(100, 50)
-        mock_prep.getInfoToSave.return_value = {
-            "timedCmdHistory": np.random.randn(100, 50),
-            "cmdMatrix": np.random.randn(100, 10),
-            "modesVector": np.array([1, 2, 3]),
-            "regActs": np.array([]),
-            "ampVector": np.array([0.1, 0.2, 0.3]),
-            "indexList": np.array([0, 1, 2]),
-            "template": np.array([1, -1]),
-            "shuffle": 0,
-        }
-        mock_iff_prep.return_value = mock_prep
-
-        iff_folder = os.path.join(temp_dir, "IFFunctions")
-        os.makedirs(iff_folder, exist_ok=True)
-        monkeypatch.setattr(folders, "IFFUNCTIONS_ROOT_FOLDER", iff_folder)
-
-        tn = iff_module.iffDataAcquisition(
-            mock_dm, mock_interferometer, differential=True
-        )
-
-        assert tn == "20240101_120000"
-        # Verify differential was passed to runCmdHistory
-        mock_dm.runCmdHistory.assert_called_once()
-        call_args = mock_dm.runCmdHistory.call_args
-        assert call_args[1]["differential"] is True
-
 
 class TestAcquirePistonData:
     """Test acquirePistonData function."""
