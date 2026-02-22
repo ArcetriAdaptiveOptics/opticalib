@@ -41,8 +41,8 @@ class ComputeReconstructor:
 
     def __init__(
         self,
-        tn: str = None,
         interaction_matrix_cube: _ot.MatrixLike | None = None,
+        tn: str = None,
         mask2intersect: _ot.Optional[_ot.MatrixLike] = None,
     ):
         """The constructor"""
