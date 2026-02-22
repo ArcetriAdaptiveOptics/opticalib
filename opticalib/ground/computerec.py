@@ -48,17 +48,20 @@ class ComputeReconstructor:
         """The constructor"""
         self._logger = _SL(__class__)
         self._imgMask = self._mask2intersect(mask2intersect)
-        self._intMatCube = interaction_matrix_cube or self.loadInteractionCube(tn)
+        self._cubeMask = None
+        self._intMatCube = None
         self._tn = tn or None
-        self._cubeMask = self._intersectCubeMask()
         self._analysisMask: _ot.MaskData | None = None
-        self._intMat = self._computeIntMat()
+        self._intMat = None
+        
+        # Initialization w/ IM computation
+        self.loadInteractionCube(interaction_matrix_cube, tn)
+
         self._intMat_U = None
         self._intMat_S = None
         self._intMat_Vt = None
         self._threshold = None
         self._filtered_sv = None
-        self._setAnalysisMask()
 
     def run(
         self, sv_threshold: int | float | None = None, interactive: bool = False
@@ -208,13 +211,19 @@ class ComputeReconstructor:
         Sets the analysis mask as the mask resulting from the 'logical_or' between
         the cube mask and the image to flatten mask.
         """
+        # Handling for the instancing of the class with the cube, but without the image to flatten mask.
+        if self._cubeMask is None:
+            self._cubeMask = self._intersectCubeMask()
+
         try:
             if self._imgMask is None:
                 analysisMask = self._cubeMask
             else:
                 analysisMask = _np.logical_or(self._cubeMask, self._imgMask)
+
         except Exception as e:
             raise e
+
         self._analysisMask = analysisMask
 
     def _mask2intersect(
