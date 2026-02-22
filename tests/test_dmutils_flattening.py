@@ -81,7 +81,7 @@ class TestFlattening:
         f.loadImage2Shape(sample_image)
         f.computeRecMat(threshold=5)
 
-        flat_cmd = f.computeFlatCmd(n_modes=5)
+        flat_cmd = f.computeFlatCmd(modes2flat=5)
 
         assert flat_cmd is not None
         assert isinstance(flat_cmd, np.ndarray)
@@ -96,7 +96,7 @@ class TestFlattening:
         f.loadImage2Shape(sample_image)
         f.computeRecMat(threshold=5)
 
-        flat_cmd = f.computeFlatCmd(n_modes=[0, 1, 2, 3, 4])
+        flat_cmd = f.computeFlatCmd(modes2flat=[0, 1, 2, 3, 4])
 
         assert flat_cmd is not None
         assert isinstance(flat_cmd, np.ndarray)
@@ -113,7 +113,7 @@ class TestFlattening:
         f.computeRecMat(threshold=5)
 
         with pytest.raises(TypeError):
-            f.computeFlatCmd(n_modes="invalid")
+            f.computeFlatCmd(modes2flat="invalid")
 
     def test_get_svd_matrices(self, sample_int_matrix_folder, sample_image):
         """Test getting SVD matrices."""
