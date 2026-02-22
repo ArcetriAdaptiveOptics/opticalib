@@ -47,10 +47,10 @@ class ComputeReconstructor:
     ):
         """The constructor"""
         self._logger = _SL(__class__)
+        self._imgMask = self._mask2intersect(mask2intersect)
         self._intMatCube = interaction_matrix_cube or self.loadInteractionCube(tn)
         self._tn = tn or None
         self._cubeMask = self._intersectCubeMask()
-        self._imgMask = self._mask2intersect(mask2intersect)
         self._analysisMask: _ot.MaskData | None = None
         self._intMat = self._computeIntMat()
         self._intMat_U = None
