@@ -412,6 +412,9 @@ class _4DInterferometer(_api.BaseInterferometer):
                     new_file = _os.path.join(fold, new_name)
                     _os.rename(old_file, new_file)
 
+    def __repr__(self) -> str:
+        return f"{self._name}(ip={self.ip}, port={self.port})"
+
 
 class AccuFiz(_4DInterferometer):
     """

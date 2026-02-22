@@ -269,3 +269,7 @@ class AVTCamera:
                 text += "/// Serial Number : {}\n".format(cam.get_serial())
                 text += "/// Interface ID  : {}\n".format(cam.get_interface_id())
                 return text
+    
+    def __repr__(self):
+        arg1 = f"id={self.cam_id}" if self.cam_id is not None else f"ip={self.cam_ip}"
+        return f"{self._name}({arg1}, exptime={self._exptime} us)"

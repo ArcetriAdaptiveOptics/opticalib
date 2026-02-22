@@ -279,3 +279,6 @@ class BasePetalMirror:
             self._logger.error(f"Error checking/enabling axes: {err}")
             self._had_error = True
             raise RuntimeError("Failed to check/enable axes") from err
+
+    def __repr__(self):
+        return f"PetalMirror(nSegments={self.nSegments}, nActsPerSegment={self.nActsPerSegment})"

@@ -27,13 +27,13 @@ class ComputeReconstructor:
     HOW TO USE IT::
 
         tn = "YYYYMMDD_HHMMSS"
-        cr = ComputeReconstructor.loadInteractionMatrix(tn)
+        cr = ComputeReconstructor(tn)
         rec = cr.run()
 
     OR
 
-        cr = ComputeReconstructor(interation_matrix_cube)
-        rec = cr.run(Interactive=True)
+        cr = ComputeReconstructor(interaction_matrix_cube=IMCube)
+        rec = cr.run(interactive=True)
 
         where the interaction_matrix_cube is a masked_array dstack of
         shape [pixels, pixels, n_images]
@@ -41,12 +41,14 @@ class ComputeReconstructor:
 
     def __init__(
         self,
-        interaction_matrix_cube: _ot.MatrixLike,
+        tn: str = None,
+        interaction_matrix_cube: _ot.MatrixLike | None = None,
         mask2intersect: _ot.Optional[_ot.MatrixLike] = None,
     ):
         """The constructor"""
         self._logger = _SL(__class__)
-        self._intMatCube = interaction_matrix_cube
+        self._intMatCube = interaction_matrix_cube or self._loadIntMatCube(tn)
+        self._tn = tn or None
         self._cubeMask = self._intersectCubeMask()
         self._imgMask = self._mask2intersect(mask2intersect)
         self._analysisMask: _ot.MaskData | None = None
@@ -168,7 +170,7 @@ class ComputeReconstructor:
         import os
 
         if intCube is not None:
-            self._intMatCube = intCube
+            self._intMatCube = intCube.copy()
         elif tn is not None:
             cube_path = os.path.join(_intMatFold, tn, "IMCube.fits")
             self._intMatCube = _osu.read_phasemap(cube_path)
@@ -254,6 +256,13 @@ class ComputeReconstructor:
             cube_mask = _np.logical_or(mask, self._intMatCube[:, :, i].mask)
             mask = cube_mask
         return cube_mask
+
+    def __repr__(self) -> str:
+        if self._tn:
+            arg = f"tn='{self._tn}'"
+        else:
+            arg = f"IntMat: {self._intMatCube.shape}"
+        return f"ComputeReconstructor({arg})"
 
     # ______________________________________________________________________________
     @staticmethod

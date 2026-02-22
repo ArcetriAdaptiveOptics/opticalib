@@ -117,8 +117,8 @@ def project_IM_into_zonal_IM(
     FFWD: _ot.MatrixLike,
 ) -> _ot.MatrixLike:
     """
-    Project an interaction matrix into a zonal interaction matrix
-    using the deformable mirror influence functions.
+    Project a modal interaction matrix into a zonal one using the deformable mirror
+    Feed-Forward matrix.
 
     Parameters
     ----------

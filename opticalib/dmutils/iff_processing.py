@@ -254,6 +254,10 @@ def cubeRoiProcessing(
         newcube.append(v)
 
     newcube = _fa.fits_array(_np.ma.dstack(newcube), header=cube.header.copy())
+    newcube.header["ROIPROCS"] = (True, "flag for roi processing")
+    newcube.header["TTDETRND"] = (tt_detrend, "was detrended from tt")
+    newcube.header["MEANSUB"] = (mean_subtraction, "was mean subtracted")
+    newcube.header["ROINULL"] = (roinull, "was roi nulled")
 
     if not _os.path.exists(save_path):
         _os.makedirs(save_path)

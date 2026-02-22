@@ -671,6 +671,9 @@ class _ModeFitter(ABC):
                     return self._make_sure_on_cpu(image)
         else:
             return self._make_sure_on_cpu(image)
+    
+    def __repr__(self) -> str:
+        return f"{__class__.__name__}(has_auxmask={True if self.auxmask is not None else False})"
 
 
 class ZernikeFitter(_ModeFitter):

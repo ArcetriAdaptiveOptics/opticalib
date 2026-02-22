@@ -159,6 +159,13 @@ class Flattening:
         """
         return self._rec._analysisMask
 
+    @property
+    def meta(self) -> dict[str, _ot.Any]:
+        """
+        Metadata property.
+        """
+        return self._rec._intMatCube.header
+
     def closedLoopFlattening(
         self, iterations: int | None = None, **kwargs: dict[str, _ot.Any]
     ) -> None:
@@ -325,15 +332,15 @@ class Flattening:
 
         self._logger.info(f"Flat command and images saved in {fold}.")
 
-    def computeFlatCmd(self, n_modes: int | _ot.ArrayLike) -> _ot.ArrayLike:
+    def computeFlatCmd(self, modes2flat: int | _ot.ArrayLike) -> _ot.ArrayLike:
         """
         Compute the command to apply to flatten the input shape.
 
         Parameters
         ----------
-        n_modes : int | ArrayLike
+        modes2flat : int | ArrayLike
             Number of modes used to compute the flat command. If int, it will
-            compute the first n_modes of the command matrix. If list, it will
+            compute the first modes2flat of the command matrix. If list, it will
             compute the flat command for the given modes.
 
         Returns
@@ -345,21 +352,21 @@ class Flattening:
         img = _np.ma.masked_array(self.shape2flat, mask=self._getMasterMask())
         _cmd = -_np.dot(img.compressed(), self._recMat)
         cmdMat = self._cmdMat.copy()
-        if isinstance(n_modes, int):
-            flat_cmd = cmdMat[:, :n_modes] @ _cmd[:n_modes]
-        elif isinstance(n_modes, (_np.ndarray, list)):
-            _cmdMat = _np.zeros((cmdMat.shape[0], len(n_modes)))
-            _scmd = _np.zeros(len(n_modes))
-            for i, mode in enumerate(n_modes):
+        if isinstance(modes2flat, int):
+            flat_cmd = cmdMat[:, :modes2flat] @ _cmd[:modes2flat]
+        elif isinstance(modes2flat, (_np.ndarray, list)):
+            _cmdMat = _np.zeros((cmdMat.shape[0], len(modes2flat)))
+            _scmd = _np.zeros(len(modes2flat))
+            for i, mode in enumerate(modes2flat):
                 _cmdMat.T[i] = cmdMat.T[mode]
                 _scmd[i] = _cmd[mode]
             flat_cmd = _cmdMat @ _scmd
         else:
             self._logger.error(
-                f"`n_modes` must be either an int or a list of int: {type(n_modes)}"
+                f"`modes2flat` must be either an int or a list of int: {type(modes2flat)}"
             )
             raise TypeError(
-                f"`n_modes` must be either an int or a list of int: {type(n_modes)}"
+                f"`modes2flat` must be either an int or a list of int: {type(modes2flat)}"
             )
         self.flatCmd = flat_cmd.copy()
         return flat_cmd

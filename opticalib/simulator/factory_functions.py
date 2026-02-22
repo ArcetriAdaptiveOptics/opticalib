@@ -159,8 +159,6 @@ def generateZernikeMatrix(modes: int | list[int], mask: _t.MaskData):
 
     Parameters
     ----------
-    nacts : int
-        Number of actuators in the DM.
     n_modes : int
         Number of Zernike modes to generate.
     mask : _t.MaskData

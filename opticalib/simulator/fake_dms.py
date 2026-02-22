@@ -279,6 +279,9 @@ class AlpaoDm(BaseFakeAlpao):
                 self._shape,
             )
             self._actPos = np.zeros(self.nActs)
+    
+    def __repr__(self) -> str:
+        return f"{__class__.__name__}(nActs={self.nActs})"
 
 
 class DP(BaseFakeDp):
@@ -438,3 +441,6 @@ class DP(BaseFakeDp):
         plt.title(f"{self._name} {self.nActs} Actuator's Coordinates")
         plt.colorbar()
         plt.show()
+
+    def __repr__(self) -> str:
+        return f"{self._name}(nSegments={self.nSegments}, nActsPerSegment={self.nActsPerSegment})"

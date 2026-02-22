@@ -369,11 +369,14 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
         """
         cc = self._aoClient.getCounters()
         values = []
-        keyse = ["skipByCommand", "skipByDeltaCommand", "skipByForce"]
-        for key in keyse:
+        keys = ["skipByCommand", "skipByDeltaCommand", "skipByForce"]
+        for key in keys:
             values.append(getattr(cc, key))
         total_skipped_frames = sum(values)
         return total_skipped_frames
+    
+    def __repr__(self):
+        return f"{self._name}(nSegments={self.nSegments}, nActsPerSegment={self.nActsPerSegment})"
 
 
 class DP(AdOpticaDm):
@@ -620,6 +623,9 @@ class AlpaoDm(_api.BaseAlpaoMirror, _api.base_devices.BaseDeformableMirror):
                     _sf(_os.path.join(datafold, f"image_{i:05d}.fits"), img)
         self.set_shape(s)
         return tn
+    
+    def __repr__(self):
+        return f"{self._name}(nActs={self.nActs})"
 
 
 class SplattDm(_api.base_devices.BaseDeformableMirror):
@@ -742,3 +748,6 @@ class SplattDm(_api.base_devices.BaseDeformableMirror):
             raise _oe.CommandError(
                 f"End position is too low at {_np.min(pos)*1e+3:1.2f} [mm]"
             )
+
+    def __repr__(self):
+        return f"{self._name}(nActs={self.nActs})"
