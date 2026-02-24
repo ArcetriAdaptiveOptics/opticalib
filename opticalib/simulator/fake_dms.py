@@ -279,7 +279,7 @@ class AlpaoDm(BaseFakeAlpao):
                 self._shape,
             )
             self._actPos = np.zeros(self.nActs)
-    
+
     def __repr__(self) -> str:
         return f"{__class__.__name__}(nActs={self.nActs})"
 

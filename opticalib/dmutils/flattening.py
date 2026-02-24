@@ -387,9 +387,7 @@ class Flattening:
             computed eigenvalues for the reconstruction (float). Default is None.
         """
         if self._cavityOffset is not None:
-            self._logger.info(
-                "Subtracting the cavity offset from loaded image..."
-            )
+            self._logger.info("Subtracting the cavity offset from loaded image...")
             img = img - self._cavityOffset
         self.shape2flat = self._alignImgAndCubeMasks(img)
         self._rec = self._rec.loadShape2Flat(self.shape2flat)
@@ -525,40 +523,21 @@ class Flattening:
             Zernike modes to filter out this cube (if it's not already filtered).
             Default modes are [1,2,3] -> piston/tip/tilt.
         """
-        try:
-            import warnings
-
-            warnings.warn(
-                "filtering flag in `flag.txt` file is deprecated and will be removed in a future version of `opticalib`.",
-                DeprecationWarning,
+        if self.filtered and all([x==y for x,y in zip(self.filteredModes, zernModes)]):
+            self._logger.warning("Cube already filtered, skipping...")
+            print(f"Cube already filtered, of {self.filteredModes}.")
+            return
+        else:
+            print("Filtering cube...")
+            self._oldCube = self._intCube.copy()
+            zern2fit = zernModes if zernModes is not None else [1, 2, 3]
+            self._logger.info(f"Filtering cube of zernike modes {zern2fit}...")
+            self._intCube, new_tn = _ifp.filterZernikeCube(
+                self.tn, zern2fit, mode=mode
             )
-            self._logger.warning(
-                "filtering flag in `flag.txt` file is deprecated and will be removed in a future version of `opticalib`."
-            )
-            # Backwards compatibility for rebinning
-            with open(
-                _os.path.join(self._path, _ifp.flagFile), "r", encoding="utf-8"
-            ) as f:
-                flag = f.read()
-            if " filtered " in flag:
-                print("Cube already filtered, skipping...")
-                return
-        except FileNotFoundError:
-            if self.filtered:
-                self._logger.warning("Cube already filtered, skipping...")
-                print("Cube already filtered, skipping...")
-                return
-            else:
-                print("Filtering cube...")
-                self._oldCube = self._intCube.copy()
-                zern2fit = zernModes if zernModes is not None else [1, 2, 3]
-                self._logger.info(f"Filtering cube of zernike modes {zern2fit}...")
-                self._intCube, new_tn = _ifp.filterZernikeCube(
-                    self.tn, zern2fit, mode=mode
-                )
-                self.loadNewTn(new_tn)
-                self.filtered = True
-                self.filteredModes = zern2fit
+            self.loadNewTn(new_tn)
+            self.filtered = True
+            self.filteredModes = zern2fit
         return self
 
     def loadNewTn(self, tn: str) -> None:
@@ -694,29 +673,10 @@ class Flattening:
         intCube : CubeData
             The interaction cube data array.
         """
-        intCube = _osu.load_fits(_os.path.join(self._path, _ifp.cubeFile))
-        try:
-            import warnings
-
-            warnings.warn(
-                "filtering flag in `flag.txt` file is deprecated and will be removed in a future version of `opticalib`.",
-                DeprecationWarning,
-            )
-            # Backwards compatibility for rebinning
-            with open(_os.path.join(self._path, _ifp.flagFile), "r") as file:
-                lines = file.readlines()
-                flag = file.read()
-            rebin = eval(lines[1].split("=")[-1])
-            if " filtered " in flag:
-                filtered = True
-                fittedModes = eval(lines[2].split("=")[-1])
-            else:
-                filtered = False
-                fittedModes = None
-        except FileNotFoundError:
-            rebin = intCube.header.get("REBIN", 1)
-            filtered = intCube.header.get("FILTERED", False)
-            fittedModes = eval(intCube.header.get("ZREMOVED", "None"))
+        intCube = _osu.load_fits(_os.path.join(self._path, _ifp._CUBE_FILE))
+        rebin = intCube.header.get("REBIN", 1)
+        filtered = intCube.header.get("FILTERED", False)
+        fittedModes = eval(intCube.header.get("ZREMOVED", "None"))
         self.rebin = rebin
         self.filtered = filtered
         self.filteredModes = fittedModes
@@ -732,7 +692,7 @@ class Flattening:
         cmdMat : MatrixLike
             Command matrix of the cube, saved in the tn path.
         """
-        cmdMat = _osu.load_fits(_os.path.join(self._path, _ifp.cmdMatFile))
+        cmdMat = _osu.load_fits(_os.path.join(self._path, _ifp._MATRIX_FILE))
         return cmdMat
 
     def _loadReconstructor(self) -> _ot.Reconstructor:

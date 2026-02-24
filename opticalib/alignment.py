@@ -436,7 +436,6 @@ class Alignment:
                 n_results = results
         return n_results
 
-
     def _zern_routine(
         self, imglist: list[_ot.ImageData] | _ot.CubeData
     ) -> _ot.MatrixLike:
@@ -470,7 +469,6 @@ class Alignment:
         self._logger.info("Creating Interaction Matrix")
         intMat = _np.array(coefflist).T
         return intMat
-
 
     def _create_rec_mat(self, intMat: _ot.MatrixLike) -> _ot.MatrixLike:
         """
@@ -582,7 +580,6 @@ class Alignment:
             _osu.save_fits(_os.path.join(self._dataPath, f"img_k{k}_t{t}"), img)
             imglist.append(img)
         return imglist
-
 
     def __loadIntMat(self, calibtn: str | None) -> _ot.MatrixLike:
         """

@@ -262,9 +262,7 @@ def getFileList(
                 filtered_groups[0] if len(filtered_groups) == 1 else filtered_groups
             )
         else:
-            file_list = [
-                file for file in file_list if key in _os.path.basename(file)
-            ]
+            file_list = [file for file in file_list if key in _os.path.basename(file)]
 
     if isinstance(file_list, list) and len(file_list) == 1:
         file_list = file_list[0]
@@ -746,7 +744,6 @@ def get_h5file_info(filepath: str) -> dict[str, _ot.Any]:
     file_size_bytes = _os.path.getsize(filepath)
     info["file_size_mb"] = file_size_bytes / (1024 * 1024)
     return info
-
 
 
 def _header_from_dict(

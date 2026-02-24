@@ -39,7 +39,6 @@ Stacked cube and matrices saved in '.../path/to/data/OPTData/INTMatrices/'new_tn
 """
 
 import os as _os
-import xupy as _xp
 import numpy as _np
 import shutil as _sh
 import configparser as _cp
@@ -49,8 +48,10 @@ from opticalib.core.root import _folds
 from opticalib.core import fitsarray as _fa
 from opticalib.core import read_config as _rif
 from concurrent.futures import ThreadPoolExecutor as _tpe
-from opticalib.analyzer import cubeRebinner as _cr, makeCubeMasterMask as _cmm
-from opticalib.ground import modal_decomposer as _zern, osutils as _osu, roi as _roi
+from opticalib.analyzer.images_processing import cubeRebinner as _cr
+from opticalib.ground import (
+    modal_decomposer as _zern, osutils as _osu, roi as _roi
+)
 
 # from scripts.misc.IFFPackage import actuator_identification_lib as _fa
 
@@ -61,16 +62,15 @@ _intMatFold = _fn.INTMAT_ROOT_FOLDER
 _frameCenter = [200, 200]
 _ts = _osu.newtn
 
-modesVecFile = "modesVector.fits"
-cmdMatFile = "cmdMatrix.fits"
-ampVecFile = "ampVector.fits"
-templateFile = "template.fits"
-regisActFile = "regActs.fits"
-indexListFile = "indexList.fits"
-shuffleFile = "shuffle.dat"
-cubeFile = "IMCube.fits"
-coordfile = ""  # TODO
-flagFile = "flag.txt"  # DEPRECATED
+_MODES_FILE = "modesVector.fits"
+_MATRIX_FILE = "cmdMatrix.fits"
+_AMP_FILE = "ampVector.fits"
+_TEMPLATE_FILE = "template.fits"
+_REGACTS_FILE = "regActs.fits"
+_INDEXLIST_FILE = "indexList.fits"
+_SHUFFLE_FILE = "shuffle.dat"
+_CUBE_FILE = "IMCube.fits"
+_COORD_FILE = ""  # TODO
 
 
 def process(
@@ -317,11 +317,11 @@ def saveCube(
         cube = _cr(cube, rebin)
     cube.header.update(header)
     # Saving the cube
-    cube_path = _os.path.join(new_fold, cubeFile)
+    cube_path = _os.path.join(new_fold, _CUBE_FILE)
     _osu.save_fits(cube_path, cube, overwrite=True)
     # Copying the cmdMatrix and the ModesVector into the INTMAT Folder
-    _copyFromIffToIM(name="cmdMatrix.fits", tn=tn)
-    _copyFromIffToIM(name="modesVector.fits", tn=tn)
+    _copyFromIffToIM(name=_MATRIX_FILE, tn=tn)
+    _copyFromIffToIM(name=_MODES_FILE, tn=tn)
     print(
         f"Cube of shape {cube.shape} saved in '.../{'/'.join(cube_path.split('/')[-2:])}'"
     )
@@ -367,9 +367,9 @@ def stackCubes(tnlist: str, cubeNames: _ot.Optional[list[str]] = None) -> None:
     for i, tn in enumerate(tnlist):
         nchead[f"TN{i+1}"] = (tn, f"TN of stacked cube {i+1}")
     nchead["REBIN"] = (cube_parameters[3], "common rebinning factor")
-    save_cube = _os.path.join(stacked_cube_fold, cubeFile)
-    save_cmat = _os.path.join(stacked_cube_fold, "cmdMatrix.fits")
-    save_mvec = _os.path.join(stacked_cube_fold, "modesVector.fits")
+    save_cube = _os.path.join(stacked_cube_fold, _CUBE_FILE)
+    save_cmat = _os.path.join(stacked_cube_fold, _MATRIX_FILE)
+    save_mvec = _os.path.join(stacked_cube_fold, _MODES_FILE)
     _osu.save_fits(save_cube, stacked_cube, header=nchead)
     _osu.save_fits(save_cmat, stacked_cmat)
     _osu.save_fits(save_mvec, stacked_mvec)
@@ -406,9 +406,9 @@ def filterZernikeCube(
         Tracking Number of the new folder where the filtered cube is saved.
     """
     new_tn = _os.path.join(_intMatFold, _ts())
-    CmdMat = _os.path.join(_intMatFold, tn, cmdMatFile)
-    ModesVec = _os.path.join(_intMatFold, tn, modesVecFile)
-    cube = _fa.FitsMaskedArray.fromFits(_os.path.join(_intMatFold, tn, cubeFile))
+    CmdMat = _os.path.join(_intMatFold, tn, _MATRIX_FILE)
+    ModesVec = _os.path.join(_intMatFold, tn, _MODES_FILE)
+    cube = _fa.FitsMaskedArray.fromFits(_os.path.join(_intMatFold, tn, _CUBE_FILE))
     zern_modes = zern_modes if zern_modes is not None else [1, 2, 3]
     from opticalib.analyzer import removeZernikeFromCube
 
@@ -418,9 +418,9 @@ def filterZernikeCube(
 
     if save:
         _os.mkdir(new_tn)
-        ffcube.writeto(_os.path.join(new_tn, cubeFile), overwrite=True)
-        _sh.copyfile(CmdMat, _os.path.join(new_tn, cmdMatFile))
-        _sh.copyfile(ModesVec, _os.path.join(new_tn, modesVecFile))
+        ffcube.writeto(_os.path.join(new_tn, _CUBE_FILE), overwrite=True)
+        _sh.copyfile(CmdMat, _os.path.join(new_tn, _MATRIX_FILE))
+        _sh.copyfile(ModesVec, _os.path.join(new_tn, _MODES_FILE))
         print(f"Filtered cube saved at {new_tn}")
     return ffcube, new_tn.split("/")[-1]
 
@@ -582,7 +582,7 @@ def findFrameOffset(
     dp: float
         Position difference
     """
-    actCoordFile = _os.path.join(_ifFold, tn, coordfile)
+    actCoordFile = _os.path.join(_ifFold, tn, _COORD_FILE)
     actCoord = _osu.load_fits(actCoordFile)
     xy = _fa.findFrameCoord(imglist, actlist, actCoord)  # type: ignore
     dp = xy - _frameCenter
@@ -618,7 +618,7 @@ def getTriggerFrame(tn: str, amplitude: int | float = None, roi: int = None) -> 
     infoT, _, _, _ = _getAcqInfo(tn)
     if amplitude is not None:
         infoT["amplitude"] = amplitude
-    fileList = _osu.getFileList(tn, fold='OPDImages')
+    fileList = _osu.getFileList(tn, fold="OPDImages")
     img0 = _osu.read_phasemap(fileList[0])
     go = i = 1
     thresh = infoT["amplitude"] / _np.sqrt(3)
@@ -702,7 +702,7 @@ def getRegFileMatrix(tn: str, trigFrame: int) -> tuple[int, _ot.ArrayLike]:
         _os.path.isdir(fold)
     else:
         fold = None
-    fileList = _osu.getFileList(tn, fold='OPDImages' if fold is None else fold)
+    fileList = _osu.getFileList(tn, fold="OPDImages" if fold is None else fold)
     _, infoR, _, _ = _getAcqInfo(tn)
     regStart, regEnd = getRegFrames(tn, trigFrame)
     regList = fileList[regStart:regEnd]
@@ -731,7 +731,7 @@ def getIffFileMatrix(tn: str, trigFrame: int = None) -> _ot.ArrayLike:
         _os.path.isdir(fold)
     else:
         fold = None
-    fileList = _osu.getFileList(tn, fold='OPDImages' if fold is None else fold)
+    fileList = _osu.getFileList(tn, fold="OPDImages" if fold is None else fold)
     _, _, infoIF, _ = _getAcqInfo(tn)
     _, regEnd = getRegFrames(tn, trigFrame)
     n_useful_frames = len(infoIF["modes"]) * len(infoIF["template"])
@@ -786,12 +786,12 @@ def _getCubeList(
     modesVectList = []
     rebins = []
     if cubeNames is None:
-        cubeNames = [cubeFile] * len(tnlist)
+        cubeNames = [_CUBE_FILE] * len(tnlist)
     for tn, cname in zip(tnlist, cubeNames):
         fold = _os.path.join(_intMatFold, tn)
         cube_name = _os.path.join(fold, cname)
-        matrix_name = _os.path.join(fold, "cmdMatrix.fits")
-        modesVec_name = _os.path.join(fold, "modesVector.fits")
+        matrix_name = _os.path.join(fold, _MATRIX_FILE)
+        modesVec_name = _os.path.join(fold, _MODES_FILE)
         cube = _osu.load_fits(cube_name)
         cubeList.append(cube)
         matrixList.append(_osu.load_fits(matrix_name))
@@ -833,12 +833,12 @@ def _getAcqPar(
         template sampling repetition for each mode.
     """
     base = _os.path.join(_ifFold, tn)
-    ampVector = _osu.load_fits(_os.path.join(base, ampVecFile))
-    template = _osu.load_fits(_os.path.join(base, templateFile))
-    modesVector = _osu.load_fits(_os.path.join(base, modesVecFile))
-    indexList = _osu.load_fits(_os.path.join(base, indexListFile))
-    registrationActs = _osu.load_fits(_os.path.join(base, regisActFile))
-    with open(_os.path.join(base, shuffleFile), "r", encoding="UTF-8") as shf:
+    ampVector = _osu.load_fits(_os.path.join(base, _AMP_FILE))
+    template = _osu.load_fits(_os.path.join(base, _TEMPLATE_FILE))
+    modesVector = _osu.load_fits(_os.path.join(base, _MODES_FILE))
+    indexList = _osu.load_fits(_os.path.join(base, _INDEXLIST_FILE))
+    registrationActs = _osu.load_fits(_os.path.join(base, _REGACTS_FILE))
+    with open(_os.path.join(base, _SHUFFLE_FILE), "r", encoding="UTF-8") as shf:
         shuffle = int(shf.read())
     return ampVector, modesVector, template, indexList, registrationActs, shuffle
 

@@ -1,4 +1,11 @@
 """
+Module: ROI
+===========
+
+Author(s)
+---------
+- Pietro Ferraiuolo
+
 Module containing functions for region of interest (ROI) generation and other image utilities
 within the Opticalib framework.
 
@@ -99,7 +106,7 @@ def imgCut(img: _ot.ImageData):
     return cutImg
 
 
-def cubeMasterMask(cube: _ot.CubeData) -> _ot.ImageData:
+def cubeMasterMask(cube: _ot.CubeData, apply: bool = False) -> _ot.ImageData:
     """
     Generates a master mask for a cube by combining the masks of all individual frames.
 
@@ -113,18 +120,22 @@ def cubeMasterMask(cube: _ot.CubeData) -> _ot.ImageData:
     master_mask : np.ma.maskedArray
         The master mask that combines all individual masks in the cube.
     """
-    master_mask = _np.ma.logical_or.reduce(
-        [cube[:, :, i].mask for i in range(cube.shape[-1])]
+    master_mask = _np.logical_or.reduce(
+        [cube[:, :, i].mask for i in range(cube.shape[2])]
     )
-    return master_mask
+    if apply:
+        cube.mask = _np.broadcast_to(master_mask[:, :, None], cube.shape)
+        return cube
+    else:
+        return master_mask
 
 
 def remap_on_new_mask(
     data: _ot.ArrayLike, old_mask: _ot.MaskData, new_mask: _ot.MaskData
 ) -> _ot.ArrayLike:
     """
-    Remaps the matrix data defined on valid values
-    of old_mask to valid values on new_mask.
+    Remaps the matrix data defined on valid values of old_mask to valid values
+    on new_mask.
 
     Parameters
     ----------
@@ -192,3 +203,6 @@ def remap_on_new_mask(
         remasked_data = remasked_data.T
 
     return remasked_data
+
+
+__all__ = ["roiGenerator", "countRois", "imgCut", "cubeMasterMask", "remap_on_new_mask"]

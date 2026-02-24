@@ -266,7 +266,6 @@ class _ModeFitter(ABC):
         roiimg = _roi.roiGenerator(_xp.asmarray(image))
         nroi = len(roiimg)
         self._logger.info(f"Fitting modes {modes2fit} on image's ROIs with mode {mode}")
-        print("Found " + str(nroi) + " ROI")
         self._logger.info(f"Found {nroi} ROIs to fit")
         coeff = _np.zeros([nroi, len(modes2fit)])
         for i in range(nroi):
@@ -671,7 +670,7 @@ class _ModeFitter(ABC):
                     return self._make_sure_on_cpu(image)
         else:
             return self._make_sure_on_cpu(image)
-    
+
     def __repr__(self) -> str:
         return f"{__class__.__name__}(has_auxmask={True if self.auxmask is not None else False})"
 

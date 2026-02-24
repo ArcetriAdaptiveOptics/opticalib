@@ -374,7 +374,7 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
             values.append(getattr(cc, key))
         total_skipped_frames = sum(values)
         return total_skipped_frames
-    
+
     def __repr__(self):
         return f"{self._name}(nSegments={self.nSegments}, nActsPerSegment={self.nActsPerSegment})"
 
@@ -623,7 +623,7 @@ class AlpaoDm(_api.BaseAlpaoMirror, _api.base_devices.BaseDeformableMirror):
                     _sf(_os.path.join(datafold, f"image_{i:05d}.fits"), img)
         self.set_shape(s)
         return tn
-    
+
     def __repr__(self):
         return f"{self._name}(nActs={self.nActs})"
 

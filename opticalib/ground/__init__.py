@@ -26,3 +26,5 @@ Contents
 - roi.py : module for region of interest (ROI) management.
 - zernike.py : module for Zernike polynomials computation and fitting on images.
 """
+
+from . import roi, modal_decomposer, geometry, osutils, computerec

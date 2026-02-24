@@ -53,7 +53,7 @@ class ComputeReconstructor:
         self._tn = tn or None
         self._analysisMask: _ot.MaskData | None = None
         self._intMat = None
-        
+
         # Initialization w/ IM computation
         self.loadInteractionCube(interaction_matrix_cube, tn)
 
