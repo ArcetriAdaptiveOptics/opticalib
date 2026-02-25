@@ -53,6 +53,7 @@ print(f"ROI-averaged coefficients: {roi_coefficients}")
 import xupy as _xp
 import numpy as _np
 from . import roi as _roi
+from .osutils import get_kwargs
 from abc import abstractmethod, ABC
 from opticalib import typings as _t
 from .logger import SystemLogger as _SL
@@ -329,9 +330,9 @@ class _ModeFitter(ABC):
         surface : ImageData
             Generated modal surface.
         """
-        coeffs = kwargs.get("coeffs", None)
-        mat = kwargs.get("mat", None)
-        k_rois = kwargs.get("rois", None)
+        coeffs = get_kwargs(("coeffs",'coeff','c'), None, kwargs)
+        mat = get_kwargs(("mat",'zm','zmat','matrix'), None, kwargs)
+        k_rois = get_kwargs(("rois",), None, kwargs)
 
         self._logger.info(
             f"Generating modal surface for modes {modes_indices} with mode {mode}"
@@ -370,7 +371,7 @@ class _ModeFitter(ABC):
                 nroi = len(roiimg)
 
             # Got more than one ROI branch
-            if nroi > 1 and mode != "full-aperture":
+            if nroi > 1:# and mode != "full-aperture":
 
                 # Here we don't try to overwrite coeffs/mat, as it would not make sense
 
@@ -401,10 +402,20 @@ class _ModeFitter(ABC):
                             mat = self._create_fitting_matrix(modes_indices, r)
                         surface.data[r] = _xp.dot(mat.T, _xp.asarray(coeffs))
 
-                    surface = surface.asmarray()
+                # FULL-APERTURE (i.e. fit on available pupil)
+                elif mode=='full-aperture':
+                    if coeffs is None:
+                        coeffs, _ = self.fit(image, modes_indices)
+                    with self._temporary_mgen_from_image(image) as (pimage, _):
+                        mat = _xp.asnumpy(self._create_fitting_matrix(modes_indices, pimage.mask == 0))
+                        mask = pimage.mask.copy()
+                    surface = _xp.ma.zeros_like(image)
+                    surface[mask == 0] = _xp.dot(mat.T, _xp.asnumpy(coeffs))
 
                 else:
                     raise ValueError("mode for ROI fitting must be 'global' or 'local'")
+
+                surface = _xp.asmarray(surface)
 
             # Single ROI branch
             else:
@@ -430,7 +441,7 @@ class _ModeFitter(ABC):
                     mat = mat.T
 
                 surface = _xp.zeros_like(image)
-                surface[fmidx_] = _xp.dot(mat, coeffs)
+                surface[fmidx_] = _xp.dot(_xp.asnumpy(mat), coeffs)
 
                 # Remasking
                 surface = _np.ma.masked_array(
@@ -454,7 +465,7 @@ class _ModeFitter(ABC):
         return surface
 
     def filterModes(
-        self, image: _t.ImageData, mode_index_vector: list[int], mode: str = "global"
+        self, image: _t.ImageData, mode_index_vector: list[int], **make_surface_kwargs
     ) -> _t.ImageData:
         """
         Remove modes from the image using the current fit mask.
@@ -465,13 +476,22 @@ class _ModeFitter(ABC):
             Image from which to remove modes.
         zernike_index_vector : list[int], optional
             List of mode indices to be removed.
-        mode : str
-            If more than one ROI is found in the fitting mask, this parameter
-            controls how the modes are computed:
-            - `global` will compute the mean of the fitted coefficient of each ROI
-            - `local` will compute the fitted coefficient for each ROI
+        make_surface_kwargs : dict
+            Additional keyword arguments to be passed to the `makeSurface` method.
+            mode : str
+                If more than one ROI is found in the fitting mask, this parameter
+                controls how the modes are computed:
+                - `global` will compute the mean of the fitted coefficient of each ROI
+                - `local` will compute the fitted coefficient for each ROI
 
-            Defaults to 'global'.
+                Defaults to 'global'.
+            coeffs : ArrayLike
+                Pre-computed modal coefficients to generate the surface.
+            mat : MatrixLike
+                Pre-computed fitting matrix.
+            rois : list[MaskData]
+                List of ROIs to generate the surface on, following the `mode`
+                argument.
 
         Returns
         -------
@@ -479,8 +499,7 @@ class _ModeFitter(ABC):
             Filtered image.
         """
         self._logger.info(f"Removing modes {mode_index_vector} from image")
-        image = self._make_sure_on_cpu(image)
-        surf = self.makeSurface(mode_index_vector, image, mode=mode)
+        surf = self.makeSurface(mode_index_vector, image, **make_surface_kwargs)
         self._logger.info("Subtraction...")
         return _np.ma.masked_array((image - surf).data, mask=image.mask)
 
@@ -579,7 +598,7 @@ class _ModeFitter(ABC):
                 self._mgen = self._create_fit_mask_from_img(image)
                 was_temporary = True
             image = _xp.ma.masked_array(
-                image.copy().data, mask=self._mgen._boolean_mask.copy()
+                _xp.ones_like(image), mask=self._mgen._boolean_mask.copy()
             )
             yield image, was_temporary
         finally:

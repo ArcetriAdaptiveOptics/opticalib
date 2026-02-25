@@ -1,7 +1,6 @@
 import numpy as np
 from opticalib import typings as _ot
 from pipython import GCSDevice, GCSError
-from opticalib.ground.logger import SystemLogger as _SL
 from pipython.pidevice.interfaces.pisocket import PISocket
 from opticalib.core.read_config import getDmConfig, getDmIffConfig as _dmc
 
@@ -37,6 +36,8 @@ class BasePetalMirror:
             self._logger.error("Some connection did not get established")
             raise RuntimeError("Some connection did not get established")
         else:
+            if not hasattr(self, '_had_morning_routine'):
+                self._had_morning_routine = False
             self._logger.info("All connections to petal mirror segments established")
             self._check_servos()
             self._morning_routine()
@@ -58,30 +59,30 @@ class BasePetalMirror:
         """Get the IDs of the border segments."""
         return self._borderIds
 
-    def get_acc(self) -> float:
-        """
-        Get the acceleration setting for the piezo actuators.
+    # def get_acc(self) -> float:
+    #     """
+    #     Get the acceleration setting for the piezo actuators.
 
-        Returns
-        -------
-        float
-            The acceleration value.
-        """
-        self._check_axes()
-        try:
-            acc = []
-            for k, dev in enumerate(self._devices):
-                self._logger.info(
-                    f"Getting acceleration from segment {k} : {self._ip_addresses[k]}"
-                )
-                accx = dev.qACC()
-                accx = [accx["1"], accx["2"], accx["3"]]
-                acc.extend(accx)
-            return np.asarray(acc)
-        except GCSError as err:
-            self._logger.error(f"Error getting acceleration: {err}")
-            self._had_error = True
-            raise RuntimeError("Failed to get acceleration") from err
+    #     Returns
+    #     -------
+    #     float
+    #         The acceleration value.
+    #     """
+    #     self._check_axes()
+    #     try:
+    #         acc = []
+    #         for k, dev in enumerate(self._devices):
+    #             self._logger.info(
+    #                 f"Getting acceleration from segment {k} : {self._ip_addresses[k]}"
+    #             )
+    #             accx = dev.qACC()
+    #             accx = [accx["1"], accx["2"], accx["3"]]
+    #             acc.extend(accx)
+    #         return np.asarray(acc)
+    #     except GCSError as err:
+    #         self._logger.error(f"Error getting acceleration: {err}")
+    #         self._had_error = True
+    #         raise RuntimeError("Failed to get acceleration") from err
 
     # TODO: Is this needed?
     # def set_acc(self, acc: float|_ot.ArrayLike) -> None:
@@ -171,7 +172,7 @@ class BasePetalMirror:
             raise ValueError(f"command length must be {self.nActs}")
 
         if differential:
-            cmd += self._get_last_cmd()
+            cmd = cmd.copy() + self._get_last_cmd()
 
         self._check_axes()
         try:
@@ -197,14 +198,16 @@ class BasePetalMirror:
         import time
 
         try:
-            for k, dev in enumerate(self._devices):
-                self._logger.info(
-                    f"Warming up piezos for segment {k} : {self._ip_addresses[k]}"
-                )
-                for c in [0, 6, 12, 6, 0, 6, 12, 6, 0, 6]:
-                    dev.MOV({"1": c})
-                    time.sleep(0.25)
-                    dev.checkerror()
+            if not self._had_morning_routine:
+                for k, dev in enumerate(self._devices):
+                    self._logger.info(
+                        f"Warming up piezos for segment {k} : {self._ip_addresses[k]}"
+                    )
+                    for c in [0, 6, 12, 6, 0, 6, 12, 6, 0, 6]:
+                        dev.MOV({"1": c})
+                        time.sleep(0.25)
+                        dev.checkerror()
+                self._had_morning_routine = True
         except GCSError as err:
             self._logger.error(f"Error during warming up: {err}")
             self._had_error = True
@@ -240,8 +243,16 @@ class BasePetalMirror:
         If any axis is disabled, enable it.
         """
         if self._had_error:
-            self._logger.warning("Previous error detected, enabling axes")
-            self._enable_axes()
+            self._logger.warning("Previous error detected, trying to reconnect...")
+            for i in range(10):
+                print(f"Reinitialization attempt {i+1}/10...", end='\r', flush=True)
+                try:
+                    self = self.__init__()
+                except ConnectionRefusedError as err:
+                    self._logger.error(f"Error reinitializing: {err}")
+                finally:
+                    continue
+            self = self.__init__()
 
     def _enable_axes(self) -> None:
         """

@@ -119,7 +119,10 @@ def process(
                 nworkers=nworkers,
                 nmode_prefetch=nmode_prefetch,
             )
-        return
+        
+        ntn = stackCubes(tn)
+        return ntn
+
     ampVector, modesVector, template, _, registrationActs, shuffle = _getAcqPar(tn)
     if not modesVector.dtype.type is _np.int_:
         modesVector = modesVector.astype(int)

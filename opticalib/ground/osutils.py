@@ -334,6 +334,33 @@ def tnRange(tn0: str, tn1: str, complete_paths: bool = False) -> list[str]:
                     )
     return tnMat
 
+def get_kwargs(names: tuple[str], default, kwargs: dict):
+    """
+    Gets a tuple of possible kwargs names for a variable and checks if it was
+    passed, and in case returns it.
+
+    Parameters
+    ----------
+    names : tuple
+        Tuple containing all the possible names of a variable which can be passed
+        as a **kwargs argument.
+    default : any type
+        The default value to assign the requested key if it doesn't exist.
+    kwargs : dict
+        The dictionary of variables passed as 'Other Parameters'.
+
+    Returns
+    -------
+    key : value of the key
+        The value of the searched key if it exists. If not, the default value will
+        be returned.
+    """
+    possible_keys = names
+    for key in possible_keys:
+        if key in kwargs:
+            return kwargs[key]
+    return default
+
 
 def loadCubeFromFilelist(
     tn_or_fl: str, fold: _ot.Optional[str] = None, key: _ot.Optional[str] = None
@@ -420,6 +447,8 @@ def load_fits(filepath: str, on_gpu: bool = False) -> _ot.FitsData:
         The loaded FITS file data (masked) array, on CPU or GPU, with attached header
         (as Fits<...>Array).
     """
+    if not filepath.endswith(".fits"):
+        filepath += ".fits"
     with _fits.open(filepath) as hdul:
         fit = hdul[0].data
         header = hdul[0].header
@@ -466,6 +495,9 @@ def save_fits(
         Header information to include in the FITS file. Can be a dictionary or
         a fits.Header object.
     """
+    if not filepath.endswith(".fits"):
+        filepath += ".fits"
+
     data = _ensure_on_cpu(data)
 
     # Check if lowering precision is safe
