@@ -334,19 +334,19 @@ def tnRange(tn0: str, tn1: str, complete_paths: bool = False) -> list[str]:
                     )
     return tnMat
 
-def get_kwargs(names: tuple[str], default, kwargs: dict):
+def get_kwargs(possible_keys: tuple[str], default: _ot.Any, kwargs: dict[str,_ot.Any]):
     """
     Gets a tuple of possible kwargs names for a variable and checks if it was
     passed, and in case returns it.
 
     Parameters
     ----------
-    names : tuple
+    possible_keys : tuple[str]
         Tuple containing all the possible names of a variable which can be passed
         as a **kwargs argument.
-    default : any type
+    default : _ot.Any
         The default value to assign the requested key if it doesn't exist.
-    kwargs : dict
+    kwargs : dict[str,_ot.Any]
         The dictionary of variables passed as 'Other Parameters'.
 
     Returns
@@ -355,7 +355,6 @@ def get_kwargs(names: tuple[str], default, kwargs: dict):
         The value of the searched key if it exists. If not, the default value will
         be returned.
     """
-    possible_keys = names
     for key in possible_keys:
         if key in kwargs:
             return kwargs[key]
