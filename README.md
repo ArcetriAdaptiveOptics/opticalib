@@ -29,7 +29,7 @@ pip install opticalib
 The in-development version can be installed directly from this repository:
 
 ```bash
-pip install git+"https://github.com/pietroferraiuolo/labott.git"
+pip install git+"https://github.com/ArcetriAdaptiveOptics/opticalib.git"
 ```
 
 **But do expect some bugs!**

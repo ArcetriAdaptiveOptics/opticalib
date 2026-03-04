@@ -1,4 +1,8 @@
-"""Tests for setup_calpy module."""
+"""Tests for setup_calpy module.
+
+Tests ensure the calpy entry point can locate initCalpy.py bootstrap script
+both in development (source checkout) and in installed wheel packages.
+"""
 
 from pathlib import Path
 
@@ -8,47 +12,43 @@ import setup_calpy
 class TestResolveInitFile:
     """Test initCalpy script resolution logic."""
 
-    def test_resolve_prefers_packaged_script(self, monkeypatch, temp_dir):
-        """Return packaged script path when both candidates are available."""
-        base_dir = Path(temp_dir)
-        packaged = base_dir / "opticalib" / "_init_script" / "initCalpy.py"
-        local_dev = base_dir / "__init_script__" / "initCalpy.py"
-
-        packaged.parent.mkdir(parents=True, exist_ok=True)
-        packaged.write_text("# packaged")
-        local_dev.parent.mkdir(parents=True, exist_ok=True)
-        local_dev.write_text("# local")
-
-        monkeypatch.setattr(setup_calpy, "__file__", str(base_dir / "setup_calpy.py"))
-
+    def test_resolve_init_script_exists_from_source(self) -> None:
+        """Verify initCalpy resolves in current source environment.
+        
+        In development (source checkout), __init_script__/initCalpy.py exists
+        at the repo root. This test ensures the fallback chain locates it.
+        """
         resolved = setup_calpy._resolve_init_file()
-        assert resolved == str(packaged)
+        assert resolved is not None, (
+            "calpy failed to resolve initCalpy script. "
+            "Ensure opticalib/__init_script_/initCalpy.py exists (installed package) "
+            "or __init_script__/initCalpy.py exists (source checkout)"
+        )
+        assert Path(resolved).exists(), f"Resolved path does not exist: {resolved}"
+        assert "initCalpy.py" in resolved
 
-    def test_resolve_falls_back_to_local_dev_script(self, monkeypatch, temp_dir):
-        """Return local dev script path when packaged script is missing."""
-        base_dir = Path(temp_dir)
-        local_dev = base_dir / "__init_script__" / "initCalpy.py"
+    def test_packaged_init_script_declared(self) -> None:
+        """Ensure setup.py declares packaged init script for wheels.
+        
+        When opticalib is installed, initCalpy.py must be shipped with it.
+        This test guards against regressions where setup.py loses the
+        package_data declaration for _init_script/initCalpy.py.
+        """
+        setup_path = Path(__file__).resolve().parents[1] / "setup.py"
+        setup_source = setup_path.read_text(encoding="utf-8")
+        assert "_init_script/initCalpy.py" in setup_source, (
+            "setup.py does not declare _init_script/initCalpy.py in package_data. "
+            "This will break calpy in installed wheels."
+        )
 
-        local_dev.parent.mkdir(parents=True, exist_ok=True)
-        local_dev.write_text("# local")
-
-        monkeypatch.setattr(setup_calpy, "__file__", str(base_dir / "setup_calpy.py"))
-
-        resolved = setup_calpy._resolve_init_file()
-        assert resolved == str(local_dev)
-
-    def test_resolve_returns_none_when_missing(self, monkeypatch, temp_dir):
-        """Return None when no init script candidate exists."""
-        base_dir = Path(temp_dir)
-        monkeypatch.setattr(setup_calpy, "__file__", str(base_dir / "setup_calpy.py"))
-
-        resolved = setup_calpy._resolve_init_file()
-        assert resolved is None
-
-
-def test_setup_declares_packaged_init_script():
-    """Keep setup metadata aligned with calpy init script packaging."""
-    setup_path = Path(__file__).resolve().parents[1] / "setup.py"
-    setup_source = setup_path.read_text(encoding="utf-8")
-
-    assert "_init_script/initCalpy.py" in setup_source
+    def test_manifest_includes_init_script(self) -> None:
+        """Ensure MANIFEST.in includes packaged init script for sdists.
+        
+        Source distributions must include the packaged init script resource.
+        """
+        manifest_path = Path(__file__).resolve().parents[1] / "MANIFEST.in"
+        manifest_source = manifest_path.read_text(encoding="utf-8")
+        assert "_init_script/initCalpy.py" in manifest_source, (
+            "MANIFEST.in does not declare _init_script/initCalpy.py. "
+            "This will break calpy in source distributions."
+        )

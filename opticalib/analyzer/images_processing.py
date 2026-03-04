@@ -48,9 +48,9 @@ def frame(idx: int, mylist: list[_ot.ImageData] | _ot.CubeData) -> _ot.ImageData
     if isinstance(mylist, list):
         if idx >= len(mylist):
             raise IndexError("Index out of range")
-        if isinstance(mylist[0], str):
+        if isinstance(mylist[idx], str):
             img = osu.read_phasemap(mylist[idx])
-        elif _ot.isinstance_(mylist[0], _ot.ImageData):
+        elif _ot.isinstance_(mylist[idx], _ot.ImageData):
             img = mylist[idx]
     else:
         img = mylist[:, :, idx]

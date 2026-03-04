@@ -105,6 +105,29 @@ def dump_yaml_config(config: dict[str, _Any], path: str = None):
         yaml.dump(config, f)
 
 
+def getDeviceConfig(device_type: str, device_name: str):
+    """
+    Retrieves the device configuration from the YAML configuration file.
+
+    Parameters
+    ----------
+    device_type : str
+        Type of the device (e.g., 'CAMERAS', 'DEFORMABLE.MIRRORS', 'INTERFEROMETER').
+    device_name : str
+        Name of the device.
+
+    Returns
+    -------
+    config : dict
+        The device configuration dictionary.
+    """
+    try:
+        config = (load_yaml_config(_cfile))["DEVICES"][device_type][device_name]
+    except KeyError:
+        raise DeviceNotFoundError(f"{device_type} '{device_name}' not found in configuration.")
+    return config
+
+
 def getIffConfig(key: str, bpath: str = _cfold):
     """
     Reads the configuration from the YAML file for the IFF acquisition.
