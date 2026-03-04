@@ -1,6 +1,5 @@
 import os
 from setuptools import setup, find_packages
-from setuptools.command.install import install
 
 about = {}
 here = os.path.abspath(os.path.dirname(__file__))
@@ -39,6 +38,7 @@ setup(
             "core/_configurations/configuration.yaml",
             "simulator/_API/AdOpticaData/*",
             "simulator/_API/alpao_conf.yaml",
+            "_init_script/initCalpy.py",
         ]
     },
     entry_points={

@@ -2,6 +2,7 @@ import os
 import sys
 import subprocess
 import importlib.util
+from typing import Optional
 
 docs = """
 CALPY DOCUMENTATION
@@ -44,14 +45,40 @@ def check_dir(config_path: str) -> str:
     return config_path
 
 
+def _resolve_init_file() -> Optional[str]:
+    """
+    Resolve the path of the IPython bootstrap script for calpy.
+
+    Returns
+    -------
+    str | None
+        Absolute path to the init script when found, otherwise ``None``.
+    """
+    packaged_path = os.path.join(
+        os.path.dirname(__file__), "opticalib", "__init_script__", "initCalpy.py"
+    )
+    local_dev_path = os.path.join(
+        os.path.dirname(__file__), "__init_script__", "initCalpy.py"
+    )
+
+    for candidate in (packaged_path, local_dev_path):
+        if os.path.exists(candidate):
+            return candidate
+    return None
+
+
 def main():
     """
     Main function to handle command-line arguments and launch IPython
     shell with optional configuration.
     """
-    init_file = os.path.join(
-        os.path.dirname(__file__), "__init_script__", "initCalpy.py"
-    )
+    init_file = _resolve_init_file()
+    if init_file is None:
+        print(
+            "Error: unable to locate 'initCalpy.py'. "
+            "Reinstall opticalib or check package data installation."
+        )
+        sys.exit(1)
     # Check if IPython is installed in current interpreter
     if importlib.util.find_spec("IPython") is None:
         print("Error: IPython is not installed in this Python environment.")
