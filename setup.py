@@ -38,7 +38,7 @@ setup(
             "core/_configurations/configuration.yaml",
             "simulator/_API/AdOpticaData/*",
             "simulator/_API/alpao_conf.yaml",
-            "_init_script/initCalpy.py",
+            "__init_script__/initCalpy.py",
         ]
     },
     entry_points={
