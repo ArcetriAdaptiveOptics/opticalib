@@ -13,6 +13,8 @@ SYSTEM:
 # Follow the examples provided below, as they show the type of
 # devices implemented as of now.
 DEVICES:
+  # In the interferometer section can be defined any Wavefront sensor used to
+  # acquire phase maps.
   INTERFEROMETER:
     PhaseCamX:
       ip: 
@@ -44,6 +46,9 @@ DEVICES:
         produce_4dpc: 
         produce: 
         capture: 
+  
+  # The deformable mirrors section can be used to define wavefront correctors of
+  # the system, such as DMs, SLMs, etc.
   DEFORMABLE.MIRRORS:
     AlpaoXXX:
       ip:
@@ -57,10 +62,30 @@ DEVICES:
       ip4: 
       ip5: 
 
+  # The cameras section can be used to define any kind of scientific CCD 
   CAMERAS:
     AVT_MANTA_5G: # example camera
       id: DEV_000F314DE425
       ip: 
+  
+  # The motor devices usually use the `plico_motor` interface, as their SDK is 
+  # not implemented in Linux.
+  MOTORS:
+    TunableFilter:
+      ip: 
+      port: 
+    
+
+# Here you can specify what you expect to see in the frame of a SPL phasing sensor
+# which is usually a camera plus a tunable filter (to be defined in the DEVICES
+# section)
+PHASING:
+  camera: CAMERAS:AVT_MANTA_5G
+  filter: MOTORS:TunableFilter
+  expected_psfs: 6
+  psfs_angles: [0, 120, 60, -120, -60, 90] # degrees, w.r.t. the horizontal axis of the camera
+  crop_half_size: 70 # pixels
+  min_px_threshold: 30 # minimum number of pixels above the threshold to consider a PSF as detected
 
 ## Influence functions configuration ##
 # Here you can set the parameters for the influence functions

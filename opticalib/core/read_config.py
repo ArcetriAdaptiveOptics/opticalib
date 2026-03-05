@@ -130,6 +130,22 @@ def getDeviceConfig(device_type: str, device_name: str | None = None):
     return config
 
 
+def getPhasingConfig():
+    """
+    Retrieves the phasing configuration from the YAML configuration file.
+
+    Returns
+    -------
+    config : dict
+        The phasing configuration dictionary.
+    """
+    config = load_yaml_config(_cfile)
+    try:
+        return config["PHASING"]
+    except KeyError:
+        raise KeyError("Phasing configuration not found in the YAML file.")
+
+
 def getIffConfig(key: str, bpath: str = _cfold):
     """
     Reads the configuration from the YAML file for the IFF acquisition.
