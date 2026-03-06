@@ -4,6 +4,7 @@ scikit-image
 scikit-learn
 vmbpy
 pipython
+photutils
 scipy
 plico_dm
 ruamel.yaml

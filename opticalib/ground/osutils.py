@@ -564,6 +564,29 @@ def update_fits_header(
             f"Failed to save updated FITS file. Either `file` is given as string or `updated_filepath` is provided."
         ) from exc
 
+def read_fits_header(filepath: str) -> _fits.Header:
+    """
+    Reads the header of a FITS file.
+
+    Parameters
+    ----------
+    filepath : str
+        Path to the FITS file.
+
+    Returns
+    -------
+    header : astropy.io.fits.Header
+        The header of the FITS file.
+
+    Raises
+    ------
+    FileNotFoundError
+        If the specified FITS file does not exist.
+    """
+    header = load_fits(filepath).header
+    print(f"Header of {filepath}:")
+    print(header.__repr__())
+    
 
 def save_h5(
     datadict: dict[str, _ot.ArrayLike],
