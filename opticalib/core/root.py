@@ -301,6 +301,20 @@ class _folds:
         self.PRODUCE_FOLDER_NAME_LOCAL_PC = PRODUCE_FOLDER_NAME_LOCAL_PC
         self.CAPTURE_FOLDER_NAME_LOCAL_PC = CAPTURE_FOLDER_NAME_LOCAL_PC
 
+    def create_new_folds(self) -> None:
+        """
+        Create a new folder tree with a new base data path.
+
+        Parameters
+        ----------
+        BASE_DATA_PATH : str
+            The new base data path.
+        """
+        for v in self.__dict__.values():
+            if isinstance(v, str):
+                if _os.path.isdir(v) and not _os.path.exists(v):
+                    _os.makedirs(v)
+
 
 folders = _folds()
 

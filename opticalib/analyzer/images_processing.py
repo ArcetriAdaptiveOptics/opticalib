@@ -202,7 +202,12 @@ def createCube(fl_or_il: list[str], register: bool = False) -> _ot.CubeData:
     if all([isinstance(item, str) for item in fl_or_il]):
         fl_or_il = [osu.read_phasemap(f) for f in fl_or_il]
         # Is the list now full of images?
-        if not all([_ot.isinstance_(item, "ImageData") for item in fl_or_il]):
+        if not any(
+            [
+                all([_ot.isinstance_(item, "ImageData") for item in fl_or_il]),
+                all([_ot.isinstance_(item, "MatrixLike") for item in fl_or_il]),
+            ]
+        ):
             raise TypeError("Data different from `images` loaded. Check filelist.")
 
     # finally check if it is a list of ImageData
