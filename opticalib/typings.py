@@ -96,8 +96,14 @@ class _InterfProtocol(Protocol):
     def capture(self, numberOfFrames: int, folder_name: str = None) -> str: ...
     def produce(self, tn: str): ...
 
+@runtime_checkable
+class _CameraProtocol(Protocol):
+    def acquire_frames(self, **kwargs: dict[str, Any]) -> ImageData: ...
+    def set_exptime(self, exptime: int | float) -> None: ...
+    def get_exptime(self) -> int | float: ...
 
 InterferometerDevice = TypeVar("InterferometerDevice", bound=_InterfProtocol)
+CameraDevice = TypeVar("CameraDevice", bound=_CameraProtocol)
 
 
 @runtime_checkable
@@ -320,6 +326,7 @@ class InstanceCheck:
         generic_class_map = {
             "DeformableMirrorDevice": _DMProtocol,
             "InterferometerDevice": _InterfProtocol,
+            "CameraDevice": _CameraProtocol,
             "FakeDeformableMirrorDevice": _FakeDMProtocol,
             "FakeInterferometerDevice": _FakeInterfProtocol,
         }

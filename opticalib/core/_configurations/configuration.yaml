@@ -83,15 +83,18 @@ PHASING:
   camera: CAMERAS:AVT_MANTA_5G
   filter: MOTORS:TunableFilter
   expected_psfs: 6
-  psfs_angles: [0, 120, 60, -120, -60, 90] # degrees, w.r.t. the horizontal axis
-                                           # of the camera
-  initial_crop_half_size: 150 # pixels, to be used for the first PSF detection, 
-                              # then refined with a photometric centroid detection
-  crop_half_size: [70, 20] # pixels, final crop. If list, is y,x
-  min_px_threshold: 30  # minimum number of pixels above the threshold to consider
-                        # a PSF as detected
-  sigma_threshold: 2.0  # number of sigma above the background to use as threshold
-                        # for the detection
+  psfs_angles: [0, -60, 60, -120, 120, 180] # degrees, w.r.t. the horizontal axis of the camera
+  expected_psfs_pos: # expected coordinates of the PSFs, ordered as the angles. This is to better identify the correct centroids.
+  - []
+  - []
+  - []
+  - []
+  - []
+  - []
+  initial_crop_half_size: 150 # pixels, to be used for the first PSF detection, then refined with a photometric centroid detection
+  crop_half_size: [75, 23] # pixels, final crop. If list, is y,x
+  min_px_threshold: 30  # minimum number of pixels above the threshold to consider a PSF as detected
+  sigma_threshold: 2.0  # number of sigma above the background to use as threshold for the detection
 
 ## Influence functions configuration ##
 # Here you can set the parameters for the influence functions

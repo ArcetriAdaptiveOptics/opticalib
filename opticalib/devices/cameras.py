@@ -20,7 +20,7 @@ class AVTCamera:
         self._name = name
         self._cam_config = _gcc(device_name=self._name)
         self._logger = _sl()
-        self._base_timeout = 2000  # milliseconds, time for accessing the camera
+        self._base_timeout = 2000  # milliseconds
 
         # retrieve device ID or IP
         try:
@@ -40,7 +40,6 @@ class AVTCamera:
 
         # Try to connect to the camera
         try:
-            _ = self._get_camera()
             repr = self.__str__()
             if "ip" in self._cam_config.keys():
                 ip = self._cam_config["ip"]
@@ -53,7 +52,6 @@ class AVTCamera:
 
         self._logger = _sl(__class__)
         self._exptime = None
-        self._exptime = self.get_exptime()
 
     def get_exptime(self) -> float:
         """
@@ -80,6 +78,11 @@ class AVTCamera:
         exptime_us : float
             The exposure time in micro-seconds.
         """
+        if self._exptime == exptime_us:
+            self._logger.info(
+                f"Exposure time is already set to {exptime_us} us, skipping."
+            )
+            return
         with self._prepare_camera() as cam:
             self._logger.info("Setting exposure time to {} us".format(exptime_us))
             exptimeFeat = cam.get_feature_by_name("ExposureTimeAbs")
@@ -88,7 +91,7 @@ class AVTCamera:
 
     def acquire_frames(
         self,
-        n_frames: int | None = None,
+        nframes: int | None = None,
         multiframe_out_mode: str = "mean",
         mode: str = "sync",
         allocation_mode: int = 0,
@@ -98,7 +101,7 @@ class AVTCamera:
 
         Parameters:
         -----------
-        n_frames : int | None
+        nframes : int | None
             The number of frames to acquire. If in `sync` mode and None, acquires a single frame,
             while if in `async` mode and None, acquires frames until stopped.
         multiframe_out_mode : str
@@ -122,14 +125,14 @@ class AVTCamera:
                 exptimeInMs = max(1, int(self._exptime / 1000))
                 self._logger.info("Starting synchronous acquisition")
                 self._logger.info(
-                    f"Acquiring {n_frames} frames with timeout {self._base_timeout*exptimeInMs} ms"
+                    f"Acquiring {nframes} frames with timeout {self._base_timeout*exptimeInMs} ms"
                 )
-                if n_frames is not None and n_frames > 1:
+                if nframes is not None and nframes > 1:
                     import copy
 
                     for f in cam.get_frame_generator(
-                        limit=n_frames,
-                        timeout_ms=int(self._base_timeout * exptimeInMs * n_frames),
+                        limit=nframes,
+                        timeout_ms=int(self._base_timeout * exptimeInMs * nframes),
                     ):
                         frames.append(
                             copy.deepcopy(f).as_numpy_ndarray().transpose(2, 0, 1)
@@ -168,11 +171,11 @@ class AVTCamera:
                 cam.start_streaming(
                     handler=frame_handler, buffer_count=10, allocation_mode=am
                 )
-                if n_frames is None:
+                if nframes is None:
                     input()  # wait until Enter is pressed
                     cam.stop_streaming()
                 else:
-                    while len(aframes) < n_frames:
+                    while len(aframes) < nframes:
                         time.sleep(exposure_time / 1_000_000)
                     cam.stop_streaming()
 
@@ -215,17 +218,23 @@ class AVTCamera:
         Context manager to prepare the camera for use.
         """
         self._logger.info("Retrieving camera instance")
+        print('per entrare nel `get_instance`...', end='\r', flush=True)
         with _vmbpy.VmbSystem.get_instance():
+            print('dentro il `get_instance`...', end='\r', flush=True)
             with self._get_camera() as cam:
+                print('dentro il `_get_camera`...', end='\r', flush=True)
                 # Try to adjust GeV packet size. This Feature is only available for GigE - Cameras.
                 try:
+                    print('nel try block...', end='\r', flush=True)
                     stream = cam.get_streams()[0]
                     stream.GVSPAdjustPacketSize.run()
                     while not stream.GVSPAdjustPacketSize.is_done():
+                        print('dentro il while...', end='\r', flush=True)
                         pass
 
                 except (AttributeError, _vmbpy.VmbFeatureError):
                     pass
+                print("Yelding the camera instance...", end='\r', flush=True)
                 self._logger.info("Camera instance ready")
                 yield cam
 

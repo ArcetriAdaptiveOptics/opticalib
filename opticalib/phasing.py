@@ -1,15 +1,15 @@
 import os as _os
 import numpy as _np
-from opticalib import typings as _ot
-from opticalib.ground import osutils as _osu
-from opticalib.ground.logger import SystemLogger as _SL
-from opticalib.devices.cameras import AVTCamera as _cam
-from opticalib.core.fitsarray import fits_array as _fits_array
-from opticalib.core.read_config import (
+from . import typings as _ot
+from .ground import osutils as _osu
+from .ground.logger import SystemLogger as _SL
+from .devices.cameras import AVTCamera as _cam
+from .core.fitsarray import fits_array as _fits_array
+from .core.read_config import (
     getDeviceConfig as _gdc, getPhasingConfig as _gpc
 )
-from opticalib.analyzer import frame
-from opticalib import folders as _fn
+from .analyzer import frame
+from .core.root import folders as _fn
 from scipy import ndimage as _ndi
 
 _splconf = _gpc()
@@ -19,8 +19,8 @@ def _get_tunable_filter():
     initiate the tunable filter with standard parameters
     """
     from plico_motor import motor  # type: ignore
-    
-    devtype, device = _splconf['filter'].split(":")
+
+    devtype, device = _splconf["filter"].split(":")
     ip, port = _gdc(devtype, device).values()
 
     return motor(ip, port, axis=0)
@@ -29,21 +29,19 @@ def _get_tunable_filter():
 _FILTER_BANDWIDTH_MODE = {"narrow": 8, "medium": 4, "wide": 2, "black": 1}
 
 
-class ThorRevolver:
+class SPL:
     """
-    Class defining the Petalometer bench's "Thor's Revolver".
+    Sensor for Phase Lag
+    ====================
 
-    This instrument is composed of:
-    - A tunable filter, which operates in the range 500-750 nm
-    - A system composed of injected light from a lamp, which goes through a 6 lens
-    system which gets beam-splitted to the PetalMirror and to the camera, forming the
-    6 spot pattern for piston phasing.
-    - An AVT Camera.
+    The Sensor for Phase Lag (SPL) is a device composed of a laser and a camera,
+    which measures the phase lag between the incoming light and a reference signal, by
+    acquiring images at different wavelengths and analyzing the resulting fringes.
 
     Parameters
     ----------
     camera: AVTCamera
-        The camera used to acquire images in the TR system
+        The camera used to acquire images in the SPL system
     tunable_filter: object
         The tunable filter client to regulate the wavelength of the incoming light.
     tnfringes: str | None
@@ -64,7 +62,7 @@ class ThorRevolver:
                 camera = _cam(name=camera)
         elif camera is None:
             try:
-                _, device = _splconf['camera'].split(":")
+                _, device = _splconf["camera"].split(":")
                 camera = _cam(name=device)
             except Exception:
                 camera = None
@@ -84,6 +82,24 @@ class ThorRevolver:
         self._curr_exptime = None
         self._last_measure_tn = None
         self._logger = _SL(__class__)
+
+
+    def set_tn_fringes(self, tnfringes: str | None):
+        """
+        Set the tracking number of the simulated fringes measurements, for
+        template comparison during analysis.
+
+        Parameters
+        ----------
+        tnfringes : str | None
+            The tracking number of the simulated fringes measurements,
+            for template comparison during analysis.
+        """
+        self._tnfringes = tnfringes
+        if tnfringes is not None:
+            self._fringes_fold = _os.path.join(_fn.SPL_FRINGES_ROOT_FOLDER, tnfringes)
+        else:
+            self._fringes_fold = None
 
     def set_filter_mode(self, mode: str):
         """
@@ -164,70 +180,75 @@ class ThorRevolver:
 
     def preview_detection(
         self,
+        img: _ot.ImageData | None = None,
         exptime: _ot.Optional[float] = None,
         filter_mode: _ot.Optional[str] = None,
         wavelength: _ot.Optional[float] = None,
-        **kwargs: dict[str,_ot.Any]
+        **kwargs: dict[str, _ot.Any],
     ):
         """
-        Acquire an image with the provided settings (or the current ones) and 
+        Acquire an image with the provided settings (or the current ones) and
         preview the detected PSF centroids and crop boxes.
 
         Parameters
         ----------
         exptime : float, optional
-            The exposure time to set for the camera before acquiring the image. 
-            
+            The exposure time to set for the camera before acquiring the image.
+
             If None, the current exposure time is used.
         filter_mode : str, optional
-            The filter bandwidth mode to set for the tunable filter before 
-            acquiring the image. Must be one of "narrow", "medium", "wide". 
-            
+            The filter bandwidth mode to set for the tunable filter before
+            acquiring the image. Must be one of "narrow", "medium", "wide".
+
             If None, the current filter mode is used.
         wavelength : float, optional
             The wavelength to set for the tunable filter before acquiring the image.
-            
+
             If None, the current wavelength is used.
         kwargs : dict
-            Additional keyword arguments to pass to the `detect_psf_centroids` 
+            Additional keyword arguments to pass to the `detect_psf_centroids`
             method, such as `n_psf`, `nsigma`, `min_pixels`, etc.
 
         """
         import matplotlib.pyplot as plt
         from matplotlib.patches import Rectangle
-        
-        if exptime is not None:
-            self.set_exptime(exptime)
-        
-        if filter_mode is not None:
-            self.set_filter_mode(filter_mode)
-        
-        if wavelength is not None and self._filter is not None:
-            self._filter.move_to(wavelength)
 
-        img = self._camera.acquire_frames(1)
+        if img is None:
+            if exptime is not None:
+                self.set_exptime(exptime)
+
+            if filter_mode is not None:
+                self.set_filter_mode(filter_mode)
+
+            if wavelength is not None and self._filter is not None:
+                self._filter.move_to(wavelength)
+
+            img = self._camera.acquire_frames(1)
+
         centroids = self.detect_psf_centroids(img, **kwargs)
         _, boxes = self.crop_around_centroids(img, centroids)
 
         fig, ax = plt.subplots(figsize=(8, 8))
-        im = ax.imshow(img, cmap='gray', origin='upper')
+        im = ax.imshow(img, cmap="gray", origin="upper")
         plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
 
         i = 0
         for (xc, yc), (x0, y0, w, h) in zip(centroids, boxes):
-            ax.plot(xc, yc, 'r+', markersize=12, markeredgewidth=2)
-            ax.add_patch(Rectangle((x0, y0), w, h, fill=False, edgecolor='cyan', linewidth=1.5)
-        )
-            ax.text(x0, y0-h, f"{i}", fontdict={'fontsize':20, 'color':'white'})
-            i+=1
+            ax.plot(xc, yc, "r+", markersize=12, markeredgewidth=2)
+            ax.add_patch(
+                Rectangle((x0, y0), w, h, fill=False, edgecolor="cyan", linewidth=1.5)
+            )
+            ax.text(x0, y0 - h, f"{i}", fontdict={"fontsize": 20, "color": "white"})
+            i += 1
 
-        ax.set_title('Detected PSF centroids and crop boxes')
+        ax.set_title("Detected PSF centroids and crop boxes")
         plt.tight_layout()
         plt.show()
 
     def acquire(
         self,
         exptime: float,
+        filter_mode: str | None = None,
         lambda_vector: _ot.ArrayLike | None = None,
         nframes: int = 1,
         mask: _ot.MaskData | None = None,
@@ -266,6 +287,9 @@ class ThorRevolver:
                 raise ValueError("Wavelengths must be between 400 and 700 nm")
         else:
             lambda_vector = _np.arange(440, 721, 20)
+
+        if filter_mode is not None:
+            self.set_filter_mode(filter_mode)
 
         datapath = _osu.create_data_folder(basepath=_fn.SPL_DATA_ROOT_FOLDER)
         tn = datapath.split("/")[-1]
@@ -329,7 +353,12 @@ class ThorRevolver:
 
         return tn
 
-    def analysis(self, tn: str | None = None, n_psfs: _ot.Optional[int] = None):
+    def analysis(
+        self,
+        tn: str | None = None,
+        n_psfs: _ot.Optional[int] = None,
+        **process_kwargs: dict[str, _ot.Any]
+    ) -> list[float]:
         """
         Analyze the measurements acquired with the `acquire` method, by detecting
         the PSF centroids and cropping the frames around them.
@@ -342,10 +371,13 @@ class ThorRevolver:
         n_psfs : int
             The number of PSFs expected to analyze. By default, 1.
         """
-        n_psfs = n_psfs or _splconf.get('expected_psfs', 1)
-        
+        self.process_psfs(tn=tn, n_psfs=n_psfs, **process_kwargs)
+
+        n_psfs = n_psfs or _splconf.get("expected_psfs", 1)
+
         datapath = _os.path.join(_fn.SPL_DATA_ROOT_FOLDER, tn)
         lambda_vector = _osu.load_fits(_os.path.join(datapath, "lambda_vector.fits"))
+        self._last_lambdavec = lambda_vector.copy()
 
         pists = []
         for i in range(n_psfs):
@@ -356,8 +388,17 @@ class ThorRevolver:
                 matrix, matrix_smooth, lambda_vector
             )
 
-            #self._save_piston_results(datapath, pist, pist_smooth)
-            _osu.save_fits(_os.path.join(datapath, f"psf{i}_fringes_result.fits"), matrix.T)
+            matrix.header["DPIST"] = (pist, "measured differential piston in nm")
+            matrix.header["DPISTSM"] = (
+                pist_smooth,
+                "smoothed differential piston in nm",
+            )
+            matrix.header["TEMPIDX"] = (self._idp, "index of the best template match")
+
+            # self._save_piston_results(datapath, pist, pist_smooth)
+            _osu.save_fits(
+                _os.path.join(datapath, f"psf{i}_fringes_result.fits"), matrix
+            )
 
             pists.append(pist)
 
@@ -369,11 +410,15 @@ class ThorRevolver:
         n_psfs: _ot.Optional[int] = None,
         min_pixels: _ot.Optional[int] = None,
         nsigma: _ot.Optional[float] = None,
+        angles: float | list[float] | None = 0.0,
         initial_half_size: _ot.Optional[int] = None,
         final_half_size: _ot.Optional[int] = None,
-        remove_dark: bool = True,
-        remove_median: bool = True,
-        angles: float | list[float] | None = 0.0,
+        centroid_min_distance: _ot.Optional[int] = None,
+        method: str = "lsf_peaks",
+        remove_dark: bool = False,
+        remove_median: bool = False,
+        rotation_order: int = 3,
+        rotation_cval: float = 0.0,
     ):
         """
         Process the raw frames acquired with the `acquire` method, by detecting
@@ -386,20 +431,25 @@ class ThorRevolver:
         n_psfs : int
             The number of PSFs to detect.
 
-            If None, it is read from the configuration file, and if absent, 
+            If None, it is read from the configuration file, and if absent,
             defaults to 1.
         min_pixels : int
             The minimum number of pixels required for a detection to be
             considered a PSF.
 
-            If None, it is read from the configuration file, and if absent, 
+            If None, it is read from the configuration file, and if absent,
             defaults to 30.
         nsigma : float
             The number of sigma above the background to use as threshold for the
             detection.
-            
+
             If None, it is read from the configuration file, and if absent,
             defaults to 2.0.
+        angles : list of float | None
+            List of angles in degrees to rotate each PSF crop. If None, no rotation is
+            applied.
+
+            By default, 0.
         initial_half_size : int
             The half size of the initial cropped images, in pixels.
 
@@ -408,23 +458,42 @@ class ThorRevolver:
             The half size of the final cropped images, in pixels.
 
             By default, 40, which corresponds to an 80x80 pixels crop.
+        centroid_min_distance : int
+            The minimum distance in pixels between centroids to consider them as
+            different PSFs. This is used to filter out multiple detections of the
+            same PSF, since each PSF has more than one lobe.
+
+            By default, 50 pixels.
+        method: str
+            The method to use for computing the photometric centroid in the cropped PSF images.
+            Can be:
+            - 'lsf_peaks': find the peaks of the line spread function along `x` and `y` axis
+            - "com": center of mass (`photutils.centroids.centroid_com`)
+            - '2dg': 2D Gaussian fit (`photutils.centroids.centroid_2dg`)   
         remove_dark : bool
             If True, removes the dark frame from each frame before processing.
 
-            By default, True.
+            By default, False.
         remove_median : bool
             If True, removes the median value from each cropped PSF image.
 
-            By default, True.
-        angles : list of float | None
-            List of angles in degrees to rotate each PSF crop. If None, no rotation is
-            applied.
-
-            By default, 0.
+            By default, False.
+        rotation_order : int
+            The order of the spline interpolation used for the rotation of the 
+            PSF crops.
+            
+            By default, 3 (cubic).
+        rotation_cval : float
+            The constant value to fill the area outside the input image after 
+            rotation of the PSF crops.
+            
+            By default, 0.0.
         """
-        n_psfs = n_psfs or _splconf.get('expected_psfs', 1)
-        nsigma = nsigma or _splconf.get('sigma_threshold', 2.0)
-        min_pixels = min_pixels or _splconf.get('min_px_threshold', 30)
+        n_psfs = n_psfs or _splconf.get("expected_psfs", 1)
+        nsigma = nsigma or _splconf.get("sigma_threshold", 2.0)
+        min_pixels = min_pixels or _splconf.get("min_px_threshold", 30)
+        angles = angles or _splconf.get("psfs_angles", [0.0] * n_psfs)
+        centroid_min_distance = centroid_min_distance or _splconf.get("centroid_min_dist", 50)
 
         tn = tn or self._last_measure_tn
         if tn is None:
@@ -440,11 +509,11 @@ class ThorRevolver:
 
         datapath = _os.path.join(_fn.SPL_DATA_ROOT_FOLDER, tn)
         filelist = _osu.getFileList(fold=datapath, key="rawframe")
-        rawlist = [_osu.load_fits(x) for x in filelist]
-        
+        rawlist = [self._heal_bad_pixels( _osu.load_fits(x) ) for x in filelist]
+
         ## FIRST CENTROID DETECTION, made on the sum of all the images
         # Needed for the fist generous image crop.
-        
+
         sumimg = _np.ma.sum(_np.ma.dstack(rawlist), axis=2)
 
         # Removing the saved dark frame
@@ -455,22 +524,28 @@ class ThorRevolver:
             sumimg.header["RDARK"] = True
 
         centroids = self.detect_psf_centroids(
-            sumimg, n_psf=n_psfs, min_pixels=min_pixels, nsigma=nsigma
+            sumimg,
+            n_psfs=n_psfs,
+            min_pixels=min_pixels,
+            nsigma=nsigma,
+            centroid_min_distance=centroid_min_distance
+        )
+
+        ichalf_size = initial_half_size or _splconf.get(
+            "initial_crop_half_size", 150
         )
 
         for img, filename in zip(rawlist, filelist):
             med = _np.median(img)
 
             # This is the 1st, BIG crop around spatial centroids (NOT photometric)
-            ichalf_size = initial_half_size or _splconf.get('initial_crop_half_size', 150)
             crops, _ = self.crop_around_centroids(img, centroids, half_size=ichalf_size)
 
             for i, crop in enumerate(crops):
 
                 if remove_median:
                     crop = _fits_array(
-                        _np.clip(crop - med, 0, None),
-                        header=crop.header.copy()
+                        _np.clip(crop - med, 0, None), header=crop.header.copy()
                     )
                     crop.header["RMEDIAN"] = True
                     crop.header["MEDVAL"] = med
@@ -487,27 +562,25 @@ class ThorRevolver:
                     "PSF_y centroid in the original frame",
                 )
 
+                crop.header.update(header)
                 # This save for now for debugging
                 crop.writeto(filename.replace("frame", f"psf{i}"), overwrite=True)
-            
-                # Now we rotate first, and the find the photometric centroid and
-                # cut again, using a smalled window. Since we want the PSF lobes
-                # to be vertically aligned, we'll cut asymmetrically, so to lower
-                # the noise in the final matrix of fringes.
 
-                if not angles[i] == 0.0:
-                    crop = self.rotate_psf(crop, angle=angles[i])
-                    header["ROTATED"] = (True, "was de-rotated")
-                    header["ROTANG"] = (
-                        angles[i],
-                        "psf rotation angle wrt the vertical in degrees",
-                    )
+        # Now we find the photometric centroid, shift the crops to put it 
+        # at the center of the image, rotate them, and then cut again, 
+        # using a smalled window.
 
-                crop.header = header
-                crop.writeto(filename.replace("rawframe", f"rot_psf{i}"), overwrite=True)
-        
+        self._shift_and_rotate_psf(
+            tn,
+            n_psfs,
+            method,
+            angles,
+            nsigma,
+            order=rotation_order,
+            cval=rotation_cval
+        )
+
         self._create_psf_cubes_and_crop_again(tn, n_psfs, final_half_size)
-
 
     def rotate_psf(
         self,
@@ -553,19 +626,20 @@ class ThorRevolver:
     def detect_psf_centroids(
         self,
         raw_frame: _ot.ImageData,
-        n_psf: _ot.Optional[int] = None,
+        n_psfs: _ot.Optional[int] = None,
         nsigma: _ot.Optional[float] = None,
         min_pixels: _ot.Optional[int] = None,
+        centroid_min_distance: int = 50,
     ) -> list[tuple[int, int]]:
         """
-        Detect the centroids of the PSFs in the raw frame acquired with the 
+        Detect the centroids of the PSFs in the raw frame acquired with the
         `acquire` method.
 
         This centroid detection is the first in the analysis chain, as it serves
-        to do an initial crop around each found PSF, which is then used to find 
+        to do an initial crop around each found PSF, which is then used to find
         the photometric centroid and do a second crop for the final analysis.
-        For this reason, this detection is more "generous" in the number of 
-        pixels required for a detection, and in the threshold, to be sure to 
+        For this reason, this detection is more "generous" in the number of
+        pixels required for a detection, and in the threshold, to be sure to
         find all the PSFs even in the noisiest frames.
 
         Parameters
@@ -573,21 +647,32 @@ class ThorRevolver:
         raw_frame : ImageData
             The raw frame acquired with the `acquire` method, from which the PSF
             centroids are to be detected.
-        n_psf : int
-            The number of PSFs to detect. If None, it is read from the 
+        n_psfs : int
+            The number of PSFs to detect. If None, it is read from the
             configuration file, ad if not found there, it defaults to 1.
         nsigma : float
             The number of sigma above the background to use as threshold for the
-            detection. 
+            detection.
         min_pixels : int
             The minimum number of pixels required for a detection to be
             considered a PSF. By default, 30.
+        centroid_min_distance : int
+            The minimum distance in pixels between centroids to consider them as
+            different PSFs.
 
         Returns
         -------
         centroids_xy : list of tuples
             The list of centroids of the detected PSFs, in (x, y) format.
         """
+        nsigma = nsigma or _splconf.get("sigma_threshold", 2.0)
+        n_psfs = n_psfs or _splconf.get("expected_psfs", 1)
+        min_pixels = min_pixels or _splconf.get("min_px_threshold", 30)
+        centroid_min_distance = centroid_min_distance or _splconf.get(
+            "centroid_min_dist", 50
+        )
+        desired_order = _splconf.get("expected_psf_pos", None)
+
         # 1) Robust background/noise estimate
         bkg = _np.median(raw_frame)
         mad = _np.median(_np.abs(raw_frame - bkg))
@@ -619,25 +704,41 @@ class ThorRevolver:
             yc = _np.sum(yy * I) / Itot
             centroids.append((xc, yc, yy.size))
 
-        # keep the 6 largest detections
+        def custom_sort_key(c):
+            if desired_order is None:
+                # Fallback to the old sorting method
+                return (c[1], c[0])
+            # Find the index of the closest point in `desired_order` to the centroid `c`
+            return min(
+                range(len(desired_order)),
+                key=lambda i: (
+                    (c[0] - desired_order[i][0]) ** 2
+                    + (c[1] - desired_order[i][1]) ** 2
+                ),
+            )
+
+        # First, filtering to have only one centroid per detected PSF
+        # (since each PSF has more than 1 lobe), then keep the largest `n_psfs`
         for c in centroids:
             other_cs = [oc for oc in centroids if oc != c]
             for oc in other_cs:
-                if all([abs(c[i] - oc[i]) < min_pixels for i in range(2)]):
+                if all([abs(c[i] - oc[i]) < centroid_min_distance for i in range(2)]):
                     if oc in centroids:
                         centroids.remove(oc)
-        centroids = sorted(centroids, key=lambda t: t[2], reverse=True)[:n_psf]
+        centroids = sorted(centroids, key=lambda t: t[2], reverse=True)[:n_psfs]
         centroids_xy = [(int(c[0].round()), int(c[1].round())) for c in centroids]
 
-        # Sorting Top-Bottom, Left-Right
-        centroids_xy = sorted(centroids_xy, key=lambda p: (p[1], p[0]))
+        # Sorting
+        centroids_xy = sorted(centroids_xy, key=custom_sort_key)
 
         return centroids_xy
 
     def detect_photometric_centroid(
         self,
         cropped_psf: _ot.ImageData,
-        ) -> list[tuple[int, int]]:
+        nsigma: _ot.Optional[float] = None,
+        method: str = "2dg",
+    ) -> list[tuple[int, int]]:
         """
         Detect the photometric centroid of the PSF in the cropped image.
 
@@ -645,23 +746,52 @@ class ThorRevolver:
         ----------
         cropped_psf : ImageData
             The cropped PSF image, from which the photometric centroid is to be detected.
+        method : str
+            The method to use for the centroid detection. 
+            Can be:
+            - 'lsf_peaks': find the peaks of the line spread function along 
+            `x` and `y` axis, and take their intersection as centroid.
+            - "com": center of mass (`photutils.centroids.centroid_com`)
+            - '2dg': 2D Gaussian fit (`photutils.centroids.centroid_2dg`)
+            - any custom callable method passed: the method should take as input 
+            a 2D array (the cropped PSF) and return a tuple of (x, y) coordinates
+            of the centroid.
 
         Returns
         -------
-        centroid_xy : tuple of int
+        centroid_xy : list of tuple of int
             The (x, y) coordinates of the photometric centroid in the cropped image.
-            
+
             Returned as a list for code compatibility
         """
-        from photutils.centroids import centroid_com
+        nsigma = nsigma or _splconf.get("sigma_threshold", 5.0)
+        match method:
+            case "2dg":
+                from photutils.centroids import centroid_2dg as method
+            case "com":
+                from photutils.centroids import centroid_com as method
+            case 'lsf_peaks':
+                am = _np.argmax
+                sum = _np.sum
+                method = lambda img: (am(sum(img, axis=0)), am(sum(img, axis=1)))
+            case _ if callable(method):
+                pass
+            case _:
+                self._logger.error(
+                    f"Invalid method for photometric centroid detection: {method}"
+                )
+                raise ValueError(
+                    f"Invalid method for photometric centroid detection: {method}"
+                )
 
+        # Mask threshold computation
         counts, bin_edges = _np.histogram(cropped_psf, bins=100)
         bin_edges = bin_edges[1:]
-        thr = 5 * bin_edges[_np.where(counts == max(counts))]
-        img = cropped_psf.copy()
-        cx, cy = centroid_com(img, mask=(img < thr))
-        return [int(_np.round(cy)), int(_np.round(cx))] # FIXME
-
+        thr = nsigma * bin_edges[_np.where(counts == max(counts))]
+        mask = cropped_psf < thr
+        img = _np.ma.masked_array(cropped_psf, mask=mask)
+        peaks = method(img)
+        return (int(_np.round(peaks[0])), int(_np.round(peaks[1])))
 
     def crop_around_centroids(
         self,
@@ -682,14 +812,14 @@ class ThorRevolver:
             The list of centroids of the detected PSFs, in (x, y) format, as
             obtained from `detect_psf_centroids` method.
         half_size : list of int | int, optional
-            The half size of the cropped images, in pixels. If None, it is read 
-            from the configuration file, and if not found there, it defaults to 
+            The half size of the cropped images, in pixels. If None, it is read
+            from the configuration file, and if not found there, it defaults to
             75, which corresponds to a 150x150 pixels crop. Individual values for
             x and y axis can be provided as a list of two integers.
         """
         if half_size is None:
-            half_size = _splconf.get('initial_crop_half_size', 75)
-        
+            half_size = _splconf.get("initial_crop_half_size", 75)
+
         if not isinstance(half_size, list):
             half_size = [half_size] * 2
 
@@ -708,99 +838,293 @@ class ThorRevolver:
 
         return crops, boxes
 
-    def set_tn_fringes(self, tnfringes: str | None):
+    def plot_comparison(
+        self, tn: str | None = None, psf_n: int | str = "all"
+    ) -> None:
         """
-        Set the tracking number of the simulated fringes measurements, for 
-        template comparison during analysis.
+        Plot measured fringes and best-match templates.
 
         Parameters
         ----------
-        tnfringes : str | None
-            The tracking number of the simulated fringes measurements, 
-            for template comparison during analysis.
+        tn : str | None
+            Tracking number. If None, use last measurement.
+        psf_n : int | str
+            PSF index, or "all" to plot all available PSFs.
         """
-        self._tnfringes = tnfringes
-        if tnfringes is not None:
-            self._fringes_fold = _os.path.join(_fn.SPL_FRINGES_ROOT_FOLDER, tnfringes)
+        import math
+        import matplotlib.pyplot as plt
+
+        tn = tn or self._last_measure_tn
+        if tn is None:
+            msg = "No tracking number provided and no previous measurement found."
+            self._logger.error(msg)
+            raise ValueError(msg)
+
+        datapath = _os.path.join(_fn.SPL_DATA_ROOT_FOLDER, tn)
+        wl = _osu.load_fits(_os.path.join(datapath, "lambda_vector.fits"))
+
+        if psf_n == "all":
+            n_expected = int(_splconf.get("expected_psfs", 6))
+            psf_indices = [
+                i
+                for i in range(n_expected)
+                if _os.path.exists(
+                    _os.path.join(datapath, f"psf{i}_fringes_result.fits")
+                )
+            ]
+            if not psf_indices:
+                raise FileNotFoundError(
+                    f"No psf*_fringes_result.fits found in {datapath}."
+                )
+        elif isinstance(psf_n, int):
+            psf_indices = [psf_n]
         else:
-            self._fringes_fold = None
+            raise TypeError("psf_n must be an integer or 'all'.")
+
+        # Outer layout: 2 columns of PSF-panels, multiple rows
+        outer_cols = 2
+        outer_rows = math.ceil(len(psf_indices) / outer_cols)
+
+        fig = plt.figure(figsize=(14, 3.5 * outer_rows), constrained_layout=False)
+        outer = fig.add_gridspec(
+            outer_rows,
+            outer_cols,
+            wspace=0.3,
+            hspace=0.3)
+
+        for k, i_psf in enumerate(psf_indices):
+            r = k // outer_cols
+            c = k % outer_cols
+
+            # Inner layout in each PSF-panel: measured | template
+            inner = outer[r, c].subgridspec(1, 2, wspace=0.15)
+            ax_meas = fig.add_subplot(inner[0, 0])
+            ax_temp = fig.add_subplot(inner[0, 1])
+
+            mat = _osu.load_fits(
+                _os.path.join(datapath, f"psf{i_psf}_fringes_result.fits")
+            )
+            temp_idx = int(mat.header["TEMPIDX"])
+            dpist = mat.header.get("DPIST", "N/A")
+            extent = [wl[0], wl[-1], 0, mat.shape[0]]
+
+            ax_meas.imshow(mat, aspect="auto", extent=extent)
+            ax_meas.set_title(f"PSF {i_psf} - Measured")
+            ax_meas.set_xlabel(r"$\lambda$ [nm]")
+            ax_meas.set_ylabel("")
+            ax_meas.set_xlabel("")
+
+            ax_temp.imshow(self._Qt[:, :, temp_idx], aspect="auto", extent=extent)
+            ax_temp.set_title(f"Template - DPIST={dpist} nm")
+            ax_temp.set_xlabel(r"$\lambda$ [nm]")
+            ax_temp.set_ylabel("")
+            ax_temp.set_xlabel("")
+            ax_temp.set_yticks([])
+            ax_temp.set_yticklabels([])
+
+        fig.supxlabel(r"$\lambda$ [nm]", fontsize=14)
+        fig.supylabel("Pixels", fontsize=14)
+        fig.suptitle(f"Fringes comparison - {tn}", fontsize=16, fontweight="semibold")
+        plt.show()
+    
+    def _heal_bad_pixels(
+        self,
+        img: _ot.ImageData,
+        r: int = 2, method: str = 'median',
+        sigma_thr: float = 5.5
+    ) -> _ot.ImageData:
+        """
+        Function which finds and heals bad pixels in the input image.
+
+        Parameters
+        ----------
+        img : ImageData
+            The input image with potential bad pixels to heal.
+        r : int
+            The radius of the neighborhood to consider for healing. By default, 2.
+        method : str
+            The method to use for healing the bad pixels. Can be:
+            - 'median'
+            - 'mean'
+            - 'gaussian'
+            - a user defined custom callable
+            
+            By default, 'median'.
+        sigma_thr : float
+            The sigma threshold to identify bad pixels based on the gradient. 
+            
+            By default, 5.5.
+
+        Returns
+        -------
+        healed_img : ImageData
+            The output image with bad pixels healed.
+        """
+        from scipy.signal import convolve2d
+
+        # Finding the Bad Pixels
+        gradX,gradY = _np.gradient(img)
+        grad = _np.sqrt(gradX**2+gradY**2)
+        ker = _np.array([[0,1,0],
+                        [1,0,1],
+                        [0,1,0]])/4
+        filt_grad = convolve2d(grad,ker,mode='same',boundary='symm')
+
+        N_hot_pixels = len(grad[grad>sigma_thr*_np.std(grad)+_np.mean(grad)])//4
+        hot_pix_ids = _np.argsort(filt_grad.flatten())[-N_hot_pixels:]
+
+        healed_img = img.copy().flatten()
+        rows = _np.repeat(_np.arange(img.shape[0]),img.shape[1])
+        cols = _np.tile(_np.arange(img.shape[1]),img.shape[0])
+
+        # Healing the bad pixels
+        for pix_id in hot_pix_ids:
+            row = rows[pix_id]
+            col = cols[pix_id]
+            row_start = _np.max((0,int(_np.floor(row-(r-1)/2))))
+            row_end = _np.min((img.shape[0],int(row+_np.ceil((r-1)/2))))
+            col_start = _np.max((0,int(col-_np.floor((r-1)/2))))
+            col_end = _np.min((img.shape[1],int(col+_np.ceil((r-1)/2))))
+
+            match method:
+                case 'median':
+                    healed_img[pix_id] = _np.median(img[row_start:row_end+1,col_start:col_end+1])
+                case 'mean':
+                    healed_img[pix_id] = _np.mean(img[row_start:row_end+1,col_start:col_end+1])
+                case 'gaussian':
+                    from scipy.ndimage import gaussian_filter
+                    
+                    healed_img[pix_id] = gaussian_filter(
+                        img[row_start:row_end+1,col_start:col_end+1],
+                        sigma=1
+                    )[(row-row_start),(col-col_start)]
+                case _ if callable(method):
+                    healed_img[pix_id] = method(img[row_start:row_end+1,col_start:col_end+1])
+                case _:
+                    self._logger.error(f"Invalid method for bad pixel healing: {method}")
+                    raise ValueError(f"Invalid method for bad pixel healing: {method}")
+
+        return healed_img.reshape(img.shape)
 
 
-    def _create_psf_cubes_and_crop_again(
-        self, 
+    def _shift_and_rotate_psf(
+        self,
         tn: str,
         n_psfs: int,
-        final_half_size: _ot.Optional[int|list[int]] = None
+        method: str,
+        angles: list[float],
+        nsigma: float,
+        order: int = 3,
+        cval: float = 0.0,
     ):
-        """
-        """
-        final_half_size = final_half_size or _splconf.get('crop_half_size', 40)
-        
+        """"""
+        for p in range(n_psfs):
+
+            fl = _osu.getFileList(tn, fold=_fn.SPL_DATA_ROOT_FOLDER, key=f"rawpsf{p}")
+            rpsfl = [self._heal_bad_pixels(_osu.load_fits(x)) for x in fl]
+
+            sumimg = _np.ma.sum(_np.ma.dstack(rpsfl), axis=2)
+            phot_centroid = self.detect_photometric_centroid(sumimg, method=method, nsigma=nsigma)
+
+            s = sumimg.shape
+            shift = _np.array(
+                (phot_centroid[1] - s[1] // 2, phot_centroid[0] - s[0] // 2)
+            )
+            spsf = [_np.roll(img, shift=-shift, axis=(0,1)) for img in rpsfl]
+
+            for crop, fn in zip(spsf, fl):
+                header = crop.header.copy()
+                rotated = False
+                if not angles[p] == 0.0:
+                    rotated = True
+                    crop = self.rotate_psf(
+                        crop,
+                        angle=angles[p],
+                        order=order,
+                        cval=cval
+                    )
+
+                header["ROTATED"] = (rotated, "was de-rotated")
+                header["ROTANG"] = (
+                    angles[p],
+                    "rotation angle in degrees",
+                )
+
+                header['PHOTCENX'] = (
+                    phot_centroid[1],
+                    "photometric X-centroid",
+                )
+                header['PHOTCENY'] = (
+                    phot_centroid[0],
+                    "photometric Y-centroid",
+                )
+
+                crop.header = header
+                crop.writeto(
+                    fn.replace("rawpsf", f"rot_psf"), overwrite=True
+                )
+
+    def _create_psf_cubes_and_crop_again(
+        self,
+        tn: str,
+        n_psfs: int,
+        final_half_size: _ot.Optional[int | list[int]] = None,
+    ):
+        """ """
+        final_half_size = final_half_size or _splconf.get("crop_half_size", 40)
+
         if not isinstance(final_half_size, list):
             final_half_size = [final_half_size] * 2
-        
+
         for i in range(n_psfs):
             cube = _osu.loadCubeFromFilelist(
-                tn,
-                fold=_fn.SPL_DATA_ROOT_FOLDER,
-                key=f"rot_psf{i}"
+                tn, fold=_fn.SPL_DATA_ROOT_FOLDER, key=f"rot_psf{i}"
             )
-            
-            header = cube[0].header.copy()
 
-            # Getting the photometric centroid of the PSFs across wavelengths
-            img = _np.ma.sum(cube, axis=2)
-            phot_centroid = self.detect_photometric_centroid(img)
+            header = cube.header.copy()
 
             cropped_cube = _fits_array(
-                self._crop_cube(cube, phot_centroid, final_half_size),
-                header=header
-            )
-            
-            cropped_cube.header['PHOTCENX'] = (
-                phot_centroid[1], 
-                "x photometric centroid in the cropped frame"
-            )
-            cropped_cube.header['PHOTCENY'] = (
-                phot_centroid[0], 
-                "y photometric centroid in the cropped frame"
+                self._crop_cube(cube, centroid=None, half_size=final_half_size), header=header
             )
 
             cropped_cube.writeto(
-                _os.path.join(_fn.SPL_DATA_ROOT_FOLDER, tn, f"psf{i}_cube.fits"), overwrite=True
+                _os.path.join(_fn.SPL_DATA_ROOT_FOLDER, tn, f"psf{i}_cube.fits"),
+                overwrite=True,
             )
 
-
     def _crop_cube(
-        self, 
+        self,
         cube: _ot.CubeData,
-        centroid: tuple[int, int],
-        half_size: _ot.Optional[int|list[int]] = None
+        centroid: tuple[int, int] = None,
+        half_size: _ot.Optional[int | list[int]] = None,
     ) -> list[_ot.ImageData]:
         """
         Simple wrapper to crop the cube inplace, instead of looping over the frames.
-        
+
         Parameters
         ----------
         cube : CubeData
             The cube of images to be cropped, with shape [height, width, n_frames].
         centroid : tuple of int
             The (y, x) coordinates of the photometric centroid in the cube, around which to crop.
-        
+
         Returns
         -------
         cropped_cube : list of ImageData
             The cropped cube of images, with shape [cropped_height, cropped_width, n_frames].
         """
         h, w, _ = cube.shape
+
+        if centroid is None:
+            centroid = (h // 2, w // 2)
+
         x0 = max(0, centroid[1] - half_size[1])
         x1 = min(w, centroid[1] + half_size[1])
         y0 = max(0, centroid[0] - half_size[0])
         y1 = min(h, centroid[0] + half_size[0])
-        
+
         cropped_cube = cube[y0:y1, x0:x1, :].copy()
         return cropped_cube
-        
 
     def _get_dark_frame(self, tn: str) -> _ot.ImageData:
         """
@@ -864,14 +1188,14 @@ class ThorRevolver:
             y_norm = y / area
             matrix[:, i] = y_norm
 
-            w = self._smooth(y_norm, 4)
-            w = w[: sx]
+            w = self._applySmoothing(y_norm, 4)
+            w = w[:sx]
             matrix_smooth[:, i] = w
 
         matrix[_np.where(matrix == _np.nan)] = 0
         self._matrix = matrix
         self._matrixSmooth = matrix_smooth
-        return matrix, matrix_smooth
+        return _fits_array(matrix), _fits_array(matrix_smooth)
 
     def _template_comparison(
         self,
@@ -898,9 +1222,7 @@ class ThorRevolver:
         """
         from tqdm import trange
 
-        self._logger.debug(
-            f"Template Comparison with data in {self._tnfringes}"
-        )
+        self._logger.debug(f"Template Comparison with data in {self._tnfringes}")
         delta, lambda_synth = self._readDeltaAndLambdaFromFringesFolder()
         idx = _np.isin(lambda_synth, lambda_vector)
 
@@ -930,27 +1252,13 @@ class ThorRevolver:
                 _np.sum(Qm_smooth[:, :] ** 2) ** 0.5 * _np.sum(Qt[:, :, i] ** 2) ** 0.5
             )
 
-        idp = _np.nanargmax(R) #_np.where(R == max(R))
+        idp = _np.nanargmax(R)  # _np.where(R == max(R))
         idp_smooth = _np.nanargmax(R_smooth)
         self._idp = idp
         self._idp_smooth = idp_smooth
         piston = delta[idp]
         piston_smooth = delta[idp_smooth]
         return piston, piston_smooth
-
-    def plot_comparison(self):
-        import matplotlib.pyplot as plt
-
-        fig, ax = plt.subplots(ncols=2, nrows=1, figsize=(12, 10))
-        ax[0].imshow(self._Qt[:,:,self._idp], aspect=0.1)
-        ax[1].imshow(self._matrix, aspect=0.1)
-        ax[0].set_title("Template")
-        ax[0].set_xlabel("")
-        ax[0].set_ylabel("")
-        ax[1].set_title("Measured")
-        ax[1].set_xlabel("")
-        ax[1].set_ylabel("")
-        plt.show()
 
     def _readDeltaAndLambdaFromFringesFolder(
         self,
@@ -968,13 +1276,15 @@ class ThorRevolver:
         delta = _osu.load_fits(
             _os.path.join(self._fringes_fold, "Differential_piston.fits")
         )
-        lambda_synth_from_data = ( _osu.load_fits(_os.path.join(self._fringes_fold, "Lambda.fits")))
-        lambda_synth_from_data = (_np.round(lambda_synth_from_data/5)*5).astype(int)
+        lambda_synth_from_data = _osu.load_fits(
+            _os.path.join(self._fringes_fold, "Lambda.fits")
+        )
+        lambda_synth_from_data = (_np.round(lambda_synth_from_data / 5) * 5).astype(int)
 
         return delta, lambda_synth_from_data
 
     # TODO: TO BE REMOVED
-    def _smooth(self, a: _ot.ArrayLike, WSZ: int): 
+    def _applySmoothing(self, a: _ot.ArrayLike, WSZ: int):
         """'
 
         Parameters

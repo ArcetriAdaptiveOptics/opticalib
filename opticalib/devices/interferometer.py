@@ -236,7 +236,7 @@ class _4DInterferometer(_api.BaseInterferometer):
             print("Triggered mode disabled")
 
     def saveConfiguration(
-        self, newConfigurationPath: str, filename: str | None = None
+        self, newConfigurationPath: str
     ) -> None:
         """
         Saves the current configuration of the interferometer to a file.
@@ -249,6 +249,7 @@ class _4DInterferometer(_api.BaseInterferometer):
             name of the configuration file (optional). If None, the original file
             name is used
         """
+        # TODO: we need to decide the extention. Once done, we can add intelligence
         self._i4d.saveConfiguration(newConfigurationPath)
         self._logger.info(f"Configuration file saved to '{newConfigurationPath}'.")
 
@@ -261,8 +262,7 @@ class _4DInterferometer(_api.BaseInterferometer):
         conffile: str
             name of the configuration file to load
         """
-        if not conffile.lower().endswith(".4dini"):
-            conffile = _os.path.join(conffile, "InterfConfiguration.4dini")
+        # TODO: we need to decide the extention. Once done, we can add intelligence
         self._i4d.loadConfiguration(conffile)
         self._logger.info(f"Configuration file '{conffile}' loaded.")
 

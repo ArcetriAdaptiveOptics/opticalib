@@ -32,8 +32,8 @@ This module is part of the OPTICALIB library and relies on other modules within 
 import os as _os
 import numpy as _np
 from .. import typings as _ot
-from ..ground import osutils as osu
-from .images_processing import createCube, frame
+from ..ground import osutils as osu, modal_decomposer as _md
+from . import images_processing as _ip
 from ..core.root import OPD_SERIES_ROOT_FOLDER as _OPDSER
 
 
@@ -76,7 +76,7 @@ def averageFrames(
     if osu.is_tn(tn_or_fl):
         fl = osu.getFileList(tn_or_fl, fold=_OPDSER.split("/")[-1], key="20")
         fl = fl[s] if file_selector is None else fl[file_selector]
-        imcube = createCube(fl)
+        imcube = _ip.createCube(fl)
     elif _ot.isinstance_(tn_or_fl, "CubeData"):
         imcube = (
             tn_or_fl[:, :, s]
@@ -91,7 +91,7 @@ def averageFrames(
             if file_selector is None
             else [tn_or_fl[i] for i in file_selector]
         )
-        imcube = createCube(fl)
+        imcube = _ip.createCube(fl)
 
     if thresh is False:
         aveimg = _np.ma.mean(imcube, axis=2)
@@ -249,7 +249,7 @@ def runningDiff(
     svec = _np.empty(npoints)
     diff_vec = []
     for i in trange(npoints, total=npoints, ncols=88, unit=" diffs"):
-        diff = frame(idx1[i], llist) - frame(idx0[i], llist)
+        diff = _ip.frame(idx1[i], llist) - _ip.frame(idx0[i], llist)
         if remove_zernikes:
             old_stdout = _sys.stdout
             _sys.stdout = _sIO()
@@ -343,6 +343,98 @@ def structfunc(vect: _ot.ArrayLike, gapvect: _ot.ArrayLike) -> _ot.ArrayLike:
         st[j] = _np.mean(_np.sqrt(tx))
     return st
 
+def noise_strfunct(tn: str, tau_vector: _ot.ArrayLike, zernike_vector: list[int] = [1,2,3]):
+    """
+    Computes the noise structure function for a given time series.
+    
+    Parameters
+    ----------
+    tn : str
+        Tracking number of the frames to process.
+    tau_vector : _ot.ArrayLike
+        Array of gap values to compute the structure function.
+    zernike_vector : list[int], optional
+        List of Zernike modes to remove from the images before computing the 
+        noise structure function. The default is [1, 2, 3].
+    
+    Returns
+    -------
+    mean_rms : _ot.ArrayLike
+        Array of mean RMS values for each gap.
+    n_meas : int
+        Number of measurements used in the computation.
+    """
+    zf = _md.ZernikeFitter()
+    
+    fold = osu.findTracknum(tn)
+    fl = osu.getFileList(tn, key=("20" if fold == "OPDSeries" else ".4D"))
+    cube = osu.loadCubeFromFilelist(fl)
+    i_max = int(
+        (len(fl) - tau_vector[tau_vector.shape[0] - 1]) 
+        / 
+        (tau_vector[tau_vector.shape[0] - 1] * 2)
+    )
+    if i_max <= 10:
+        print("WARNING! low sampling...")
+    mean_rms_list = []
+    for j in range(tau_vector.shape[0]):
+        dist = tau_vector[j]
+        rms_list = []
+        for i in range(i_max):
+            k = i * dist * 2
+            image_diff = cube[:,:,k]-cube[:,:,k+dist]
+            image_ttr = zf.removeZernike(image_diff, zernike_vector)
+            rms = image_ttr.std()
+            rms_list.append(rms)
+        rms_vector = _np.array(rms_list)
+        aa = rms_vector.mean()
+        mean_rms_list.append(aa)
+    mean_rms = _np.array(mean_rms_list)
+    n_meas = rms_vector.shape[0] * 2 * tau_vector.shape[0]
+    return mean_rms, n_meas
+
+
+def noise_pushpull(tn: str, template: list[int], zern2remove: list[int] = [1,2,3]):
+    """
+    Computes the noise structure function using a push-pull reduction algorithm.
+
+    Parameters
+    ----------
+    tn : str
+        Tracking number of the frames to process.
+    template : list[int]
+        List of integers representing the push-pull template to apply to the frames.
+    zern2remove : list[int], optional
+        List of Zernike modes to remove from the images before computing the 
+        noise structure function. The default is [1, 2, 3].
+
+    Returns
+    -------
+    resrms : _ot.ArrayLike
+        Array of residual RMS values for each template configuration.
+    restt : _ot.ArrayLike
+        Array of residual Tip/TiltZernike coefficients for each template configuration.
+    """
+    zf = _md.ZernikeFitter()
+    
+    fold = osu.findTracknum(tn)
+    fl = osu.getFileList(tn, key =("20" if fold == "OPDSeries" else "4D"))
+    nfiles = len(fl)
+    resrms = []
+    restt = []
+    for i in _np.arange(len(template)):
+        template = _np.ones(template[i])
+        template[1::2] =-1
+        nframes2use = int(nfiles/template[i])*template[i]
+        img = _ip.pushPullReductionAlgorithm(fl[0:nframes2use], template)
+        cc = zf.fit(img, zern2remove)
+        #qui fare rimuovi fit # FIXME
+        resrms.append(img.std())
+        restt.append(cc)
+    resrms = _np.array(resrms)
+    restt = _np.array(restt)
+    return resrms, restt
+
 
 def _track2jd(tni: str) -> float:
     """
@@ -379,4 +471,6 @@ __all__ = [
     "timevec",
     "runningMean",
     "structfunc",
+    "noise_strfunct",
+    "noise_pushpull",
 ]

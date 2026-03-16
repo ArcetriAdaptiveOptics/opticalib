@@ -277,8 +277,6 @@ class Flattening:
                 raise ValueError(
                     "Deformable mirror device must be provided either as an argument or during class instantiation."
                 )
-            else:
-                dm = self._dm
         else:
             self._dm = dm
 
@@ -297,7 +295,7 @@ class Flattening:
             self._interf = interf
 
         if modes2flat is None:
-            modes2flat = dm.nActs
+            modes2flat = self._dm.nActs
 
         self._logger.info("Acquiring starting image from interferometer...")
 
@@ -305,26 +303,26 @@ class Flattening:
         self.loadImage2Shape(imgstart)
         self.computeRecMat(modes2discard)
         deltacmd = self.computeFlatCmd(modes2flat)
-        cmd = dm.get_shape()  # TODO: check if this is correct for DP
+        cmd = self._dm.get_shape()  # TODO: check if this is correct for DP
 
         # handle diverse DM set_shape args
         _ = setshape_kwargs.pop("differential", None)
-        self._logger.info(f"Applying flat command to the {dm._name}")
-        dm.set_shape(deltacmd, differential=True, **setshape_kwargs)
+        self._logger.info(f"Applying flat command to the {self._dm._name}")
+        self._dm.set_shape(deltacmd, differential=True, **setshape_kwargs)
 
         self._lastFlatImg = interf.acquire_map(nframes, rebin=self.rebin)
 
         if save:
             header = {}
             header["CALDATA"] = (self.tn, "calibration data used")
-            #header["MODFLAT"] = (                str(modes2flat) if not isinstance(modes2flat, int) else int(modes2flat),                "modes used for flattening",            )
             header["MDISCAR"] = (
                 0 if modes2discard is None else modes2discard,
                 "modes discarded in reconstructor",
             )
-            header["DMNAME"] = (dm._name, "deformable mirror name")
+            header["DMNAME"] = (self._dm._name, "deformable mirror name")
             header["INTERF"] = (interf._name, "interferometer used")
-            fold = self.saveFlatData(cmd, header, dm._lastCmd,modes2flat)
+            modes2flat = _np.arange(modes2flat) if isinstance(modes2flat, int) else modes2flat
+            fold = self.saveFlatData(cmd, header, modes2flat)
             print(f"Flat command saved in .../{'/'.join(fold.split('/')[-2:])}")
 
         self._logger.info(f"Flat command and images saved in {fold}.")
@@ -552,7 +550,10 @@ class Flattening:
         self._reloadClass(tn)
 
     def saveFlatData(
-        self, cmd: _ot.ArrayLike, header: _ot.Header | dict[str, _ot.Any], fullCmd, modes2flat
+        self,
+        cmd: _ot.ArrayLike,
+        header: _ot.Header | dict[str, _ot.Any],
+        modes2flat: _ot.ArrayLike
     ) -> str:
         """
         Saves flattening data information:
@@ -565,8 +566,10 @@ class Flattening:
         ----------
         cmd : ArrayLike
             Starting surface command.
-        header : Header | dict
+        header : Header | dict[str, Any]
             Header information to save with the data.
+        modes2flat : ArrayLike
+            Modes that have been flattened, to save with the data.
 
         Returns
         -------
@@ -578,21 +581,28 @@ class Flattening:
             "flatDeltaCommand.fits",
             "imgstart.fits",
             "imgflat.fits",
-            "flatCommand.fits",
             "modes2flat.fits"
         ]
         imgstart = self.shape2flat.copy()
         imgflat = self._lastFlatImg.copy()
         deltacmd = self.flatCmd.copy()
-        data = [cmd, deltacmd, imgstart, imgflat, fullCmd, modes2flat]
+        data = [cmd, deltacmd, imgstart, imgflat, modes2flat]
+
+        if hasattr(self._dm, "_lastCmd"):
+            data.append(self._dm._lastCmd.copy())
+            files.append("flatCommand.fits")
+
         if hasattr(self._dm, "get_force"):
             force = self._dm.get_force()
             files.append("flatTotalForces.fits")
             data.append(force)
+
         path = _osu.create_data_folder(_fn.FLAT_ROOT_FOLDER)
+
         for file, dat in zip(files, data):
             print('Saving file: '+file) # DEBUG
             _osu.save_fits(_os.path.join(path, file), dat, header=header)
+
         return path
 
     def _reloadClass(self, tn: str) -> None:
