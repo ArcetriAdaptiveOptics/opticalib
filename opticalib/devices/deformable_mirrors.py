@@ -167,7 +167,7 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
 
     def set_shape(
         self,
-        cmd: _ot.ArrayLike | list[float],
+        command: _ot.ArrayLike | list[float],
         differential: bool = False,
         incremental: float | int = False,
         *,
@@ -200,6 +200,8 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
             - 'minimum-rms' : minimum-RMS-force slaving, in which the slave actuators
                 are set to minimize the overall force of nearby actuators.
         """
+        cmd = command.copy()
+
         if not len(cmd) == self.nActs:
             raise _oe.CommandError(
                 f"Command length {len(cmd)} does not match the number of actuators {self.nActs}."
@@ -225,13 +227,13 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
                 n_steps = int(_np.ceil(1.0 / step_fraction))
 
             # Create iteration (reverse if incremental is negative)
-            dc = range(n_steps) if incremental > 0 else reversed(range(n_steps))
+            dc = range(1, n_steps+1) if incremental > 0 else reversed(range(1,1+n_steps))
             incremental = step_fraction
 
             # Differential case
             if differential:
                 for i in dc:
-                    if i * incremental > 1.0:
+                    if i * incremental >= 1.0:
                         self._aoClient.mirrorCommand(cmd + self._lastCmd)
                     else:
                         self._aoClient.mirrorCommand(
@@ -242,7 +244,7 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
             # Absolute case
             else:
                 for i in dc:
-                    if i * incremental > 1.0:
+                    if i * incremental >= 1.0:
                         self._aoClient.mirrorCommand(cmd)
                     else:
                         self._aoClient.mirrorCommand(cmd * i * incremental)

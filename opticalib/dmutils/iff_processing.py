@@ -158,6 +158,7 @@ def cubeRoiProcessing(
     fitting_mask: _ot.MaskData = None,
     tt_detrend: bool = False,
     mean_subtraction: bool = False,
+    median_subtraction: bool = False,
     roinull: bool = False,
 ) -> str:
     """
@@ -179,8 +180,9 @@ def cubeRoiProcessing(
         If True, perform a tilt detrend over the activeRoi, using the other detected
         rois as reference.
     mean_subtraction: bool, optional
-        If True, perform a mean subtraction over the activeRoi, using the other detected
-        rois as reference.
+        If True, perform a mean subtraction over the activeRoi.
+    median_subtraction: bool, optional
+        If True, removes the median of the active roi from it.
     roinull: bool, optional
         If True, set to zero the pixels outside the activeRoi.
 
@@ -249,6 +251,12 @@ def cubeRoiProcessing(
             mean2remove = activeShellImg.mean()
 
             v -= mean2remove
+
+        if median_subtraction:
+            activeShellImg = v[activeRoi == 0].copy()
+            med2remove = _np.median(activeShellImg)
+    
+            v -= med2remove
 
         # Setting to zero the non active ROIs
         if roinull:

@@ -317,20 +317,19 @@ class Flattening:
         if save:
             header = {}
             header["CALDATA"] = (self.tn, "calibration data used")
-            header["MODFLAT"] = (
-                str(modes2flat) if not isinstance(modes2flat, int) else int(modes2flat),
-                "modes used for flattening",
-            )
+            #header["MODFLAT"] = (                str(modes2flat) if not isinstance(modes2flat, int) else int(modes2flat),                "modes used for flattening",            )
             header["MDISCAR"] = (
                 0 if modes2discard is None else modes2discard,
                 "modes discarded in reconstructor",
             )
             header["DMNAME"] = (dm._name, "deformable mirror name")
             header["INTERF"] = (interf._name, "interferometer used")
-            fold = self.saveFlatData(cmd, header)
+            fold = self.saveFlatData(cmd, header, dm._lastCmd,modes2flat)
             print(f"Flat command saved in .../{'/'.join(fold.split('/')[-2:])}")
 
         self._logger.info(f"Flat command and images saved in {fold}.")
+
+        return fold.split('/')[-1]
 
     def computeFlatCmd(self, modes2flat: int | _ot.ArrayLike) -> _ot.ArrayLike:
         """
@@ -553,7 +552,7 @@ class Flattening:
         self._reloadClass(tn)
 
     def saveFlatData(
-        self, cmd: _ot.ArrayLike, header: _ot.Header | dict[str, _ot.Any]
+        self, cmd: _ot.ArrayLike, header: _ot.Header | dict[str, _ot.Any], fullCmd, modes2flat
     ) -> str:
         """
         Saves flattening data information:
@@ -575,21 +574,24 @@ class Flattening:
             Path where the data have been saved.
         """
         files = [
-            "flatCommand.fits",
+            "flatPosition.fits",
             "flatDeltaCommand.fits",
             "imgstart.fits",
             "imgflat.fits",
+            "flatCommand.fits",
+            "modes2flat.fits"
         ]
         imgstart = self.shape2flat.copy()
         imgflat = self._lastFlatImg.copy()
         deltacmd = self.flatCmd.copy()
-        data = [cmd, deltacmd, imgstart, imgflat]
+        data = [cmd, deltacmd, imgstart, imgflat, fullCmd, modes2flat]
         if hasattr(self._dm, "get_force"):
             force = self._dm.get_force()
             files.append("flatTotalForces.fits")
             data.append(force)
         path = _osu.create_data_folder(_fn.FLAT_ROOT_FOLDER)
         for file, dat in zip(files, data):
+            print('Saving file: '+file) # DEBUG
             _osu.save_fits(_os.path.join(path, file), dat, header=header)
         return path
 
