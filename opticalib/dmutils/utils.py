@@ -44,12 +44,12 @@ def compute_slave_cmd(
     ValueError
         If an unknown slaving method is specified.
     """
-    sid = _np.array(sorted(dm.slaveIds))  # slave ids
+    sid = _np.array(sorted(dm.slaveIds), dtype=int)  # slave ids
 
     if sid.size == 0:
-        raise _oe.ValueError("No slave actuator IDs found in the deformable mirror.")
+        raise ValueError("No slave actuator IDs found in the deformable mirror.")
 
-    mid = _np.array([_i for _i in range(dm.nActs) if _i not in sid])  # master ids
+    mid = _np.array([_i for _i in range(dm.nActs) if _i not in sid], dtype=int)  # master ids
 
     if not hasattr(dm, "ff"):
         raise _oe.DeviceAttributeError(
@@ -59,22 +59,20 @@ def compute_slave_cmd(
     if method == "zero-force":
         return _zero_force_slaving(sid, mid, dm.ff, cmd)
     elif method == "minimum-rms":
-        bid = _np.array(sorted(dm.borderIds))  # border ids
+        bid = _np.array(sorted(dm.borderIds), dtype=int)  # border ids
         if bid.size == 0:
-            raise _oe.DeviceAttributeError(
-                "Border actuator IDs are required for minimum-RMS slaving but not found."
-            )
+            bid = mid.copy()
         return _minimum_rms_slaving(sid, mid, bid, dm.ff, cmd)
 
     else:
-        raise _oe.ValueError(
+        raise ValueError(
             f"Unknown slaving method '{method}'. Available methods are 'zero-force' and 'minimum-rms'."
         )
-
 
 def compute_slaved_IM(
     dm: _ot.DeformableMirrorDevice,
     IM: _ot.MatrixLike,
+    method: str = None,
 ) -> _ot.MatrixLike:
     """
     Compute a new interaction matrix taking into account slaved actuators.
@@ -85,18 +83,21 @@ def compute_slaved_IM(
         Deformable mirror object with slaved actuators.
     IM : opticalib.MatrixLike
         Original interaction matrix.
+    method : str, optional
+        Method to compute the master-to-slave matrix. Options are:
+        - None: Creates an IM with the same number of rows as the original one, 
+            controlling only the master actuators.
+        - 'zero-force' : zero-force slaving, in which the slave actuators are
+            commanded a position which needs zero force to be used (may require
+            nearby actuators to apply more force)
+        - 'minimum-rms' : minimum-RMS-force slaving, in which the slave actuators
+            are set to minimize the overall force of nearby actuators.
 
     Returns
     -------
     nIM : opticalib.MatrixLike
         New interaction matrix with slaved actuators taken into account.
     """
-    im = _xp.asarray(IM)
-
-    sid = _np.array(sorted(dm.slaveIds))  # slave ids
-    mid = _np.array([_i for _i in range(dm.nActs) if _i not in sid])  # master ids
-
-    # compute new IM with slaved actuators
     try:
         ffwd = _xp.asarray(dm.ff)
     except AttributeError:
@@ -104,12 +105,71 @@ def compute_slaved_IM(
             f"Feed-Forward matrix not available in {dm.__class__.__name__}."
         )
 
+    im = _xp.asarray(IM)
     _, _, vt = _xp.linalg.svd(ffwd)
     zim = vt.T @ im  # zonal interaction matrix
-    temp = vt.T[mid, :]  # mid
-    nv = temp[:, mid]  # new Vt matrix slaved
-    nIM = nv.T @ zim[mid, :]  # new interaction matrix
+
+    if method is not None:
+        compute_slaved_mat(dm, zim, method=method)  # check method and get slaving matrix Q
+    else:
+        temp = vt.T[mid, :]  # mid
+        nv = temp[:, mid]  # new Vt matrix slaved
+        nIM = nv.T @ zim[mid, :]  # new interaction matrix
+
     return _xp.asnumpy(nIM)
+
+
+def compute_slaved_mat(
+    dm: _ot.DeformableMirrorDevice,
+    M: _ot.MatrixLike,
+    method: str = "zero-force",
+) -> _ot.MatrixLike:
+    """
+    Compute a new interaction matrix taking into account slaved actuators.
+    
+    This matrix slaving method works for IFF matrices, FeedForward matrices and 
+    Interaction Matrix (zonal, not modal).
+
+    Parameters
+    ----------
+    dm : opticalib.DeformableMirror
+        Deformable mirror object with slaved actuators.
+    M : opticalib.MatrixLike
+        Original matrix to slaved.
+        
+        Works on:
+        - `FeedForward` (nactuators, nactuators)
+        - `IFF` (nactuators, npixels)
+    method : str, optional
+        Method to compute the master-to-slave matrix. Options are:
+        - 'zero-force' : zero-force slaving, in which the slave actuators are
+            commanded a position which needs zero force to be used (may require
+            nearby actuators to apply more force)
+        - 'minimum-rms' : minimum-RMS-force slaving, in which the slave actuators
+            are set to minimize the overall force of nearby actuators.
+
+    Returns
+    -------
+    nM : opticalib.MatrixLike
+        New matrix with slaved actuators taken into account.
+    """
+    m = _xp.asarray(M)
+
+    sid = _np.array(sorted(dm.slaveIds), dtype=int)  # slave ids
+    mid = _np.array([_i for _i in range(dm.nActs) if _i not in sid], dtype=int)  # master ids
+
+    try:
+        ffwd = _xp.asarray(dm.ff)
+    except AttributeError:
+        raise _oe.DeviceAttributeError(
+            f"Feed-Forward matrix not available in {dm.__class__.__name__}."
+        )
+
+    Q = _get_slaving_matrix(method, ffwd, sid, mid, borderIds=getattr(dm, "borderIds", None))
+    
+    nM = m[mid,:] + Q.T @ m[sid, :]
+    return _xp.asnumpy(nM)
+
 
 
 def project_IM_into_zonal_IM(
@@ -254,15 +314,64 @@ def _minimum_rms_slaving(
     ci = (K["bs"].T @ K["bi"] + K["ss"].T @ K["si"]) @ cmd[masterIds]
     cb = (K["bs"].T @ K["bb"] + K["ss"].T @ K["sb"]) @ cmd[borderIds]
 
-    cmd[slaveIds] = Q0 @ (ci + cb)
+    n = 2 if all(borderIds == masterIds) else 1
+
+    cmd[slaveIds] = Q0 @ (ci + cb)/n
     return _xp.asnumpy(cmd)
+
+
+def _get_slaving_matrix(
+    method: str,
+    FF: _ot.MatrixLike,
+    slaveIds: _ot.ArrayLike,
+    masterIds: _ot.ArrayLike,
+    borderIds: _ot.ArrayLike,
+) -> _ot.MatrixLike:
+    """
+    Computes the slave-to-master matrix according to the specified method.
+
+    Parameters
+    ----------
+    method : str
+        Method to compute the master-to-slave matrix. Options are:
+        - 'zero-force' : zero-force slaving
+        - 'minimum-rms' : minimum-RMS-force slaving.
+    FF : MatrixLike
+        Feed-Forward matrix of the deformable mirror.
+    slaveIds : ArrayLike
+        Indices of the slave actuators.
+    masterIds : ArrayLike
+        Indices of the master actuators.
+    borderIds : ArrayLike, optional
+        Indices of the border actuators. Required for minimum-RMS-force slaving.
+
+    Returns
+    -------
+    Q : MatrixLike
+        Slave-to-master matrix.
+    """
+    K = _get_decomposed_ffwd(slaveIds, masterIds, FF, borderIds, method=method)
+
+    if method == "zero-force":
+        Kss = K["ss"]
+        Ksm = K["sm"]
+        Q = -_xp.linalg.pinv(Kss) @ Ksm
+    elif method == "minimum-rms":
+        Q0 = -_xp.linalg.pinv(K["bs"].T @ K["bs"] + K["ss"].T @ K["ss"])
+        Q = Q0 @ (K["bs"].T @ K["bi"] + K["ss"].T @ K["si"])
+    else:
+        raise _oe.ValueError(
+            f"Unknown slaving method '{method}'. Available methods are 'zero-force' and 'minimum-rms'."
+        )
+
+    return Q
 
 
 def _get_decomposed_ffwd(
     slaveIds: _ot.ArrayLike,
     masterIds: _ot.ArrayLike,
     ffwd: _ot.MatrixLike,
-    borderIds: _ot.ArrayLike | None = None,
+    borderIds: _ot.ArrayLike,
     method: str = "zero-force",
 ) -> dict[str, _ot.MatrixLike]:
     """
