@@ -240,7 +240,7 @@ def cubeRoiProcessing(
             coeffs = zfitter.fitOnRoi(r2rImage, [1, 2, 3], mode="global")
             _, matrix = zfitter.fit(v, [1, 2, 3])
             surf2remove = zfitter.makeSurface(
-                [1, 2, 3], v, coeffs=coeffs, mat=matrix, mode="global"
+                [1, 2, 3], v, coeffs=coeffs, mat=matrix, mode="full-aperture"
             )
 
             v -= surf2remove

@@ -159,7 +159,7 @@ class _4DInterferometer(_api.BaseInterferometer):
         )
         fold4d = _os.path.join(_folds.CAPTURE_FOLDER_NAME_4D_PC, folder_name)
         self._i4d.burstFramesToSpecificDirectory(fold4d, numberOfFrames)
-        self._i4d.saveConfiguration(fold4d)
+        self.saveConfiguration(_os.path.join(fold4d, 'SWSettings.4dini'))
         return folder_name
 
     def produce(
@@ -215,7 +215,6 @@ class _4DInterferometer(_api.BaseInterferometer):
             yield
         finally:
             self.setTriggerMode(False)
-
     del contextmanager
 
     def setTriggerMode(self, enable: bool) -> None:
