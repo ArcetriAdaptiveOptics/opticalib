@@ -201,6 +201,7 @@ def createCube(fl_or_il: list[str], register: bool = False) -> _ot.CubeData:
     # check if it is composed of file paths to load
     if all([isinstance(item, str) for item in fl_or_il]):
         fl_or_il = [osu.read_phasemap(f) for f in fl_or_il]
+
         # Is the list now full of images?
         if not any(
             [
@@ -223,7 +224,11 @@ def createCube(fl_or_il: list[str], register: bool = False) -> _ot.CubeData:
     if register:
         print("Registration Not implemented yet!")
 
-    cube = _fa.fits_array(_np.ma.dstack(fl_or_il))
+    header = {}
+    for item in fl_or_il:
+        header.update(item.header)
+
+    cube = _fa.fits_array(_np.ma.dstack(fl_or_il), header=header)
 
     return cube
 
