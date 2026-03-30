@@ -131,7 +131,7 @@ class IFFCapturePreparation:
         """
         if self.cmdMatHistory is None:
             self.createCmdMatrixHistory(
-                modesList, modesAmp, template, shuffle, modalBase
+                modesList, modesAmp, template, modalBase, shuffle
             )
 
         # Provide manually the cmdMatrixHistory
