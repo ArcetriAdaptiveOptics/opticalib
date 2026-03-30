@@ -530,17 +530,38 @@ class M4AU(AdOpticaDm):
 class AlpaoDm(_api.BaseAlpaoMirror, _api.base_devices.BaseDeformableMirror):
     """
     Alpao Deformable Mirror interface.
+
+    Communicates with the hardware directly via the Alpao SDK
+    (``asdk`` module) through :class:`~opticalib.devices._API.alpaoAPI.BaseAlpaoMirror`.
+
+    Parameters
+    ----------
+    nacts : int or str, optional
+        Number of actuators.  Used to look up the device serial number
+        in the configuration file when *serial_number* is not given.
+    serial_number : str, optional
+        Hardware serial number of the DM (e.g. ``"BAXXX"``).
+        If ``None``, *nacts* must be provided so that the serial
+        number can be retrieved from the configuration file.
     """
 
     def __init__(
         self,
         nacts: _ot.Optional[int | str] = None,
-        ip: _ot.Optional[str] = None,
-        port: _ot.Optional[int] = None,
+        serial_number: _ot.Optional[str] = None,
     ):
-        """The Contructor"""
+        """
+        Initialise the Alpao DM hardware connection.
+
+        Parameters
+        ----------
+        nacts : int or str, optional
+            Number of actuators.
+        serial_number : str, optional
+            Hardware serial number of the DM.
+        """
         self._logger = _SL(the_class=__class__)
-        super().__init__(ip, port, nacts)
+        super().__init__(serial_number, nacts)
         self.baseDataPath = _opdi
         self.is_segmented = False
         self._slaveIds = _dmc().get("slaveIds", [])
@@ -556,15 +577,14 @@ class AlpaoDm(_api.BaseAlpaoMirror, _api.base_devices.BaseDeformableMirror):
         return self._borderIds
 
     def get_shape(self) -> _ot.ArrayLike:
-        shape = self._dm.get_shape()
-        return shape
+        return super().get_shape()
 
     def set_shape(self, cmd: _ot.ArrayLike, differential: bool = False) -> None:
         if differential:
-            shape = self._dm.get_shape()
+            shape = self.get_shape()
             cmd = cmd + shape
         self._checkCmdIntegrity(cmd)
-        self._dm.set_shape(cmd)
+        super().set_shape(cmd)
 
     def setZeros2Acts(self):
         zero = _np.zeros(self.nActs)

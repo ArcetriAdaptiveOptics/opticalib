@@ -51,8 +51,7 @@ DEVICES:
   # the system, such as DMs, SLMs, etc.
   DEFORMABLE.MIRRORS:
     AlpaoXXX:
-      ip:
-      port:
+      serialNumber:
       diameter:
     PetalDM:
       ip0:   
