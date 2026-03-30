@@ -96,6 +96,7 @@ class IFFCapturePreparation:
         modesList: _ot.Optional[_ot.ArrayLike] = None,
         modesAmp: _ot.Optional[float | _ot.ArrayLike] = None,
         template: _ot.Optional[_ot.ArrayLike] = None,
+        modalBase: str = None,
         shuffle: bool = False,
     ) -> _ot.MatrixLike:
         """
@@ -118,6 +119,9 @@ class IFFCapturePreparation:
             None, which means the template is loaded from the 'iffcongig.ini' file.
         shuffle : boolean
             Decide wether to shuffle or not the modes order. Default is False
+        modalBase : str, optional
+            Modal base to use. Default is None, which means the modal base is
+            loaded from the 'iffconfig.ini' file.
 
         Returns
         -------
@@ -126,7 +130,9 @@ class IFFCapturePreparation:
             registration pattern and the command matrix history.
         """
         if self.cmdMatHistory is None:
-            self.createCmdMatrixHistory(modesList, modesAmp, template, shuffle)
+            self.createCmdMatrixHistory(
+                modesList, modesAmp, template, shuffle, modalBase
+            )
 
         # Provide manually the cmdMatrixHistory
         elif cmdMat is not None:
@@ -181,6 +187,7 @@ class IFFCapturePreparation:
         mlist: _ot.Optional[_ot.ArrayLike] = None,
         modesAmp: _ot.Optional[float | _ot.ArrayLike] = None,
         template: _ot.Optional[_ot.ArrayLike] = None,
+        modalBase: _ot.Optional[str] = None,
         shuffle: bool = False,
     ) -> _ot.MatrixLike:
         """
@@ -196,6 +203,9 @@ class IFFCapturePreparation:
         template : ArrayLike
             Template for the push-pull application of the modes. If no argument
             is passed, it will be loaded from the configuration file iffConfig.ini
+        modalBase : str, optional
+            Modal base to use. Default is None, which means the modal base is
+            loaded from the 'iffconfig.ini' file.
         shuffle : bool
             Decides to wether shuffle or not the order in which the modes are
             applied. Default is False
@@ -217,7 +227,7 @@ class IFFCapturePreparation:
         zeroScheme = infoIF["zeros"]
         self._template = template
         self._modesList = mlist
-        self._createCmdMatrix(mlist)
+        self._createCmdMatrix(mlist, modalBase)
         nModes = self._cmdMatrix.shape[1]
         n_push_pull = len(template)
         if _np.size(modesAmp) == 1:
@@ -331,12 +341,15 @@ class IFFCapturePreparation:
         self.triggPadCmdHist = triggHist
         return triggHist
 
-    def _createCmdMatrix(self, mlist: int | _ot.ArrayLike) -> _ot.MatrixLike:
+    def _createCmdMatrix(
+        self, mlist: int | _ot.ArrayLike, mbase: str = None
+    ) -> _ot.MatrixLike:
         """
         Cuts the modal base according the given modes list
         """
         infoIF = _rif.getIffConfig("IFFUNC")
-        self._updateModalBase(infoIF["modalBase"])
+        modalbase = mbase or infoIF["modalBase"]
+        self._updateModalBase(modalbase)
         self._cmdMatrix = self._modalBase[:, mlist]
         return self._cmdMatrix
 

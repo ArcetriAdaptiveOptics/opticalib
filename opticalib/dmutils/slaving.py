@@ -15,7 +15,7 @@ def compute_slave_cmd(
     Parameters
     ----------
     dm : opticalib.DeformableMirror
-        Deformable mirror object with slaved actuators. Must have ther properties:
+        Deformable mirror object with slaved actuators. Must have the properties:
         - slaveIds : list of int
             List of indices of the slaved actuators.
         - ff : opticalib.MatrixLike
@@ -25,7 +25,7 @@ def compute_slave_cmd(
     method : str, optional
         Method to compute the master-to-slave matrix. Options are:
         - 'zero-force' : zero-force slaving, in which the slave actuators are
-            commanded a position which needs zero force to be used (my require
+            commanded a position which needs zero force to be used (may require
             nearby actuators to apply more force)
         - 'minimum-rms' : minimum-RMS-force slaving, in which the slave actuators
             are set to minimize the overall force of nearby actuators.
@@ -44,14 +44,10 @@ def compute_slave_cmd(
     ValueError
         If an unknown slaving method is specified.
     """
-    sid = _np.array(sorted(dm.slaveIds), dtype=int)  # slave ids
+    sid, bid, mid = _get_act_roles(dm)
 
-    if sid.size == 0:
-        raise ValueError("No slave actuator IDs found in the deformable mirror.")
-
-    mid = _np.array(
-        [_i for _i in range(dm.nActs) if _i not in sid], dtype=int
-    )  # master ids
+    if sid is None or len(sid) == 0:
+        raise _oe.DeviceError(f"No slave actuators defined in {dm.__class__.__name__}.")
 
     if not hasattr(dm, "ff"):
         raise _oe.DeviceAttributeError(
@@ -61,14 +57,12 @@ def compute_slave_cmd(
     if method == "zero-force":
         return _zero_force_slaving(sid, mid, dm.ff, cmd)
     elif method == "minimum-rms":
-        bid = _np.array(sorted(dm.borderIds), dtype=int)  # border ids
-        if bid.size == 0:
-            bid = mid.copy()
         return _minimum_rms_slaving(sid, mid, bid, dm.ff, cmd)
 
     else:
         raise ValueError(
-            f"Unknown slaving method '{method}'. Available methods are 'zero-force' and 'minimum-rms'."
+            f"Unknown slaving method '{method}'. "
+            "Available methods are 'zero-force' and 'minimum-rms'."
         )
 
 
@@ -160,10 +154,7 @@ def compute_slaved_mat(
     """
     m = _xp.asarray(M)
 
-    sid = _np.array(sorted(dm.slaveIds), dtype=int)  # slave ids
-    mid = _np.array(
-        [_i for _i in range(dm.nActs) if _i not in sid], dtype=int
-    )  # master ids
+    sid, bid, mid = _get_act_roles(dm)
 
     try:
         ffwd = _xp.asarray(dm.ff)
@@ -172,9 +163,7 @@ def compute_slaved_mat(
             f"Feed-Forward matrix not available in {dm.__class__.__name__}."
         )
 
-    Q = _get_slaving_matrix(
-        method, ffwd, sid, mid, borderIds=getattr(dm, "borderIds", None)
-    )
+    Q = _get_slaving_matrix(method, ffwd, sid, mid, borderIds=bid)
 
     nM = m[mid, :] + Q.T @ m[sid, :]
     return _xp.asnumpy(nM)
@@ -204,6 +193,43 @@ def project_IM_into_zonal_IM(
     _, _, vt = _xp.linalg.svd(ff)
     ZIM = vt.T @ im
     return _xp.asnumpy(ZIM)
+
+
+def _get_act_roles(
+    dm: _ot.DeformableMirrorDevice,
+) -> tuple[_np.ndarray, _np.ndarray, _np.ndarray]:
+    """
+    Get the roles of actuators in the deformable mirror.
+
+    Parameters
+    ----------
+    dm : opticalib.DeformableMirrorDevice
+        Deformable mirror device.
+
+    Returns
+    -------
+    sid : ndarray
+        Indices of the slave actuators.
+    bid : ndarray
+        Indices of the border actuators.
+    mid : ndarray
+        Indices of the master actuators.
+    """
+    sid = _np.array(sorted(dm.slaveIds), dtype=int)  # slave ids
+    bid = getattr(dm, "borderIds", None)
+
+    if bid is None:
+        mid = _np.array(
+            [_i for _i in range(dm.nActs) if _i not in sid], dtype=int
+        )  # master ids
+        bid = mid.copy()  # border ids
+    else:
+        bid = _np.array(sorted(bid), dtype=int)  # border ids
+        mid = _np.array(  # Master ids
+            [_i for _i in range(dm.nActs) if _i not in sid and _i not in bid], dtype=int
+        )
+
+    return sid, bid, mid
 
 
 def _zero_force_slaving(

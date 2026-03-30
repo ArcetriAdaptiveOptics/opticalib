@@ -24,6 +24,7 @@ def iffDataAcquisition(
     modesList: _ot.Optional[_ot.ArrayLike] = None,
     amplitude: _ot.Optional[float | _ot.ArrayLike] = None,
     template: _ot.Optional[_ot.ArrayLike] = None,
+    modalbase: _ot.Optional[str] = None,
     shuffle: bool = False,
     read_buffer: bool | dict[str, _ot.Any] = False,
 ) -> str:
@@ -46,6 +47,9 @@ def iffDataAcquisition(
         command amplitude
     template: ArrayLike , oprional
         template file for the command matrix
+    modalbase: str, optional
+        Modal base to use. Default is None, which means the modal base is loaded
+        from the 'iffconfig.ini' file.
     shuffle: bool , optional
         if True, shuffle the modes before acquisition
     read_buffer: bool | dict[str, Any], optional
@@ -61,7 +65,11 @@ def iffDataAcquisition(
     """
     ifc = _ifa.IFFCapturePreparation(dm)
     tch = ifc.createTimedCmdHistory(
-        modesList=modesList, modesAmp=amplitude, template=template, shuffle=shuffle
+        modesList=modesList,
+        modesAmp=amplitude,
+        template=template,
+        shuffle=shuffle,
+        modalBase=modalbase,
     )
     info = ifc.getInfoToSave()
     tn, _ = _prepareData2Save(info)
