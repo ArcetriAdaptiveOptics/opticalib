@@ -6,7 +6,6 @@ vmbpy
 pipython
 photutils
 scipy
-plico_dm
 ruamel.yaml
 Pyro4
 h5py
