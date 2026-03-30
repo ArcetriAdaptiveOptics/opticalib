@@ -4,14 +4,13 @@ from opticalib.core.exceptions import CommandError
 from opticalib import typings as _t
 
 
-class AlpaoSdkWrapper:
+class BaseAlpaoMirror:
     """
-    Thin wrapper around the Alpao SDK ``asdk.DM`` object.
+    Base class for Alpao deformable mirrors using the Alpao SDK directly.
 
-    Provides a uniform interface (``get_shape``, ``set_shape``,
-    ``get_number_of_actuators``) that is consumed by
-    :class:`BaseAlpaoMirror` without depending on the ``plico_dm``
-    network client.
+    Connects to the hardware via the Alpao SDK (``asdk`` module) and
+    provides actuator-coordinate helpers, command-integrity checking,
+    shape read/write, and configuration look-up.
 
     The Alpao SDK has no built-in position readback, so the last
     commanded vector is cached internally and returned by
@@ -19,35 +18,68 @@ class AlpaoSdkWrapper:
 
     Parameters
     ----------
-    serial_number : str
-        Hardware serial number of the DM (e.g. ``"BAXXX"``).
+    serial_number : str or None
+        Hardware serial number of the DM (e.g. ``"BAXXX"``).  May be
+        ``None`` when *nActs* is given and the serial number is stored
+        in the configuration file.
+    nActs : int, str or None
+        Number of actuators.  Used to look up the DM configuration
+        when *serial_number* is ``None``.
 
     Notes
     -----
-    The ``asdk`` module is imported lazily so that the rest of the
-    package can be used on systems where the Alpao SDK is not
-    installed.
+    The ``asdk`` module is imported lazily inside :meth:`_init_sdk` so
+    that the rest of the package can be used on systems where the
+    Alpao SDK is not installed.
     """
 
-    def __init__(self, serial_number: str) -> None:
+    def __init__(
+        self,
+        serial_number: str | None,
+        nActs: int | str | None,
+    ) -> None:
         """
-        Initialise and reset the DM identified by *serial_number*.
+        Initialise the mirror, connecting to the SDK and loading the
+        actuator layout.
 
         Parameters
         ----------
-        serial_number : str
-            Hardware serial number of the DM.
-        """
-        import asdk  # Alpao SDK – imported lazily to avoid hard dependency
+        serial_number : str or None
+            Hardware serial number.  ``None`` if *nActs* is provided
+            and the serial number will be read from the config file.
+        nActs : int, str or None
+            Number of actuators.  ``None`` if *serial_number* is
+            provided directly.
 
-        self._serial_number = serial_number
-        self._dm = asdk.DM(serial_number)
-        self._dm.Reset()
-        self._n_acts: int = int(self._dm.Get("NbOfActuator"))
-        self._last_cmd: _t.ArrayLike = _np.zeros(self._n_acts)
+        Raises
+        ------
+        ValueError
+            If neither *serial_number* nor *nacts* is provided.
+        ModuleNotFoundError
+            If the ``asdk`` module (Alpao SDK) is not installed.
+        Exception
+            Any hardware-level exception raised by ``asdk.DM()`` on
+            connection failure is propagated to the caller.
+        """
+        self._dmCoords = {
+            "dm97": [5, 7, 9, 11],
+            "dm192": [4, 8, 12, 12, 16, 16, 18],
+            "dm277": [7, 9, 11, 13, 15, 17, 19],
+            "dm468": [8, 12, 16, 18, 20, 20, 22, 22, 24],
+            "dm820": [10, 14, 18, 20, 22, 24, 26, 28, 28, 30, 30, 32],
+        }
+        self._init_sdk(serial_number, nActs)
+        self.nActs = int(self._sdk_dm.Get("NbOfActuator"))
+        self._last_cmd: _t.ArrayLike = _np.zeros(self.nActs)
+        self._name = f"Alpao{self.nActs}"
+        self.actCoord = self._initActCoord()
+        self.diameter = getDmConfig(self._name).get("diameter", None)
+        self.mirrorModes = None
+        self.cmdHistory = None
+        self.refAct = None
 
     # ------------------------------------------------------------------
-    # Public interface (mirrors the plico_dm.deformableMirror API)
+    # SDK-level interface
     # ------------------------------------------------------------------
 
     def get_number_of_actuators(self) -> int:
@@ -59,7 +91,7 @@ class AlpaoSdkWrapper:
         int
             Number of actuators.
         """
-        return self._n_acts
+        return self.nActs
 
     def get_shape(self) -> _t.ArrayLike:
         """
@@ -78,7 +110,7 @@ class AlpaoSdkWrapper:
 
     def set_shape(self, cmd: _t.ArrayLike) -> None:
         """
-        Send an absolute command vector to the DM.
+        Send an absolute command vector to the DM via the Alpao SDK.
 
         Parameters
         ----------
@@ -93,12 +125,12 @@ class AlpaoSdkWrapper:
             actuators.
         """
         cmd = _np.asarray(cmd, dtype=float)
-        if cmd.size != self._n_acts:
+        if cmd.size != self.nActs:
             raise ValueError(
                 f"Command length {cmd.size} does not match the number "
-                f"of actuators ({self._n_acts})."
+                f"of actuators ({self.nActs})."
             )
-        self._dm.Send(cmd)
+        self._sdk_dm.Send(cmd)
         self._last_cmd = cmd.copy()
 
     def get_version(self) -> int:
@@ -110,7 +142,7 @@ class AlpaoSdkWrapper:
         int
             Integer version code.
         """
-        return int(self._dm.Get("VersionInfo"))
+        return int(self._sdk_dm.Get("VersionInfo"))
 
     def deinitialize(self) -> None:
         """
@@ -118,61 +150,16 @@ class AlpaoSdkWrapper:
 
         Should be called when the DM object is no longer needed to
         ensure a clean shutdown of the Alpao SDK connection.
+        Does nothing if the SDK handle was never successfully created.
         """
-        self._dm.Stop()
-        self._dm.Reset()
+        if not hasattr(self, "_sdk_dm"):
+            return
+        self._sdk_dm.Stop()
+        self._sdk_dm.Reset()
 
-
-class BaseAlpaoMirror:
-    """
-    Base class for Alpao deformable mirrors using the Alpao SDK directly.
-
-    Wraps :class:`AlpaoSdkWrapper` and provides actuator-coordinate
-    helpers, command-integrity checking, and configuration look-up.
-
-    Parameters
-    ----------
-    serial_number : str or None
-        Hardware serial number of the DM.  May be ``None`` when
-        *nActs* is given and the serial number is stored in the
-        configuration file.
-    nActs : int, str or None
-        Number of actuators.  Used to look up the DM configuration
-        when *serial_number* is ``None``.
-    """
-
-    def __init__(
-        self,
-        serial_number: str | None,
-        nActs: int | str | None,
-    ) -> None:
-        """
-        Initialise the mirror, loading the SDK and actuator layout.
-
-        Parameters
-        ----------
-        serial_number : str or None
-            Hardware serial number.  ``None`` if *nActs* is provided
-            and the serial number will be read from the config file.
-        nActs : int, str or None
-            Number of actuators.  ``None`` if *serial_number* is
-            provided directly.
-        """
-        self._dmCoords = {
-            "dm97": [5, 7, 9, 11],
-            "dm192": [4, 8, 12, 12, 16, 16, 18],
-            "dm277": [7, 9, 11, 13, 15, 17, 19],
-            "dm468": [8, 12, 16, 18, 20, 20, 22, 22, 24],
-            "dm820": [10, 14, 18, 20, 22, 24, 26, 28, 28, 30, 30, 32],
-        }
-        self._dm = self._init_dm(serial_number, nActs)
-        self.nActs = self._initNactuators()
-        self._name = f"Alpao{self.nActs}"
-        self.actCoord = self._initActCoord()
-        self.diameter = getDmConfig(self._name).get("diameter", None)
-        self.mirrorModes = None
-        self.cmdHistory = None
-        self.refAct = None
+    # ------------------------------------------------------------------
+    # Higher-level helpers
+    # ------------------------------------------------------------------
 
     @property
     def nActuators(self) -> int:
@@ -230,9 +217,9 @@ class BaseAlpaoMirror:
                 f"Command standard deviation {scmd} is greater than {stdt:.2f}."
             )
 
-    def _initNactuators(self) -> int:
-        """Query the SDK wrapper for the number of actuators."""
-        return self._dm.get_number_of_actuators()
+    # ------------------------------------------------------------------
+    # Private initialisation helpers
+    # ------------------------------------------------------------------
 
     def _initActCoord(self) -> _t.ArrayLike:
         """
@@ -269,13 +256,13 @@ class BaseAlpaoMirror:
         self.actCoord = _np.array([cx, cy])
         return self.actCoord
 
-    def _init_dm(
+    def _init_sdk(
         self,
         serial_number: str | None,
         nacts: int | str | None,
-    ) -> AlpaoSdkWrapper:
+    ) -> None:
         """
-        Initialise the :class:`AlpaoSdkWrapper` for this mirror.
+        Connect to the Alpao SDK and store the raw DM handle.
 
         The serial number is resolved in the following priority order:
 
@@ -291,16 +278,13 @@ class BaseAlpaoMirror:
             Number of actuators used to look up the configuration when
             *serial_number* is ``None``.
 
-        Returns
-        -------
-        AlpaoSdkWrapper
-            Initialised SDK wrapper ready to send commands.
-
         Raises
         ------
         ValueError
             If neither *serial_number* nor *nacts* is provided.
         """
+        import asdk  # Alpao SDK – imported lazily to avoid hard dependency
+
         if serial_number is None and nacts is not None:
             name = f"Alpao{int(nacts)}"
             config = getDmConfig(name)
@@ -310,4 +294,6 @@ class BaseAlpaoMirror:
                 "Either 'serial_number' or 'nacts' must be provided."
             )
         self.serial_number = serial_number
-        return AlpaoSdkWrapper(serial_number)
+        self._sdk_dm = asdk.DM(serial_number)
+        self._sdk_dm.Reset()
+

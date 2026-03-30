@@ -577,15 +577,14 @@ class AlpaoDm(_api.BaseAlpaoMirror, _api.base_devices.BaseDeformableMirror):
         return self._borderIds
 
     def get_shape(self) -> _ot.ArrayLike:
-        shape = self._dm.get_shape()
-        return shape
+        return super().get_shape()
 
     def set_shape(self, cmd: _ot.ArrayLike, differential: bool = False) -> None:
         if differential:
-            shape = self._dm.get_shape()
+            shape = self.get_shape()
             cmd = cmd + shape
         self._checkCmdIntegrity(cmd)
-        self._dm.set_shape(cmd)
+        super().set_shape(cmd)
 
     def setZeros2Acts(self):
         zero = _np.zeros(self.nActs)
