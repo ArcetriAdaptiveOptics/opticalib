@@ -203,6 +203,58 @@ class TestFilterZernikeCube:
         assert new_tn is not None
 
 
+class TestAddModeToCube:
+    """Test add_mode_to_cube function."""
+
+    @patch("opticalib.dmutils.iff_processing._add_vect_to_mat")
+    @patch("opticalib.dmutils.iff_processing._osu.save_fits")
+    @patch("opticalib.dmutils.iff_processing._osu.load_fits")
+    def test_add_mode_to_cube_inserts_mode(
+        self,
+        mock_load_fits,
+        mock_save_fits,
+        mock_add_vect_to_mat,
+    ):
+        """Test mode insertion orchestration for cube, cmd matrix and mode vector."""
+        tn = "20240101_120000"
+        mode_id = 3
+        mode_vect = np.array([0.1, 0.2, 0.3], dtype=np.float32)
+        mode_img = np.ones((4, 4), dtype=np.float32)
+
+        cube = np.zeros((4, 4, 5), dtype=np.float32)
+        cmdmat = np.zeros((3, 5), dtype=np.float32)
+        modesvec = np.array([0, 1, 2, 4, 5], dtype=int)
+
+        new_cube = np.zeros((4, 4, 6), dtype=np.float32)
+        new_cmdmat = np.zeros((3, 6), dtype=np.float32)
+        new_modesvec = np.array([0, 1, 2, 3, 4, 5], dtype=int)
+
+        mock_load_fits.side_effect = [cube, cmdmat, modesvec]
+        mock_add_vect_to_mat.side_effect = [new_cube, new_cmdmat, new_modesvec]
+
+        ifp.add_mode_to_cube(tn, mode_id, mode_vect, mode_img)
+
+        cube_path = os.path.join(ifp._intMatFold, tn, ifp._CUBE_FILE)
+        cmdmat_path = os.path.join(ifp._intMatFold, tn, ifp._MATRIX_FILE)
+        modesvec_path = os.path.join(ifp._intMatFold, tn, ifp._MODES_FILE)
+
+        assert mock_load_fits.call_args_list == [
+            ((cube_path,), {}),
+            ((cmdmat_path,), {}),
+            ((modesvec_path,), {}),
+        ]
+        assert mock_add_vect_to_mat.call_args_list == [
+            ((mode_img, cube, mode_id), {"axis": 2}),
+            ((mode_vect, cmdmat, mode_id), {"axis": 1}),
+            ((mode_id, modesvec, mode_id), {"axis": 0}),
+        ]
+        assert mock_save_fits.call_args_list == [
+            ((cube_path, new_cube), {"overwrite": True}),
+            ((cmdmat_path, new_cmdmat), {"overwrite": True}),
+            ((modesvec_path, new_modesvec), {"overwrite": True}),
+        ]
+
+
 class TestGetAcqPar:
     """Test _getAcqPar function."""
 

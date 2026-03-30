@@ -47,7 +47,7 @@ from opticalib import typings as _ot
 from opticalib.ground import osutils as _osu
 from opticalib.core.root import folders as _fn
 from opticalib.ground import computerec as _crec
-from . import iff_processing as _ifp, utils as _ut
+from . import iff_processing as _ifp, slaving as _ut
 from ..ground.logger import SystemLogger as _SL
 
 _ts = _osu.newtn
@@ -206,7 +206,7 @@ class Flattening:
             import tty
             import termios
 
-            def _listen_for_keypress(stop_event):
+            def _listen_for_keypress(stop_event: _ot.Any):
                 """Listen for any keypress to stop the loop."""
                 try:
                     # Windows alternative
@@ -243,6 +243,7 @@ class Flattening:
         self,
         dm: _ot.Optional[_ot.DeformableMirrorDevice] = None,
         interf: _ot.Optional[_ot.InterferometerDevice] = None,
+        img: _ot.Optional[_ot.ImageData] = None,
         modes2flat: _ot.Optional[int | _ot.ArrayLike] = None,
         modes2discard: _ot.Optional[int] = None,
         nframes: int = 5,
@@ -259,6 +260,9 @@ class Flattening:
             Deformable mirror object.
         interf : InterferometerDevice, optional
             Interferometer object to acquire phasemaps.
+        img : ImageData, optional
+            Image to flatten. If not provided, it will acquired using the provided
+            interferometer.
         modes2flat : int | ArrayLike, optional
             Modes to flatten.
         modes2discard : int, optional
@@ -299,7 +303,7 @@ class Flattening:
 
         self._logger.info("Acquiring starting image from interferometer...")
 
-        imgstart = interf.acquire_map(nframes, rebin=self.rebin)
+        imgstart = img or interf.acquire_map(nframes, rebin=self.rebin)
         self.loadImage2Shape(imgstart)
         self.computeRecMat(modes2discard)
         deltacmd = self.computeFlatCmd(modes2flat)
@@ -321,13 +325,51 @@ class Flattening:
             )
             header["DMNAME"] = (self._dm._name, "deformable mirror name")
             header["INTERF"] = (interf._name, "interferometer used")
-            modes2flat = _np.arange(modes2flat) if isinstance(modes2flat, int) else modes2flat
+            modes2flat = (
+                _np.arange(modes2flat) if isinstance(modes2flat, int) else modes2flat
+            )
             fold = self.saveFlatData(cmd, header, modes2flat)
             print(f"Flat command saved in .../{'/'.join(fold.split('/')[-2:])}")
 
         self._logger.info(f"Flat command and images saved in {fold}.")
 
-        return fold.split('/')[-1]
+        return fold.split("/")[-1]
+
+    def load_flat_command(
+        self, tn: str, apply: bool = False, **setshape_kwargs: dict[str, _ot.Any]
+    ) -> _ot.ArrayLike:
+        """
+        Loads a previously computed flat command from the given tracking number.
+
+        Parameters
+        ----------
+        tn : str
+            Tracking number of the flattening data to load.
+        apply : bool, optional
+            Whether to apply the loaded flat command to the DM. Default is False.
+        setshape_kwargs : dict, optional
+            Additional keyword arguments to pass to the DM's `set_shape` method
+            when applying the command.
+
+        Returns
+        -------
+        flat_cmd : ArrayLike, optional
+            The loaded flat command, if not applied.
+        """
+        path = _os.path.join(_fn.FLAT_ROOT_FOLDER, tn)
+        flat_cmd = _osu.load_fits(_os.path.join(path, "flatPosition.fits"))
+        if apply:
+            if self._dm is None:
+                self._logger.error(
+                    "Deformable mirror device must be registered in the class to apply the loaded flat command."
+                )
+                raise ValueError(
+                    "Deformable mirror device must be registered in the class to apply the loaded flat command."
+                )
+            self._logger.info(f"Applying loaded flat command from {tn} to the DM...")
+            self._dm.set_shape(flat_cmd, **setshape_kwargs)
+        else:
+            return flat_cmd
 
     def computeFlatCmd(self, modes2flat: int | _ot.ArrayLike) -> _ot.ArrayLike:
         """
@@ -520,7 +562,9 @@ class Flattening:
             Zernike modes to filter out this cube (if it's not already filtered).
             Default modes are [1,2,3] -> piston/tip/tilt.
         """
-        if self.filtered and all([x==y for x,y in zip(self.filteredModes, zernModes)]):
+        if self.filtered and all(
+            [x == y for x, y in zip(self.filteredModes, zernModes)]
+        ):
             self._logger.warning("Cube already filtered, skipping...")
             print(f"Cube already filtered, of {self.filteredModes}.")
             return
@@ -529,9 +573,7 @@ class Flattening:
             self._oldCube = self._intCube.copy()
             zern2fit = zernModes if zernModes is not None else [1, 2, 3]
             self._logger.info(f"Filtering cube of zernike modes {zern2fit}...")
-            self._intCube, new_tn = _ifp.filterZernikeCube(
-                self.tn, zern2fit, mode=mode
-            )
+            self._intCube, new_tn = _ifp.filterZernikeCube(self.tn, zern2fit, mode=mode)
             self.loadNewTn(new_tn)
             self.filtered = True
             self.filteredModes = zern2fit
@@ -553,7 +595,7 @@ class Flattening:
         self,
         cmd: _ot.ArrayLike,
         header: _ot.Header | dict[str, _ot.Any],
-        modes2flat: _ot.ArrayLike
+        modes2flat: _ot.ArrayLike,
     ) -> str:
         """
         Saves flattening data information:
@@ -581,16 +623,23 @@ class Flattening:
             "flatDeltaCommand.fits",
             "imgstart.fits",
             "imgflat.fits",
-            "modes2flat.fits"
+            "modes2flat.fits",
         ]
         imgstart = self.shape2flat.copy()
         imgflat = self._lastFlatImg.copy()
         deltacmd = self.flatCmd.copy()
         data = [cmd, deltacmd, imgstart, imgflat, modes2flat]
 
-        if hasattr(self._dm, "_lastCmd"):
-            data.append(self._dm._lastCmd.copy())
-            files.append("flatCommand.fits")
+        optionals = {
+            "_last_cmd": "flatCommand.fits",
+            "_bias_cmd": "BiasCommand.fits",
+            "_bias_force": "BiasForces.fits",
+        }
+
+        for op, file in optionals.items():
+            if hasattr(self._dm, op):
+                data.append(getattr(self._dm, op).copy())
+                files.append(file)
 
         if hasattr(self._dm, "get_force"):
             force = self._dm.get_force()
@@ -600,7 +649,7 @@ class Flattening:
         path = _osu.create_data_folder(_fn.FLAT_ROOT_FOLDER)
 
         for file, dat in zip(files, data):
-            print('Saving file: '+file) # DEBUG
+            print("Saving file: " + file)  # DEBUG
             _osu.save_fits(_os.path.join(path, file), dat, header=header)
 
         return path

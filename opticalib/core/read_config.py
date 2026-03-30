@@ -126,7 +126,9 @@ def getDeviceConfig(device_type: str, device_name: str | None = None):
         if device_name is not None:
             config = config[device_name]
     except KeyError:
-        raise DeviceNotFoundError(f"{device_type} '{device_name}' not found in configuration.")
+        raise DeviceNotFoundError(
+            f"{device_type} '{device_name}' not found in configuration."
+        )
     return config
 
 

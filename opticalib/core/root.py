@@ -171,7 +171,6 @@ SPL_DATA_ROOT_FOLDER: str = _os.path.join(OPT_DATA_ROOT_FOLDER, "SPL")
 SPL_FRINGES_ROOT_FOLDER: str = _os.path.join(SPL_DATA_ROOT_FOLDER, "Fringes")
 
 
-
 def SIMULATED_DM_PATH(dmname: str, nacts: int = None) -> str:
     """
     Get the path to the simulated deformable mirror data.

@@ -82,17 +82,6 @@ class BaseAlpaoMirror:
     # SDK-level interface
     # ------------------------------------------------------------------
 
-    def get_number_of_actuators(self) -> int:
-        """
-        Return the number of actuators of the connected DM.
-
-        Returns
-        -------
-        int
-            Number of actuators.
-        """
-        return self.nActs
-
     def get_shape(self) -> _t.ArrayLike:
         """
         Return the last commanded actuator positions.
@@ -103,7 +92,7 @@ class BaseAlpaoMirror:
         Returns
         -------
         numpy.ndarray
-            Array of length ``get_number_of_actuators()`` with the
+            Array of length ``nActs`` with the
             last commanded positions (zeros before the first command).
         """
         return self._last_cmd.copy()
@@ -115,7 +104,7 @@ class BaseAlpaoMirror:
         Parameters
         ----------
         cmd : array_like
-            Command vector of length ``get_number_of_actuators()``.
+            Command vector of length ``nActs``.
             Values must be in the range ``[-1, 1]`` (normalised units).
 
         Raises
@@ -184,9 +173,7 @@ class BaseAlpaoMirror:
             raise ValueError(f"Reference actuator {refAct} is out of range.")
         self.refAct = refAct
 
-    def _checkCmdIntegrity(
-        self, cmd: _t.ArrayLike, amp_threshold: float = 0.9
-    ) -> None:
+    def _checkCmdIntegrity(self, cmd: _t.ArrayLike, amp_threshold: float = 0.9) -> None:
         """
         Validate a command vector before sending it to the hardware.
 
@@ -280,20 +267,34 @@ class BaseAlpaoMirror:
 
         Raises
         ------
-        ValueError
+        RuntimeError
             If neither *serial_number* nor *nacts* is provided.
         """
-        import asdk  # Alpao SDK – imported lazily to avoid hard dependency
-
         if serial_number is None and nacts is not None:
             name = f"Alpao{int(nacts)}"
             config = getDmConfig(name)
             serial_number = config.get("serialNumber")
         elif (serial_number, nacts) == (None, None):
-            raise ValueError(
-                "Either 'serial_number' or 'nacts' must be provided."
-            )
+            raise RuntimeError("Either 'serial_number' or 'nacts' must be provided.")
         self.serial_number = serial_number
+
+        try:
+            from ...core.root import CONFIGURATION_FOLDER
+            from os.path import join
+            import sys
+
+            sys.path.append(join(CONFIGURATION_FOLDER, "alpao_sdk"))
+            from Lib64 import asdk  # type:ignore
+        except Exception as e:
+            if isinstance(e, ModuleNotFoundError):
+                raise ModuleNotFoundError(
+                    "The 'asdk' module (Alpao SDK) is not installed or "
+                    "not found in the configuration folder."
+                    f"\nEnsure to have put your {self.serial_number} Lib64 folder"
+                    "in your `.../SysConfig/alpao_sdk/` folder."
+                ) from e
+            else:
+                raise e
+
         self._sdk_dm = asdk.DM(serial_number)
         self._sdk_dm.Reset()
-

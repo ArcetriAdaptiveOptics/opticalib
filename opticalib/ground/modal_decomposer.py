@@ -330,8 +330,8 @@ class _ModeFitter(ABC):
         surface : ImageData
             Generated modal surface.
         """
-        coeffs = get_kwargs(("coeffs",'coeff','c'), None, kwargs)
-        mat = get_kwargs(("mat",'zm','zmat','matrix'), None, kwargs)
+        coeffs = get_kwargs(("coeffs", "coeff", "c"), None, kwargs)
+        mat = get_kwargs(("mat", "zm", "zmat", "matrix"), None, kwargs)
         k_rois = get_kwargs(("rois",), None, kwargs)
 
         self._logger.info(
@@ -371,7 +371,7 @@ class _ModeFitter(ABC):
                 nroi = len(roiimg)
 
             # Got more than one ROI branch
-            if nroi > 1:# and mode != "full-aperture":
+            if nroi > 1:  # and mode != "full-aperture":
 
                 # Here we don't try to overwrite coeffs/mat, as it would not make sense
 
@@ -403,11 +403,13 @@ class _ModeFitter(ABC):
                         surface.data[r] = _xp.dot(mat.T, _xp.asarray(coeffs))
 
                 # FULL-APERTURE (i.e. fit on available pupil)
-                elif mode=='full-aperture':
+                elif mode == "full-aperture":
                     if coeffs is None:
                         coeffs, _ = self.fit(image, modes_indices)
                     with self._temporary_mgen_from_image(image) as (pimage, _):
-                        mat = _xp.asnumpy(self._create_fitting_matrix(modes_indices, pimage.mask == 0))
+                        mat = _xp.asnumpy(
+                            self._create_fitting_matrix(modes_indices, pimage.mask == 0)
+                        )
                         mask = pimage.mask.copy()
                     surface = _xp.ma.zeros_like(image)
                     surface[mask == 0] = _xp.dot(mat.T, _xp.asnumpy(coeffs))

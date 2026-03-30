@@ -29,12 +29,12 @@ Example
 tn1 = '20160516_114916'
 tn2 = '20160516_114917' # A copy of tn1 (simulated) data
 ifp.process(tn1, save=True)
-Cube saved in '.../path/to/data/OPTData/INTMatrices/20160516_114916/IMcube.fits'
+Cube saved in '/path/to/data/OPTData/INTMatrices/20160516_114916/IMcube.fits'
 ifp.process(tn2, save=True)
-Cube saved in '.../path/to/data/OPTData/INTMatrices/20160516_114917/IMcube.fits'
+Cube saved in '/path/to/data/OPTData/INTMatrices/20160516_114917/IMcube.fits'
 tnlist = [tn1, tn2]
 ifp.stackCubes(tnlist)
-Stacked cube and matrices saved in '.../path/to/data/OPTData/INTMatrices/'new_tn'/IMcube.fits'
+Stacked cube and matrices saved in '/path/to/data/OPTData/INTMatrices/'new_tn'/IMcube.fits'
 ```
 """
 
@@ -49,11 +49,7 @@ from opticalib.core import fitsarray as _fa
 from opticalib.core import read_config as _rif
 from concurrent.futures import ThreadPoolExecutor as _tpe
 from opticalib.analyzer.images_processing import cubeRebinner as _cr
-from opticalib.ground import (
-    modal_decomposer as _zern, osutils as _osu, roi as _roi
-)
-
-# from scripts.misc.IFFPackage import actuator_identification_lib as _fa
+from opticalib.ground import modal_decomposer as _zern, osutils as _osu, roi as _roi
 
 _fn = _folds()
 _config = _cp.ConfigParser()
@@ -119,7 +115,7 @@ def process(
                 nworkers=nworkers,
                 nmode_prefetch=nmode_prefetch,
             )
-        
+
         ntn = stackCubes(tn)
         return ntn
 
@@ -132,10 +128,9 @@ def process(
     trigFrame = getTriggerFrame(tn, roi=trigger_roi)
     regMat = getRegFileMatrix(tn, trigFrame)
     modesMat = getIffFileMatrix(tn, trigFrame)
-    modesMatReorg = _modesReorganization(modesMat)
     iffRedux(
         tn=tn,
-        fileMat=modesMatReorg,
+        fileMat=modesMat,
         ampVect=ampVector,
         modeList=modesVector,
         template=template,
@@ -255,7 +250,7 @@ def cubeRoiProcessing(
         if median_subtraction:
             activeShellImg = v[activeRoi == 0].copy()
             med2remove = _np.median(activeShellImg)
-    
+
             v -= med2remove
 
         # Setting to zero the non active ROIs
@@ -386,6 +381,47 @@ def stackCubes(tnlist: str, cubeNames: _ot.Optional[list[str]] = None) -> None:
     _osu.save_fits(save_mvec, stacked_mvec)
     print(f"Stacked cube and matrices saved in {new_tn}")
     return new_tn
+
+
+def add_mode_to_cube(
+    tn: str, mode_id: int, mode_vect: _ot.ArrayLike, mode_img: _ot.ImageData
+) -> None:
+    """
+    Add a new mode to the cube contained in the tn folder, along with its command
+    vector and modes vector.
+
+    Parameters
+    ----------
+    tn : str
+        Tracking number of the cube to which add the mode.
+    mode_id : int
+        ID of the mode to add.
+    mode_vect : ArrayLike
+        Command vector of the mode to add.
+    mode_img : ImageData
+        Image of the mode to add.
+
+    Returns
+    -------
+    None
+    """
+    cube_path = _os.path.join(_intMatFold, tn, _CUBE_FILE)
+    cmdmat_path = _os.path.join(_intMatFold, tn, _MATRIX_FILE)
+    modesvec_path = _os.path.join(_intMatFold, tn, _MODES_FILE)
+
+    cube = _osu.load_fits(cube_path)
+    cmdmat = _osu.load_fits(cmdmat_path)
+    modesvec = _osu.load_fits(modesvec_path)
+
+    # Add the new mode to the cube, cmdmat and modesvec
+    new_cube = _add_vect_to_mat(mode_img, cube, mode_id, axis=2)
+    new_cmdmat = _add_vect_to_mat(mode_vect, cmdmat, mode_id, axis=1)
+    new_modesvec = _add_vect_to_mat(mode_id, modesvec, mode_id, axis=0)
+
+    # Save the updated cube, cmdmat and modesvec
+    _osu.save_fits(cube_path, new_cube, overwrite=True)
+    _osu.save_fits(cmdmat_path, new_cmdmat, overwrite=True)
+    _osu.save_fits(modesvec_path, new_modesvec, overwrite=True)
 
 
 def filterZernikeCube(
@@ -752,6 +788,42 @@ def getIffFileMatrix(tn: str, trigFrame: int = None) -> _ot.ArrayLike:
     return iffMat
 
 
+def _add_vect_to_mat(
+    vector: _ot.ArrayLike,
+    matrix: _ot.ArrayLike,
+    position_id: int,
+    axis: _ot.Optional[int] = None,
+) -> _ot.ArrayLike:
+    """
+    Add a vector to a matrix in the specified position.
+
+    Parameters
+    ----------
+    vector : array-like
+        The vector to add to the matrix.
+    matrix : array-like
+        The matrix to which the vector will be added.
+    position_id : int
+        The index of the column in the matrix where the vector will be added.
+    axis : int, optional
+        The axis along which the vector will be added. The default is 1, which means
+        that the vector will be added as a new column.
+
+    Returns
+    -------
+    new_matrix : array-like
+        The new matrix with the vector added in the specified position.
+    """
+    if axis is None:
+        if matrix.ndim == 3:
+            axis = 2
+        else:
+            axis = 1
+
+    new_matrix = _np.insert(matrix, position_id, vector, axis=axis)
+    return new_matrix
+
+
 def _copyFromIffToIM(name: str, tn: str) -> None:
     """
     Copies an IFFunctions file from the IFFunctions folder to the IntMatrices folder.
@@ -967,19 +1039,3 @@ def __flag(
     for key, value in flag["Flag"].items():
         _config["Flag"][key] = value
     return _config
-
-
-# TODO
-def _ampReorganization(ampVector: _ot.ArrayLike):
-    reorganizaed_amps = ampVector
-    return reorganizaed_amps
-
-
-# TODO
-def _modesReorganization(modesVector: _ot.ArrayLike):
-    # if isinstance(modesVector, _np.ndarray):
-    #     modesVector = modesVector.astype(int)
-    # else:
-    #     modesVector = _np.asarray(modesVector)
-    reorganizaed_modes = modesVector
-    return reorganizaed_modes

@@ -1,6 +1,7 @@
 import numpy as _np
 from opticalib import typings as _ot
 
+
 def get_buffer_mean_values(
     position: _ot.ArrayLike,
     position_error: _ot.ArrayLike,

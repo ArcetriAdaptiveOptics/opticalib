@@ -36,7 +36,7 @@ class BasePetalMirror:
             self._logger.error("Some connection did not get established")
             raise RuntimeError("Some connection did not get established")
         else:
-            if not hasattr(self, '_had_morning_routine'):
+            if not hasattr(self, "_had_morning_routine"):
                 self._had_morning_routine = False
             self._logger.info("All connections to petal mirror segments established")
             self._check_servos()
@@ -245,7 +245,7 @@ class BasePetalMirror:
         if self._had_error:
             self._logger.warning("Previous error detected, trying to reconnect...")
             for i in range(10):
-                print(f"Reinitialization attempt {i+1}/10...", end='\r', flush=True)
+                print(f"Reinitialization attempt {i+1}/10...", end="\r", flush=True)
                 try:
                     self = self.__init__()
                 except ConnectionRefusedError as err:

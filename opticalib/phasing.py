@@ -5,14 +5,13 @@ from .ground import osutils as _osu
 from .ground.logger import SystemLogger as _SL
 from .devices.cameras import AVTCamera as _cam
 from .core.fitsarray import fits_array as _fits_array
-from .core.read_config import (
-    getDeviceConfig as _gdc, getPhasingConfig as _gpc
-)
+from .core.read_config import getDeviceConfig as _gdc, getPhasingConfig as _gpc
 from .analyzer import frame
 from .core.root import folders as _fn
 from scipy import ndimage as _ndi
 
 _splconf = _gpc()
+
 
 def _get_tunable_filter():
     """
@@ -82,7 +81,6 @@ class SPL:
         self._curr_exptime = None
         self._last_measure_tn = None
         self._logger = _SL(__class__)
-
 
     def set_tn_fringes(self, tnfringes: str | None):
         """
@@ -357,7 +355,7 @@ class SPL:
         self,
         tn: str | None = None,
         n_psfs: _ot.Optional[int] = None,
-        **process_kwargs: dict[str, _ot.Any]
+        **process_kwargs: dict[str, _ot.Any],
     ) -> list[float]:
         """
         Analyze the measurements acquired with the `acquire` method, by detecting
@@ -469,7 +467,7 @@ class SPL:
             Can be:
             - 'lsf_peaks': find the peaks of the line spread function along `x` and `y` axis
             - "com": center of mass (`photutils.centroids.centroid_com`)
-            - '2dg': 2D Gaussian fit (`photutils.centroids.centroid_2dg`)   
+            - '2dg': 2D Gaussian fit (`photutils.centroids.centroid_2dg`)
         remove_dark : bool
             If True, removes the dark frame from each frame before processing.
 
@@ -479,21 +477,23 @@ class SPL:
 
             By default, False.
         rotation_order : int
-            The order of the spline interpolation used for the rotation of the 
+            The order of the spline interpolation used for the rotation of the
             PSF crops.
-            
+
             By default, 3 (cubic).
         rotation_cval : float
-            The constant value to fill the area outside the input image after 
+            The constant value to fill the area outside the input image after
             rotation of the PSF crops.
-            
+
             By default, 0.0.
         """
         n_psfs = n_psfs or _splconf.get("expected_psfs", 1)
         nsigma = nsigma or _splconf.get("sigma_threshold", 2.0)
         min_pixels = min_pixels or _splconf.get("min_px_threshold", 30)
         angles = angles or _splconf.get("psfs_angles", [0.0] * n_psfs)
-        centroid_min_distance = centroid_min_distance or _splconf.get("centroid_min_dist", 50)
+        centroid_min_distance = centroid_min_distance or _splconf.get(
+            "centroid_min_dist", 50
+        )
 
         tn = tn or self._last_measure_tn
         if tn is None:
@@ -509,7 +509,7 @@ class SPL:
 
         datapath = _os.path.join(_fn.SPL_DATA_ROOT_FOLDER, tn)
         filelist = _osu.getFileList(fold=datapath, key="rawframe")
-        rawlist = [self._heal_bad_pixels( _osu.load_fits(x) ) for x in filelist]
+        rawlist = [self._heal_bad_pixels(_osu.load_fits(x)) for x in filelist]
 
         ## FIRST CENTROID DETECTION, made on the sum of all the images
         # Needed for the fist generous image crop.
@@ -528,12 +528,10 @@ class SPL:
             n_psfs=n_psfs,
             min_pixels=min_pixels,
             nsigma=nsigma,
-            centroid_min_distance=centroid_min_distance
+            centroid_min_distance=centroid_min_distance,
         )
 
-        ichalf_size = initial_half_size or _splconf.get(
-            "initial_crop_half_size", 150
-        )
+        ichalf_size = initial_half_size or _splconf.get("initial_crop_half_size", 150)
 
         for img, filename in zip(rawlist, filelist):
             med = _np.median(img)
@@ -566,18 +564,12 @@ class SPL:
                 # This save for now for debugging
                 crop.writeto(filename.replace("frame", f"psf{i}"), overwrite=True)
 
-        # Now we find the photometric centroid, shift the crops to put it 
-        # at the center of the image, rotate them, and then cut again, 
+        # Now we find the photometric centroid, shift the crops to put it
+        # at the center of the image, rotate them, and then cut again,
         # using a smalled window.
 
         self._shift_and_rotate_psf(
-            tn,
-            n_psfs,
-            method,
-            angles,
-            nsigma,
-            order=rotation_order,
-            cval=rotation_cval
+            tn, n_psfs, method, angles, nsigma, order=rotation_order, cval=rotation_cval
         )
 
         self._create_psf_cubes_and_crop_again(tn, n_psfs, final_half_size)
@@ -747,13 +739,13 @@ class SPL:
         cropped_psf : ImageData
             The cropped PSF image, from which the photometric centroid is to be detected.
         method : str
-            The method to use for the centroid detection. 
+            The method to use for the centroid detection.
             Can be:
-            - 'lsf_peaks': find the peaks of the line spread function along 
+            - 'lsf_peaks': find the peaks of the line spread function along
             `x` and `y` axis, and take their intersection as centroid.
             - "com": center of mass (`photutils.centroids.centroid_com`)
             - '2dg': 2D Gaussian fit (`photutils.centroids.centroid_2dg`)
-            - any custom callable method passed: the method should take as input 
+            - any custom callable method passed: the method should take as input
             a 2D array (the cropped PSF) and return a tuple of (x, y) coordinates
             of the centroid.
 
@@ -770,7 +762,7 @@ class SPL:
                 from photutils.centroids import centroid_2dg as method
             case "com":
                 from photutils.centroids import centroid_com as method
-            case 'lsf_peaks':
+            case "lsf_peaks":
                 am = _np.argmax
                 sum = _np.sum
                 method = lambda img: (am(sum(img, axis=0)), am(sum(img, axis=1)))
@@ -838,9 +830,7 @@ class SPL:
 
         return crops, boxes
 
-    def plot_comparison(
-        self, tn: str | None = None, psf_n: int | str = "all"
-    ) -> None:
+    def plot_comparison(self, tn: str | None = None, psf_n: int | str = "all") -> None:
         """
         Plot measured fringes and best-match templates.
 
@@ -886,11 +876,7 @@ class SPL:
         outer_rows = math.ceil(len(psf_indices) / outer_cols)
 
         fig = plt.figure(figsize=(14, 3.5 * outer_rows), constrained_layout=False)
-        outer = fig.add_gridspec(
-            outer_rows,
-            outer_cols,
-            wspace=0.3,
-            hspace=0.3)
+        outer = fig.add_gridspec(outer_rows, outer_cols, wspace=0.3, hspace=0.3)
 
         for k, i_psf in enumerate(psf_indices):
             r = k // outer_cols
@@ -926,12 +912,13 @@ class SPL:
         fig.supylabel("Pixels", fontsize=14)
         fig.suptitle(f"Fringes comparison - {tn}", fontsize=16, fontweight="semibold")
         plt.show()
-    
+
     def _heal_bad_pixels(
         self,
         img: _ot.ImageData,
-        r: int = 2, method: str = 'median',
-        sigma_thr: float = 5.5
+        r: int = 2,
+        method: str = "median",
+        sigma_thr: float = 5.5,
     ) -> _ot.ImageData:
         """
         Function which finds and heals bad pixels in the input image.
@@ -948,11 +935,11 @@ class SPL:
             - 'mean'
             - 'gaussian'
             - a user defined custom callable
-            
+
             By default, 'median'.
         sigma_thr : float
-            The sigma threshold to identify bad pixels based on the gradient. 
-            
+            The sigma threshold to identify bad pixels based on the gradient.
+
             By default, 5.5.
 
         Returns
@@ -963,49 +950,53 @@ class SPL:
         from scipy.signal import convolve2d
 
         # Finding the Bad Pixels
-        gradX,gradY = _np.gradient(img)
-        grad = _np.sqrt(gradX**2+gradY**2)
-        ker = _np.array([[0,1,0],
-                        [1,0,1],
-                        [0,1,0]])/4
-        filt_grad = convolve2d(grad,ker,mode='same',boundary='symm')
+        gradX, gradY = _np.gradient(img)
+        grad = _np.sqrt(gradX**2 + gradY**2)
+        ker = _np.array([[0, 1, 0], [1, 0, 1], [0, 1, 0]]) / 4
+        filt_grad = convolve2d(grad, ker, mode="same", boundary="symm")
 
-        N_hot_pixels = len(grad[grad>sigma_thr*_np.std(grad)+_np.mean(grad)])//4
+        N_hot_pixels = len(grad[grad > sigma_thr * _np.std(grad) + _np.mean(grad)]) // 4
         hot_pix_ids = _np.argsort(filt_grad.flatten())[-N_hot_pixels:]
 
         healed_img = img.copy().flatten()
-        rows = _np.repeat(_np.arange(img.shape[0]),img.shape[1])
-        cols = _np.tile(_np.arange(img.shape[1]),img.shape[0])
+        rows = _np.repeat(_np.arange(img.shape[0]), img.shape[1])
+        cols = _np.tile(_np.arange(img.shape[1]), img.shape[0])
 
         # Healing the bad pixels
         for pix_id in hot_pix_ids:
             row = rows[pix_id]
             col = cols[pix_id]
-            row_start = _np.max((0,int(_np.floor(row-(r-1)/2))))
-            row_end = _np.min((img.shape[0],int(row+_np.ceil((r-1)/2))))
-            col_start = _np.max((0,int(col-_np.floor((r-1)/2))))
-            col_end = _np.min((img.shape[1],int(col+_np.ceil((r-1)/2))))
+            row_start = _np.max((0, int(_np.floor(row - (r - 1) / 2))))
+            row_end = _np.min((img.shape[0], int(row + _np.ceil((r - 1) / 2))))
+            col_start = _np.max((0, int(col - _np.floor((r - 1) / 2))))
+            col_end = _np.min((img.shape[1], int(col + _np.ceil((r - 1) / 2))))
 
             match method:
-                case 'median':
-                    healed_img[pix_id] = _np.median(img[row_start:row_end+1,col_start:col_end+1])
-                case 'mean':
-                    healed_img[pix_id] = _np.mean(img[row_start:row_end+1,col_start:col_end+1])
-                case 'gaussian':
+                case "median":
+                    healed_img[pix_id] = _np.median(
+                        img[row_start : row_end + 1, col_start : col_end + 1]
+                    )
+                case "mean":
+                    healed_img[pix_id] = _np.mean(
+                        img[row_start : row_end + 1, col_start : col_end + 1]
+                    )
+                case "gaussian":
                     from scipy.ndimage import gaussian_filter
-                    
+
                     healed_img[pix_id] = gaussian_filter(
-                        img[row_start:row_end+1,col_start:col_end+1],
-                        sigma=1
-                    )[(row-row_start),(col-col_start)]
+                        img[row_start : row_end + 1, col_start : col_end + 1], sigma=1
+                    )[(row - row_start), (col - col_start)]
                 case _ if callable(method):
-                    healed_img[pix_id] = method(img[row_start:row_end+1,col_start:col_end+1])
+                    healed_img[pix_id] = method(
+                        img[row_start : row_end + 1, col_start : col_end + 1]
+                    )
                 case _:
-                    self._logger.error(f"Invalid method for bad pixel healing: {method}")
+                    self._logger.error(
+                        f"Invalid method for bad pixel healing: {method}"
+                    )
                     raise ValueError(f"Invalid method for bad pixel healing: {method}")
 
         return healed_img.reshape(img.shape)
-
 
     def _shift_and_rotate_psf(
         self,
@@ -1024,13 +1015,15 @@ class SPL:
             rpsfl = [self._heal_bad_pixels(_osu.load_fits(x)) for x in fl]
 
             sumimg = _np.ma.sum(_np.ma.dstack(rpsfl), axis=2)
-            phot_centroid = self.detect_photometric_centroid(sumimg, method=method, nsigma=nsigma)
+            phot_centroid = self.detect_photometric_centroid(
+                sumimg, method=method, nsigma=nsigma
+            )
 
             s = sumimg.shape
             shift = _np.array(
                 (phot_centroid[1] - s[1] // 2, phot_centroid[0] - s[0] // 2)
             )
-            spsf = [_np.roll(img, shift=-shift, axis=(0,1)) for img in rpsfl]
+            spsf = [_np.roll(img, shift=-shift, axis=(0, 1)) for img in rpsfl]
 
             for crop, fn in zip(spsf, fl):
                 header = crop.header.copy()
@@ -1038,10 +1031,7 @@ class SPL:
                 if not angles[p] == 0.0:
                     rotated = True
                     crop = self.rotate_psf(
-                        crop,
-                        angle=angles[p],
-                        order=order,
-                        cval=cval
+                        crop, angle=angles[p], order=order, cval=cval
                     )
 
                 header["ROTATED"] = (rotated, "was de-rotated")
@@ -1050,19 +1040,17 @@ class SPL:
                     "rotation angle in degrees",
                 )
 
-                header['PHOTCENX'] = (
+                header["PHOTCENX"] = (
                     phot_centroid[1],
                     "photometric X-centroid",
                 )
-                header['PHOTCENY'] = (
+                header["PHOTCENY"] = (
                     phot_centroid[0],
                     "photometric Y-centroid",
                 )
 
                 crop.header = header
-                crop.writeto(
-                    fn.replace("rawpsf", f"rot_psf"), overwrite=True
-                )
+                crop.writeto(fn.replace("rawpsf", f"rot_psf"), overwrite=True)
 
     def _create_psf_cubes_and_crop_again(
         self,
@@ -1084,7 +1072,8 @@ class SPL:
             header = cube.header.copy()
 
             cropped_cube = _fits_array(
-                self._crop_cube(cube, centroid=None, half_size=final_half_size), header=header
+                self._crop_cube(cube, centroid=None, half_size=final_half_size),
+                header=header,
             )
 
             cropped_cube.writeto(

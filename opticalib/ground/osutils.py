@@ -334,7 +334,8 @@ def tnRange(tn0: str, tn1: str, complete_paths: bool = False) -> list[str]:
                     )
     return tnMat
 
-def get_kwargs(possible_keys: tuple[str], default: _ot.Any, kwargs: dict[str,_ot.Any]):
+
+def get_kwargs(possible_keys: tuple[str], default: _ot.Any, kwargs: dict[str, _ot.Any]):
     """
     Gets a tuple of possible kwargs names for a variable and checks if it was
     passed, and in case returns it.
@@ -564,6 +565,7 @@ def update_fits_header(
             f"Failed to save updated FITS file. Either `file` is given as string or `updated_filepath` is provided."
         ) from exc
 
+
 def read_fits_header(filepath: str) -> _fits.Header:
     """
     Reads the header of a FITS file.
@@ -586,7 +588,7 @@ def read_fits_header(filepath: str) -> _fits.Header:
     header = load_fits(filepath).header
     print(f"Header of {filepath}:")
     print(header.__repr__())
-    
+
 
 def save_h5(
     datadict: dict[str, _ot.ArrayLike],

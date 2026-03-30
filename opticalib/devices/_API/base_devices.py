@@ -114,7 +114,7 @@ class BaseDeformableMirror(ABC):
 
     def _slaveCmd(self, cmd, method: str):
         """ """
-        from opticalib.dmutils.utils import compute_slave_cmd
+        from opticalib.dmutils.slaving import compute_slave_cmd
 
         if len(self.slaveIds) == 0:
             return cmd

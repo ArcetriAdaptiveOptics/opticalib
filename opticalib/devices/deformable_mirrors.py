@@ -146,7 +146,7 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
         """The Constructor"""
         self._name = "AdOpticaDM"
         super().__init__(tn)
-        self._lastCmd = _np.zeros(self.nActs)
+        self._last_cmd = _np.zeros(self.nActs)
         self._slaveIds = _dmc().get("slaveIds", [])
         self._borderIds = _dmc().get("borderIds", [])
 
@@ -227,19 +227,23 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
                 n_steps = int(_np.ceil(1.0 / step_fraction))
 
             # Create iteration (reverse if incremental is negative)
-            dc = range(1, n_steps+1) if incremental > 0 else reversed(range(1,1+n_steps))
+            dc = (
+                range(1, n_steps + 1)
+                if incremental > 0
+                else reversed(range(1, 1 + n_steps))
+            )
             incremental = step_fraction
 
             # Differential case
             if differential:
                 for i in dc:
                     if i * incremental >= 1.0:
-                        self._aoClient.mirrorCommand(cmd + self._lastCmd)
+                        self._aoClient.mirrorCommand(cmd + self._last_cmd)
                     else:
                         self._aoClient.mirrorCommand(
-                            self._lastCmd + (cmd * i * incremental)
+                            self._last_cmd + (cmd * i * incremental)
                         )
-                cmd = (self._lastCmd + cmd) if positive else (self._lastCmd - cmd)
+                cmd = (self._last_cmd + cmd) if positive else (self._last_cmd - cmd)
 
             # Absolute case
             else:
@@ -253,7 +257,7 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
         # Not incremental case
         else:
             if differential:
-                cmd += self._lastCmd
+                cmd += self._last_cmd
             self._aoClient.mirrorCommand(cmd)
 
         _time.sleep(0.2)  # needed to get fc updated
@@ -261,7 +265,7 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
         if not fc2 == fc1:
             self._logger.error(f"FRAME SKIPPED.")
         else:
-            self._lastCmd = cmd.copy()
+            self._last_cmd = cmd.copy()
 
     def uploadCmdHistory(self, tcmdhist: _ot.MatrixLike) -> None:
         """
@@ -281,7 +285,7 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
             raise _oe.MatrixError(
                 f"Expecting a 2D Matrix of shape (used_acts, nmodes), got instead: {tcmdhist.shape}"
             )
-        tcmdhist += self._lastCmd[:, None]
+        tcmdhist += self._last_cmd[:, None]
         trig = _dmc()["triggerMode"]
         self.cmdHistory = tcmdhist.copy()
         if trig is not False:
@@ -328,7 +332,7 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
                 raise _oe.CommandError("No Command History uploaded!")
             freq = triggered.get("frequency", 1.0)
             tdelay = triggered.get("cmdDelay", 0.8)
-            ins = self._lastCmd.copy()
+            ins = self._last_cmd.copy()
             self._logger.info("Executing Command history")
             nframes = self.cmdHistory.shape[-1]
             self._aoClient.timeHistoryRun(freq, 0, tdelay)
@@ -553,15 +557,21 @@ class AlpaoDm(_api.BaseAlpaoMirror, _api.base_devices.BaseDeformableMirror):
         """
         Initialise the Alpao DM hardware connection.
 
+
         Parameters
         ----------
         nacts : int or str, optional
-            Number of actuators.
+            Number of actuators. If provided, it is used to look up the device
+            serial number in the configuration file when *serial_number* is not
+            given. If *serial_number* is provided, this argument is ignored.
         serial_number : str, optional
-            Hardware serial number of the DM.
+            Hardware serial number of the DM. If not provided, *nacts* must be
+            given so that the serial number can be retrieved from the
+            configuration file.
         """
         self._logger = _SL(the_class=__class__)
         super().__init__(serial_number, nacts)
+        self.set_zeros_to_acts()
         self.baseDataPath = _opdi
         self.is_segmented = False
         self._slaveIds = _dmc().get("slaveIds", [])
@@ -570,30 +580,55 @@ class AlpaoDm(_api.BaseAlpaoMirror, _api.base_devices.BaseDeformableMirror):
 
     @property
     def slaveIds(self):
+        """Slaved Actuators ID"""
         return self._slaveIds
 
     @property
     def borderIds(self):
+        """Border Master Actuators ID"""
         return self._borderIds
 
     def get_shape(self) -> _ot.ArrayLike:
+        """Retrieve the actuators positions."""
         return super().get_shape()
 
     def set_shape(self, cmd: _ot.ArrayLike, differential: bool = False) -> None:
+        """
+        Applies the given command to the DM actuators.
+
+        Parameters
+        ----------
+        cmd : np.array
+            Command to be applied to the actuators.
+        differential : bool, optional
+            If True, the command is applied differentially (added to the current shape).
+        """
         if differential:
             shape = self.get_shape()
             cmd = cmd + shape
         self._checkCmdIntegrity(cmd)
         super().set_shape(cmd)
 
-    def setZeros2Acts(self):
+    def set_zeros_to_acts(self):
+        """
+        Set all actuators to zero position.
+        """
         zero = _np.zeros(self.nActs)
         self.set_shape(zero)
 
     def uploadCmdHistory(self, tcmdhist: _ot.MatrixLike) -> None:
+        """
+        Upload a command history to the DM.
+
+        Parameters
+        ----------
+        tcmdhist : np.array
+            Command history to be uploaded. Should be a 2D matrix of shape
+            (nacts, nmodes).
+        """
         if not _ot.isinstance_(tcmdhist, "MatrixLike"):
             raise _oe.MatrixError(
-                f"Expecting a 2D Matrix of shape (used_acts, nmodes), got instead: {tcmdhist.shape}"
+                f"Expecting a 2D Matrix of shape (nacts, nmodes), got instead: {tcmdhist.shape}"
             )
         self.cmdHistory = tcmdhist
 
@@ -603,7 +638,24 @@ class AlpaoDm(_api.BaseAlpaoMirror, _api.base_devices.BaseDeformableMirror):
         save: str = None,
         differential: bool = True,
     ) -> str:
-        """ """
+        """
+        Runs the command history on the DM.
+
+        Parameters
+        ----------
+        interf : InterferometerDevice, optional
+            Interferometer device to acquire images.
+        save : str, optional
+            Directory to save the acquired images.
+        differential : bool, optional
+            If True, the command is applied differentially (added to the current shape).
+
+        Returns
+        -------
+        str
+            Tracking number of the directory where the images are saved.
+
+        """
         iff_config = _dmc()
         delay: float = iff_config.get("delay", 0.0)
 
@@ -627,7 +679,6 @@ class AlpaoDm(_api.BaseAlpaoMirror, _api.base_devices.BaseDeformableMirror):
                         tn.append(img)
 
         else:
-
             tn = _ts() if save is None else save
             print(f"{tn} - {self.cmdHistory.shape[-1]} images to go.")
             datafold = _os.path.join(_opdi, tn)
@@ -645,8 +696,8 @@ class AlpaoDm(_api.BaseAlpaoMirror, _api.base_devices.BaseDeformableMirror):
                     _sf(_os.path.join(datafold, f"image_{i:05d}.fits"), img)
         self.set_shape(s)
         return tn
-    
-    def visualize_shape(self, cmd: _ot.ArrayLike = None, **kwargs: dict[str,_ot.Any]):
+
+    def visualize_shape(self, cmd: _ot.ArrayLike = None, **kwargs: dict[str, _ot.Any]):
         """
         Visualizes the command amplitudes on the mirror's actuators.
 
@@ -682,9 +733,7 @@ class AlpaoDm(_api.BaseAlpaoMirror, _api.base_devices.BaseDeformableMirror):
                     color="black",
                 )
 
-        plt.scatter(
-            self.actCoord[0], self.actCoord[1], c=cmd, s=size, **kwargs
-        )
+        plt.scatter(self.actCoord[0], self.actCoord[1], c=cmd, s=size, **kwargs)
 
         plt.xlabel(r"$x$ $[px]$")
         plt.ylabel(r"$y$ $[px]$")
@@ -693,7 +742,7 @@ class AlpaoDm(_api.BaseAlpaoMirror, _api.base_devices.BaseDeformableMirror):
         plt.show()
 
     def __repr__(self):
-        return f"{self._name}(nActs={self.nActs})"
+        return f"{self._name}(nActs={self.nActs}, serial='{self.serial_number}')"
 
 
 class SplattDm(_api.base_devices.BaseDeformableMirror):

@@ -218,23 +218,23 @@ class AVTCamera:
         Context manager to prepare the camera for use.
         """
         self._logger.info("Retrieving camera instance")
-        print('per entrare nel `get_instance`...', end='\r', flush=True)
+        print("per entrare nel `get_instance`...", end="\r", flush=True)
         with _vmbpy.VmbSystem.get_instance():
-            print('dentro il `get_instance`...', end='\r', flush=True)
+            print("dentro il `get_instance`...", end="\r", flush=True)
             with self._get_camera() as cam:
-                print('dentro il `_get_camera`...', end='\r', flush=True)
+                print("dentro il `_get_camera`...", end="\r", flush=True)
                 # Try to adjust GeV packet size. This Feature is only available for GigE - Cameras.
                 try:
-                    print('nel try block...', end='\r', flush=True)
+                    print("nel try block...", end="\r", flush=True)
                     stream = cam.get_streams()[0]
                     stream.GVSPAdjustPacketSize.run()
                     while not stream.GVSPAdjustPacketSize.is_done():
-                        print('dentro il while...', end='\r', flush=True)
+                        print("dentro il while...", end="\r", flush=True)
                         pass
 
                 except (AttributeError, _vmbpy.VmbFeatureError):
                     pass
-                print("Yelding the camera instance...", end='\r', flush=True)
+                print("Yelding the camera instance...", end="\r", flush=True)
                 self._logger.info("Camera instance ready")
                 yield cam
 
