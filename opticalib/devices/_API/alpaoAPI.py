@@ -9,9 +9,11 @@ class BaseAlpaoMirror:
     def __init__(self, ip: str | None, port: int | None, nActs: int | str | None):
         self._dmCoords = {
             "dm97": [5, 7, 9, 11],
+            "dm192": [4, 8, 12, 12, 16, 16, 18],
             "dm277": [7, 9, 11, 13, 15, 17, 19],
             "dm468": [8, 12, 16, 18, 20, 20, 22, 22, 24],
             "dm820": [10, 14, 18, 20, 22, 24, 26, 28, 28, 30, 30, 32],
+            
         }
         self._dm = self._init_dm(ip, port, nActs)
         self.nActs = self._initNactuators()
@@ -53,7 +55,11 @@ class BaseAlpaoMirror:
         return self._dm.get_number_of_actuators()
 
     def _initActCoord(self):
-        nacts_row_sequence = self._dmCoords[f"dm{self.nActs}"]
+        try:
+            nacts_row_sequence = self._dmCoords[f"dm{self.nActs}"]
+        except KeyError:
+            self.actCoord = _np.array([], dtype=int)
+            return
         n_dim = nacts_row_sequence[-1]
         upper_rows = nacts_row_sequence[:-1]
         lower_rows = [l for l in reversed(upper_rows)]

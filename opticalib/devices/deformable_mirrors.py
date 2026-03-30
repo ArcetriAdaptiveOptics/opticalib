@@ -625,6 +625,52 @@ class AlpaoDm(_api.BaseAlpaoMirror, _api.base_devices.BaseDeformableMirror):
                     _sf(_os.path.join(datafold, f"image_{i:05d}.fits"), img)
         self.set_shape(s)
         return tn
+    
+    def visualize_shape(self, cmd: _ot.ArrayLike = None, **kwargs: dict[str,_ot.Any]):
+        """
+        Visualizes the command amplitudes on the mirror's actuators.
+
+        Parameters
+        ----------
+        cmd : np.array, optional
+            Command to be visualized on the mirror's actuators. If none, will plot
+            the current position of the actuators.
+
+        Returns
+        -------
+        np.array
+            Processed shape based on the command.
+        """
+        from matplotlib import pyplot as plt
+
+        size = (120 * 97) / self.nActs
+
+        plt.figure(figsize=(7, 6))
+
+        if cmd is None:
+            cmd = _np.zeros(self.nActs)
+
+            for i, (x, y) in enumerate(self.actCoord.T):
+                plt.annotate(
+                    str(i),
+                    (x, y),
+                    textcoords="offset points",
+                    xytext=(3, 3),
+                    ha="left",
+                    va="bottom",
+                    fontsize=7,
+                    color="black",
+                )
+
+        plt.scatter(
+            self.actCoord[0], self.actCoord[1], c=cmd, s=size, **kwargs
+        )
+
+        plt.xlabel(r"$x$ $[px]$")
+        plt.ylabel(r"$y$ $[px]$")
+        plt.title(f"DM {self.nActs} Actuator's Coordinates")
+        plt.colorbar()
+        plt.show()
 
     def __repr__(self):
         return f"{self._name}(nActs={self.nActs})"
