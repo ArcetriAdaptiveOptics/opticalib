@@ -44,8 +44,8 @@ napoleon_attr_annotations = True
 
 autodoc_default_options = {
     "members": True,
-    "undoc-members": False,
-    "private-members": False,
+    "undoc-members": True,
+    "private-members": True,
     "show-inheritance": True,
     "inherited-members": True,
 }

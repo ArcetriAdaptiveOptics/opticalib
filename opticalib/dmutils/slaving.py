@@ -1,3 +1,16 @@
+"""
+SLAVING
+=======
+
+This module provides functions to compute the command vector and interaction 
+matrix of a deformable mirror with slaved actuators. 
+
+Slaving is a technique used to control a deformable mirror with a reduced number
+of command channels, by defining some actuators as "slaved" to others. The 
+slaved actuators are commanded to achieve a certain behavior, such as minimizing
+the force applied by the master actuators or achieving a zero-force configuration.
+"""
+
 import xupy as _xp
 import numpy as _np
 from opticalib import typings as _ot
@@ -16,10 +29,8 @@ def compute_slave_cmd(
     ----------
     dm : opticalib.DeformableMirror
         Deformable mirror object with slaved actuators. Must have the properties:
-        - slaveIds : list of int
-            List of indices of the slaved actuators.
-        - ff : opticalib.MatrixLike
-            Feed-Forward matrix of the deformable mirror.
+        - slaveIds : List of indices of the slaved actuators.
+        - ff : Feed-Forward matrix of the deformable mirror.
     cmd : opticalib.ArrayLike
         Command vector for master actuators.
     method : str, optional
@@ -65,6 +76,33 @@ def compute_slave_cmd(
             "Available methods are 'zero-force' and 'minimum-rms'."
         )
 
+def compute_slaved_command_matrix(dm: _ot.DeformableMirrorDevice, cmdmat: _ot.MatrixLike, method: str = "zero-force"):
+    """
+    Compute a new command matrix taking into account slaved actuators.
+
+    Parameters
+    ----------
+    dm : DeformableMirrorDevice
+        Deformable mirror object with slaved actuators.
+    cmdmat : MatrixLike
+        Original command matrix.
+    method : str, optional
+        Method to compute the master-to-slave matrix. Options are:
+        - 'zero-force' : zero-force slaving, in which the slave actuators are
+            commanded a position which needs zero force to be used (may require
+            nearby actuators to apply more force)
+        - 'minimum-rms' : minimum-RMS-force slaving, in which the slave actuators
+            are set to minimize the overall force of nearby actuators.
+    
+    Returns
+    -------
+    ncmdmat : MatrixLike
+        New command matrix with slaved actuators taken into account.
+    """
+    nCMDMAT = _np.zeros_like(cmdmat).T
+    for jj, mode in enumerate(cmdmat.T):
+        nCMDMAT[jj] = compute_slave_cmd(dm, mode, method=method)
+    return _xp.asnumpy(nCMDMAT.T)
 
 def compute_slaved_IM(
     dm: _ot.DeformableMirrorDevice,
@@ -107,10 +145,11 @@ def compute_slaved_IM(
     zim = vt.T @ im  # zonal interaction matrix
 
     if method is not None:
-        compute_slaved_mat(
+        return compute_slaved_mat(
             dm, zim, method=method
-        )  # check method and get slaving matrix Q
+        )
     else:
+        _,_, mid = _get_act_roles(dm)
         temp = vt.T[mid, :]  # mid
         nv = temp[:, mid]  # new Vt matrix slaved
         nIM = nv.T @ zim[mid, :]  # new interaction matrix
@@ -163,7 +202,7 @@ def compute_slaved_mat(
             f"Feed-Forward matrix not available in {dm.__class__.__name__}."
         )
 
-    Q = _get_slaving_matrix(method, ffwd, sid, mid, borderIds=bid)
+    Q = _get_slaving_matrix(method, ffwd, sid, mid, bid)
 
     nM = m[mid, :] + Q.T @ m[sid, :]
     return _xp.asnumpy(nM)
@@ -245,12 +284,12 @@ def _zero_force_slaving(
     The zero-force methode sets the slave actuators to positions that require
     zero force. Given the sub-matrices of the feed-forward matrix:
 
-    ... math::
+    .. math::
         K = \\begin{pmatrix} K_{mm} & K_{ms} \\\\ K_{sm} & K_{ss} \\end{pmatrix}
 
     the slaved command is computed as:
 
-    ... math::
+    .. math::
         c_s = -K_{ss}^{-1} K_{sm} c_m
 
     Parameters
@@ -309,12 +348,12 @@ def _minimum_rms_slaving(
 
     The feed-forward matrix can be rewritten as:
 
-    ... math::
+    .. math::
         K = \\begin{pmatrix} K_{mm} & K_{mb} & K_{ms} \\\\ K_{bm} & K_{bb} & K_{bs} \\\\ K_{sm} & K_{sb} & K_{ss} \\end{pmatrix}
 
     and the slaved command is computed as:
 
-    ... math::
+    .. math::
         c_s = - (K^T_{bs}K_{bs} + K_{ss}K_{ss})^{-1} \\big[(K^T_{bs}K_{bi} + K^T_{ss}K_{si})c_i + (K^T_{bs}K_{bb} + K^T_{ss}K_{sb})c_b\\big]
 
 
@@ -348,7 +387,13 @@ def _minimum_rms_slaving(
     ci = (K["bs"].T @ K["bi"] + K["ss"].T @ K["si"]) @ cmd[masterIds]
     cb = (K["bs"].T @ K["bb"] + K["ss"].T @ K["sb"]) @ cmd[borderIds]
 
-    n = 2 if all(borderIds == masterIds) else 1
+    if len(borderIds) == len(masterIds):
+        if all(borderIds == masterIds):
+            n = 2
+        else:
+            n = 1
+    else:
+        n = 1
 
     cmd[slaveIds] = Q0 @ (ci + cb) / n
     return _xp.asnumpy(cmd)
@@ -405,7 +450,7 @@ def _get_decomposed_ffwd(
     slaveIds: _ot.ArrayLike,
     masterIds: _ot.ArrayLike,
     ffwd: _ot.MatrixLike,
-    borderIds: _ot.ArrayLike,
+    borderIds: _ot.ArrayLike = None,
     method: str = "zero-force",
 ) -> dict[str, _ot.MatrixLike]:
     """

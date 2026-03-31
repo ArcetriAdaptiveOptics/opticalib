@@ -19,6 +19,8 @@ global COPIED_SETTINGS_CONF_FILE
 global CAPTURE_FOLDER_NAME_4D_PC
 global PRODUCE_FOLDER_NAME_4D_PC
 global PRODUCE_FOLDER_NAME_LOCAL_PC
+global SPL_DATA_ROOT_FOLDER
+global SPL_FRINGES_ROOT_FOLDER
 
 
 def _create_folder(path: str) -> None:
@@ -44,6 +46,8 @@ def create_folder_tree(BASE_DATA_PATH: str) -> None:
     ALIGN_CALIBRATION_ROOT_FOLDER: str = _os.path.join(
         ALIGNMENT_ROOT_FOLDER, "Calibration"
     )
+    SPL_DATA_ROOT_FOLDER: str = _os.path.join(OPT_DATA_ROOT_FOLDER, "SPL")
+    SPL_FRINGES_ROOT_FOLDER: str = _os.path.join(SPL_DATA_ROOT_FOLDER, "Fringes")
     for p in [
         BASE_DATA_PATH,
         OPT_DATA_ROOT_FOLDER,
@@ -58,6 +62,8 @@ def create_folder_tree(BASE_DATA_PATH: str) -> None:
         ALIGNMENT_ROOT_FOLDER,
         CONTROL_MATRIX_FOLDER,
         ALIGN_CALIBRATION_ROOT_FOLDER,
+        SPL_DATA_ROOT_FOLDER,
+        SPL_FRINGES_ROOT_FOLDER,
     ]:
         _create_folder(p)
 

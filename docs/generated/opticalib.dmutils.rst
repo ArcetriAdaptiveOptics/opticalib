@@ -1,4 +1,4 @@
-opticalib.dmutils
+﻿opticalib.dmutils
 =================
 
 .. automodule:: opticalib.dmutils
@@ -18,3 +18,4 @@ opticalib.dmutils
    iff_processing
    pupil_calibration
    slaving
+   stitching

@@ -159,7 +159,7 @@ class _4DInterferometer(_api.BaseInterferometer):
         )
         fold4d = _os.path.join(_folds.CAPTURE_FOLDER_NAME_4D_PC, folder_name)
         self._i4d.burstFramesToSpecificDirectory(fold4d, numberOfFrames)
-        self.saveConfiguration(_os.path.join(fold4d, "SWSettings.4dini"))
+        self.saveConfiguration(_os.path.join(fold4d, "SoftwareSettings.ini"))
         return folder_name
 
     def produce(
@@ -193,7 +193,7 @@ class _4DInterferometer(_api.BaseInterferometer):
             self._rename4D(t)
             try:
                 _sh.move(
-                    _os.path.join(capture_local, "InterfConfiguration.4Dini"),
+                    _os.path.join(capture_local, "SoftwareSettings.ini"),
                     dest_data_fold,
                 )
             except Exception as e:
@@ -247,7 +247,6 @@ class _4DInterferometer(_api.BaseInterferometer):
             name of the configuration file (optional). If None, the original file
             name is used
         """
-        # TODO: we need to decide the extention. Once done, we can add intelligence
         self._i4d.saveConfiguration(newConfigurationPath)
         self._logger.info(f"Configuration file saved to '{newConfigurationPath}'.")
 
@@ -260,12 +259,11 @@ class _4DInterferometer(_api.BaseInterferometer):
         conffile: str
             name of the configuration file to load
         """
-        # TODO: we need to decide the extention. Once done, we can add intelligence
         self._i4d.loadConfiguration(conffile)
         self._logger.info(f"Configuration file '{conffile}' loaded.")
 
     def copy4DSettings(
-        self, destination: str, copied_name: str = "AppSettings.ini"
+        self, destination: str, copied_name: str = "CameraSettings.ini"
     ) -> None:
         """
         Copies the interferometer settings file to the specified destination.

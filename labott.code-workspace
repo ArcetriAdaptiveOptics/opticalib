@@ -5,6 +5,7 @@
 		}
 	],
 	"settings": {
+		"python.defaultInterpreterPath": "/home/pietrof/miniforge3/envs/opticalib/bin/python",
 		"python.terminal.activateEnvInCurrentTerminal": true,
 		"python.analysis.extraPaths": [
 			"~/git/XuPy"

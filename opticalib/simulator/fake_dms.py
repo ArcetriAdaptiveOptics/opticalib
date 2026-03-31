@@ -430,10 +430,23 @@ class DP(BaseFakeDp):
         size = kwargs.pop("s", (120 * 97) / self.nActs)
         import matplotlib.pyplot as plt
 
+        coords = self.actCoord
+        plt.figure(figsize=(13, 6))
+
         if cmd is None:
             cmd = self.get_shape()
-        coords = self.actCoords.copy()
-        plt.figure(figsize=(13, 6))
+            
+            for i, (x, y) in enumerate(coords):
+                plt.annotate(
+                    str(i),
+                    (x, y),
+                    textcoords="offset points",
+                    xytext=(3, 3),
+                    ha="left",
+                    va="bottom",
+                    fontsize=7,
+                    color="black",
+                )
         size = (120 * 97) / self.nActs
         plt.scatter(coords[:, 0], coords[:, 1], c=cmd, s=size, **kwargs)
         plt.xlabel(r"$x$ $[px]$")

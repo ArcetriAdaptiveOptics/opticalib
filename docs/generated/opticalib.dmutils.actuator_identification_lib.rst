@@ -1,4 +1,4 @@
-﻿opticalib.dmutils.actuator\_identification\_lib
+opticalib.dmutils.actuator\_identification\_lib
 ===============================================
 
 .. automodule:: opticalib.dmutils.actuator_identification_lib

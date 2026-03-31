@@ -64,14 +64,12 @@ Some features require packages that are not installed by default:
 
    * - Package
      - Feature enabled
-   * - ``xupy``
-     - GPU-accelerated array operations (slaving, modal decomposition)
-   * - ``arte``
-     - Zernike / Karhunen–Loève basis generation
-   * - ``vimbax_camera``
-     - AVT camera support
+   * - ``cupy-cuda12x`` or ``cupy-cuda13x``
+     - GPU-accelerated processing tools (iff, slaving, modal decomposition). Enables ``xupy`` on gpu, allowing for GPU-accelerated masked arrays.
+      
 
-Install them manually with ``pip`` as needed.
+.. note::
+   The appropriate version of ``cupy`` depends on your CUDA Toolkit version.
 
 Verifying the installation
 --------------------------

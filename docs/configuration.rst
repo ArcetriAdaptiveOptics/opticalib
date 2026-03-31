@@ -16,16 +16,13 @@ The file is divided into the following top-level sections:
 SYSTEM
 ------
 
-The ``SYSTEM`` section contains global settings that control where data are
-stored and whether hardware devices are real or simulated.
+The ``SYSTEM`` section contains global settings. As of now, only the global data
+path of the experiment is configurable.
 
 .. code-block:: yaml
 
    SYSTEM:
      data_path: ''
-     simulated.devices:
-       dm: true
-       interferometer: true
 
 ``data_path`` : *str*
     Base path used to build the package's data folder tree (see
@@ -33,14 +30,6 @@ stored and whether hardware devices are real or simulated.
     ``configuration.yaml`` is written there automatically so future edits do
     not need to touch the root file.  Leave empty to fall back to
     ``~/opticalib_data/``.
-
-``simulated.devices.dm`` : *bool*
-    Set to ``true`` to use the simulated deformable mirror from
-    :mod:`opticalib.simulator` instead of real hardware.
-
-``simulated.devices.interferometer`` : *bool*
-    Set to ``true`` to use the simulated interferometer from
-    :mod:`opticalib.simulator` instead of real hardware.
 
 ----
 
@@ -125,7 +114,7 @@ below.
 ``diameter`` : *float*
     Aperture diameter in millimetres.
 
-**Petal / AdOptica mirrors** — six independent controllers, one per petal:
+**PetalMirror** — (non commercial DM):
 
 .. code-block:: yaml
 
@@ -151,7 +140,7 @@ below.
 Cameras (``CAMERAS``)
 ~~~~~~~~~~~~~~~~~~~~~~
 
-Currently supported: AVT cameras via the VimbaX SDK.
+Currently supported: AVT cameras via the VimbaX SDK (through ``vmbpy`` python package).
 
 .. code-block:: yaml
 
@@ -170,7 +159,9 @@ Currently supported: AVT cameras via the VimbaX SDK.
 Motors (``MOTORS``)
 ~~~~~~~~~~~~~~~~~~~~
 
-Motor devices are typically controlled via the ``plico_motor`` interface.
+Motor devices are typically controlled via the ``plico_motor`` interface, since most
+motorized ThorLabs instrumentation does not have Unix SDKs. Might not need it in a
+windows system, but it is yet to be implemented.
 A common use case is a tunable optical filter used in the
 :class:`~opticalib.phasing.SPL` phasing sensor.
 
@@ -197,6 +188,9 @@ The ``PHASING`` section provides default parameters for the
 :class:`~opticalib.phasing.SPL` (Sensor for Phase Lag) system, which
 detects and measures the co-phasing of segmented mirrors using PSF images
 acquired by a camera through a tunable filter.
+
+In the following, an example setup for the phasing of the 6 PetalMirror segments
+ with respect to the fixed, central segment:
 
 .. code-block:: yaml
 
@@ -310,7 +304,7 @@ Hardware-level DM parameters that govern timing and actuator grouping.
 
 ``triggeredMode`` : *mapping or false*
     If set, enables hardware-triggered synchronisation (Microgate DMs only).
-    Set to ``false`` or comment out the block for all other mirror types.
+    Set to ``false`` and comment out the following for all other mirror types.
 
     ``frequency`` : *float*
         Trigger frequency in Hz.
@@ -392,8 +386,9 @@ The shared keys are:
       actuator.
     * ``hadamard`` — Hadamard matrix :math:`H_{2^{10}}`, trimmed to
       ``nacts`` rows.
-    * ``mirror`` — mirror's own native modes, loaded from
-      ``<data_path>/ModalBases/<device_name>Mirror.fits``.
+    * ``mirror`` — mirror's own native modes, loaded from the class variable ``dm.mirrorModes``.  
+      The corresponding FITS file must be present in ``<data_path>/ModalBases/<device_name>Mirror.fits`` 
+      (if not loaded in some other way by the dm class itself, as it happens with the AdOpticaDP/M4AU).
     * *custom name* — any other string is interpreted as a FITS filename
       in ``<data_path>/ModalBases/``.
 
@@ -570,9 +565,9 @@ Builtin example: M4's OTT
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The template ``configuration.yaml`` ships pre-filled with the configuration
-for the ELT@M4 Optical Test Tower (OTT).  The OTT has three optomechanical
-devices — Parabola, Reference Mirror, and M4 Exapode — each accepting a
-6-element command vector.  Their movable DOF and the 7-element global
+for the `M4@E-ELT Optical Test Tower (OTT) <https://scispace.com/pdf/optical-calibration-of-the-elt-adaptive-mirror-m4-strategy-2rg684e1ry.pdf>`_.
+The OTT has three optomechanical devices — Parabola, Reference Mirror, and M4 Exapode —
+each accepting a 6-element command vector.  Their movable DOF and the 7-element global
 alignment vector are set up as shown in the YAML snippet above.
 
 ----

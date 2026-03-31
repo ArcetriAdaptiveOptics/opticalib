@@ -23,6 +23,8 @@ This generates the following folder tree under ``~/alpao_experiment``:
     │   ├── ModalBases/
     │   ├── OPDImages/
     │   ├── OPDSeries/
+    |   ├── SPL/
+    |   |   ├── Fringes/
     │   └── IFFunctions/
     ├── Logging/
     └── SysConfig/

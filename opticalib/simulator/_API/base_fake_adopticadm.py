@@ -48,7 +48,7 @@ class BaseFakeDp:
         return self._borderIds
 
     @property
-    def actCoords(self) -> _t.ArrayLike:
+    def actCoord(self) -> _t.ArrayLike:
         """Actuator coordinates in pixels."""
         return self._coords.copy()
 

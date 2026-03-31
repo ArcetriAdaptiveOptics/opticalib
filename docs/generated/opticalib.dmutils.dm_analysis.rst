@@ -1,4 +1,4 @@
-﻿opticalib.dmutils.dm\_analysis
+opticalib.dmutils.dm\_analysis
 ==============================
 
 .. automodule:: opticalib.dmutils.dm_analysis
