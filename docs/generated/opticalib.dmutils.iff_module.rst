@@ -1,4 +1,4 @@
-opticalib.dmutils.iff\_module
+﻿opticalib.dmutils.iff\_module
 =============================
 
 .. automodule:: opticalib.dmutils.iff_module
@@ -8,5 +8,7 @@ opticalib.dmutils.iff\_module
 
    .. autosummary::
    
+      acquirePistonData
       iffDataAcquisition
+      saveBufferData
    

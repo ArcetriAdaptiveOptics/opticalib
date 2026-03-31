@@ -10,5 +10,6 @@ opticalib.devices
    :toctree:
    :recursive:
 
+   cameras
    deformable_mirrors
    interferometer

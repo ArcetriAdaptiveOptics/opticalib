@@ -1,4 +1,4 @@
-opticalib.core.root
+﻿opticalib.core.root
 ===================
 
 .. automodule:: opticalib.core.root
@@ -8,6 +8,8 @@ opticalib.core.root
 
    .. autosummary::
    
+      SIMULATED_DM_PATH
+      SIM_DATA_FILE
       create_configuration_file
       create_folder_tree
    

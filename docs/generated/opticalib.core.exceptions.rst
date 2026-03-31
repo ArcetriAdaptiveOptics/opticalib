@@ -1,4 +1,4 @@
-opticalib.core.exceptions
+﻿opticalib.core.exceptions
 =========================
 
 .. automodule:: opticalib.core.exceptions
@@ -8,8 +8,11 @@ opticalib.core.exceptions
 
    .. autosummary::
    
+      BufferError
       CommandError
+      DeviceAttributeError
       DeviceError
       DeviceNotFoundError
       MatrixError
+      PathError
    

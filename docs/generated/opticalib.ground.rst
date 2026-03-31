@@ -12,7 +12,8 @@ opticalib.ground
 
    computerec
    geo
+   geometry
    logger
+   modal_decomposer
    osutils
    roi
-   zernike

@@ -1,4 +1,4 @@
-opticalib.ground.geo
+﻿opticalib.ground.geo
 ====================
 
 .. automodule:: opticalib.ground.geo
@@ -8,6 +8,7 @@ opticalib.ground.geo
 
    .. autosummary::
    
+      draw_circular_mask
       draw_mask
       qpupil
       qpupil_circle
