@@ -8,15 +8,16 @@
 
    .. autosummary::
    
-      createMasterMask
+      add_mode_to_cube
+      cubeRoiProcessing
       filterZernikeCube
       findFrameOffset
       getIffFileMatrix
       getRegFileMatrix
+      getRegFrames
       getTriggerFrame
       iffRedux
       process
-      pushPullRedux
       registrationRedux
       saveCube
       stackCubes

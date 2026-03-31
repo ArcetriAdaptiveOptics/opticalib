@@ -10,5 +10,8 @@ opticalib.devices.deformable\_mirrors
    
       AdOpticaDm
       AlpaoDm
+      DP
+      M4AU
+      PetalMirror
       SplattDm
    

@@ -11,5 +11,6 @@ opticalib.core
    :recursive:
 
    exceptions
+   fitsarray
    read_config
    root

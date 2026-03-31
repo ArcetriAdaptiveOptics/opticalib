@@ -1,4 +1,4 @@
-opticalib.dmutils.actuator\_identification\_lib
+﻿opticalib.dmutils.actuator\_identification\_lib
 ===============================================
 
 .. automodule:: opticalib.dmutils.actuator_identification_lib
@@ -8,9 +8,9 @@ opticalib.dmutils.actuator\_identification\_lib
 
    .. autosummary::
    
-      combineMasks
       extractPeak
       findActuator
       findFrameCoord
+      fit_trasformation_parameter
       marker_general_remap
    

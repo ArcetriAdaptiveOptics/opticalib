@@ -26,16 +26,18 @@ class Fake4DInterf:
         dm : FakeDeformableMirrorDevice
             The deformable mirror device to be simulated.
         **kwargs : dict, optional
-            Additional keyword arguments for live settings:
-            - full_frame : bool
+            Additional keyword arguments for live settings.
+            Accepted keys:
+
+            full_frame : bool
                 If True, the interferometer operates in full frame mode.
-            - remove_zerns : list of int
+            remove_zerns : list of int
                 Zernike modes to be removed from the wavefront.
-            - surface_view : bool
+            surface_view : bool
                 If True, the live view shows the surface shape.
-            - freeze_on_acquisition : bool
+            freeze_on_acquisition : bool
                 If True, the live wavefront is frozen when acquiring.
-            - add_noise : bool
+            add_noise : bool
                 If True, noise is added to the live wavefront.
 
         Returns

@@ -1,4 +1,4 @@
-opticalib.ground.osutils
+﻿opticalib.ground.osutils
 ========================
 
 .. automodule:: opticalib.ground.osutils
@@ -8,15 +8,20 @@ opticalib.ground.osutils
 
    .. autosummary::
    
+      create_data_folder
       findTracknum
-      getCameraSettings
       getFileList
-      getFrameRate
+      get_h5file_info
+      get_kwargs
       is_tn
+      loadCubeFromFilelist
       load_fits
+      load_h5
       newtn
+      read_fits_header
       read_phasemap
-      rename4D
       save_fits
+      save_h5
       tnRange
+      update_fits_header
    

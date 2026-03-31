@@ -1,4 +1,4 @@
-opticalib.core.read\_config
+﻿opticalib.core.read\_config
 ===========================
 
 .. automodule:: opticalib.core.read_config
@@ -11,12 +11,15 @@ opticalib.core.read\_config
       copyIffConfigFile
       dump_yaml_config
       getAlignmentConfig
+      getCamerasConfig
       getCmdDelay
+      getDeviceConfig
       getDmConfig
       getDmIffConfig
       getIffConfig
       getInterfConfig
       getNActs
+      getPhasingConfig
       getStitchingConfig
       getTiming
       load_yaml_config

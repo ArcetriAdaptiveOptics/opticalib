@@ -10,4 +10,5 @@ opticalib.devices.interferometer
    
       AccuFiz
       PhaseCam
+      Processer4D
    
