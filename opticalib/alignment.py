@@ -25,7 +25,8 @@ Usage Example
 Given the OTT (with Parabola, Reference Mirror and M4 Hexapode) as mechanical device
 and the interferometer as acquisition device, we can initialize the class as follows:
 
-```python
+.. code-block:: python
+
     from opticalib.alignment import Alignment
     align = Alignment(ott, interf)
     # At this point the alignment is ready to be calibrated, given the command amplitude
@@ -33,46 +34,45 @@ and the interferometer as acquisition device, we can initialize the class as fol
     align.calibrate_alignment(amps)
     [...]
     "Ready for Alignment..."
-```
 
-At this point, the calibration is complete and and `InteractionMatrix.fits` file
+At this point, the calibration is complete and and ``InteractionMatrix.fits`` file
 was created, saved and stored in the Alignment class. It is ready to compute
 and apply corrections.
 
-```python
+.. code-block:: python
+
     modes2correct = [3,4] # Reference Mirror DoF
     zern2correct = [0,1] # tip $ tilt
     align.correct_alignment(modes2correct, zern2correct, apply=True)
-```
 
-If we already have an `InteractionMatrix.fits` file, we can load it and apply
+If we already have an ``InteractionMatrix.fits`` file, we can load it and apply
 corrections based off the loaded calibration. All to do is to load the calibration
 to the class:
 
-```python
+.. code-block:: python
+
     tn_cal = '20241122_160000' # example, tracking number
     align.load_calibration(tn_cal) # load the calibration
     align.correct_alignment(modes2correct, zern2correct, apply=True)
-```
 
 It can also be instanced with a calibration:
 
-```python
+.. code-block:: python
+
     tn_cal = '20241122_160000' # example, tracking number
     align = Alignment(ott, interf, calibtn=tn_cal)
     align.correct_alignment(modes2correct, zern2correct, apply=True)
-```
 
 Notes
 -----
 Note that the calibration process can be done uploading to the class
-a `calibrated cavity`, so that a different algorithm for the Zernike fitting is
-performed. This can be done through the `load_fitting_surface` method.
+a ``calibrated cavity``, so that a different algorithm for the Zernike fitting is
+performed. This can be done through the ``load_fitting_surface`` method.
 
-```python
+.. code-block:: python
+
     cavity_tn = '20241122_160000' # example, tracking number
     align.load_fitting_surface(cavity_tn) # load the calibrated cavity
-```
 
 When working with segmented system (e.g. a segmented mirror), the Zernike modes
 shall be computed as global coefficients, which are basically the average of the
