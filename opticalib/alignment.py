@@ -35,14 +35,14 @@ and the interferometer as acquisition device, we can initialize the class as fol
     [...]
     "Ready for Alignment..."
 
-At this point, the calibration is complete and and ``InteractionMatrix.fits`` file
+At this point, the calibration is complete and an ``InteractionMatrix.fits`` file
 was created, saved and stored in the Alignment class. It is ready to compute
 and apply corrections.
 
 .. code-block:: python
 
     modes2correct = [3,4] # Reference Mirror DoF
-    zern2correct = [0,1] # tip $ tilt
+    zern2correct = [0,1] # tip & tilt
     align.correct_alignment(modes2correct, zern2correct, apply=True)
 
 If we already have an ``InteractionMatrix.fits`` file, we can load it and apply
