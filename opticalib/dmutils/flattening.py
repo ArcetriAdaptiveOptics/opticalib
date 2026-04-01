@@ -249,7 +249,7 @@ class Flattening:
         nframes: int = 5,
         save: bool = True,
         **setshape_kwargs: dict[str, _ot.Any],
-    ) -> None:
+    ) -> str:
         """
         Computes, applies and (optionally) saves the computed flat command to
         the DM, given the calibration's TN.
@@ -271,6 +271,13 @@ class Flattening:
             Number of frames to average for phasemap acquisition. Default is 5.
         save : bool, optional
             Whether to save the computed flat command and related data. Default is True.
+        setshape_kwargs : dict, optional
+            Additional keyword arguments to pass to the DM's `set_shape` method when applying the command.
+        
+        Returns
+        -------
+        tn : str
+            Tracking number of the saved flattening data.
         """
         # if `DM` is not present, register the one provided
         if dm is None:

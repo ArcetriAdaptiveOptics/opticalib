@@ -164,6 +164,13 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
         """
         pos = self._aoClient.getPosition()
         return pos
+    
+    def set_to_initial_shape(self):
+        """
+        Set the DM to its initial shape (bias position).
+        """
+        last_cmd = self._last_cmd.copy()
+        self.set_shape(-last_cmd, differential=False, incremental=10)
 
     def set_shape(
         self,

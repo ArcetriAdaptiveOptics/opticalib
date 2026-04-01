@@ -103,7 +103,7 @@ class BaseFakeDp:
                 constant_values=1,
             )
             img = np.ma.masked_array(pimg, mask=pmask)
-        return geo.rotate_image(img, angle_deg=110)
+        return geo.rotate_image(img, angle_deg=-70)
 
     def _mirror_command(self, cmd: _t.ArrayLike, diff: bool, modal: bool):
         """

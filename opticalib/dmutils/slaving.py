@@ -76,7 +76,11 @@ def compute_slave_cmd(
             "Available methods are 'zero-force' and 'minimum-rms'."
         )
 
-def compute_slaved_command_matrix(dm: _ot.DeformableMirrorDevice, cmdmat: _ot.MatrixLike, method: str = "zero-force"):
+def compute_slaved_command_matrix(
+    dm: _ot.DeformableMirrorDevice,
+    cmdmat: _ot.MatrixLike,
+    method: str = "zero-force"
+) -> _ot.MatrixLike:
     """
     Compute a new command matrix taking into account slaved actuators.
 
