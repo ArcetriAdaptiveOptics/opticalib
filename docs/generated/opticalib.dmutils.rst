@@ -18,4 +18,3 @@
    iff_processing
    pupil_calibration
    slaving
-   stitching

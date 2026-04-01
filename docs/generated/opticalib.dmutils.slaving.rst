@@ -1,4 +1,4 @@
-﻿opticalib.dmutils.slaving
+opticalib.dmutils.slaving
 =========================
 
 .. automodule:: opticalib.dmutils.slaving
@@ -10,6 +10,7 @@
    
       compute_slave_cmd
       compute_slaved_IM
+      compute_slaved_command_matrix
       compute_slaved_mat
       project_IM_into_zonal_IM
    
