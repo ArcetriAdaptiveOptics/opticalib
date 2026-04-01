@@ -170,7 +170,7 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
         Set the DM to its initial shape (bias position).
         """
         last_cmd = self._last_cmd.copy()
-        self.set_shape(-last_cmd, differential=False, incremental=10)
+        self.set_shape(-last_cmd, differential=True, incremental=10)
 
     def set_shape(
         self,
@@ -178,6 +178,7 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
         differential: bool = False,
         incremental: float | int = False,
         *,
+        slave:bool = True,
         slaving_method: str = "zero-force",
     ) -> None:
         """
@@ -213,8 +214,8 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
             raise _oe.CommandError(
                 f"Command length {len(cmd)} does not match the number of actuators {self.nActs}."
             )
-
-        cmd = self._slaveCmd(cmd=cmd, method=slaving_method)
+        if slave:
+            cmd = self._slaveCmd(cmd=cmd, method=slaving_method)
 
         fc1 = self._get_frame_counter()
 

@@ -5,6 +5,7 @@ from .ground.osutils import (
     newtn as _ts,
     save_fits as _save_fits,
 )
+from .core.root import OPD_SERIES_ROOT_FOLDER as _ops
 from . import typings as _ot
 
 
@@ -59,10 +60,10 @@ class Measurements:  # TODO: Change name
         tn: str
             The Tracking Number of the data in the OPDSeries folder.
         """
-        path = _cdf()
+        path = _cdf(_ops)
         for _ in range(nframes):
             tn = _ts()
-            img = self._acquire_func(nframes)
+            img = self._acquire_func()
             _save_fits(_join(path, tn), img)
             if delay > 0:
                 _t.sleep(delay)
