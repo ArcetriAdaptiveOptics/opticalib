@@ -178,7 +178,7 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
         differential: bool = False,
         incremental: float | int = False,
         *,
-        slave:bool = True,
+        slave: bool = False,
         slaving_method: str = "zero-force",
     ) -> None:
         """
@@ -200,6 +200,9 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
             If incremental is positive, the command is applied from the current
             shape to the target shape, while if negative, it is applied in reverse
             (so, if a `lastCmd` is available, it returns to it, else it goes to 0 cmd).
+        slave : bool, optional
+            If True, the command will be modified according to the slaving of the
+            slave actuators (default is False).
         slaving_method : str, optional
             Method to compute the master-to-slave matrix. Options are:
             - 'zero-force' : zero-force slaving, in which the slave actuators are
