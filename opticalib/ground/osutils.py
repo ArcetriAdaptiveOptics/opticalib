@@ -176,30 +176,30 @@ def getFileList(
     --------
 
     Here are some examples regarding the use of the 'key' argument. Let's say we
-    need a list of files inside ''tn = '20160516_114916' '' in the IFFunctions
+    need a list of files inside ``tn = '20160516_114916'`` in the IFFunctions
     folder.
 
-    ```python
-    iffold = 'IFFunctions'
-    tn = '20160516_114916'
-    getFileList(tn, fold=iffold)
-    ['.../OPTData/IFFunctions/20160516_114916/cmdMatrix.fits',
-     '.../OPTData/IFFunctions/20160516_114916/mode_0000.fits',
-     '.../OPTData/IFFunctions/20160516_114916/mode_0001.fits',
-     '.../OPTData/IFFunctions/20160516_114916/mode_0002.fits',
-     '.../OPTData/IFFunctions/20160516_114916/mode_0003.fits',
-     '.../OPTData/IFFunctions/20160516_114916/modesVector.fits']
-    ```
+    .. code-block:: python
+
+        iffold = 'IFFunctions'
+        tn = '20160516_114916'
+        getFileList(tn, fold=iffold)
+        ['.../OPTData/IFFunctions/20160516_114916/cmdMatrix.fits',
+         '.../OPTData/IFFunctions/20160516_114916/mode_0000.fits',
+         '.../OPTData/IFFunctions/20160516_114916/mode_0001.fits',
+         '.../OPTData/IFFunctions/20160516_114916/mode_0002.fits',
+         '.../OPTData/IFFunctions/20160516_114916/mode_0003.fits',
+         '.../OPTData/IFFunctions/20160516_114916/modesVector.fits']
 
     Let's suppose we want only the list of 'mode_000x.fits' files:
 
-    ```python
-    getFileList(tn, fold=iffold, key='mode_')
-    ['.../OPTData/IFFunctions/20160516_114916/mode_0000.fits',
-     '.../OPTData/IFFunctions/20160516_114916/mode_0001.fits',
-     '.../OPTData/IFFunctions/20160516_114916/mode_0002.fits',
-     '.../OPTData/IFFunctions/20160516_114916/mode_0003.fits']
-    ```
+    .. code-block:: python
+
+        getFileList(tn, fold=iffold, key='mode_')
+        ['.../OPTData/IFFunctions/20160516_114916/mode_0000.fits',
+         '.../OPTData/IFFunctions/20160516_114916/mode_0001.fits',
+         '.../OPTData/IFFunctions/20160516_114916/mode_0002.fits',
+         '.../OPTData/IFFunctions/20160516_114916/mode_0003.fits']
 
     Notice that, in this specific case, it was necessary to include the underscore
     after 'mode' to exclude the 'modesVector.fits' file from the list.

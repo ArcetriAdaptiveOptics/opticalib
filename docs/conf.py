@@ -63,6 +63,8 @@ autodoc_mock_imports = [
     "opticalib.devices._API.i4d",
     # optional external package used by some dmutils modules
     "m4",
+    # thin-plate-spline library used by pupil_calibration
+    "tps",
 ]
 
 # Intersphinx mappings for cross-references

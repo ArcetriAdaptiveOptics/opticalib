@@ -10,4 +10,3 @@ opticalib.dmutils.stitching
    
       StitchAcquire
       StitchAnalysis
-   

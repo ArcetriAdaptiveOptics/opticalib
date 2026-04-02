@@ -13,41 +13,41 @@ Example
 -------
 Example usage of the ZernikeFitter class:
 
-```python
-from opticalib.ground.modal_decomposer import ZernikeFitter
-from opticalib.ground.geometry import draw_circular_pupil
+.. code-block:: python
 
-# Create a sample wavefront image (e.g., 256x256 pixels)
-size = 256
-radius = size / 2
+    from opticalib.ground.modal_decomposer import ZernikeFitter
+    from opticalib.ground.geometry import draw_circular_pupil
 
-# Create a circular pupil mask
-pupil_mask = draw_circular_pupil((size,size), radius)
+    # Create a sample wavefront image (e.g., 256x256 pixels)
+    size = 256
+    radius = size / 2
 
-# Generate a simulated wavefront with some aberrations
-# Adding defocus (Z4) and astigmatism (Z5, Z6)
-wavefront = np.random.normal(0, 0.1, (size, size))
-wavefront = np.ma.masked_array(wavefront, mask=pupil_mask)
+    # Create a circular pupil mask
+    pupil_mask = draw_circular_pupil((size,size), radius)
 
-# Initialize the Zernike fitter with a circular pupil
-fitter = ZernikeFitter(fit_mask=pupil_mask)
+    # Generate a simulated wavefront with some aberrations
+    # Adding defocus (Z4) and astigmatism (Z5, Z6)
+    wavefront = np.random.normal(0, 0.1, (size, size))
+    wavefront = np.ma.masked_array(wavefront, mask=pupil_mask)
 
-# Fit Zernike modes 1-10 to the wavefront
-modes_to_fit = list(range(1, 11))
-coefficients, fitting_matrix = fitter.fit(wavefront, modes_to_fit)
+    # Initialize the Zernike fitter with a circular pupil
+    fitter = ZernikeFitter(fit_mask=pupil_mask)
 
-print(f"Fitted Zernike coefficients: {coefficients}")
+    # Fit Zernike modes 1-10 to the wavefront
+    modes_to_fit = list(range(1, 11))
+    coefficients, fitting_matrix = fitter.fit(wavefront, modes_to_fit)
 
-# Remove tip-tilt (modes 2 and 3) from the wavefront
-corrected_wavefront = fitter.removeZernike(wavefront, zernike_index_vector=[2, 3])
+    print(f"Fitted Zernike coefficients: {coefficients}")
 
-# Generate a pure Zernike surface (e.g., coma, mode 7)
-coma_surface = fitter.makeSurface(modes_indices=[7])
+    # Remove tip-tilt (modes 2 and 3) from the wavefront
+    corrected_wavefront = fitter.removeZernike(wavefront, zernike_index_vector=[2, 3])
 
-# Fit modes on multiple ROIs and get global average
-roi_coefficients = fitter.fitOnRoi(wavefront, modes2fit=[1, 2, 3], mode='global')
-print(f"ROI-averaged coefficients: {roi_coefficients}")
-```
+    # Generate a pure Zernike surface (e.g., coma, mode 7)
+    coma_surface = fitter.makeSurface(modes_indices=[7])
+
+    # Fit modes on multiple ROIs and get global average
+    roi_coefficients = fitter.fitOnRoi(wavefront, modes2fit=[1, 2, 3], mode='global')
+    print(f"ROI-averaged coefficients: {roi_coefficients}")
 """
 
 import xupy as _xp
@@ -519,10 +519,10 @@ class _ModeFitter(ABC):
 
         Usage
         -----
-        ```python
-        with zfitter.no_mask():
-            coeffs, mat = zfitter.fit(image, modes)
-        ```
+        .. code-block:: python
+
+            with zfitter.no_mask():
+                coeffs, mat = zfitter.fit(image, modes)
         """
         self._logger.warning("Entering the `no mask` context...")
         prev_fit_mask = self._fit_mask
