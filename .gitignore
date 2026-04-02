@@ -1,5 +1,6 @@
 opticalib.egg-info/
 opticalib/core/_configurations/configuration.yaml
+opticalib/dmutils/pupil_calibration.py
 .venv/
 .continue/
 notebooks/

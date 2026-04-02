@@ -15,6 +15,7 @@ import matplotlib.pyplot as _plt
 from opticalib import typings as _ot
 from .logger import SystemLogger as _SL
 from opticalib.core.root import folders as _fn
+import gc
 
 _intMatFold = _fn.INTMAT_ROOT_FOLDER
 
@@ -56,6 +57,7 @@ class ComputeReconstructor:
 
         # Initialization w/ IM computation
         self.loadInteractionCube(interaction_matrix_cube, tn)
+        self._setAnalysisMask()
 
         self._intMat_U = None
         self._intMat_S = None
@@ -64,7 +66,7 @@ class ComputeReconstructor:
         self._filtered_sv = None
 
     def run(
-        self, sv_threshold: int | float | None = None, interactive: bool = False
+        self, sv_threshold: _ot.Optional[int|float] = None, interactive: bool = False
     ) -> _ot.MatrixLike:
         """
         Compute the reconstruction matrix from the interaction matrix and the image
@@ -86,38 +88,43 @@ class ComputeReconstructor:
         recMat : MatrixLike
             Reconstruction matrix.
         """
-        self._logger.info("Reconstructor Computation:")
-        self._computeIntMat()
-        self._logger.info("SVD of Interaction Matrix")
-        IM = _xp.asarray(self._intMat, dtype=_xp.float)
-        U, S, Vt = _xp.linalg.svd(IM, full_matrices=False)
-        self._intMat_U, self._intMat_S, self._intMat_Vt = [
-            _xp.asnumpy(x) for x in (U, S, Vt)
-        ]
-        if interactive:
-            self._threshold = self.make_interactive_plot(self._intMat_S)
-        else:
-            if sv_threshold is None:
-                return _xp.asnumpy(_xp.linalg.pinv(IM))
-            elif isinstance(sv_threshold, int):
-                self._threshold = {
-                    "y": _np.finfo(_np.float32).eps,
-                    "x": -sv_threshold,
-                }
+        with _xp.MemoryContext(print_report=False, ) as ctx:
+            self._logger.info("Reconstructor Computation:")
+            IM ,U, S, Vt  = self._computeIntMat()
+            self._logger.info("SVD of Interaction Matrix")
+            if interactive:
+                self._threshold = self.make_interactive_plot(self._intMat_S)
             else:
-                self._threshold = {
-                    "y": sv_threshold,
-                    "x": _np.argmin(_np.abs(self._intMat_S - sv_threshold)),
-                }
-        sv_threshold = S.copy()
-        sv_threshold[self._threshold["x"] :] = 0
-        sv_inv_threshold = sv_threshold * 0
-        sv_inv_threshold[0 : self._threshold["x"]] = (
-            1 / sv_threshold[0 : self._threshold["x"]]
-        )
-        self._filtered_sv = sv_inv_threshold
-        self._logger.info("Computing Reconstructor Matrix: Vt.T @ S_inv @ U.T")
-        return _xp.asnumpy(Vt.T @ _xp.diag(sv_inv_threshold) @ U.T)
+
+                if sv_threshold is None:
+                    return _xp.asnumpy(_xp.linalg.pinv(IM))
+
+                elif isinstance(sv_threshold, int):
+                    self._threshold = {
+                        "y": _np.finfo(_np.float32).eps,
+                        "x": -sv_threshold,
+                    }
+
+                else:
+                    self._threshold = {
+                        "y": sv_threshold,
+                        "x": _np.argmin(_np.abs(self._intMat_S - sv_threshold)),
+                    }
+
+            sv_threshold = S.copy()
+            sv_threshold[self._threshold["x"] :] = 0
+            sv_inv_threshold = sv_threshold * 0
+            sv_inv_threshold[0 : self._threshold["x"]] = (
+                1 / sv_threshold[0 : self._threshold["x"]]
+            )
+            self._filtered_sv = sv_inv_threshold
+            self._logger.info("Computing Reconstructor Matrix: Vt.T @ S_inv @ U.T")
+            rec = _xp.asnumpy(Vt.T @ _xp.diag(sv_inv_threshold) @ U.T)
+            
+            del IM, U, S, Vt
+            gc.collect()
+
+        return rec
 
     def getSVD(self):
         """
@@ -179,32 +186,48 @@ class ComputeReconstructor:
             self._intMatCube = _osu.read_phasemap(cube_path)
         else:
             raise KeyError("No cube or tracking number was provided.")
-        self._computeIntMat()
+        self._setAnalysisMask()
         return self
 
-    def _computeIntMat(self):
+    def _computeIntMat(self) -> _ot.MatrixLike:
         """
-        Subroutine which computes the interaction matrix and stores it in a
-        class variable.
+        Subroutine which computes the interaction matrix and it's SVD, and stores
+        it in class variables.
         """
-        self._logger.info(
-            f"Computing interaction matrix from cube of size {self._intMatCube.shape}"
-        )
-        print("Computing Interaction Matrix", end="\a")
-        print("...", end="\a", flush=True)
-        try:
-            self._setAnalysisMask()
-            self._intMat = _np.array(
-                [
-                    (self._intMatCube[:, :, i].data)[self._analysisMask == 0]
-                    for i in range(self._intMatCube.shape[2])
-                ]
+
+        if not _np.array_equal(self._imgMask, self._analysisMask):
+            self._logger.info(
+                f"Computing interaction matrix from cube of size {self._intMatCube.shape}"
             )
-        except Exception as e:
-            self._logger.error(f"Error in computing interaction matrix from cube: {e}")
-            raise e
-        self._logger.info(f"Computed interaction matrix of shape {self._intMat.shape}")
-        return self._intMat
+            print("Computing Interaction Matrix...", end="\n")
+
+            try:
+                self._setAnalysisMask()
+                self._intMat = _np.array(
+                    [
+                        (self._intMatCube[:, :, i].data)[self._analysisMask == 0]
+                        for i in range(self._intMatCube.shape[2])
+                    ]
+                )
+                IM = _xp.asarray(self._intMat, dtype=_xp.float)
+                U, S, Vt = _xp.linalg.svd(IM, full_matrices=False)
+                self._intMat_U, self._intMat_S, self._intMat_Vt = [
+                    _xp.asnumpy(x) for x in (U, S, Vt)
+                ]
+
+                self._logger.info(f"Computed interaction matrix of shape {self._intMat.shape}")
+
+                return IM, U, S, Vt
+
+            except Exception as e:
+                self._logger.error(f"Error in computing interaction matrix from cube: {e}")
+                raise e
+        
+        else:
+            return (
+                _xp.asarray(x, dtype=_xp.float) 
+                for x in (self._intMat, self._intMat_U, self._intMat_S, self._intMat_Vt)
+            )
 
     def _setAnalysisMask(self) -> _ot.MaskData:
         """

@@ -12,7 +12,6 @@ Description
 import numpy as _np
 from os.path import join as _j
 from opticalib import typings as _ot
-from tps import ThinPlateSpline as _tps
 from opticalib.ground import osutils as _osu
 from scipy.interpolate import griddata as _gd
 from opticalib.core.root import folders as _fn
@@ -155,9 +154,10 @@ class PupilCalibrator:
         master_coords = coords[:, master_ids]
         match slaving_method:
             case "spline":
-                tps = _tps(alpha=0.0)
-                tps.fit(master_coords.T, cmd[master_ids])
-                cmd = tps.transform(coords.T)
+                ...
+                #tps = (alpha=0.0)
+                #tps.fit(master_coords.T, cmd[master_ids])
+                #cmd = tps.transform(coords.T)
             case "nearest":
                 cmd = _gd(
                     master_coords,
