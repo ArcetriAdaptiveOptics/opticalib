@@ -417,9 +417,7 @@ class Flattening:
         self.flatCmd = flat_cmd.copy()
         return flat_cmd
 
-    def loadImage2Shape(
-        self, img: _ot.ImageData, compute: _ot.Optional[int | float] = None
-    ) -> None:
+    def loadImage2Shape(self, img: _ot.ImageData) -> None:
         """
         (Re)Loader for the image to flatten.
 
@@ -427,10 +425,6 @@ class Flattening:
         ----------
         img : ImageData
             Image to flatten.
-        compute : int | float, optional
-            If not None, it can be either the number of modes to discard from the
-            reconstruction matrix computation (int) or the threshold value to discard
-            computed eigenvalues for the reconstruction (float). Default is None.
         """
         if self._cavityOffset is not None:
             self._logger.info("Subtracting the cavity offset from loaded image...")
@@ -438,8 +432,6 @@ class Flattening:
         self.shape2flat = self._alignImgAndCubeMasks(img)
         self._rec = self._rec.loadShape2Flat(self.shape2flat)
         self._logger.info("Image to shape loaded to Reconstructor class.")
-        if compute is not None:
-            self.computeRecMat(compute)
 
     def computeRecMat(self, threshold: _ot.Optional[int | float] = None):
         """
@@ -452,7 +444,6 @@ class Flattening:
             reconstruction matrix computation (int) or the threshold value to discard
             computed eigenvalues for the reconstruction (float). Default is None.
         """
-        print("Computing recontruction matrix...")
         self._logger.info("Starting reconstruction matrix computation...")
         self._recMat = self._rec.run(sv_threshold=threshold)
 

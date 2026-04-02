@@ -79,19 +79,23 @@ class ComputeReconstructor:
             threshold for the singular values. Default is False.
         sv_threshold : int | float, optional
             The threshold for the singular values. If None, the function will
-            compute the pseudo-inverse of the interaction matrix. If an integer
-            is provided, it will be used as the threshold. If a float is provided,
-            it will be used as the threshold. Default is None.
+            compute the pseudo-inverse of the interaction matrix. 
+            
+            If an integeris provided, it will be used an index threshold. 
+            
+            If a float is provided, it will be used as a value threshold. 
+            
+            Default is None.
 
         Returns
         -------
         recMat : MatrixLike
             Reconstruction matrix.
         """
-        with _xp.MemoryContext(print_report=False, ) as ctx:
+        with _xp.MemoryContext(print_report=False, ): # as ctx:
             self._logger.info("Reconstructor Computation:")
             IM ,U, S, Vt  = self._computeIntMat()
-            self._logger.info("SVD of Interaction Matrix")
+            print("Computing Recontruction matrix...")
             if interactive:
                 self._threshold = self.make_interactive_plot(self._intMat_S)
             else:
@@ -111,11 +115,11 @@ class ComputeReconstructor:
                         "x": _np.argmin(_np.abs(self._intMat_S - sv_threshold)),
                     }
 
-            sv_threshold = S.copy()
-            sv_threshold[self._threshold["x"] :] = 0
-            sv_inv_threshold = sv_threshold * 0
+            threshold = S.copy()
+            threshold[self._threshold["x"]:] = 0
+            sv_inv_threshold = threshold * 0
             sv_inv_threshold[0 : self._threshold["x"]] = (
-                1 / sv_threshold[0 : self._threshold["x"]]
+                1 / threshold[0 : self._threshold["x"]]
             )
             self._filtered_sv = sv_inv_threshold
             self._logger.info("Computing Reconstructor Matrix: Vt.T @ S_inv @ U.T")
@@ -209,6 +213,7 @@ class ComputeReconstructor:
                         for i in range(self._intMatCube.shape[2])
                     ]
                 )
+                self._logger.info("SVD of Interaction Matrix")
                 IM = _xp.asarray(self._intMat, dtype=_xp.float)
                 U, S, Vt = _xp.linalg.svd(IM, full_matrices=False)
                 self._intMat_U, self._intMat_S, self._intMat_Vt = [

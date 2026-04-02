@@ -38,7 +38,7 @@ class TestFlattening:
         assert isinstance(f.CM, np.ndarray)
 
         # Test IM property
-        assert f.IM is not None
+        assert f.IM is None
 
     def test_load_image_to_shape(self, sample_int_matrix_folder, sample_image):
         """Test loading image to shape."""
@@ -50,28 +50,16 @@ class TestFlattening:
         assert f.shape2flat is not None
         assert isinstance(f.shape2flat, ma.MaskedArray)
 
-    def test_load_image_to_shape_with_compute(
-        self, sample_int_matrix_folder, sample_image
-    ):
-        """Test loading image to shape with automatic compute."""
-        tn, tn_folder = sample_int_matrix_folder
-
-        f = flt.Flattening(tn)
-        f.loadImage2Shape(sample_image, compute=5)
-
-        assert f.shape2flat is not None
-        assert f._recMat is not None
-
     def test_compute_rec_mat(self, sample_int_matrix_folder, sample_image):
         """Test computing reconstruction matrix."""
         tn, tn_folder = sample_int_matrix_folder
 
         f = flt.Flattening(tn)
         f.loadImage2Shape(sample_image)
-        f.computeRecMat(threshold=5)
+        f.computeRecMat(5)
 
-        assert f._recMat is not None
-        assert isinstance(f._recMat, np.ndarray)
+        assert f.RM is not None
+        assert isinstance(f.RM, np.ndarray)
 
     def test_compute_flat_cmd_int_modes(self, sample_int_matrix_folder, sample_image):
         """Test computing flat command with integer modes."""
@@ -79,13 +67,13 @@ class TestFlattening:
 
         f = flt.Flattening(tn)
         f.loadImage2Shape(sample_image)
-        f.computeRecMat(threshold=5)
+        f.computeRecMat(5)
 
         flat_cmd = f.computeFlatCmd(modes2flat=5)
 
         assert flat_cmd is not None
         assert isinstance(flat_cmd, np.ndarray)
-        assert len(flat_cmd) == f._cmdMat.shape[0]
+        assert len(flat_cmd) == f.CM.shape[0]
         assert f.flatCmd is not None
 
     def test_compute_flat_cmd_list_modes(self, sample_int_matrix_folder, sample_image):
@@ -94,13 +82,13 @@ class TestFlattening:
 
         f = flt.Flattening(tn)
         f.loadImage2Shape(sample_image)
-        f.computeRecMat(threshold=5)
+        f.computeRecMat(5)
 
         flat_cmd = f.computeFlatCmd(modes2flat=[0, 1, 2, 3, 4])
 
         assert flat_cmd is not None
         assert isinstance(flat_cmd, np.ndarray)
-        assert len(flat_cmd) == f._cmdMat.shape[0]
+        assert len(flat_cmd) == f.CM.shape[0]
 
     def test_compute_flat_cmd_invalid_type(
         self, sample_int_matrix_folder, sample_image
@@ -110,7 +98,7 @@ class TestFlattening:
 
         f = flt.Flattening(tn)
         f.loadImage2Shape(sample_image)
-        f.computeRecMat(threshold=5)
+        f.computeRecMat(5)
 
         with pytest.raises(TypeError):
             f.computeFlatCmd(modes2flat="invalid")
@@ -121,7 +109,7 @@ class TestFlattening:
 
         f = flt.Flattening(tn)
         f.loadImage2Shape(sample_image)
-        f.computeRecMat(threshold=5)
+        f.computeRecMat(5)
 
         U, S, Vt = f.getSVDmatrices()
 

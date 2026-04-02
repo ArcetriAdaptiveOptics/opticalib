@@ -18,7 +18,7 @@ class TestComputeReconstructor:
         assert cr._intMatCube is not None
         assert cr._cubeMask is not None
         assert cr._analysisMask is not None
-        assert cr._intMat is not None
+        assert cr._intMat is None
 
     def test_compute_reconstructor_init_with_mask(self, sample_cube):
         """Test ComputeReconstructor initialization with additional mask."""
@@ -121,13 +121,14 @@ class TestComputeReconstructorInternal:
     def test_compute_int_mat(self, sample_cube):
         """Test _computeIntMat method."""
         cr = computerec.ComputeReconstructor(sample_cube)
-        int_mat = cr._computeIntMat()
+        out = cr._computeIntMat()
 
-        assert int_mat is not None
-        assert isinstance(int_mat, np.ndarray)
+        assert out is not None
+        assert isinstance(out, tuple)
+        assert len(out) == 4
         n_images = sample_cube.shape[2]
         n_pixels = np.sum(~cr._analysisMask)
-        assert int_mat.shape == (n_images, n_pixels)
+        assert out[0].shape == (n_images, n_pixels)
 
     def test_set_analysis_mask(self, sample_cube):
         """Test _setAnalysisMask method."""
