@@ -15,6 +15,7 @@ the Opticalib framework.
 
 import numpy as _np
 from numpy import fft as _fft
+# scipy.signal provides detrend and get_window functions not available in numpy.fft
 from scipy import signal as _signal
 from .. import typings as _ot
 

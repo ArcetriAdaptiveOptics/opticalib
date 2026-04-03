@@ -235,3 +235,23 @@ class TestIsinstance:
 
         dm = FakeDM()
         assert typings.isinstance_(dm, "DeformableMirrorDevice") is True
+
+    def test_isinstance_camera_device(self):
+        """Test isinstance_ for CameraDevice protocol (bug fix regression test)."""
+
+        class FakeCamera:
+            def acquire_frames(self, **kwargs):
+                return None
+
+            def set_exptime(self, exptime):
+                pass
+
+            def get_exptime(self):
+                return 1.0
+
+        cam = FakeCamera()
+        assert typings.isinstance_(cam, "CameraDevice") is True
+
+    def test_isinstance_camera_device_negative(self):
+        """Test isinstance_ returns False for non-CameraDevice objects."""
+        assert typings.isinstance_(object(), "CameraDevice") is False
