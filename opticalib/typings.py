@@ -361,6 +361,7 @@ class InstanceCheck:
             "ImageData": cls.is_image_like,
             "CubeData": cls.is_cube_like,
             "InterferometerDevice": cls.generic_check,
+            "CameraDevice": cls.generic_check,
             "DeformableMirrorDevice": cls.generic_check,
             "FakeDeformableMirrorDevice": cls.generic_check,
             "FakeInterferometerDevice": cls.generic_check,
