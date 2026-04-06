@@ -58,7 +58,9 @@ def compute_slave_cmd(
     sid, bid, mid = _get_act_roles(dm)
 
     if sid is None or len(sid) == 0:
-        raise _oe.DeviceError(f"No slave actuators defined in {dm.__class__.__name__}.")
+        raise _oe.DeviceAttributeError(
+            f"No slave actuators defined in {dm.__class__.__name__}."
+        )
 
     if not hasattr(dm, "ff"):
         raise _oe.DeviceAttributeError(

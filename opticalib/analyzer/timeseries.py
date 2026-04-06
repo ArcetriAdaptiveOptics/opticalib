@@ -328,7 +328,7 @@ def structfunc(vect: _ot.ArrayLike, gapvect: _ot.ArrayLike) -> _ot.ArrayLike:
     _ot.ArrayLike
         Structure function values for each gap.
     """
-    nn = _np.shape(vect)
+    nn = _np.shape(vect)[0]
     maxgap = _np.max(gapvect)
     ngap = len(gapvect)
     n2ave = int(nn / (maxgap)) - 1  # or -maxgap??

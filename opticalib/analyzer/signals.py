@@ -15,6 +15,8 @@ the Opticalib framework.
 
 import numpy as _np
 from numpy import fft as _fft
+# scipy.signal provides detrend and get_window functions not available in numpy.fft
+from scipy import signal as _signal
 from .. import typings as _ot
 
 
@@ -103,13 +105,13 @@ def extract_frequency_spectrum(
 
     # Apply detrending
     if detrend is not None:
-        signal = _fft.detrend(signal, axis=axis, type=detrend)
+        signal = _signal.detrend(signal, axis=axis, type=detrend)
 
     # Apply windowing to reduce spectral leakage
     if window is not None:
         # Create window with correct shape
         window_shape = [signal.shape[i] if i == axis else 1 for i in range(signal.ndim)]
-        window_array = _fft.get_window(window, signal.shape[axis])
+        window_array = _signal.get_window(window, signal.shape[axis])
         window_array = window_array.reshape(window_shape)
         signal = signal * window_array
 
