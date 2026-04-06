@@ -26,7 +26,7 @@ def _make_image(shape=(10, 10), circular=False):
     data = np.random.randn(*shape)
     mask = np.zeros(shape, dtype=bool)
     if circular:
-        r = min(shape) // 2 - 2
+        r = max(min(shape) // 2 - 2, 1)
         cy, cx = shape[0] // 2, shape[1] // 2
         y, x = np.ogrid[: shape[0], : shape[1]]
         mask[(x - cx) ** 2 + (y - cy) ** 2 >= r**2] = True
@@ -34,11 +34,23 @@ def _make_image(shape=(10, 10), circular=False):
 
 
 def _make_cube(shape=(10, 10, 5), circular=False):
-    """Create a FitsMaskedArray cube."""
+    """Create a masked array cube.
+
+    Parameters
+    ----------
+    shape : tuple[int, int, int]
+        Cube dimensions.
+    circular : bool
+        If True, mask outside the inscribed circle in each frame.
+
+    Returns
+    -------
+    FitsMaskedArray
+    """
     data = np.random.randn(*shape)
     mask = np.zeros(shape, dtype=bool)
     if circular:
-        r = min(shape[:2]) // 2 - 2
+        r = max(min(shape[:2]) // 2 - 2, 1)
         cy, cx = shape[0] // 2, shape[1] // 2
         y, x = np.ogrid[: shape[0], : shape[1]]
         circle_mask = (x - cx) ** 2 + (y - cy) ** 2 >= r**2
