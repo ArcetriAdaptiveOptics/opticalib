@@ -226,7 +226,8 @@ def createCube(fl_or_il: list[str], register: bool = False) -> _ot.CubeData:
 
     header = {}
     for item in fl_or_il:
-        header.update(item.header)
+        if hasattr(item, "header"):
+            header.update(item.header)
 
     cube = _fa.fits_array(_np.ma.dstack(fl_or_il), header=header)
 
