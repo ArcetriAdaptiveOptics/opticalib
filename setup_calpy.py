@@ -140,6 +140,9 @@ def main():
         # --gui flag: open the graphical interface
         if "--gui" in sys.argv:
             if not os.path.exists(config_path):
+                # When a directory (not a .yaml file) was supplied, calpy
+                # resolves the config to <dir>/SysConfig/configuration.yaml,
+                # matching the folder tree created by `calpy -c <dir>`.
                 config_path = os.path.join(
                     os.path.dirname(config_path),
                     "SysConfig",

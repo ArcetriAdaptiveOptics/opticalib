@@ -188,17 +188,19 @@ def _resolve_init_file() -> Optional[str]:
     str or None
         Absolute path to the bootstrap script, or ``None`` when not found.
     """
-    here = os.path.dirname(os.path.abspath(__file__))
+    from pathlib import Path
+
+    here = Path(__file__).resolve().parent
     candidates = [
         # Installed package layout: opticalib/gui/ -> opticalib/__init_script__/
-        os.path.join(here, "..", "__init_script__", "initCalpy.py"),
+        here / ".." / "__init_script__" / "initCalpy.py",
         # Development layout (running from repo root)
-        os.path.join(here, "..", "..", "__init_script__", "initCalpy.py"),
+        here / ".." / ".." / "__init_script__" / "initCalpy.py",
     ]
     for path in candidates:
-        resolved = os.path.normpath(path)
-        if os.path.exists(resolved):
-            return resolved
+        resolved = path.resolve()
+        if resolved.exists():
+            return str(resolved)
     return None
 
 
@@ -288,6 +290,17 @@ class PlotPanel(QFrame):
     # ------------------------------------------------------------------
     # Public interface
     # ------------------------------------------------------------------
+
+    def get_figure_count(self) -> int:
+        """
+        Return the number of figures currently stored in the panel.
+
+        Returns
+        -------
+        int
+            Total number of captured figures.
+        """
+        return len(self._figures)
 
     def add_figure(self, png_bytes: bytes) -> None:
         """
@@ -861,7 +874,7 @@ class CalpyGUI(QMainWindow):
                 )
             else:
                 self._plot_panel.add_figure(png_bytes)
-                self._fig_map[num] = len(self._plot_panel._figures) - 1
+                self._fig_map[num] = self._plot_panel.get_figure_count() - 1
 
     # ------------------------------------------------------------------
     # Configuration file actions
@@ -884,6 +897,9 @@ class CalpyGUI(QMainWindow):
         """
         try:
             if sys.platform.startswith("win"):
+                # os.startfile is a Windows-only built-in; the type: ignore
+                # suppresses the linter warning about the missing attribute on
+                # non-Windows platforms.
                 os.startfile(self._config_path)  # type: ignore[attr-defined]
             elif sys.platform == "darwin":
                 subprocess.Popen(["open", self._config_path])
