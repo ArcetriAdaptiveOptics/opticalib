@@ -533,8 +533,8 @@ class DevicePanel(QGroupBox):
 
         if class_name:
             return (
-                f"import opticalib.devices as devices\n"
-                f"{var_name} = {class_name}()"
+                f"# import opticalib.devices as devices\n"
+                f"# {var_name} = {class_name}()"
             )
         # No known class – produce a commented template
         return (
@@ -762,7 +762,7 @@ class CalpyGUI(QMainWindow):
         self._kernel_manager.start_kernel(show_banner=False)
 
         kernel = self._kernel_manager.kernel
-        kernel.gui = "qt5"
+        kernel.gui = "qt"
 
         # Force the Agg (non-interactive) backend before any matplotlib
         # import so that figures are rendered to in-memory buffers and can

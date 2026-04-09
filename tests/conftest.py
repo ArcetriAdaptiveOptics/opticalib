@@ -62,24 +62,20 @@ STITCHING:
 @pytest.fixture
 def sample_image():
     """Create a sample masked image for testing."""
-    from skimage.draw import disk
+    from opticalib.ground.geometry import draw_circular_pupil
 
     data = np.random.randn(100, 100).astype(np.float32)
-    mask = np.ones((100, 100), dtype=bool)
-    rr, cc = disk((50, 50), 30)
-    mask[rr, cc] = False
+    mask = draw_circular_pupil((100, 100), radius=35)
     return ma.masked_array(data, mask=mask)
 
 
 @pytest.fixture
 def sample_cube():
     """Create a sample cube for testing."""
-    from skimage.draw import disk
+    from opticalib.ground.geometry import draw_circular_pupil
 
     data = np.random.randn(100, 100, 10).astype(np.float32)
-    mask = np.ones((100, 100), dtype=bool)
-    rr, cc = disk((50, 50), 30)
-    mask[rr, cc] = False
+    mask = draw_circular_pupil((100, 100), radius=35)
     # Apply same mask to all frames
     cube = ma.masked_array(
         data, mask=np.broadcast_to(mask[..., np.newaxis], data.shape)
