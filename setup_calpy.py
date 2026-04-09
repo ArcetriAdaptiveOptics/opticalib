@@ -99,7 +99,7 @@ def _launch_gui(config_path: Optional[str] = None) -> None:
 
 def _resolve_config_path(path: str) -> str:
     """
-    Expand and absolutise a raw config path string.
+    Expand and absolutize a raw config path string.
 
     When *path* does not end in ``.yaml`` it is treated as a directory;
     ``check_dir`` appends ``/configuration.yaml`` and creates the directory
@@ -250,8 +250,8 @@ def main():
             env = os.environ.copy()
             env["AOCONF"] = config_path
             # Launch IPython using the current interpreter for cross-platform compatibility
-            args_cmd = [sys.executable, "-m", "IPython", "-i", init_file]
-            subprocess.run(args_cmd, env=env, check=False)
+            ipython_cmd = [sys.executable, "-m", "IPython", "-i", init_file]
+            subprocess.run(ipython_cmd, env=env, check=False)
         except OSError as ose:
             print(f"Error: {ose}")
             sys.exit(1)
