@@ -20,6 +20,10 @@ no option : Initialize an IPython shell executing the `opticalib` init script.
             (e.g., '../opticalibConf/configuration.yaml'). Used to initiate
             the opticalib package.
 
+-f <path> --gui : Launch the CalpyGUI graphical interface loaded with the
+                  configuration file at <path>.  The embedded IPython terminal
+                  is initialised identically to a plain `calpy -f <path>` session.
+
 -f <path> --create : Create the configuration file in the specified path, 
                      as well as the complete data folder tree, and enters 
                      an ipython session importing opticalib. The created
@@ -30,6 +34,9 @@ no option : Initialize an IPython shell executing the `opticalib` init script.
                      the complete  data folder tree, and exit. The created
                      configuration file is already updated with the provided
                      data path.
+
+--gui : Launch the CalpyGUI graphical interface with the default configuration
+        file (equivalent to running `calpy` without arguments but in GUI mode).
 
 -h |--help : Shows this help message
 
@@ -67,6 +74,28 @@ def _resolve_init_file() -> Optional[str]:
     return None
 
 
+def _launch_gui(config_path: Optional[str] = None) -> None:
+    """
+    Launch the CalpyGUI graphical interface.
+
+    Parameters
+    ----------
+    config_path : str or None
+        Absolute path to the ``configuration.yaml`` file to load, or
+        *None* to use the opticalib default.
+    """
+    try:
+        from opticalib.gui import launch_gui
+    except ImportError as exc:
+        print(
+            f"Error: could not import the CalpyGUI module ({exc}).\n"
+            "Make sure PyQt5 and qtconsole are installed:\n"
+            "  pip install PyQt5 qtconsole"
+        )
+        sys.exit(1)
+    launch_gui(config_path=config_path)
+
+
 def main():
     """
     Main function to handle command-line arguments and launch IPython
@@ -89,7 +118,11 @@ def main():
         print(docs)
         sys.exit(0)
 
-    # -f <path> [--create] is passed
+    # --gui (no config path) → launch GUI with the default configuration
+    elif len(sys.argv) == 2 and sys.argv[1] == "--gui":
+        _launch_gui(config_path=None)
+
+    # -f <path> [--gui | --create] is passed
     elif len(sys.argv) > 2 and sys.argv[1] == "-f" and sys.argv[2]:
         config_path = sys.argv[2]
         config_path = os.path.expanduser(config_path)
@@ -103,6 +136,18 @@ def main():
             except OSError as ose:
                 print(f"Error: {ose}")
                 sys.exit(1)
+
+        # --gui flag: open the graphical interface
+        if "--gui" in sys.argv:
+            if not os.path.exists(config_path):
+                config_path = os.path.join(
+                    os.path.dirname(config_path),
+                    "SysConfig",
+                    "configuration.yaml",
+                )
+            _launch_gui(config_path=config_path)
+            return
+
         if "--create" in sys.argv or "-c" in sys.argv:
             from opticalib.core.root import create_configuration_file
 
