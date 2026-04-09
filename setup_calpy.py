@@ -1,5 +1,6 @@
 import os
 import sys
+import argparse
 import subprocess
 import importlib.util
 from typing import Optional
@@ -96,6 +97,91 @@ def _launch_gui(config_path: Optional[str] = None) -> None:
     launch_gui(config_path=config_path)
 
 
+def _resolve_config_path(path: str) -> str:
+    """
+    Expand and absolutise a raw config path string.
+
+    When *path* does not end in ``.yaml`` it is treated as a directory;
+    ``check_dir`` appends ``/configuration.yaml`` and creates the directory
+    if necessary.
+
+    Parameters
+    ----------
+    path : str
+        Raw path string as supplied on the command line.
+
+    Returns
+    -------
+    str
+        Absolute path to the resolved ``configuration.yaml`` file.
+    """
+    path = os.path.expanduser(path)
+    if not os.path.isabs(path):
+        path = os.path.join(os.getcwd(), path)
+    if ".yaml" not in path:
+        path = check_dir(path)
+    return path
+
+
+def _build_parser() -> argparse.ArgumentParser:
+    """
+    Build and return the argument parser for the calpy CLI.
+
+    Returns
+    -------
+    argparse.ArgumentParser
+        Configured parser ready to call ``parse_args()``.
+    """
+    parser = argparse.ArgumentParser(
+        prog="calpy",
+        description=(
+            "Interactive Python shell for the opticalib package,\n"
+            "with optional GUI and configuration file management."
+        ),
+        epilog=docs,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "-f",
+        metavar="PATH",
+        dest="config_path",
+        default=None,
+        help=(
+            "Path to a configuration file (or directory). "
+            "Starts an IPython session with opticalib loaded using this config."
+        ),
+    )
+    parser.add_argument(
+        "-c",
+        "--create",
+        metavar="PATH",
+        # nargs='?' allows --create to be used as a bare flag (modifier to -f)
+        # or as --create <path> / -c <path> for the standalone create-and-exit mode.
+        # const=True signals that the flag was given without a path argument.
+        # default=None means the flag was not provided at all.
+        nargs="?",
+        const=True,
+        default=None,
+        dest="create",
+        help=(
+            "Standalone (with PATH): create the configuration file at PATH "
+            "together with the full data folder tree, then exit. "
+            "Combined with -f (no PATH): create the config at the -f path, "
+            "then start an IPython session."
+        ),
+    )
+    parser.add_argument(
+        "--gui",
+        action="store_true",
+        help=(
+            "Launch the CalpyGUI graphical interface instead of a plain "
+            "IPython terminal.  Can be combined with -f to load a specific "
+            "configuration file."
+        ),
+    )
+    return parser
+
+
 def main():
     """
     Main function to handle command-line arguments and launch IPython
@@ -113,32 +199,35 @@ def main():
         print("Error: IPython is not installed in this Python environment.")
         sys.exit(1)
 
-    # -h/--help is passed, show help message
-    if len(sys.argv) > 1 and sys.argv[1] in ["-h", "--help"]:
-        print(docs)
+    parser = _build_parser()
+    args = parser.parse_args()
+
+    # --gui with no other arguments → GUI with the default configuration
+    if args.gui and args.config_path is None and args.create is None:
+        _launch_gui(config_path=None)
+        return
+
+    # -c <path> / --create <path>  (standalone: create config and exit)
+    # Detected when 'create' holds a string path and no -f was given.
+    if isinstance(args.create, str) and args.config_path is None:
+        create_path = _resolve_config_path(args.create)
+        from opticalib.core.root import create_configuration_file
+
+        create_configuration_file(create_path, data_path=True)
         sys.exit(0)
 
-    # --gui (no config path) → launch GUI with the default configuration
-    elif len(sys.argv) == 2 and sys.argv[1] == "--gui":
-        _launch_gui(config_path=None)
+    # -f <path> [--create] [--gui]
+    if args.config_path is not None:
+        config_path = _resolve_config_path(args.config_path)
 
-    # -f <path> [--gui | --create] is passed
-    elif len(sys.argv) > 2 and sys.argv[1] == "-f" and sys.argv[2]:
-        config_path = sys.argv[2]
-        config_path = os.path.expanduser(config_path)
-        # Use robust absolute path detection (works on Windows and Unix)
-        if not os.path.isabs(config_path):
-            current_path = os.getcwd()
-            config_path = os.path.join(current_path, config_path)
-        if not ".yaml" in config_path:
-            try:
-                config_path = check_dir(config_path)
-            except OSError as ose:
-                print(f"Error: {ose}")
-                sys.exit(1)
+        # --create (flag, no path) combined with -f: create config then continue
+        if args.create is not None:
+            from opticalib.core.root import create_configuration_file
+
+            create_configuration_file(config_path, data_path=True)
 
         # --gui flag: open the graphical interface
-        if "--gui" in sys.argv:
+        if args.gui:
             if not os.path.exists(config_path):
                 # When a directory (not a .yaml file) was supplied, calpy
                 # resolves the config to <dir>/SysConfig/configuration.yaml,
@@ -151,10 +240,7 @@ def main():
             _launch_gui(config_path=config_path)
             return
 
-        if "--create" in sys.argv or "-c" in sys.argv:
-            from opticalib.core.root import create_configuration_file
-
-            create_configuration_file(config_path, data_path=True)
+        # Start an IPython session with the resolved config
         try:
             if not os.path.exists(config_path):
                 config_path = os.path.join(
@@ -164,45 +250,17 @@ def main():
             env = os.environ.copy()
             env["AOCONF"] = config_path
             # Launch IPython using the current interpreter for cross-platform compatibility
-            args = [sys.executable, "-m", "IPython", "-i", init_file]
-            subprocess.run(args, env=env, check=False)
+            args_cmd = [sys.executable, "-m", "IPython", "-i", init_file]
+            subprocess.run(args_cmd, env=env, check=False)
         except OSError as ose:
             print(f"Error: {ose}")
             sys.exit(1)
+        return
 
-    # -c <path> is passed
-    elif (
-        len(sys.argv) > 2
-        and any(sys.argv[1] == "-c", sys.argv[1] == "--create")
-        and sys.argv[2]
-    ):
-        config_path = sys.argv[2]
-        config_path = os.path.expanduser(config_path)
-        # Use robust absolute path detection (works on Windows and Unix)
-        if not os.path.isabs(config_path):
-            current_path = os.getcwd()
-            config_path = os.path.join(current_path, config_path)
-        if not ".yaml" in config_path:
-            try:
-                config_path = check_dir(config_path)
-            except OSError as ose:
-                print(f"Error: {ose}")
-                sys.exit(1)
-        from opticalib.core.root import create_configuration_file
-
-        create_configuration_file(config_path, data_path=True)
-        sys.exit(0)
-
-    # no option is passed
-    elif len(sys.argv) == 1:
-        # Start plain IPython session with temp opticalib file loaded
-        args = [sys.executable, "-m", "IPython", "-i", init_file]
-        subprocess.run(args, check=False)
-
-    # Handle invalid arguments
-    else:
-        print("Error: Invalid use. Use -h or --help for usage information.")
-        sys.exit(1)
+    # No arguments: plain IPython session with the default opticalib config
+    subprocess.run(
+        [sys.executable, "-m", "IPython", "-i", init_file], check=False
+    )
 
 
 if __name__ == "__main__":
