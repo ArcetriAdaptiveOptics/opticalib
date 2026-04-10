@@ -9,6 +9,19 @@ from .core.root import OPD_SERIES_ROOT_FOLDER as _ops
 from . import typings as _ot
 
 
+def _update_imports() -> None:
+    """
+    Refresh the cached module-level path constant from the current root config.
+
+    Call this after reloading ``opticalib.core.root`` so that ``_ops``
+    reflects the newly active configuration file and measurement data is saved
+    in the correct location.
+    """
+    global _ops
+    from .core.root import OPD_SERIES_ROOT_FOLDER
+    _ops = OPD_SERIES_ROOT_FOLDER
+
+
 class Measurements:  # TODO: Change name
     """
     Class to handle optical time-series measurements.

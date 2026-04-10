@@ -86,17 +86,33 @@ def _run_init_sequence(config_path: str) -> None:
     import opticalib
     import opticalib.core.root as root_mod
     import opticalib.core.read_config as rc
+    import opticalib.ground.osutils as osu
+    import opticalib.ground.computerec as crec
+    import opticalib.analyzer.timeseries as ats
+    import opticalib.measurements as meas
+    import opticalib.devices.interferometer as interf
+    import opticalib.devices.deformable_mirrors as dms
+    import opticalib.dmutils.flattening as flt
     import opticalib.dmutils.iff_processing as ifp
     import opticalib.dmutils.iff_module as ifm
-    import opticalib.ground.osutils as osu
+    import opticalib.dmutils.stitching as stch
+    import opticalib.dmutils.pupil_calibration as pca
 
     os.environ["AOCONF"] = config_path
     importlib.reload(root_mod)
     opticalib.folders = root_mod.folders
     rc._update_imports()
     osu._update_imports()
+    crec._update_imports()
+    ats._update_imports()
+    meas._update_imports()
+    interf._update_imports()
+    dms._update_imports()
+    flt._update_imports()
     ifp._update_imports()
     ifm._update_imports()
+    stch._update_imports()
+    pca._update_imports()
 
 
 def _restore_init_sequence() -> None:
@@ -109,17 +125,33 @@ def _restore_init_sequence() -> None:
     import opticalib
     import opticalib.core.root as root_mod
     import opticalib.core.read_config as rc
+    import opticalib.ground.osutils as osu
+    import opticalib.ground.computerec as crec
+    import opticalib.analyzer.timeseries as ats
+    import opticalib.measurements as meas
+    import opticalib.devices.interferometer as interf
+    import opticalib.devices.deformable_mirrors as dms
+    import opticalib.dmutils.flattening as flt
     import opticalib.dmutils.iff_processing as ifp
     import opticalib.dmutils.iff_module as ifm
-    import opticalib.ground.osutils as osu
+    import opticalib.dmutils.stitching as stch
+    import opticalib.dmutils.pupil_calibration as pca
 
     os.environ.pop("AOCONF", None)
     importlib.reload(root_mod)
     opticalib.folders = root_mod.folders
     rc._update_imports()
     osu._update_imports()
+    crec._update_imports()
+    ats._update_imports()
+    meas._update_imports()
+    interf._update_imports()
+    dms._update_imports()
+    flt._update_imports()
     ifp._update_imports()
     ifm._update_imports()
+    stch._update_imports()
+    pca._update_imports()
 
 
 # ---------------------------------------------------------------------------
@@ -371,3 +403,203 @@ class TestFolderPropagationAfterInit:
         assert (
             ifp._fn.INTMAT_ROOT_FOLDER == expected
         ), "iff_processing._fn.INTMAT_ROOT_FOLDER mismatch"
+
+    # ------------------------------------------------------------------
+    # interferometer
+    # ------------------------------------------------------------------
+
+    def test_interferometer_folds_opd_images_root(self, init_with_config):
+        """
+        ``interferometer._folds.OPD_IMAGES_ROOT_FOLDER`` must equal
+        ``opticalib.folders.OPD_IMAGES_ROOT_FOLDER`` after ``_update_imports``
+        is called, so that captured maps are written to the right directory.
+        """
+        import opticalib
+        import opticalib.devices.interferometer as interf
+
+        assert (
+            interf._folds.OPD_IMAGES_ROOT_FOLDER
+            == opticalib.folders.OPD_IMAGES_ROOT_FOLDER
+        )
+
+    def test_interferometer_opdimg(self, init_with_config):
+        """
+        ``interferometer._OPDIMG`` must equal
+        ``opticalib.folders.OPD_IMAGES_ROOT_FOLDER`` after ``_update_imports``
+        is called.
+        """
+        import opticalib
+        import opticalib.devices.interferometer as interf
+
+        assert interf._OPDIMG == opticalib.folders.OPD_IMAGES_ROOT_FOLDER
+
+    # ------------------------------------------------------------------
+    # deformable_mirrors
+    # ------------------------------------------------------------------
+
+    def test_deformable_mirrors_opdi(self, init_with_config):
+        """
+        ``deformable_mirrors._opdi`` must equal
+        ``opticalib.folders.OPD_IMAGES_ROOT_FOLDER`` after ``_update_imports``
+        is called, so that DM push-pull OPD images are stored correctly.
+        """
+        import opticalib
+        import opticalib.devices.deformable_mirrors as dms
+
+        assert dms._opdi == opticalib.folders.OPD_IMAGES_ROOT_FOLDER
+
+    # ------------------------------------------------------------------
+    # flattening
+    # ------------------------------------------------------------------
+
+    def test_flattening_fn_flat_root(self, init_with_config):
+        """
+        ``flattening._fn.FLAT_ROOT_FOLDER`` must equal
+        ``opticalib.folders.FLAT_ROOT_FOLDER`` after ``_update_imports``
+        is called, so that flattening commands are saved in the right location.
+        """
+        import opticalib
+        import opticalib.dmutils.flattening as flt
+
+        assert flt._fn.FLAT_ROOT_FOLDER == opticalib.folders.FLAT_ROOT_FOLDER
+
+    # ------------------------------------------------------------------
+    # computerec
+    # ------------------------------------------------------------------
+
+    def test_computerec_fn_intmat_root(self, init_with_config):
+        """
+        ``computerec._fn.INTMAT_ROOT_FOLDER`` must equal
+        ``opticalib.folders.INTMAT_ROOT_FOLDER`` after ``_update_imports``
+        is called.
+        """
+        import opticalib
+        import opticalib.ground.computerec as crec
+
+        assert crec._fn.INTMAT_ROOT_FOLDER == opticalib.folders.INTMAT_ROOT_FOLDER
+
+    def test_computerec_intmatfold(self, init_with_config):
+        """
+        ``computerec._intMatFold`` must equal
+        ``opticalib.folders.INTMAT_ROOT_FOLDER`` after ``_update_imports``
+        is called, so that reconstructor matrices are loaded from the right path.
+        """
+        import opticalib
+        import opticalib.ground.computerec as crec
+
+        assert crec._intMatFold == opticalib.folders.INTMAT_ROOT_FOLDER
+
+    # ------------------------------------------------------------------
+    # analyzer.timeseries
+    # ------------------------------------------------------------------
+
+    def test_timeseries_opdser(self, init_with_config):
+        """
+        ``timeseries._OPDSER`` must equal
+        ``opticalib.folders.OPD_SERIES_ROOT_FOLDER`` after ``_update_imports``
+        is called, so that time-series averages are stored in the right folder.
+        """
+        import opticalib
+        import opticalib.analyzer.timeseries as ats
+
+        assert ats._OPDSER == opticalib.folders.OPD_SERIES_ROOT_FOLDER
+
+    # ------------------------------------------------------------------
+    # measurements
+    # ------------------------------------------------------------------
+
+    def test_measurements_ops(self, init_with_config):
+        """
+        ``measurements._ops`` must equal
+        ``opticalib.folders.OPD_SERIES_ROOT_FOLDER`` after ``_update_imports``
+        is called, so that :class:`~opticalib.measurements.Measurements` writes
+        data to the correct folder.
+        """
+        import opticalib
+        import opticalib.measurements as meas
+
+        assert meas._ops == opticalib.folders.OPD_SERIES_ROOT_FOLDER
+
+    # ------------------------------------------------------------------
+    # stitching
+    # ------------------------------------------------------------------
+
+    def test_stitching_fn_intmat_root(self, init_with_config):
+        """
+        ``stitching._fn.INTMAT_ROOT_FOLDER`` must equal
+        ``opticalib.folders.INTMAT_ROOT_FOLDER`` after ``_update_imports``
+        is called.
+        """
+        import opticalib
+        import opticalib.dmutils.stitching as stch
+
+        assert stch._fn.INTMAT_ROOT_FOLDER == opticalib.folders.INTMAT_ROOT_FOLDER
+
+    # ------------------------------------------------------------------
+    # pupil_calibration
+    # ------------------------------------------------------------------
+
+    def test_pupil_calibration_fn_intmat_root(self, init_with_config):
+        """
+        ``pupil_calibration._fn.INTMAT_ROOT_FOLDER`` must equal
+        ``opticalib.folders.INTMAT_ROOT_FOLDER`` after ``_update_imports``
+        is called.
+        """
+        import opticalib
+        import opticalib.dmutils.pupil_calibration as pca
+
+        assert pca._fn.INTMAT_ROOT_FOLDER == opticalib.folders.INTMAT_ROOT_FOLDER
+
+    # ------------------------------------------------------------------
+    # Extended cross-module consistency
+    # ------------------------------------------------------------------
+
+    def test_all_opd_images_paths_consistent(self, init_with_config):
+        """
+        All module-level ``OPD_IMAGES_ROOT_FOLDER`` references must be
+        identical so that OPD images acquired by the interferometer or
+        pushed by a DM are stored in, and read from, the same directory.
+        """
+        import opticalib
+        import opticalib.devices.interferometer as interf
+        import opticalib.devices.deformable_mirrors as dms
+
+        expected = opticalib.folders.OPD_IMAGES_ROOT_FOLDER
+        assert interf._OPDIMG == expected, "interferometer._OPDIMG mismatch"
+        assert (
+            interf._folds.OPD_IMAGES_ROOT_FOLDER == expected
+        ), "interferometer._folds.OPD_IMAGES_ROOT_FOLDER mismatch"
+        assert dms._opdi == expected, "deformable_mirrors._opdi mismatch"
+
+    def test_all_intmat_paths_fully_consistent(self, init_with_config):
+        """
+        All module-level ``INTMAT_ROOT_FOLDER`` references across
+        ``iff_processing``, ``computerec``, ``flattening``, ``stitching``,
+        and ``pupil_calibration`` must be identical.
+        """
+        import opticalib
+        import opticalib.dmutils.iff_processing as ifp
+        import opticalib.ground.computerec as crec
+        import opticalib.dmutils.flattening as flt
+        import opticalib.dmutils.stitching as stch
+        import opticalib.dmutils.pupil_calibration as pca
+
+        expected = opticalib.folders.INTMAT_ROOT_FOLDER
+        assert ifp._intMatFold == expected, "iff_processing._intMatFold mismatch"
+        assert crec._intMatFold == expected, "computerec._intMatFold mismatch"
+        assert flt._fn.INTMAT_ROOT_FOLDER == expected, "flattening._fn mismatch"
+        assert stch._fn.INTMAT_ROOT_FOLDER == expected, "stitching._fn mismatch"
+        assert pca._fn.INTMAT_ROOT_FOLDER == expected, "pupil_calibration._fn mismatch"
+
+    def test_all_opd_series_paths_consistent(self, init_with_config):
+        """
+        All module-level ``OPD_SERIES_ROOT_FOLDER`` references must be
+        identical so that time-series data is consistently stored and read.
+        """
+        import opticalib
+        import opticalib.analyzer.timeseries as ats
+        import opticalib.measurements as meas
+
+        expected = opticalib.folders.OPD_SERIES_ROOT_FOLDER
+        assert ats._OPDSER == expected, "timeseries._OPDSER mismatch"
+        assert meas._ops == expected, "measurements._ops mismatch"

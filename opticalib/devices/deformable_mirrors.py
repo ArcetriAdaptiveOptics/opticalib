@@ -23,6 +23,19 @@ from opticalib.ground.osutils import newtn as _ts, save_fits as _sf
 from opticalib.ground.logger import SystemLogger as _SL
 
 
+def _update_imports() -> None:
+    """
+    Refresh the cached module-level path constants from the current root config.
+
+    Call this after reloading ``opticalib.core.root`` so that ``_opdi``
+    reflects the newly active configuration file and data is saved in the
+    correct location.
+    """
+    global _opdi
+    from opticalib.core.root import OPD_IMAGES_ROOT_FOLDER
+    _opdi = OPD_IMAGES_ROOT_FOLDER
+
+
 class PetalMirror(_api.BasePetalMirror, _api.base_devices.BaseDeformableMirror):
     """
     Petal Deformable Mirror interface.

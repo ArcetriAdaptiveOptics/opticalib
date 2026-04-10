@@ -17,6 +17,19 @@ from scipy.interpolate import griddata as _gd
 from opticalib.core.root import folders as _fn
 
 
+def _update_imports() -> None:
+    """
+    Refresh the cached module-level folder reference from the current root config.
+
+    Call this after reloading ``opticalib.core.root`` so that ``_fn`` points
+    to the correct :class:`~opticalib.core.root._folds` instance and data is
+    read from the right location (e.g. ``INTMAT_ROOT_FOLDER``).
+    """
+    global _fn
+    from opticalib.core.root import folders
+    _fn = folders
+
+
 class PupilCalibrator:
     """
     Class to calibrate a DM given a pupil diofferent from that of the calibration

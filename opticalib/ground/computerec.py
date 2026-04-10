@@ -20,6 +20,20 @@ import gc
 _intMatFold = _fn.INTMAT_ROOT_FOLDER
 
 
+def _update_imports() -> None:
+    """
+    Refresh the cached module-level path constants from the current root config.
+
+    Call this after reloading ``opticalib.core.root`` so that ``_fn`` and
+    ``_intMatFold`` reflect the newly active configuration file and data is
+    read and written from the correct location.
+    """
+    global _fn, _intMatFold
+    from opticalib.core.root import folders
+    _fn = folders
+    _intMatFold = _fn.INTMAT_ROOT_FOLDER
+
+
 class ComputeReconstructor:
     """
     This class analyzes the measurements made through the IFF class

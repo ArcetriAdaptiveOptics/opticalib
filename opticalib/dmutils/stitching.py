@@ -15,6 +15,20 @@ from skimage.draw import disk as _disk
 _ts = _osu.newtn
 
 
+def _update_imports() -> None:
+    """
+    Refresh the cached module-level folder reference from the current root config.
+
+    Call this after reloading ``opticalib.core.root`` (and rebinding
+    ``opticalib.folders``) so that ``_fn`` points to the correct
+    :class:`~opticalib.core.root._folds` instance and stitching data is saved
+    in the right location.
+    """
+    global _fn
+    from opticalib.core.root import folders
+    _fn = folders
+
+
 class StitchAnalysis:
     """
     Class to process and analyze acquisitions in sub-aperture mode of a mirror,

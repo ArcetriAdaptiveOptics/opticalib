@@ -1327,6 +1327,24 @@ class CalpyGUI(QMainWindow):
         # to the newly created instance, and (3) refreshing the cached
         # globals inside ``read_config`` so that all config-reading helpers
         # use the right paths too.
+        _modules_to_refresh = [
+            "opticalib.core.read_config",
+            "opticalib.ground.osutils",
+            "opticalib.ground.computerec",
+            "opticalib.analyzer.timeseries",
+            "opticalib.measurements",
+            "opticalib.devices.interferometer",
+            "opticalib.devices.deformable_mirrors",
+            "opticalib.dmutils.flattening",
+            "opticalib.dmutils.iff_processing",
+            "opticalib.dmutils.iff_module",
+            "opticalib.dmutils.stitching",
+            "opticalib.dmutils.pupil_calibration",
+        ]
+        _module_updates = "\n".join(
+            f"import {m} as _{i}; _{i}._update_imports()"
+            for i, m in enumerate(_modules_to_refresh)
+        )
         env_cmd = (
             f"import os\n"
             f"import importlib\n"
@@ -1335,14 +1353,7 @@ class CalpyGUI(QMainWindow):
             f"importlib.reload(_r)\n"
             f"import opticalib as _opt\n"
             f"_opt.folders = _r.folders\n"
-            f"import opticalib.core.read_config as _rc\n"
-            f"_rc._update_imports()\n"
-            f"import opticalib.ground.osutils as _osu\n"
-            f"_osu._update_imports()\n"
-            f"import opticalib.dmutils.iff_processing as _ifp\n"
-            f"_ifp._update_imports()\n"
-            f"import opticalib.dmutils.iff_module as _ifm\n"
-            f"_ifm._update_imports()\n"
+            f"{_module_updates}\n"
         )
         self._kernel_manager.kernel.shell.run_cell(env_cmd, silent=False)
 

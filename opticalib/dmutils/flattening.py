@@ -53,6 +53,20 @@ from ..ground.logger import SystemLogger as _SL
 _ts = _osu.newtn
 
 
+def _update_imports() -> None:
+    """
+    Refresh the cached module-level folder reference from the current root config.
+
+    Call this after reloading ``opticalib.core.root`` so that ``_fn`` points
+    to the correct :class:`~opticalib.core.root._folds` instance and data is
+    saved in the right location (e.g. ``FLAT_ROOT_FOLDER``,
+    ``INTMAT_ROOT_FOLDER``).
+    """
+    global _fn
+    from opticalib.core.root import folders
+    _fn = folders
+
+
 class Flattening:
     """
     Class for computing and applying flattening commands to deformable mirrors.

@@ -37,6 +37,19 @@ from . import images_processing as _ip
 from ..core.root import OPD_SERIES_ROOT_FOLDER as _OPDSER
 
 
+def _update_imports() -> None:
+    """
+    Refresh the cached module-level path constant from the current root config.
+
+    Call this after reloading ``opticalib.core.root`` so that ``_OPDSER``
+    reflects the newly active configuration file and time-series data is saved
+    in the correct location.
+    """
+    global _OPDSER
+    from opticalib.core.root import OPD_SERIES_ROOT_FOLDER
+    _OPDSER = OPD_SERIES_ROOT_FOLDER
+
+
 def averageFrames(
     tn_or_fl: str | list[_ot.ImageData] | _ot.CubeData,
     first: int = 0,

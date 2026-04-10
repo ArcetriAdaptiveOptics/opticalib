@@ -24,6 +24,20 @@ _confReader = _fn.ConfSettingReader4D
 _OPDIMG = _folds.OPD_IMAGES_ROOT_FOLDER
 
 
+def _update_imports() -> None:
+    """
+    Refresh the cached module-level path constants from the current root config.
+
+    Call this after reloading ``opticalib.core.root`` so that ``_folds`` and
+    ``_OPDIMG`` reflect the newly active configuration file and the correct
+    data folder tree.
+    """
+    global _folds, _OPDIMG
+    from opticalib.core.root import folders
+    _folds = folders
+    _OPDIMG = _folds.OPD_IMAGES_ROOT_FOLDER
+
+
 class _4DInterferometer(_api.BaseInterferometer):
     """
     Class for the 4D Laser Interferometer.
