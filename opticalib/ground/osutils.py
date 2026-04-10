@@ -25,6 +25,18 @@ from opticalib.core import root as _fn
 _OPTDATA = _fn.OPT_DATA_ROOT_FOLDER
 
 
+def _update_imports() -> None:
+    """
+    Refresh the cached module-level path constants from the current root config.
+
+    Call this after reloading ``opticalib.core.root`` so that ``_OPTDATA``
+    (and any other module-level constants derived from it) reflects the newly
+    active configuration file.
+    """
+    global _OPTDATA
+    _OPTDATA = _fn.OPT_DATA_ROOT_FOLDER
+
+
 def is_tn(string: str) -> bool:
     """
     Check if a given string is a valid tracking number or the full path

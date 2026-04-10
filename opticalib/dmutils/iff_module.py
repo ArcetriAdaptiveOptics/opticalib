@@ -18,6 +18,23 @@ from opticalib.ground import osutils as _osu
 from opticalib import typings as _ot
 
 
+def _update_imports() -> None:
+    """
+    Refresh the cached module-level folder reference from the current root config.
+
+    Call this after reloading ``opticalib.core.root`` (and rebinding
+    ``opticalib.folders``) so that ``_fn`` points to the correct
+    :class:`~opticalib.core.root._folds` instance and data is saved in the
+    right location (e.g. :func:`iffDataAcquisition`).
+    """
+    global _fn
+    # The import is intentionally local: it must run AFTER the root module has
+    # been reloaded (and opticalib.folders rebound) to pick up the fresh
+    # _folds instance rather than the one captured at module-import time.
+    from opticalib.core.root import folders
+    _fn = folders
+
+
 def iffDataAcquisition(
     dm: _ot.DeformableMirrorDevice,
     interf: _ot.InterferometerDevice,

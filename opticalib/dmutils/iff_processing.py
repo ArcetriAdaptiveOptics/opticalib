@@ -58,6 +58,24 @@ _intMatFold = _fn.INTMAT_ROOT_FOLDER
 _frameCenter = [200, 200]
 _ts = _osu.newtn
 
+
+def _update_imports() -> None:
+    """
+    Refresh the cached module-level path constants from the current root config.
+
+    Call this after reloading ``opticalib.core.root`` (and rebinding
+    ``opticalib.folders``) so that ``_fn``, ``_ifFold``, and ``_intMatFold``
+    reflect the newly active configuration file and the correct data folder
+    tree.
+    """
+    global _fn, _ifFold, _intMatFold
+    # Import the already-reloaded shared instance so _fn is consistent with
+    # opticalib.folders and iff_module._fn across all modules.
+    from opticalib.core.root import folders
+    _fn = folders
+    _ifFold = _fn.IFFUNCTIONS_ROOT_FOLDER
+    _intMatFold = _fn.INTMAT_ROOT_FOLDER
+
 _MODES_FILE = "modesVector.fits"
 _MATRIX_FILE = "cmdMatrix.fits"
 _AMP_FILE = "ampVector.fits"

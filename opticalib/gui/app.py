@@ -1337,6 +1337,12 @@ class CalpyGUI(QMainWindow):
             f"_opt.folders = _r.folders\n"
             f"import opticalib.core.read_config as _rc\n"
             f"_rc._update_imports()\n"
+            f"import opticalib.ground.osutils as _osu\n"
+            f"_osu._update_imports()\n"
+            f"import opticalib.dmutils.iff_processing as _ifp\n"
+            f"_ifp._update_imports()\n"
+            f"import opticalib.dmutils.iff_module as _ifm\n"
+            f"_ifm._update_imports()\n"
         )
         self._kernel_manager.kernel.shell.run_cell(env_cmd, silent=False)
 
