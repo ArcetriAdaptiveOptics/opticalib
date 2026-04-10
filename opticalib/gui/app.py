@@ -1312,18 +1312,35 @@ class CalpyGUI(QMainWindow):
             )
             return
 
-        # Point opticalib at the chosen configuration file
+        # Point opticalib at the chosen configuration file, then propagate the
+        # updated paths to every module that cached references at import time.
+        #
+        # Background: ``opticalib.core.root`` reads ``AOCONF`` *once* at
+        # module-import time and builds all folder paths from it.  The GUI
+        # process has already imported the package (with no ``AOCONF`` set),
+        # so ``opticalib.folders`` points at a ``_folds`` instance built from
+        # the template config.  Simply reloading ``root`` re-runs its
+        # module-level code and creates a fresh ``folders`` object with the
+        # correct paths, but the name ``opticalib.folders`` in the package
+        # namespace still refers to the *old* instance.  The lines below fix
+        # that by (1) reloading ``root``, (2) rebinding ``opticalib.folders``
+        # to the newly created instance, and (3) refreshing the cached
+        # globals inside ``read_config`` so that all config-reading helpers
+        # use the right paths too.
         env_cmd = (
             f"import os\n"
+            f"import importlib\n"
             f"os.environ['AOCONF'] = {self._config_path!r}\n"
-            f"import importlib, opticalib.core.root as _r\n"
-            f"importlib.reload(_r)"
+            f"import opticalib.core.root as _r\n"
+            f"importlib.reload(_r)\n"
+            f"import opticalib as _opt\n"
+            f"_opt.folders = _r.folders\n"
+            f"import opticalib.core.read_config as _rc\n"
+            f"_rc._update_imports()\n"
         )
-        self._kernel_manager.kernel.shell.run_cell(env_cmd, silent=False) # mod: pietro
+        self._kernel_manager.kernel.shell.run_cell(env_cmd, silent=False)
 
         # Execute the init script (equivalent to IPython -i initCalpy.py)
-        # self._execute_in_terminal(f"import os\n"
-        #                           f"os.environ['AOCONF'] = {self._config_path!r}\n")
         self._execute_in_terminal(f"%run -i {init_file!r}")
 
     def _execute_in_terminal(
