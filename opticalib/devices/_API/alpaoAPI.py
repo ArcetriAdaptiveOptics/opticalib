@@ -62,6 +62,7 @@ class BaseAlpaoMirror:
             connection failure is propagated to the caller.
         """
         self._dmCoords = {
+            'dm88': [6, 8, 10],
             "dm97": [5, 7, 9, 11],
             "dm192": [4, 8, 12, 12, 16, 16, 18],
             "dm277": [7, 9, 11, 13, 15, 17, 19],

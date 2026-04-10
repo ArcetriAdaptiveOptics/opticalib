@@ -220,6 +220,9 @@ def main():
     if args.config_path is not None:
         config_path = _resolve_config_path(args.config_path)
 
+        env = os.environ.copy()
+        env["AOCONF"] = config_path
+
         # --create (flag, no path) combined with -f: create config then continue
         if args.create is not None:
             from opticalib.core.root import create_configuration_file
@@ -247,8 +250,8 @@ def main():
                     os.path.dirname(config_path), "SysConfig", "configuration.yaml"
                 )
             print("\n Initiating IPython Shell, importing Opticalib...\n")
-            env = os.environ.copy()
-            env["AOCONF"] = config_path
+            # env = os.environ.copy()
+            # env["AOCONF"] = config_path
             # Launch IPython using the current interpreter for cross-platform compatibility
             ipython_cmd = [sys.executable, "-m", "IPython", "-i", init_file]
             subprocess.run(ipython_cmd, env=env, check=False)

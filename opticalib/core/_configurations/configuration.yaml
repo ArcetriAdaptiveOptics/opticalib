@@ -4,9 +4,6 @@
 
 SYSTEM:
   data_path: ''
-  simulated.devices:
-    dm: true
-    interferometer: true
 
 ## Devices configuration ##
 # In this section you can add the configuration of your devices.
@@ -54,7 +51,7 @@ DEVICES:
       serialNumber:
       diameter:
     PetalDM:
-      ip0:   
+      ip0: 
       ip1: 
       ip2: 
       ip3: 
