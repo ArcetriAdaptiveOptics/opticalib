@@ -147,7 +147,7 @@ with open(CONFIGURATION_FILE, "r") as _f:
     _config = _gyml.load(_f)
 
 _bdp = _config["SYSTEM"].get("data_path")
-_fallback_bdp = _os.path.join(_os.path.expanduser("~"), ".tmp_opticalib")
+_fallback_bdp = "/tmp/opticalib" #_os.path.join(_os.path.expanduser("~"), ".tmp_opticalib")
 BASE_DATA_PATH: str = _bdp if not _bdp == "" else _fallback_bdp
 
 create_folder_tree(BASE_DATA_PATH)

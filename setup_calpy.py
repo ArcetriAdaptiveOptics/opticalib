@@ -119,6 +119,8 @@ def _resolve_config_path(path: str) -> str:
     if not os.path.isabs(path):
         path = os.path.join(os.getcwd(), path)
     if ".yaml" not in path:
+        if not 'SysConfig' in path:
+            path = os.path.join(path, "SysConfig")
         path = check_dir(path)
     return path
 
@@ -181,6 +183,17 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     return parser
 
+def update_env_var(config_path: str) -> None:
+    """
+    Update the AOCONF environment variable to point to the specified config path.
+
+    Parameters
+    ----------
+    config_path : str
+        Absolute path to the configuration file to set in the environment.
+    """
+    subprocess.run('export AOCONF="{}"'.format(config_path), shell=True, check=True)
+
 
 def main():
     """
@@ -202,11 +215,6 @@ def main():
     parser = _build_parser()
     args = parser.parse_args()
 
-    # --gui with no other arguments → GUI with the default configuration
-    if args.gui and args.config_path is None and args.create is None:
-        _launch_gui(config_path=None)
-        return
-
     # -c <path> / --create <path>  (standalone: create config and exit)
     # Detected when 'create' holds a string path and no -f was given.
     if isinstance(args.create, str) and args.config_path is None:
@@ -220,8 +228,7 @@ def main():
     if args.config_path is not None:
         config_path = _resolve_config_path(args.config_path)
 
-        env = os.environ.copy()
-        env["AOCONF"] = config_path
+        update_env_var(config_path)
 
         # --create (flag, no path) combined with -f: create config then continue
         if args.create is not None:
@@ -232,9 +239,6 @@ def main():
         # --gui flag: open the graphical interface
         if args.gui:
             if not os.path.exists(config_path):
-                # When a directory (not a .yaml file) was supplied, calpy
-                # resolves the config to <dir>/SysConfig/configuration.yaml,
-                # matching the folder tree created by `calpy -c <dir>`.
                 config_path = os.path.join(
                     os.path.dirname(config_path),
                     "SysConfig",
@@ -250,8 +254,8 @@ def main():
                     os.path.dirname(config_path), "SysConfig", "configuration.yaml"
                 )
             print("\n Initiating IPython Shell, importing Opticalib...\n")
-            # env = os.environ.copy()
-            # env["AOCONF"] = config_path
+            env = os.environ.copy()
+            env["AOCONF"] = config_path
             # Launch IPython using the current interpreter for cross-platform compatibility
             ipython_cmd = [sys.executable, "-m", "IPython", "-i", init_file]
             subprocess.run(ipython_cmd, env=env, check=False)
@@ -260,11 +264,15 @@ def main():
             sys.exit(1)
         return
 
+    # --gui with no other arguments → GUI with the default configuration
+    if args.gui and args.config_path is None and args.create is None:
+        _launch_gui(config_path=None)
+        return
+
     # No arguments: plain IPython session with the default opticalib config
     subprocess.run(
         [sys.executable, "-m", "IPython", "-i", init_file], check=False
     )
-
 
 if __name__ == "__main__":
     main()

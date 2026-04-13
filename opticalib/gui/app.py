@@ -1313,18 +1313,28 @@ class CalpyGUI(QMainWindow):
             return
 
         # Point opticalib at the chosen configuration file
-        env_cmd = (
+        env_init = (
             f"import os\n"
             f"os.environ['AOCONF'] = {self._config_path!r}\n"
-            f"import importlib, opticalib.core.root as _r\n"
-            f"importlib.reload(_r)"
+            f"import importlib; import opticalib.core.root as _r\n"
+            f"importlib.reload(_r)\n"
         )
-        self._kernel_manager.kernel.shell.run_cell(env_cmd, silent=False) # mod: pietro
-
-        # Execute the init script (equivalent to IPython -i initCalpy.py)
-        # self._execute_in_terminal(f"import os\n"
-        #                           f"os.environ['AOCONF'] = {self._config_path!r}\n")
+        
+        # post-init reload to ensure the paths shows as updated in the terminal 
+        # after initCalpy runs, and to re-import any modules that may have 
+        # cached the old path.
+        post_init_reload = (
+            f"from importlib import reload; import types; gb = globals(); name=val=None\n"
+            f"for name, val in gb.items():\n"
+            f"    if isinstance(val, types.ModuleType) and 'opticalib' in name:\n"
+            f"        reload(val)\n"
+            f"del gb, reload, types\n"
+            f"from opticalib.__init_script__.initCalpy import *\n"
+        )
+        
+        self._kernel_manager.kernel.shell.run_cell(env_init, silent=True)
         self._execute_in_terminal(f"%run -i {init_file!r}")
+        self._kernel_manager.kernel.shell.run_cell(post_init_reload, silent=True)
 
     def _execute_in_terminal(
         self,

@@ -252,7 +252,7 @@ class AlpaoDm(BaseFakeAlpao):
             self._logger.info(f"Loading base shape for {self._name} from file")
             shape = osu.load_fits(
                 os.path.join(
-                    fp.SIMULATED_DM_PATH(self._name, self.nActs), f"baseShape.fits"
+                    fp.SIMULATED_DM_PATH(self._name), f"baseShape.fits"
                 )
             )
             self._shape = np.ma.masked_array(shape)
@@ -274,7 +274,7 @@ class AlpaoDm(BaseFakeAlpao):
             self._logger.info(f"Saving generated base shape for {self._name} to file")
             osu.save_fits(
                 os.path.join(
-                    fp.SIMULATED_DM_PATH(self._name, self.nActs), f"baseShape.fits"
+                    fp.SIMULATED_DM_PATH(self._name), f"baseShape.fits"
                 ),
                 self._shape,
             )
