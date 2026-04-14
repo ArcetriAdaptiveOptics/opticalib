@@ -193,7 +193,7 @@ class _4DInterferometer(_api.BaseInterferometer):
             self._rename4D(t)
             try:
                 _sh.move(
-                    _os.path.join(capture_local, "SoftwareSettings.ini"),
+                    _os.path.join(capture_local, "SoftwareSettings.4dini"),
                     dest_data_fold,
                 )
             except Exception as e:
