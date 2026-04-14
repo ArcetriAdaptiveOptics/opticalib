@@ -160,7 +160,7 @@ class _4DInterferometer(_api.BaseInterferometer):
         fold4d = _os.path.join(_folds.CAPTURE_FOLDER_NAME_4D_PC, folder_name)
         self._i4d.burstFramesToSpecificDirectory(fold4d, numberOfFrames)
         self.saveConfiguration(_os.path.join(fold4d, "SoftwareSettings.4dini"))
-        self.copy4DSettings(fold4d)
+        self.copy4DSettings(_os.path.join(_folds.CAPTURE_FOLDER_NAME_LOCAL_PC, folder_name))
         return folder_name
 
     def produce(
