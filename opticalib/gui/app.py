@@ -69,9 +69,7 @@ from qtconsole.rich_jupyter_widget import RichJupyterWidget
 # ---------------------------------------------------------------------------
 
 
-def _flatten_dict(
-    d: Dict[str, Any], parent_key: str = ""
-) -> Dict[str, Any]:
+def _flatten_dict(d: Dict[str, Any], parent_key: str = "") -> Dict[str, Any]:
     """
     Recursively flatten a nested dict into a single-level dict.
 
@@ -249,9 +247,7 @@ class PlotPanel(QFrame):
         # Image display area
         self._image_label = QLabel("No plots yet")
         self._image_label.setAlignment(Qt.AlignCenter)
-        self._image_label.setSizePolicy(
-            QSizePolicy.Expanding, QSizePolicy.Expanding
-        )
+        self._image_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self._image_label.setStyleSheet("color: gray; font-size: 14px;")
         layout.addWidget(self._image_label)
 
@@ -436,8 +432,7 @@ class DevicePanel(QGroupBox):
     }
 
     _SIM_ALPAO_CMD = (
-        "from opticalib.simulator import AlpaoDm\n"
-        "dm = AlpaoDm(nActs={})"
+        "from opticalib.simulator import AlpaoDm\n" "dm = AlpaoDm(nActs={})"
     )
     # Simulated device labels and terminal commands.
     _SIMULATED_COMMANDS: Dict[str, str] = {
@@ -448,8 +443,7 @@ class DevicePanel(QGroupBox):
         "Alpao DM 468": _SIM_ALPAO_CMD.format(468),
         "Alpao DM 820": _SIM_ALPAO_CMD.format(820),
         "M4 Demonstration Prototype": (
-            "from opticalib.simulator import DP\n"
-            "dm = DP()"
+            "from opticalib.simulator import DP\n" "dm = DP()"
         ),
         "Interferometer": (
             "from opticalib.simulator import Fake4DInterf\n"
@@ -544,15 +538,10 @@ class DevicePanel(QGroupBox):
         for dev_type, dev_name, dev_conf in devices:
             btn = QPushButton(f"Connect  {dev_name}")
             tooltip_lines = [f"Type: {dev_type}"]
-            tooltip_lines += [
-                f"  {k}: {v}"
-                for k, v in _flatten_dict(dev_conf).items()
-            ]
+            tooltip_lines += [f"  {k}: {v}" for k, v in _flatten_dict(dev_conf).items()]
             btn.setToolTip("\n".join(tooltip_lines))
             cmd = self._build_connect_command(dev_type, dev_name)
-            btn.clicked.connect(
-                lambda checked, c=cmd: self._terminal_callback(c)
-            )
+            btn.clicked.connect(lambda checked, c=cmd: self._terminal_callback(c))
             self._btn_layout.addWidget(btn)
 
     def _populate_simulated_buttons(self) -> None:
@@ -583,9 +572,7 @@ class DevicePanel(QGroupBox):
     # Command generation
     # ------------------------------------------------------------------
 
-    def _build_connect_command(
-        self, dev_type: str, dev_name: str
-    ) -> str:
+    def _build_connect_command(self, dev_type: str, dev_name: str) -> str:
         """
         Build an IPython command string that instantiates the device.
 
@@ -614,9 +601,9 @@ class DevicePanel(QGroupBox):
             if dev_name.startswith(prefix):
                 class_name = cls
                 break
-        
+
         model = self._get_device_model(dev_name)
-        
+
         if class_name:
             return (
                 f"import opticalib.devices as devices\n"
@@ -631,7 +618,7 @@ class DevicePanel(QGroupBox):
             f"print('Please instantiate {dev_name!r} manually.')"
         )
 
-    def _get_device_model(self,dev_name: str) -> str:
+    def _get_device_model(self, dev_name: str) -> str:
         """
         Get the device model from the configuration for a given device.
 
@@ -651,11 +638,11 @@ class DevicePanel(QGroupBox):
             "Processer4D",
             "Alpao",
         ]
-        
+
         EMPTY_MODELS: list[str] = [
             "PetalDM",
         ]
-        
+
         for prefix in PREFIX_MAP:
             if dev_name.startswith(prefix):
                 return dev_name.lstrip(prefix).strip()
@@ -663,7 +650,7 @@ class DevicePanel(QGroupBox):
                 return ""
 
         return dev_name.strip()
-    
+
     def _get_variable_name(self, dev_type: str):
         """
         Generate a valid Python variable name based on the device type.
@@ -686,9 +673,11 @@ class DevicePanel(QGroupBox):
         }
         return DEVICE_TO_VAR_MAP.get(dev_type.upper(), "device")
 
+
 # ---------------------------------------------------------------------------
 # Configuration dialogs
 # ---------------------------------------------------------------------------
+
 
 class ConfigViewDialog(QDialog):
     """
@@ -701,14 +690,11 @@ class ConfigViewDialog(QDialog):
     parent : QWidget, optional
         Parent widget.
     """
-    def __init__(
-        self, config_path: str, parent: Optional[QWidget] = None
-    ) -> None:
+
+    def __init__(self, config_path: str, parent: Optional[QWidget] = None) -> None:
         """Open the config file and display its content."""
         super().__init__(parent)
-        self.setWindowTitle(
-            f"Configuration – {os.path.basename(config_path)}"
-        )
+        self.setWindowTitle(f"Configuration – {os.path.basename(config_path)}")
         self.resize(700, 600)
 
         layout = QVBoxLayout(self)
@@ -728,21 +714,18 @@ class ConfigViewDialog(QDialog):
         close_btn.clicked.connect(self.accept)
         layout.addWidget(close_btn)
 
-        text_edit.textChanged.connect(
-            lambda: close_btn.setText("Save and Close")
+        text_edit.textChanged.connect(lambda: close_btn.setText("Save and Close"))
+        close_btn.clicked.connect(
+            lambda: self._save_changes(config_path, text_edit.toPlainText())
         )
         close_btn.clicked.connect(
-            lambda: self._save_changes(
-                config_path,
-                text_edit.toPlainText()
+            lambda: (
+                self.parent()._device_panel._populate_buttons()
+                if self.parent()
+                else None
             )
         )
-        close_btn.clicked.connect(
-            lambda: self.parent()._device_panel._populate_buttons() 
-            if self.parent() 
-            else None
-        )
-        
+
     def _save_changes(self, config_path: str, new_content: str) -> None:
         """
         Save the edited configuration back to disk.
@@ -764,9 +747,11 @@ class ConfigViewDialog(QDialog):
                 f"Could not save changes:\n{exc}",
             )
 
+
 # ---------------------------------------------------------------------------
-# Plugin window 
+# Plugin window
 # ---------------------------------------------------------------------------
+
 
 class PluginPanel(QGroupBox):
     """
@@ -878,15 +863,9 @@ class PluginWindowBase(QMainWindow):
         btn_load_data.clicked.connect(
             lambda: self._show_placeholder_action("Load data")
         )
-        btn_run.clicked.connect(
-            lambda: self._show_placeholder_action("Run")
-        )
-        btn_preview.clicked.connect(
-            lambda: self._show_placeholder_action("Preview")
-        )
-        btn_export.clicked.connect(
-            lambda: self._show_placeholder_action("Export")
-        )
+        btn_run.clicked.connect(lambda: self._show_placeholder_action("Run"))
+        btn_preview.clicked.connect(lambda: self._show_placeholder_action("Preview"))
+        btn_export.clicked.connect(lambda: self._show_placeholder_action("Export"))
 
         options_layout.addWidget(btn_configure, 0, 0)
         options_layout.addWidget(btn_load_data, 0, 1)
@@ -1193,9 +1172,7 @@ class CalpyGUI(QMainWindow):
         self._settings.setValue("splitter/right", self._right_splitter.sizes())
         self._settings.setValue("splitter/upper", self._upper_splitter.sizes())
 
-    def _restore_splitter_sizes(
-        self, splitter: QSplitter, settings_key: str
-    ) -> None:
+    def _restore_splitter_sizes(self, splitter: QSplitter, settings_key: str) -> None:
         """Restore one splitter's sizes from QSettings if available."""
         raw_sizes = self._settings.value(settings_key)
         if raw_sizes is None:
@@ -1257,9 +1234,7 @@ class CalpyGUI(QMainWindow):
         )
 
         # Register the figure-capture hook
-        kernel.shell.events.register(
-            "post_execute", self._on_post_execute
-        )
+        kernel.shell.events.register("post_execute", self._on_post_execute)
 
         # Build and attach the qtconsole widget
         self._kernel_client = self._kernel_manager.client()
@@ -1319,9 +1294,9 @@ class CalpyGUI(QMainWindow):
             f"import importlib; import opticalib.core.root as _r\n"
             f"importlib.reload(_r)\n"
         )
-        
-        # post-init reload to ensure the paths shows as updated in the terminal 
-        # after initCalpy runs, and to re-import any modules that may have 
+
+        # post-init reload to ensure the paths shows as updated in the terminal
+        # after initCalpy runs, and to re-import any modules that may have
         # cached the old path.
         post_init_reload = (
             f"from importlib import reload; import types; gb = globals(); name=val=None\n"
@@ -1331,7 +1306,7 @@ class CalpyGUI(QMainWindow):
             f"del gb, reload, types\n"
             f"from opticalib.__init_script__.initCalpy import *\n"
         )
-        
+
         self._kernel_manager.kernel.shell.run_cell(env_init, silent=True)
         self._execute_in_terminal(f"%run -i {init_file!r}")
         self._kernel_manager.kernel.shell.run_cell(post_init_reload, silent=True)
@@ -1416,18 +1391,14 @@ class CalpyGUI(QMainWindow):
             fig = _plt.figure(num)
             buf = io.BytesIO()
             try:
-                fig.savefig(
-                    buf, format="png", dpi=100, bbox_inches="tight"
-                )
+                fig.savefig(buf, format="png", dpi=100, bbox_inches="tight")
             except Exception:
                 continue
             buf.seek(0)
             png_bytes = buf.read()
 
             if num in self._fig_map:
-                self._plot_panel.update_figure(
-                    self._fig_map[num], png_bytes
-                )
+                self._plot_panel.update_figure(self._fig_map[num], png_bytes)
             else:
                 self._plot_panel.add_figure(png_bytes)
                 self._fig_map[num] = self._plot_panel.get_figure_count() - 1
@@ -1454,9 +1425,7 @@ class CalpyGUI(QMainWindow):
             Display label selected in the plugin dialog.
         """
         plugin_window_map = {
-            "Deformable Mirror Calibration": (
-                DeformableMirrorCalibrationWindow
-            ),
+            "Deformable Mirror Calibration": (DeformableMirrorCalibrationWindow),
             "Stitching": StitchingWindow,
             "Segments Phasing": SegmentsPhasingWindow,
             "Alignment": AlignmentWindow,
@@ -1491,9 +1460,7 @@ class CalpyGUI(QMainWindow):
         window : QMainWindow
             Plugin window that has just been closed.
         """
-        self._plugin_windows = [
-            w for w in self._plugin_windows if w is not window
-        ]
+        self._plugin_windows = [w for w in self._plugin_windows if w is not window]
 
     def _edit_config(self) -> None:
         """
@@ -1515,9 +1482,7 @@ class CalpyGUI(QMainWindow):
                 subprocess.Popen(["open", self._config_path])
             else:
                 editor = (
-                    os.environ.get("VISUAL")
-                    or os.environ.get("EDITOR")
-                    or "xdg-open"
+                    os.environ.get("VISUAL") or os.environ.get("EDITOR") or "xdg-open"
                 )
                 subprocess.Popen([editor, self._config_path])
         except Exception as exc:

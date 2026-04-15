@@ -6,6 +6,7 @@ from opticalib import typings as t
 
 f32 = xp.float
 
+
 def map_stitching(
     image_vector: t.CubeData,
     fullmask: t.ImageData,
@@ -37,11 +38,12 @@ def map_stitching(
     _zfit = ZernikeFitter(MM)
     M = len(zern2fit)
     p = xp.asarray(
-        xp.asnumpy([_zfit.makeSurface(i) for i in [[1],[1,2],[1,2,3]]]), 
-        dtype=f32
+        xp.asnumpy([_zfit.makeSurface(i) for i in [[1], [1, 2], [1, 2, 3]]]), dtype=f32
     )
     Qo = xp.tile(p, (M, 1, 1))
-    v_order = xp.reshape(xp.reshape(xp.arange(M**2, dtype=xp.int8), (M, M)).T, (1, M**2))
+    v_order = xp.reshape(
+        xp.reshape(xp.arange(M**2, dtype=xp.int8), (M, M)).T, (1, M**2)
+    )
     q = Qo * Qo[v_order[0]]
 
     print("Setting up stitching algorithm...", end="\r", flush=True)
@@ -124,7 +126,9 @@ def map_stitching(
         res = xp.zeros_like(MM, dtype=f32)
         for ki in range(M):
             res += p[ki] * c[ii, ki]
-        zzc[ii, :, :] = xp.ma.masked_array((img + res) * (-1*mm+1), mm.astype(bool), dtype=f32)
+        zzc[ii, :, :] = xp.ma.masked_array(
+            (img + res) * (-1 * mm + 1), mm.astype(bool), dtype=f32
+        )
     print(f"Removing zernike modes {zern2fit}...", end="\r", flush=False)
     ZZ = xp.ma.mean(zzc, axis=0)
     ZZ = _zfit.removeZernike(ZZ, zern2fit)

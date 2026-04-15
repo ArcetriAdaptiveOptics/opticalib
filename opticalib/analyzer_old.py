@@ -135,7 +135,7 @@ def zernikePlot(
     if zmodes is None:
         zmodes = _np.array(range(1, 11))
     if isinstance(mylist, list):
-        imgcube = createCube(mylist)
+        imgcube = createCube(mylist)  # type: ignore
     elif isinstance(mylist, _np.ma.MaskedArray):
         imgcube = mylist
     zlist = []

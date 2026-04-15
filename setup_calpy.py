@@ -119,8 +119,6 @@ def _resolve_config_path(path: str) -> str:
     if not os.path.isabs(path):
         path = os.path.join(os.getcwd(), path)
     if ".yaml" not in path:
-        if not 'SysConfig' in path:
-            path = os.path.join(path, "SysConfig")
         path = check_dir(path)
     return path
 

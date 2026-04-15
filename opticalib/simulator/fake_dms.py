@@ -251,9 +251,7 @@ class AlpaoDm(BaseFakeAlpao):
         try:
             self._logger.info(f"Loading base shape for {self._name} from file")
             shape = osu.load_fits(
-                os.path.join(
-                    fp.SIMULATED_DM_PATH(self._name), f"baseShape.fits"
-                )
+                os.path.join(fp.SIMULATED_DM_PATH(self._name), f"baseShape.fits")
             )
             self._shape = np.ma.masked_array(shape)
         except FileNotFoundError:
@@ -273,9 +271,7 @@ class AlpaoDm(BaseFakeAlpao):
             self.set_shape(cmd, modal=True)
             self._logger.info(f"Saving generated base shape for {self._name} to file")
             osu.save_fits(
-                os.path.join(
-                    fp.SIMULATED_DM_PATH(self._name), f"baseShape.fits"
-                ),
+                os.path.join(fp.SIMULATED_DM_PATH(self._name), f"baseShape.fits"),
                 self._shape,
             )
             self._actPos = np.zeros(self.nActs)
@@ -435,7 +431,7 @@ class DP(BaseFakeDp):
 
         if cmd is None:
             cmd = self.get_shape()
-            
+
             for i, (x, y) in enumerate(coords):
                 plt.annotate(
                     str(i),

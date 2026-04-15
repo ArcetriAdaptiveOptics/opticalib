@@ -66,7 +66,7 @@ class ComputeReconstructor:
         self._filtered_sv = None
 
     def run(
-        self, sv_threshold: _ot.Optional[int|float] = None, interactive: bool = False
+        self, sv_threshold: _ot.Optional[int | float] = None, interactive: bool = False
     ) -> _ot.MatrixLike:
         """
         Compute the reconstruction matrix from the interaction matrix and the image
@@ -79,12 +79,12 @@ class ComputeReconstructor:
             threshold for the singular values. Default is False.
         sv_threshold : int | float, optional
             The threshold for the singular values. If None, the function will
-            compute the pseudo-inverse of the interaction matrix. 
-            
-            If an integeris provided, it will be used an index threshold. 
-            
-            If a float is provided, it will be used as a value threshold. 
-            
+            compute the pseudo-inverse of the interaction matrix.
+
+            If an integeris provided, it will be used an index threshold.
+
+            If a float is provided, it will be used as a value threshold.
+
             Default is None.
 
         Returns
@@ -92,9 +92,11 @@ class ComputeReconstructor:
         recMat : MatrixLike
             Reconstruction matrix.
         """
-        with _xp.MemoryContext(print_report=False, ): # as ctx:
+        with _xp.MemoryContext(
+            print_report=False,
+        ):  # as ctx:
             self._logger.info("Reconstructor Computation:")
-            IM ,U, S, Vt  = self._computeIntMat()
+            IM, U, S, Vt = self._computeIntMat()
             print("Computing Recontruction matrix...")
             if interactive:
                 self._threshold = self.make_interactive_plot(self._intMat_S)
@@ -116,7 +118,7 @@ class ComputeReconstructor:
                     }
 
             threshold = S.copy()
-            threshold[self._threshold["x"]:] = 0
+            threshold[self._threshold["x"] :] = 0
             sv_inv_threshold = threshold * 0
             sv_inv_threshold[0 : self._threshold["x"]] = (
                 1 / threshold[0 : self._threshold["x"]]
@@ -124,7 +126,7 @@ class ComputeReconstructor:
             self._filtered_sv = sv_inv_threshold
             self._logger.info("Computing Reconstructor Matrix: Vt.T @ S_inv @ U.T")
             rec = _xp.asnumpy(Vt.T @ _xp.diag(sv_inv_threshold) @ U.T)
-            
+
             del IM, U, S, Vt
             gc.collect()
 
@@ -220,17 +222,21 @@ class ComputeReconstructor:
                     _xp.asnumpy(x) for x in (U, S, Vt)
                 ]
 
-                self._logger.info(f"Computed interaction matrix of shape {self._intMat.shape}")
+                self._logger.info(
+                    f"Computed interaction matrix of shape {self._intMat.shape}"
+                )
 
                 return IM, U, S, Vt
 
             except Exception as e:
-                self._logger.error(f"Error in computing interaction matrix from cube: {e}")
+                self._logger.error(
+                    f"Error in computing interaction matrix from cube: {e}"
+                )
                 raise e
-        
+
         else:
             return (
-                _xp.asarray(x, dtype=_xp.float) 
+                _xp.asarray(x, dtype=_xp.float)
                 for x in (self._intMat, self._intMat_U, self._intMat_S, self._intMat_Vt)
             )
 

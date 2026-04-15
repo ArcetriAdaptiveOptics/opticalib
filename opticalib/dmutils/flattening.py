@@ -273,7 +273,7 @@ class Flattening:
             Whether to save the computed flat command and related data. Default is True.
         setshape_kwargs : dict, optional
             Additional keyword arguments to pass to the DM's `set_shape` method when applying the command.
-        
+
         Returns
         -------
         tn : str

@@ -86,7 +86,7 @@ class Fake4DInterf:
         if zernike2remove is not None:
             self.shapeRemoval(zernike2remove)
         global _anim
-        cmap = kwargs.get("cmap", "gray")
+        cmap = kwargs.get("cmap", "turbo")
 
         self._logger.info("Going Live!")
 

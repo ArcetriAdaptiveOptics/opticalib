@@ -2,11 +2,11 @@
 SLAVING
 =======
 
-This module provides functions to compute the command vector and interaction 
-matrix of a deformable mirror with slaved actuators. 
+This module provides functions to compute the command vector and interaction
+matrix of a deformable mirror with slaved actuators.
 
 Slaving is a technique used to control a deformable mirror with a reduced number
-of command channels, by defining some actuators as "slaved" to others. The 
+of command channels, by defining some actuators as "slaved" to others. The
 slaved actuators are commanded to achieve a certain behavior, such as minimizing
 the force applied by the master actuators or achieving a zero-force configuration.
 """
@@ -78,10 +78,9 @@ def compute_slave_cmd(
             "Available methods are 'zero-force' and 'minimum-rms'."
         )
 
+
 def compute_slaved_command_matrix(
-    dm: _ot.DeformableMirrorDevice,
-    cmdmat: _ot.MatrixLike,
-    method: str = "zero-force"
+    dm: _ot.DeformableMirrorDevice, cmdmat: _ot.MatrixLike, method: str = "zero-force"
 ) -> _ot.MatrixLike:
     """
     Compute a new command matrix taking into account slaved actuators.
@@ -99,7 +98,7 @@ def compute_slaved_command_matrix(
             nearby actuators to apply more force)
         - 'minimum-rms' : minimum-RMS-force slaving, in which the slave actuators
             are set to minimize the overall force of nearby actuators.
-    
+
     Returns
     -------
     ncmdmat : MatrixLike
@@ -109,6 +108,7 @@ def compute_slaved_command_matrix(
     for jj, mode in enumerate(cmdmat.T):
         nCMDMAT[jj] = compute_slave_cmd(dm, mode, method=method)
     return _xp.asnumpy(nCMDMAT.T)
+
 
 def compute_slaved_IM(
     dm: _ot.DeformableMirrorDevice,
@@ -151,11 +151,9 @@ def compute_slaved_IM(
     zim = vt.T @ im  # zonal interaction matrix
 
     if method is not None:
-        return compute_slaved_mat(
-            dm, zim, method=method
-        )
+        return compute_slaved_mat(dm, zim, method=method)
     else:
-        _,_, mid = _get_act_roles(dm)
+        _, _, mid = _get_act_roles(dm)
         temp = vt.T[mid, :]  # mid
         nv = temp[:, mid]  # new Vt matrix slaved
         nIM = nv.T @ zim[mid, :]  # new interaction matrix

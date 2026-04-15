@@ -62,7 +62,7 @@ class BaseAlpaoMirror:
             connection failure is propagated to the caller.
         """
         self._dmCoords = {
-            'dm88': [6, 8, 10],
+            "dm88": [6, 8, 10],
             "dm97": [5, 7, 9, 11],
             "dm192": [4, 8, 12, 12, 16, 16, 18],
             "dm277": [7, 9, 11, 13, 15, 17, 19],
@@ -285,7 +285,7 @@ class BaseAlpaoMirror:
             import sys
 
             sys.path.append(join(CONFIGURATION_FOLDER, "alpao_sdk"))
-            from Lib64 import asdk  # type:ignore
+            from Lib64 import asdk  # type: ignore
         except Exception as e:
             if isinstance(e, ModuleNotFoundError):
                 raise ModuleNotFoundError(
