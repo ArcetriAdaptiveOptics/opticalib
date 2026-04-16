@@ -167,12 +167,12 @@ class _4DInterferometer(_api.BaseInterferometer):
         self._i4d.burstFramesToSpecificDirectory(fold4d, numberOfFrames)
         self.saveConfiguration(_os.path.join(fold4d, "SoftwareSettings.4dini"))
         self.copy4DSettings(
-            _os.path.join(_folds.CAPTURE_FOLDER_NAME_LOCAL_PC, folder_name)
+            _os.path.join(_folds.CAPTURE_FOLDER_NAME_LOCAL_PC, folder_name),iscapture = True
         )
         return folder_name
 
     def produce(
-        self, tn: str | list[str], load_interf_config: str | None = None
+        self, tn: str | list[str], load_interf_config: str | bool = False
     ) -> None:
         """
         Converts the interferometer's ``.rawframe`` files of a ``capture`` into
@@ -187,14 +187,23 @@ class _4DInterferometer(_api.BaseInterferometer):
         if not isinstance(tn, list):
             tn = [tn]
         for t in tn:
-            if load_interf_config is not None:
-                self.loadConfiguration(load_interf_config)
             self._logger.info(f"Producing measurements in TN = {t}.")
             produce4d = _os.path.join(_folds.PRODUCE_FOLDER_NAME_4D_PC, t)
             capture4d = _os.path.join(_folds.CAPTURE_FOLDER_NAME_4D_PC, t)
             capture_local = _os.path.join(_folds.CAPTURE_FOLDER_NAME_LOCAL_PC, t)
             produce_local = _os.path.join(_folds.PRODUCE_FOLDER_NAME_LOCAL_PC, t)
             dest_data_fold = _os.path.join(_folds.OPD_IMAGES_ROOT_FOLDER, t)
+
+            if load_interf_config:
+                if isinstance(load_interf_config, str):
+                    conf2load = load_interf_config
+                else:
+                    conf2load = _os.path.join(
+                        capture_local, 'SoftwareSettings.4dini'
+                    )
+                self._logger.info(f"Loading configuration file `{conf2load}`") 
+                self.loadConfiguration(conf2load)
+
             self._i4d.convertRawFramesInDirectoryToMeasurementsInDestinationDirectory(
                 produce4d,
                 capture4d,
@@ -208,7 +217,7 @@ class _4DInterferometer(_api.BaseInterferometer):
                 )
             except Exception as e:
                 print(e)
-            self.copy4DSettings(dest=dest_data_fold, src=capture_local)
+            self.copy4DSettings(dest=dest_data_fold, src=capture_local,iscapture=False)
 
     from contextlib import contextmanager
 
@@ -273,7 +282,7 @@ class _4DInterferometer(_api.BaseInterferometer):
         self._logger.info(f"Configuration file '{conffile}' loaded.")
 
     def copy4DSettings(
-        self, dest: str, src: str = None, copied_name: str = "CameraSettings.ini"
+        self, dest: str, src: str = None, copied_name: str = "CameraSettings.ini", iscapture = True
     ) -> None:
         """
         Copies the interferometer settings file to the specified destination.
@@ -283,9 +292,7 @@ class _4DInterferometer(_api.BaseInterferometer):
         # TODO: add check to read copied name from conf.yaml
         destination = _os.path.join(dest, copied_name)
         source = src if src is not None else _folds.SETTINGS_CONF_FILE
-        source = _os.path.join(source, copied_name)
-        print(f"{source = }")
-        print(f"{destination = }")
+        source = _os.path.join(source, copied_name) if iscapture is False else source
         _sh.copy(source, destination)
         self._logger.info(
             f"Copied 4D interferometer settings to folder '{destination}'."
