@@ -330,9 +330,9 @@ class _ModeFitter(ABC):
         surface : ImageData
             Generated modal surface.
         """
-        coeffs = get_kwargs(("coeffs", "coeff", "c"), None, kwargs)
-        mat = get_kwargs(("mat", "zm", "zmat", "matrix"), None, kwargs)
-        k_rois = get_kwargs(("rois",), None, kwargs)
+        coeffs = get_kwargs(("coeffs", "coeff", "c"), None, kwargs=kwargs)
+        mat = get_kwargs(("mat", "zm", "zmat", "matrix"), None, kwargs=kwargs)
+        k_rois = get_kwargs(("rois",), None, kwargs=kwargs)
 
         self._logger.info(
             f"Generating modal surface for modes {modes_indices} with mode {mode}"

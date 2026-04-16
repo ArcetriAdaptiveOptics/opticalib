@@ -311,7 +311,9 @@ class Flattening:
 
         self._logger.info("Acquiring starting image from interferometer...")
 
-        imgstart = img if img is not None else interf.acquire_map(nframes, rebin=self.rebin)
+        imgstart = (
+            img if img is not None else interf.acquire_map(nframes, rebin=self.rebin)
+        )
         self.loadImage2Shape(imgstart)
         self.computeRecMat(modes2discard)
         deltacmd = self.computeFlatCmd(modes2flat)

@@ -335,7 +335,12 @@ def tnRange(tn0: str, tn1: str, complete_paths: bool = False) -> list[str]:
     return tnMat
 
 
-def get_kwargs(possible_keys: tuple[str], default: _ot.Any, kwargs: dict[str, _ot.Any]):
+def get_kwargs(
+    possible_keys: tuple[str],
+    default: _ot.Any,
+    pop: bool = False,
+    kwargs: dict[str, _ot.Any] = None,
+) -> _ot.Any:
     """
     Gets a tuple of possible kwargs names for a variable and checks if it was
     passed, and in case returns it.
@@ -358,6 +363,8 @@ def get_kwargs(possible_keys: tuple[str], default: _ot.Any, kwargs: dict[str, _o
     """
     for key in possible_keys:
         if key in kwargs:
+            if pop:
+                return kwargs.pop(key)
             return kwargs[key]
     return default
 

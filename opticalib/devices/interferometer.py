@@ -33,7 +33,7 @@ class _4DInterferometer(_api.BaseInterferometer):
     def __init__(self, ip: str = None, port: int = None):
         """The constructor"""
         global _folds
-        
+
         super().__init__(self._name, ip, port)
         self._i4d = _api.I4D(self.ip, self.port)
         self._ic = _osu._InterferometerConverter()
@@ -139,16 +139,16 @@ class _4DInterferometer(_api.BaseInterferometer):
 
     def capture(self, numberOfFrames: int, folder_name: str = None) -> str:
         """
-        Acquires raw phasemaps with ther interferometer, with the set 
+        Acquires raw phasemaps with ther interferometer, with the set
         frequency.
-        
+
         Parameters
         ----------
         numberOfFrames: int
             Number of frames to acquire
         folder_name: str, optional
             Name of the folder where to saave.
-            
+
             If ``None``, a tacking number is generated.
 
         Returns
@@ -177,7 +177,7 @@ class _4DInterferometer(_api.BaseInterferometer):
         """
         Converts the interferometer's ``.rawframe`` files of a ``capture`` into
         full ``.4D`` surface maps.
-        
+
         Parameters
         ----------
         tn: str
@@ -277,8 +277,8 @@ class _4DInterferometer(_api.BaseInterferometer):
     ) -> None:
         """
         Copies the interferometer settings file to the specified destination.
-        
-        
+
+
         """
         # TODO: add check to read copied name from conf.yaml
         destination = _os.path.join(dest, copied_name)

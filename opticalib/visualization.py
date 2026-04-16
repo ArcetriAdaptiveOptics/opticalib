@@ -153,13 +153,14 @@ def cmdplot(cmd: _ot.ArrayLike, **kwargs: dict[str, _ot.Any]):
     title = kwargs.pop("title", "DM Command")
     xlabel = kwargs.pop("xlabel", "X [px]")
     ylabel = kwargs.pop("ylabel", "Y [px]")
-    c = _osu.get_kwargs(("color", "c"), default="black", kwargs=kwargs)
+    c = _osu.get_kwargs(("color", "c"), default="black", pop=True, kwargs=kwargs)
 
     fig, ax = plt.subplots()
-    l = ax.plot(cmd, "-o", linewidth=2, markersize=5, color=c, **kwargs)
+    l = ax.plot(cmd, "-o", linewidth=1, markersize=5, color=c, **kwargs)
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
     ax.set_title(title)
+    ax.grid(True, which="both", linestyle="--", linewidth=0.5, alpha=0.6)
 
     return fig, ax, l
 
