@@ -19,6 +19,7 @@ from opticalib.ground import osutils as _osu
 from opticalib.ground.logger import SystemLogger as _SL
 from opticalib.analyzer import modeRebinner as _modeRebinner
 
+global _folds
 _folds = _fn.folders
 _confReader = _fn.ConfSettingReader4D
 _OPDIMG = _folds.OPD_IMAGES_ROOT_FOLDER
@@ -31,9 +32,12 @@ class _4DInterferometer(_api.BaseInterferometer):
 
     def __init__(self, ip: str = None, port: int = None):
         """The constructor"""
+        global _folds
+        
         super().__init__(self._name, ip, port)
         self._i4d = _api.I4D(self.ip, self.port)
         self._ic = _osu._InterferometerConverter()
+        _folds._update_interf_paths()
 
     def acquire_map(
         self, nframes: int = 1, delay: int | float = 0, rebin: int = 1
@@ -135,20 +139,22 @@ class _4DInterferometer(_api.BaseInterferometer):
 
     def capture(self, numberOfFrames: int, folder_name: str = None) -> str:
         """
+        Acquires raw phasemaps with ther interferometer, with the set 
+        frequency.
+        
         Parameters
         ----------
         numberOfFrames: int
-            number of frames to acquire
-
-        Other parameters
-        ---------------
-        folder_name: string
-            if None a tacking number is generate
+            Number of frames to acquire
+        folder_name: str, optional
+            Name of the folder where to saave.
+            
+            If ``None``, a tacking number is generated.
 
         Returns
         -------
         folder_name: string
-            name of folder measurements
+            Name of folder measurements
         """
         if folder_name is None:
             folder_name = self._ts()
@@ -169,10 +175,14 @@ class _4DInterferometer(_api.BaseInterferometer):
         self, tn: str | list[str], load_interf_config: str | None = None
     ) -> None:
         """
+        Converts the interferometer's ``.rawframe`` files of a ``capture`` into
+        full ``.4D`` surface maps.
+        
         Parameters
         ----------
-        folder_name: string
-            name of folder measurements to convert
+        tn: str
+            Tracking number (or name) of the ``capture`` data folder measurements
+            to convert
         """
         if not isinstance(tn, list):
             tn = [tn]
@@ -189,9 +199,6 @@ class _4DInterferometer(_api.BaseInterferometer):
                 produce4d,
                 capture4d,
             )
-            ## prova con RSYNC
-            # _sb.run(['rsync', '-r', '4dlocalpath', 'destinationpath'])
-            ##
             _sh.move(produce_local, _folds.OPD_IMAGES_ROOT_FOLDER)
             self._rename4D(t)
             try:
@@ -201,7 +208,7 @@ class _4DInterferometer(_api.BaseInterferometer):
                 )
             except Exception as e:
                 print(e)
-            self.copy4DSettings(t)
+            self.copy4DSettings(dest=dest_data_fold, src=capture_local)
 
     from contextlib import contextmanager
 
@@ -266,15 +273,20 @@ class _4DInterferometer(_api.BaseInterferometer):
         self._logger.info(f"Configuration file '{conffile}' loaded.")
 
     def copy4DSettings(
-        self, destination: str, copied_name: str = "CameraSettings.ini"
+        self, dest: str, src: str = None, copied_name: str = "CameraSettings.ini"
     ) -> None:
         """
         Copies the interferometer settings file to the specified destination.
+        
+        
         """
-        if _osu.is_tn(destination):
-            destination = _os.path.join(_folds.OPD_IMAGES_ROOT_FOLDER, destination)
-        destination = _os.path.join(destination, copied_name)
-        _sh.copy(_folds.SETTINGS_CONF_FILE, destination)
+        # TODO: add check to read copied name from conf.yaml
+        destination = _os.path.join(dest, copied_name)
+        source = src if src is not None else _folds.SETTINGS_CONF_FILE
+        source = _os.path.join(source, copied_name)
+        print(f"{source = }")
+        print(f"{destination = }")
+        _sh.copy(source, destination)
         self._logger.info(
             f"Copied 4D interferometer settings to folder '{destination}'."
         )
