@@ -204,7 +204,7 @@ def draw_hexagonal_mask(
     return draw_polygonal_mask(shape, vertexes, masked=masked)
 
 
-def create_line_mask(
+def draw_linear_mask(
     shape: tuple[int, int],
     angle_deg: float | None = None,
     width: int = 1,

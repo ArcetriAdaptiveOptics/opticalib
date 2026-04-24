@@ -96,7 +96,7 @@ def iffDataAcquisition(
         except _oe.BufferError as be:
             print(be)
     else:
-        dm.runCmdHistory(interf, save=tn)
+        _ = dm.runCmdHistory(interf, save=tn)
     return tn
 
 
@@ -210,7 +210,7 @@ def acquirePistonData(
         except _oe.BufferError as be:
             print(be)
     else:
-        dm.runCmdHistory(interf, save=tn, differential=differential)
+        _ = dm.runCmdHistory(interf, save=tn, differential=differential)
     return tn
 
 

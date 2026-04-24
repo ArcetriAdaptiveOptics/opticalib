@@ -19,7 +19,9 @@ from opticalib.core import exceptions as _oe
 from contextlib import contextmanager as _contextmanager
 from opticalib.core.read_config import getDmIffConfig as _dmc
 from opticalib.core.root import OPD_IMAGES_ROOT_FOLDER as _opdi
-from opticalib.ground.osutils import newtn as _ts, save_fits as _sf
+from opticalib.ground.osutils import (
+    newtn as _ts, save_fits as _sf, create_data_folder as _cdf
+)
 from opticalib.ground.logger import SystemLogger as _SL
 
 
@@ -106,14 +108,15 @@ class PetalMirror(_api.BasePetalMirror, _api.base_devices.BaseDeformableMirror):
             raise _oe.MatrixError("No Command History to run!")
 
         else:
-            tn = _ts() if save is None else save
-            self._logger.info(f"Acquiring {tn} - {self.cmdHistory.shape[-1]} images")
-            print(f"{tn} - {self.cmdHistory.shape[-1]} images to go.")
+            if interf is not None:
+                if save is None:
+                    datafold, tn = _cdf(base_path=_opdi, get_tn=True)
+                else:
+                    tn = save
+                    datafold = _os.path.join(_opdi, tn)
+                print(f"{tn} - {self.cmdHistory.shape[-1]} images to go.")
 
-            # Create the Data folder
-            datafold = _os.path.join(_opdi, tn)
-            if not _os.path.exists(datafold) and interf is not None:
-                _os.mkdir(datafold)
+            self._logger.info(f"Acquiring {tn} - {self.cmdHistory.shape[-1]} images")
 
             # Getting starting position for differential commands
             s = self.get_shape()
@@ -133,6 +136,7 @@ class PetalMirror(_api.BasePetalMirror, _api.base_devices.BaseDeformableMirror):
 
             # Return to starting position
             self.set_shape(s)
+            return tn
 
 
 class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
@@ -352,6 +356,8 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
                     interf.capture(nframes - 2, save)
             self.set_shape(ins)
             self._logger.info("Command history execution completed")
+            
+            return None
         else:
             if self.cmdHistory is None:
                 raise _oe.CommandError("No Command History uploaded!")
@@ -374,6 +380,8 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
                         path = _os.path.join(datafold, f"image_{i:05d}.fits")
                         _sf(path, img)
                 self._logger.info("Command history execution completed")
+
+            return tn
 
     def _get_frame_counter(self) -> int:
         """
@@ -583,7 +591,6 @@ class AlpaoDm(_api.BaseAlpaoMirror, _api.base_devices.BaseDeformableMirror):
         self._logger = _SL(the_class=__class__)
         super().__init__(serial_number, nacts)
         self.set_zeros_to_acts()
-        self.baseDataPath = _opdi
         self.is_segmented = False
         self._slaveIds = _dmc().get("slaveIds", [])
         self._borderIds = _dmc().get("borderIds", [])
@@ -690,21 +697,28 @@ class AlpaoDm(_api.BaseAlpaoMirror, _api.base_devices.BaseDeformableMirror):
                         tn.append(img)
 
         else:
-            tn = _ts() if save is None else save
-            print(f"{tn} - {self.cmdHistory.shape[-1]} images to go.")
-            datafold = _os.path.join(_opdi, tn)
-            if not _os.path.exists(datafold) and interf is not None:
-                _os.mkdir(datafold)
+
+            if interf is not None:
+                if save is None:
+                    datafold, tn = _cdf(base_path=_opdi, get_tn=True)
+                else:
+                    tn = save
+                    datafold = _os.path.join(_opdi, tn)
+                print(f"{tn} - {self.cmdHistory.shape[-1]} images to go.")
 
             for i, cmd in enumerate(self.cmdHistory.T):
                 print(f"{i+1}/{self.cmdHistory.shape[-1]}", end="\r", flush=True)
+
                 if differential:
                     cmd = cmd + s
                 self.set_shape(cmd)
+
                 if interf is not None:
                     _time.sleep(delay)
                     img = interf.acquire_map()
                     _sf(_os.path.join(datafold, f"image_{i:05d}.fits"), img)
+
+        # get back to the starting shape
         self.set_shape(s)
         return tn
 

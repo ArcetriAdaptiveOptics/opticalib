@@ -12,6 +12,7 @@ import numpy as _np
 import time as _time
 import shutil as _sh
 import subprocess as _sb
+
 from . import _API as _api
 from opticalib import typings as _ot
 from opticalib.core import root as _fn
@@ -25,7 +26,7 @@ _confReader = _fn.ConfSettingReader4D
 _OPDIMG = _folds.OPD_IMAGES_ROOT_FOLDER
 
 
-class _4DInterferometer(_api.BaseInterferometer):
+class _4DInterferometer(_api.BaseWavefrontSensor):
     """
     Class for the 4D Laser Interferometer.
     """
@@ -33,6 +34,20 @@ class _4DInterferometer(_api.BaseInterferometer):
     def __init__(self, ip: str = None, port: int = None):
         """The constructor"""
         global _folds
+
+        if (ip and port) is None:         
+            from opticalib.core.read_config import getInterfConfig 
+
+            config = getInterfConfig(self._name)
+            ip = config["ip"]
+            port = config["port"]
+            _fn._updateInterfPaths(config["Paths"])
+        self.ip = ip
+        self.port = port
+        _folds._update_interf_paths()
+        self._logger.info(
+            f"Wavefront Sensor {self._name} initialized on address {self.ip}:{self.port}"
+        )
 
         super().__init__(self._name, ip, port)
         self._i4d = _api.I4D(self.ip, self.port)
@@ -80,6 +95,24 @@ class _4DInterferometer(_api.BaseInterferometer):
             masked_ima = _np.ma.mean(images, 2)
             masked_ima = _modeRebinner(masked_ima, rebin)
         return masked_ima
+
+    def acquireFullFrame(self, **kwargs:dict[str,_ot.Any]) -> _ot.ImageData:
+        """
+        Wrapper for the consecutive execution of `acquire_mapo` and `intoFullFrame`.
+
+        Parameters
+        ----------
+        **kwargs: dict
+            Additional keyword arguments to be passed to `acquire_map`.
+
+        Returns
+        -------
+        _ot.ImageData
+            The full frame image data.
+        """
+        img = self.acquire_map(**kwargs)
+        full_frame = self.intoFullFrame(img)
+        return full_frame
 
     def acquire_detector(
         self, nframes: int = 1, delay: int | float = 0
@@ -157,7 +190,7 @@ class _4DInterferometer(_api.BaseInterferometer):
             Name of folder measurements
         """
         if folder_name is None:
-            folder_name = self._ts()
+            folder_name = _osu.newtn()
         print(folder_name)
 
         self._logger.info(
@@ -167,7 +200,8 @@ class _4DInterferometer(_api.BaseInterferometer):
         self._i4d.burstFramesToSpecificDirectory(fold4d, numberOfFrames)
         self.saveConfiguration(_os.path.join(fold4d, "SoftwareSettings.4dini"))
         self.copy4DSettings(
-            _os.path.join(_folds.CAPTURE_FOLDER_NAME_LOCAL_PC, folder_name),iscapture = True
+            _os.path.join(_folds.CAPTURE_FOLDER_NAME_LOCAL_PC, folder_name),
+            iscapture=True,
         )
         return folder_name
 
@@ -198,10 +232,8 @@ class _4DInterferometer(_api.BaseInterferometer):
                 if isinstance(load_interf_config, str):
                     conf2load = load_interf_config
                 else:
-                    conf2load = _os.path.join(
-                        capture_local, 'SoftwareSettings.4dini'
-                    )
-                self._logger.info(f"Loading configuration file `{conf2load}`") 
+                    conf2load = _os.path.join(capture_local, "SoftwareSettings.4dini")
+                self._logger.info(f"Loading configuration file `{conf2load}`")
                 self.loadConfiguration(conf2load)
 
             self._i4d.convertRawFramesInDirectoryToMeasurementsInDestinationDirectory(
@@ -217,7 +249,7 @@ class _4DInterferometer(_api.BaseInterferometer):
                 )
             except Exception as e:
                 print(e)
-            self.copy4DSettings(dest=dest_data_fold, src=capture_local,iscapture=False)
+            self.copy4DSettings(dest=dest_data_fold, src=capture_local, iscapture=False)
 
     from contextlib import contextmanager
 
@@ -282,7 +314,11 @@ class _4DInterferometer(_api.BaseInterferometer):
         self._logger.info(f"Configuration file '{conffile}' loaded.")
 
     def copy4DSettings(
-        self, dest: str, src: str = None, copied_name: str = "CameraSettings.ini", iscapture = True
+        self,
+        dest: str,
+        src: str = None,
+        copied_name: str = "CameraSettings.ini",
+        iscapture=True,
     ) -> None:
         """
         Copies the interferometer settings file to the specified destination.

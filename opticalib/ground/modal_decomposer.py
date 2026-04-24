@@ -171,7 +171,6 @@ class _ModeFitter(ABC):
         method : str, optional
             Method used by the `CircularMask.fromMaskedArray` function. Default is 'COG'.
         """
-        self._logger.info("Creating Fitting Mask")
         import warnings
 
         with warnings.catch_warnings():
@@ -709,8 +708,8 @@ class ZernikeFitter(_ModeFitter):
 
     def __init__(self, fit_mask: _t.Optional[_t.ImageData] = None, method: str = "COG"):
         """The Initiator."""
-        self._logger = _SL(__class__)
         super().__init__(fit_mask)
+        self._logger = _SL(__class__)
 
     def removeZernike(
         self,
@@ -794,8 +793,8 @@ class KLFitter(_ModeFitter):
     ):
         """The Initiator"""
         self.nModes = nKLModes
-        self._logger = _SL(__class__)
         super().__init__(fit_mask, method)
+        self._logger = _SL(__class__)
 
     def _create_modes_generator(self, mask: _CircularMask) -> _CircularMask:
         """
@@ -858,8 +857,8 @@ class RBFitter(_ModeFitter):
         self.rbfFunction = rbfFunction
         self._coordinates = coords
         self._eps = eps
-        self._logger = _SL(__class__)
         super().__init__(fit_mask, method)
+        self._logger = _SL(__class__)
 
     def _create_modes_generator(self, mask: _CircularMask) -> _CircularMask:
         """

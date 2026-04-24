@@ -5,30 +5,10 @@ from opticalib.core.read_config import getInterfConfig
 from opticalib.core.root import _updateInterfPaths, folders as _folds
 
 
-class BaseInterferometer(ABC):
+class BaseWavefrontSensor(ABC):
     """
-    Base class for all interferometer devices.
+    Base class for all wavefront sensor devices.
     """
-
-    def __init__(self, name: str, ip: str, port: int):
-        """
-        Initializes the interferometer with a name, in order to retrieve
-        all the information from the configuration file.
-        """
-        self._name = name
-        if (ip and port) is None:
-            config = getInterfConfig(name)
-            ip = config["ip"]
-            port = config["port"]
-            _updateInterfPaths(config["Paths"])
-        self.ip = ip
-        self.port = port
-        self._logger = _logger.set_up_logger(f"{self._name}.log", 20)
-        self._logger.info(
-            f"Interferometer {self._name} initialized on addess {self.ip}:{self.port}"
-        )
-        self._ts = _newtn
-        _folds._update_interf_paths()
 
     @abstractmethod
     def acquire_map(self):
@@ -36,43 +16,7 @@ class BaseInterferometer(ABC):
         Abstract method to measure the interference pattern.
         Must be implemented by subclasses.
         """
-        pass
-
-    @abstractmethod
-    def intoFullFrame(self, img):
-        """
-        Abstract method to convert the interference pattern into a full frame image.
-        Must be implemented by subclasses.
-
-        Parameters
-        ----------
-        img: _ot.ImageData
-            The image data to be converted.
-
-        Returns
-        -------
-        _ot.ImageData
-            The full frame image data.
-        """
-        pass
-
-    def acquireFullFrame(self, **kwargs):
-        """
-        Wrapper for the consecutive execution of `acquire_mapo` and `intoFullFrame`.
-
-        Parameters
-        ----------
-        **kwargs: dict
-            Additional keyword arguments to be passed to `acquire_map`.
-
-        Returns
-        -------
-        _ot.ImageData
-            The full frame image data.
-        """
-        img = self.acquire_map(**kwargs)
-        full_frame = self.intoFullFrame(img)
-        return full_frame
+        raise NotImplementedError("Subclasses must implement acquire_map method")
 
 
 class BaseDeformableMirror(ABC):
@@ -86,7 +30,7 @@ class BaseDeformableMirror(ABC):
         Abstract method to set the shape of the deformable mirror.
         Must be implemented by subclasses.
         """
-        pass
+        raise NotImplementedError("Subclasses must implement set_shape method")
 
     @abstractmethod
     def get_shape(self):
@@ -94,7 +38,7 @@ class BaseDeformableMirror(ABC):
         Abstract method to get the shape of the deformable mirror.
         Must be implemented by subclasses.
         """
-        pass
+        raise NotImplementedError("Subclasses must implement get_shape method")
 
     @abstractmethod
     def uploadCmdHistory(self, tcmdhist):
@@ -102,7 +46,7 @@ class BaseDeformableMirror(ABC):
         Abstract method to upload the command history to the deformable mirror.
         Must be implemented by subclasses.
         """
-        pass
+        raise NotImplementedError("Subclasses must implement uploadCmdHistory method")
 
     @abstractmethod
     def runCmdHistory(self, interf, differential, save):
@@ -110,7 +54,7 @@ class BaseDeformableMirror(ABC):
         Abstract method to run the command history on the deformable mirror.
         Must be implemented by subclasses.
         """
-        pass
+        raise NotImplementedError("Subclasses must implement runCmdHistory method")
 
     def _slaveCmd(self, cmd, method: str):
         """ """

@@ -186,7 +186,7 @@ def generateZernikeMatrix(modes: int | list[int], mask: _t.MaskData):
     return ZM
 
 
-def getPetalmirrorMask(
+def getPetalmirrorMaskAndCoords(
     shape: tuple[int, int], pupil_radius: int, central_segment_radius: int | None = None
 ) -> _t.MaskData:
     """
@@ -219,9 +219,9 @@ def getPetalmirrorMask(
 
     hexagon_ring = hexagon_inner ^ hexagon_outer
 
-    line1 = geo.create_line_mask(shape, angle_deg=60, width=10)
-    line2 = geo.create_line_mask(shape, angle_deg=120, width=10)
-    line3 = geo.create_line_mask(shape, angle_deg=180, width=10)
+    line1 = geo.draw_linear_mask(shape, angle_deg=60, width=10)
+    line2 = geo.draw_linear_mask(shape, angle_deg=120, width=10)
+    line3 = geo.draw_linear_mask(shape, angle_deg=180, width=10)
 
     cross = ~(line1 ^ line2 ^ line3)
     cross[hexagon_inner == False] = True
@@ -232,8 +232,35 @@ def getPetalmirrorMask(
 
     segmask[pupil == 1] = 1
     segmask[hexagon_ring == 0] = 1
+    
+    offset = (shape[0] // 2, shape[1] // 2)
+    
+    y_act1 = np.ceil(central_segment_radius / 0.646 + offset[0]) 
+    y_act2 = np.ceil(central_segment_radius / 0.329 + offset[0])
+    
+    x_left = np.ceil((y_act2-y_act1) * np.tan(np.deg2rad(-30)) + offset[1])
+    x_right = np.ceil((y_act2-y_act1) * np.tan(np.deg2rad(30)) + offset[1])
+    
+    s0 = np.array(
+        [
+            [y_act1, offset[0]],
+            [y_act2, x_left],
+            [y_act2, x_right],
+        ]
+    )
+    
+    coords = np.zeros((18, 2))
+    
+    for jj, a in enumerate([0, 60, -60, 120, -120, 180]):
+        rotmat = np.array(
+            [
+                [np.cos(np.deg2rad(a)), -np.sin(np.deg2rad(a))],
+                [np.sin(np.deg2rad(a)), np.cos(np.deg2rad(a))],
+            ]
+        )
+        coords[jj*3:jj*3+3, :] = ((s0-offset) @ rotmat) + offset
 
-    return segmask
+    return segmask, coords
 
 
 __all__ = [

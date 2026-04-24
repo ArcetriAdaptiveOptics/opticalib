@@ -1,12 +1,196 @@
 import os
 import time
 import numpy as np
+
 from ._API import *
 from matplotlib import pyplot as plt
 from opticalib.ground import osutils as osu
 from opticalib import folders as fp, typings as _t
 from opticalib.ground.logger import SystemLogger as _SL
 from opticalib.ground.modal_decomposer import ZernikeFitter as _ZF
+
+
+class PetalMirror(BaseFakePTL):
+    """
+    Simulator for the petal deformable mirror.
+
+    Methods
+    -------
+    set_shape(command, differential=False, modal=False)
+        Applies the given command to the deformable mirror.
+    get_shape()
+        Returns the current amplitudes commanded to the dm's actuators.
+    visualize_shape(cmd=None)
+        Visualizes the command amplitudes on the mirror's actuators.
+    """
+    
+    def __init__(self):
+        self._live = False
+        self._logger = _SL(__class__)
+        super().__init__()
+        self.is_segmented = True
+        self.nSegments = 6
+        self.nActsPerSegment = 3
+        self._zern = _ZF(self._mask)
+        self.mirrorModes = None
+    
+    @property
+    def slaveIds(self) -> _t.ArrayLike:
+        """
+        Returns the list of slave actuator IDs for the deformable mirror.
+
+        Returns
+        -------
+        np.array
+            List of slave actuator IDs.
+        """
+        return self._slaveIds
+
+    @property
+    def borderIds(self) -> _t.ArrayLike:
+        """
+        Returns the list of border actuator IDs for the deformable mirror.
+
+        Returns
+        -------
+        np.array
+            List of border actuator IDs.
+        """
+        return self._borderIds
+
+    @property
+    def actCoord(self) -> _t.ArrayLike:
+        """Actuator coordinates in pixels."""
+        return self._coords.copy()
+
+    def set_shape(
+        self, command: _t.ArrayLike, differential: bool = False, modal: bool = False
+    ):
+        """
+        Applies the given command to the deformable mirror.
+
+        Parameters
+        ----------
+        command : np.array
+            Command to be applied to the deformable mirror.
+
+        differential : bool
+            If True, the command is applied differentially.
+        """
+        scaled_cmd = command * 1e-6  # scale the command units
+        self._logger.info(f"Sending mirror command to {self._name}")
+        self._mirror_command(scaled_cmd, differential)
+        if self._live:
+            time.sleep(0.15)
+            plt.pause(0.05)
+
+    def get_shape(self):
+        """
+        Returns the current amplitudes commanded to the dm's actuators.
+
+        Returns
+        -------
+        np.array
+            Current amplitudes commanded to the dm's actuators.
+        """
+        return self._actPos.copy()
+    
+    def uploadCmdHistory(self, cmdhist: _t.MatrixLike):
+        """
+        Upload the command history to the deformable mirror memory.
+        Ready to run the `runCmdHistory` method.
+        """
+        self._logger.info(
+            f"Uploading command history of shape {cmdhist.shape} to {self._name}"
+        )
+        self.cmdHistory = cmdhist
+    
+    def runCmdHistory(
+        self,
+        interf: _t.InterferometerDevice = None,
+        save: str = None,
+        rebin: int = 1,
+        differential: bool = True,
+        delay: float = 0,
+    ):
+        """
+        Runs the command history on the deformable mirror.
+
+        Parameters
+        ----------
+        interf : Interferometer
+            Interferometer object to acquire the phase map.
+        rebin : int
+            Rebinning factor for the acquired phase map.
+        modal : bool
+            If True, the command history is modal.
+        differential : bool
+            If True, the command history is applied differentially
+            to the initial shape.
+
+        Returns
+        -------
+        tn :str
+            Timestamp of the data saved.
+        """
+        if self.cmdHistory is None:
+            self._logger.error("No Command History found in memory!")
+            raise Exception("No Command History to run!")
+        else:
+            self._logger.info(
+                f"Running command history of shape {self.cmdHistory.shape}"
+            )
+
+            if interf is not None:
+                datafold, tn = osu.create_data_folder(get_tn=True)
+            else:
+                tn = save
+                datafold = os.path.join(fp.OPD_IMAGES_ROOT_FOLDER, tn)
+
+            print(f"{tn} - {self.cmdHistory.shape[-1]} images to go.")
+            s = self.get_shape()
+            if not os.path.exists(datafold):
+                os.mkdir(datafold)
+            for i, cmd in enumerate(self.cmdHistory.T):
+                print(f"{i+1}/{self.cmdHistory.shape[-1]}", end="\r", flush=True)
+                if differential:
+                    cmd = cmd + s
+                self.set_shape(cmd)
+                if interf is not None:
+                    time.sleep(delay)
+                    img = interf.acquire_map(rebin=rebin)
+                    path = os.path.join(datafold, f"image_{i:05d}.fits")
+                    osu.save_fits(path, img)
+        self.set_shape(s)
+        return tn
+
+    def visualize_shape(self, cmd: _t.ArrayLike = None):
+        """
+        Visualizes the command amplitudes on the mirror's actuators.
+
+        Parameters
+        ----------
+        cmd : np.array, optional
+            Command to be visualized on the mirror's actuators. If none, will plot
+            the current position of the actuators.
+
+        Returns
+        -------
+        np.array
+            Processed shape based on the command.
+        """
+        if cmd is None:
+            cmd = self._actPos.copy()
+        plt.figure(figsize=(7, 6))
+        size = (120 * 97) / self.nActs
+        plt.scatter(
+            self._coords[:, 0], self._coords[:, 1], c=cmd, s=size
+        )
+        plt.xlabel(r"$x$ $[px]$")
+        plt.ylabel(r"$y$ $[px]$")
+        plt.title(f"DM {self.nActs} Actuator's Coordinates")
+        plt.colorbar()
+        plt.show()
 
 
 class AlpaoDm(BaseFakeAlpao):
