@@ -12,8 +12,7 @@ SYSTEM:
 DEVICES:
   # In the wavefront sensor section can be defined any Wavefront sensor used to
   # acquire phase maps.
-  WFS:
-    null
+  WFS: null
 
   INTERFEROMETERS:
     PhaseCamX:

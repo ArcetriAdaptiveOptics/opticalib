@@ -4,7 +4,7 @@ Tests for opticalib.dmutils.dm_analysis module.
 
 import pytest
 import numpy as np
-from opticalib.dmutils import dm_analysis
+from opticalib.dmutils import get_buffer_mean_values, make_modal_base
 
 
 class TestGetBufferMeanValues:
@@ -83,7 +83,7 @@ class TestGetBufferMeanValues:
         cmds = np.random.randn(nActs, nCmds) * 1e-6
         position, position_error = self._make_position_buffers(nActs, cmds)
 
-        posMeans, cmdIds = dm_analysis.get_buffer_mean_values(
+        posMeans, cmdIds = get_buffer_mean_values(
             position, position_error, k=5, min_cmd=1e-9
         )
 
@@ -102,7 +102,7 @@ class TestGetBufferMeanValues:
             nActs, cmds, cmd_len=20, k=5
         )
 
-        posMeans, _ = dm_analysis.get_buffer_mean_values(
+        posMeans, _ = get_buffer_mean_values(
             position, position_error, k=5, min_cmd=1e-9
         )
 
@@ -117,7 +117,7 @@ class TestGetBufferMeanValues:
             nActs, cmds, cmd_len=20, k=3
         )
 
-        posMeans, _ = dm_analysis.get_buffer_mean_values(
+        posMeans, _ = get_buffer_mean_values(
             position, position_error, k=3, min_cmd=1e-9
         )
 
@@ -130,7 +130,7 @@ class TestGetBufferMeanValues:
         cmds = np.random.randn(nActs, nCmds) * 1e-6
         position, position_error = self._make_position_buffers(nActs, cmds)
 
-        posMeans, cmdIds = dm_analysis.get_buffer_mean_values(
+        posMeans, cmdIds = get_buffer_mean_values(
             position, position_error, k=5, min_cmd=1e-9
         )
 
@@ -143,7 +143,7 @@ class TestGetBufferMeanValues:
         cmds = np.random.randn(nActs, nCmds) * 1e-6
         position, position_error = self._make_position_buffers(nActs, cmds)
 
-        posMeans, cmdIds = dm_analysis.get_buffer_mean_values(
+        posMeans, cmdIds = get_buffer_mean_values(
             position, position_error, k=5, min_cmd=1e-9
         )
 

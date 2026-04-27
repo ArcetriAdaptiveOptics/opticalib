@@ -132,13 +132,12 @@ class TestGetDmConfig:
 
 class TestGetInterfConfig:
     """Test getInterfConfig function."""
-
     def test_get_interf_config_success(self, temp_dir, monkeypatch):
         """Test getting interferometer configuration successfully."""
         config_file = os.path.join(temp_dir, "configuration.yaml")
         config_data = {
             "DEVICES": {
-                "INTERFEROMETER": {"TestInterf": {"ip": "127.0.0.1", "port": 8011}}
+                "INTERFEROMETERS": {"TestInterf": {"ip": "127.0.0.1", "port": 8011}}
             }
         }
         with open(config_file, "w") as f:
@@ -153,7 +152,7 @@ class TestGetInterfConfig:
     def test_get_interf_config_not_found(self, temp_dir, monkeypatch):
         """Test getting interferometer configuration when device not found."""
         config_file = os.path.join(temp_dir, "configuration.yaml")
-        config_data = {"DEVICES": {"INTERFEROMETER": {}}}
+        config_data = {"DEVICES": {"INTERFEROMETERS": {}}}
         with open(config_file, "w") as f:
             yaml.dump(config_data, f)
 

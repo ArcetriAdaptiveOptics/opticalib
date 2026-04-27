@@ -249,7 +249,7 @@ class Flattening:
         nframes: int = 5,
         save: bool = True,
         **setshape_kwargs: dict[str, _ot.Any],
-    ) -> str:
+    ) -> _ot.Optional[str]:
         """
         Computes, applies and (optionally) saves the computed flat command to
         the DM, given the calibration's TN.
@@ -276,8 +276,9 @@ class Flattening:
 
         Returns
         -------
-        tn : str
-            Tracking number of the saved flattening data.
+        tn : str, optional
+            Tracking number of the saved flattening data. Returns ``None``
+            when ``save=False``.
         """
         # if `DM` is not present, register the one provided
         if dm is None:
@@ -311,9 +312,11 @@ class Flattening:
 
         self._logger.info("Acquiring starting image from interferometer...")
 
-        imgstart = (
-            img if img is not None else interf.acquire_map(nframes, rebin=self.rebin)
-        )
+        if img is None:
+            imgstart = interf.acquire_map(nframes, rebin=self.rebin)
+        else:
+            imgstart = img.copy()
+
         self.loadImage2Shape(imgstart)
         self.computeRecMat(modes2discard)
         deltacmd = self.computeFlatCmd(modes2flat)
@@ -326,6 +329,7 @@ class Flattening:
 
         self._lastFlatImg = interf.acquire_map(nframes, rebin=self.rebin)
 
+        fold = None
         if save:
             header = {}
             header["CALDATA"] = (self.tn, "calibration data used")
@@ -340,10 +344,11 @@ class Flattening:
             )
             fold = self.saveFlatData(cmd, header, modes2flat)
             print(f"Flat command saved in .../{'/'.join(fold.split('/')[-2:])}")
+            self._logger.info(f"Flat command and images saved in {fold}.")
+            return fold.split("/")[-1]
 
-        self._logger.info(f"Flat command and images saved in {fold}.")
-
-        return fold.split("/")[-1]
+        self._logger.info("Flat command applied without saving data.")
+        return None
 
     def load_flat_command(
         self, tn: str, apply: bool = False, **setshape_kwargs: dict[str, _ot.Any]
@@ -650,7 +655,6 @@ class Flattening:
         path = _osu.create_data_folder(_fn.FLAT_ROOT_FOLDER)
 
         for file, dat in zip(files, data):
-            print("Saving file: " + file)  # DEBUG
             _osu.save_fits(_os.path.join(path, file), dat, header=header)
 
         return path
@@ -766,7 +770,7 @@ class Flattening:
         rec : Reconstructor
             Reconstructor class.
         """
-        rec = _crec.ComputeReconstructor(self._intCube)
+        rec = _crec.ComputeReconstructor(interaction_matrix_cube=self._intCube)
         return rec
 
     def _loadFrameCenter(self):

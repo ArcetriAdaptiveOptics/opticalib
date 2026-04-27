@@ -68,27 +68,24 @@ class TestComputeReconstructor:
         cr = computerec.ComputeReconstructor(sample_cube)
         cr.run()
 
-        # The getSVD method has inverted logic: it returns if NOT all are None
-        # which means it returns if at least one is None (wrong logic)
-        # So after run(), all should be not None, so it will return None
-        # We need to access the attributes directly
         result = cr.getSVD()
-        # Due to the inverted logic bug, result will be None when SVD is computed
-        # So we check the attributes directly
+        assert result is not None
+        assert isinstance(result, tuple)
+        assert len(result) == 3
+
+        U, S, Vt = result
         assert cr._intMat_U is not None
         assert cr._intMat_S is not None
         assert cr._intMat_Vt is not None
-        assert isinstance(cr._intMat_U, np.ndarray)
-        assert isinstance(cr._intMat_S, np.ndarray)
-        assert isinstance(cr._intMat_Vt, np.ndarray)
+        assert isinstance(U, np.ndarray)
+        assert isinstance(S, np.ndarray)
+        assert isinstance(Vt, np.ndarray)
 
     def test_compute_reconstructor_get_svd_before_run(self, sample_cube):
         """Test getSVD method before running."""
         cr = computerec.ComputeReconstructor(sample_cube)
-        # Should print a message but not crash
         result = cr.getSVD()
-        # Returns None or prints message
-        assert result is None or isinstance(result, tuple)
+        assert result is None
 
     def test_compute_reconstructor_load_shape_to_flat(self, sample_cube, sample_image):
         """Test loadShape2Flat method."""
@@ -187,6 +184,25 @@ class TestComputeReconstructorInternal:
 
 class TestComputeReconstructorIntegration:
     """Integration tests for ComputeReconstructor."""
+
+    def test_run_with_matching_masks_and_empty_cache(self, sample_cube):
+        """Run must compute SVD even if image and analysis masks already match."""
+        cr = computerec.ComputeReconstructor(sample_cube)
+
+        # Reproduce flattening path: set a shape whose mask equals current analysis mask.
+        img = ma.masked_array(
+            np.zeros(sample_cube.shape[:2], dtype=np.float32),
+            mask=cr._analysisMask.copy(),
+        )
+        cr.loadShape2Flat(img)
+
+        rec = cr.run()
+
+        assert rec is not None
+        assert isinstance(rec, np.ndarray)
+        n_images = sample_cube.shape[2]
+        n_pixels = np.sum(~cr._analysisMask)
+        assert rec.shape == (n_pixels, n_images)
 
     def test_full_workflow(self, sample_cube):
         """Test full workflow: init, run, get SVD."""

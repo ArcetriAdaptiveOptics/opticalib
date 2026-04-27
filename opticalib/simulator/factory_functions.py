@@ -206,9 +206,11 @@ def getPetalmirrorMaskAndCoords(
     -------
     mask : _t.MaskData
         Petal-shaped boolean mask.
+    coords : np.ndarray
+        Coordinates of the centers of the segments in the petal-shaped mask.
     """
     if central_segment_radius is None:
-        central_segment_radius = np.ceil(0.266666666666 * pupil_radius)
+        central_segment_radius = np.ceil(0.26666667* pupil_radius)
 
     hexagon_outer = geo.draw_hexagonal_mask(
         shape, radius=central_segment_radius + 10, masked=True
@@ -234,13 +236,14 @@ def getPetalmirrorMaskAndCoords(
     segmask[hexagon_ring == 0] = 1
     
     offset = (shape[0] // 2, shape[1] // 2)
+    dr = pupil_radius - central_segment_radius
     
-    y_act1 = np.ceil(central_segment_radius / 0.646 + offset[0]) 
-    y_act2 = np.ceil(central_segment_radius / 0.329 + offset[0])
+    y_act1 = np.ceil(dr * 0.25 + offset[0] + central_segment_radius)
+    y_act2 = np.ceil(dr * 0.75 + offset[0] + central_segment_radius)
     
     x_left = np.ceil((y_act2-y_act1) * np.tan(np.deg2rad(-30)) + offset[1])
     x_right = np.ceil((y_act2-y_act1) * np.tan(np.deg2rad(30)) + offset[1])
-    
+
     s0 = np.array(
         [
             [y_act1, offset[0]],

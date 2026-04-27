@@ -148,7 +148,7 @@ with open(CONFIGURATION_FILE, "r") as _f:
 
 _bdp = _config["SYSTEM"].get("data_path")
 _fallback_bdp = (
-    "/tmp/opticalib"  # _os.path.join(_os.path.expanduser("~"), ".tmp_opticalib")
+    _os.path.join(_os.path.expanduser("~"), ".opticalib")
 )
 BASE_DATA_PATH: str = _bdp if not _bdp == "" else _fallback_bdp
 
@@ -228,13 +228,13 @@ def SIM_DATA_FILE(dmname: str, filename: str, nacts: int = None) -> str:
     """
     match filename:
         case "IF":
-            filename = f"iff_cube.fits"
+            filename = f"iff_cube"
         case "IM":
-            filename = f"int_matrix.fits"
+            filename = f"int_matrix"
         case "RM":
-            filename = f"rec_matrix.fits"
+            filename = f"rec_matrix"
         case "ZM":
-            filename = f"zern_matrix.fits"
+            filename = f"zern_matrix"
         case _:
             raise ValueError(f"Invalid filename: {filename}")
     dm_path = SIMULATED_DM_PATH(dmname, nacts)

@@ -162,7 +162,7 @@ class TestCreateLineMask:
     def test_horizontal_line(self):
         """Test creating a horizontal line mask (angle=0)."""
         shape = (100, 100)
-        mask = geometry.create_line_mask(shape, angle_deg=0, width=3)
+        mask = geometry.draw_linear_mask(shape, angle_deg=0, width=3)
 
         assert mask.shape == shape
         assert mask.dtype == bool
@@ -172,7 +172,7 @@ class TestCreateLineMask:
     def test_vertical_line(self):
         """Test creating a vertical line mask (angle=90)."""
         shape = (100, 100)
-        mask = geometry.create_line_mask(shape, angle_deg=90, width=3)
+        mask = geometry.draw_linear_mask(shape, angle_deg=90, width=3)
 
         assert mask.shape == shape
         assert mask.dtype == bool
@@ -180,7 +180,7 @@ class TestCreateLineMask:
     def test_diagonal_line(self):
         """Test creating a diagonal line mask (angle=45)."""
         shape = (100, 100)
-        mask = geometry.create_line_mask(shape, angle_deg=45, width=3)
+        mask = geometry.draw_linear_mask(shape, angle_deg=45, width=3)
 
         assert mask.shape == shape
         assert mask.dtype == bool
@@ -188,7 +188,7 @@ class TestCreateLineMask:
     def test_slope_parameter(self):
         """Test creating a line mask using slope parameter."""
         shape = (100, 100)
-        mask = geometry.create_line_mask(shape, slope=1.0, width=3)
+        mask = geometry.draw_linear_mask(shape, slope=1.0, width=3)
 
         assert mask.shape == shape
         assert mask.dtype == bool
@@ -196,23 +196,23 @@ class TestCreateLineMask:
     def test_no_angle_or_slope_raises(self):
         """Test that providing neither angle_deg nor slope raises ValueError."""
         with pytest.raises(ValueError, match="Must provide either"):
-            geometry.create_line_mask((100, 100), width=3)
+            geometry.draw_linear_mask((100, 100), width=3)
 
     def test_masked_mode(self):
-        """Test create_line_mask with masked=True inverts the mask."""
+        """Test draw_linear_mask with masked=True inverts the mask."""
         shape = (100, 100)
-        mask_normal = geometry.create_line_mask(shape, angle_deg=45, width=5)
-        mask_flipped = geometry.create_line_mask(
+        mask_normal = geometry.draw_linear_mask(shape, angle_deg=45, width=5)
+        mask_flipped = geometry.draw_linear_mask(
             shape, angle_deg=45, width=5, masked=True
         )
 
         np.testing.assert_array_equal(mask_normal, ~mask_flipped)
 
     def test_custom_center(self):
-        """Test create_line_mask with custom center point."""
+        """Test draw_linear_mask with custom center point."""
         shape = (100, 100)
         center = (30, 30)
-        mask = geometry.create_line_mask(shape, angle_deg=0, width=3, center=center)
+        mask = geometry.draw_linear_mask(shape, angle_deg=0, width=3, center=center)
 
         assert mask.shape == shape
         # The line should pass through the center row
@@ -221,8 +221,8 @@ class TestCreateLineMask:
     def test_wider_line_more_pixels(self):
         """Test that a wider line has more pixels."""
         shape = (100, 100)
-        mask_narrow = geometry.create_line_mask(shape, angle_deg=45, width=1)
-        mask_wide = geometry.create_line_mask(shape, angle_deg=45, width=10)
+        mask_narrow = geometry.draw_linear_mask(shape, angle_deg=45, width=1)
+        mask_wide = geometry.draw_linear_mask(shape, angle_deg=45, width=10)
 
         assert np.sum(mask_wide) > np.sum(mask_narrow)
 

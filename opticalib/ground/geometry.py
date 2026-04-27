@@ -94,6 +94,89 @@ def find_circular_pupil(image: _ot.ImageData, method: str = "COG") -> _ot.MaskDa
     mask = CircularMask.fromMaskedArray(image, method=method).mask()
     return mask
 
+def get_circular_pupil_radii(
+    mask: np.ndarray, pixel_size: float = 1.0, nbins: int | None = None
+) -> dict[str, float | bool | tuple[float, float]]:
+    """
+    Estimate inner and outer pupil radii from a boolean mask.
+    
+    Parameters
+    ----------
+    mask : np.ndarray
+        2D boolean array where True indicates pupil area.
+    pixel_size : float
+        Physical size of a pixel (e.g., mm/px) for scaling the output radii.
+    nbins : int or None
+        Number of radial bins for occupancy profile. If None, uses max radius.
+    
+    Returns
+    -------
+    dict[str, float | bool | tuple[float, float]]
+        Dictionary containing:
+        - 'center_xy_px': (cx, cy) center coordinates in pixels
+        - 'outer_radius': estimated outer radius in physical units
+        - 'outer_diameter': estimated outer diameter in physical units
+        - 'is_annulus': bool indicating if an inner radius was detected
+        - 'inner_radius': estimated inner radius in physical units (if annulus)
+        - 'inner_diameter': estimated inner diameter in physical units (if annulus)
+    """
+    mask = mask.astype(bool)
+    yy, xx = np.nonzero(mask)
+    if yy.size == 0:
+        raise ValueError("Empty mask")
+
+    # Center from first moments (works for disk and annulus if centered)
+    cy = yy.mean()
+    cx = xx.mean()
+
+    h, w = mask.shape
+    Y, X = np.indices((h, w))
+    r = np.hypot(X - cx, Y - cy)
+
+    # Radial occupancy profile: fraction of True pixels in each radius bin
+    if nbins is None:
+        nbins = int(np.ceil(r.max())) + 1
+    edges = np.linspace(0, r.max(), nbins + 1)
+    ridx = np.digitize(r.ravel(), edges) - 1
+    ridx = np.clip(ridx, 0, nbins - 1)
+
+    total = np.bincount(ridx, minlength=nbins)
+    inside = np.bincount(ridx, weights=mask.ravel().astype(float), minlength=nbins)
+    occ = np.divide(inside, total, out=np.zeros_like(inside), where=total > 0)
+
+    rc = 0.5 * (edges[:-1] + edges[1:])  # bin centers
+    th = 0.5
+
+    # transitions in occupancy
+    rises = np.where((occ[:-1] < th) & (occ[1:] >= th))[0]
+    falls = np.where((occ[:-1] >= th) & (occ[1:] < th))[0]
+
+    if len(rises) == 0:
+        # likely full disk touching center
+        r_in = 0.0
+    else:
+        r_in = rc[rises[0] + 1]
+
+    if len(falls) == 0:
+        # fallback: outer edge by max true radius
+        r_out = r[mask].max()
+    else:
+        r_out = rc[falls[-1] + 1]
+
+    # Decide if annulus
+    annular = r_in > (1.5 * (edges[1] - edges[0]))  # larger than ~1 bin
+
+    out = {
+        "center_xy_px": (cx, cy),
+        "outer_radius": r_out * pixel_size,
+        "outer_diameter": 2.0 * r_out * pixel_size,
+        "is_annulus": bool(annular),
+    }
+    if annular:
+        out["inner_radius"] = r_in * pixel_size
+        out["inner_diameter"] = 2.0 * r_in * pixel_size
+    return out
+
 
 def rotate_image(
     masked_img: _ot.ImageData,

@@ -91,48 +91,36 @@ class TestPixelScale:
         assert ps > 0
 
 
-class TestGetPetalmirrorMask:
+class TestgetPetalmirrorMaskAndCoords:
     """Test getPetalmirrorMask function."""
 
     def test_basic_creation(self):
         """Test basic creation of petal mirror mask."""
         shape = (200, 200)
         pupil_radius = 80
-        mask = ff.getPetalmirrorMask(shape, pupil_radius)
+        mask, coords = ff.getPetalmirrorMaskAndCoords(shape, pupil_radius)
 
         assert mask.shape == shape
         assert mask.dtype == bool
+        assert coords.shape[1] == 2
+        assert coords.shape[0] > 0
+        assert np.any(mask)
+        assert np.any(~mask)
 
     def test_with_custom_central_segment_radius(self):
         """Test petal mirror mask with custom central segment radius."""
         shape = (200, 200)
         pupil_radius = 80
         central_radius = 15
-        mask = ff.getPetalmirrorMask(shape, pupil_radius, central_radius)
+        mask, coords = ff.getPetalmirrorMaskAndCoords(shape, pupil_radius, central_radius)
 
         assert mask.shape == shape
-
-    def test_default_central_segment_radius(self):
-        """Test that default central segment radius is used when not provided."""
-        shape = (200, 200)
-        pupil_radius = 80
-        # Should not raise
-        mask = ff.getPetalmirrorMask(shape, pupil_radius)
-        assert mask is not None
-
-    def test_mask_has_mixed_values(self):
-        """Test that the petal mask has both True and False values."""
-        shape = (200, 200)
-        pupil_radius = 80
-        mask = ff.getPetalmirrorMask(shape, pupil_radius)
-
-        # Should have both True (masked) and False (valid) regions
-        assert np.any(mask)
-        assert np.any(~mask)
+        assert coords.shape[1] == 2
+        assert coords.shape[0] > 0
 
     def test_different_shapes(self):
         """Test petal mask with different image shapes."""
         for shape in [(150, 150), (200, 200), (300, 300)]:
-            mask = ff.getPetalmirrorMask(shape, pupil_radius=60)
+            mask, _ = ff.getPetalmirrorMaskAndCoords(shape, pupil_radius=60)
             assert mask.shape == shape
             assert mask.dtype == bool
