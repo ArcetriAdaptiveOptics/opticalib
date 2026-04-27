@@ -101,7 +101,7 @@ class BaseFakeAlpao(ABC):
             print(
                 f"First time simulating DM {self.nActs}. Generating influence functions..."
             )
-            self._simulate_Zonal_Iff_Acquisition()
+            self._simulate_iff()
         else:
             print(f"Loaded influence functions.")
             self._iffCube = np.ma.masked_array(
@@ -151,7 +151,7 @@ class BaseFakeAlpao(ABC):
             print(f"Loaded reconstruction matrix.")
             self.RM = osu.load_fits(_root.SIM_DATA_FILE(self._name, "RM"))
 
-    def _simulate_Zonal_Iff_Acquisition(self):
+    def _simulate_iff(self):
         """
         Simulate the influence functions by imposing 'perfect' zonal commands.
 
