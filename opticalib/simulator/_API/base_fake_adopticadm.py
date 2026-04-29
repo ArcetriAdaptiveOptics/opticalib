@@ -4,7 +4,7 @@ from opticalib.core.exceptions import CommandError
 import xupy as xp
 import numpy as np
 # from scipy.interpolate import RBFInterpolator
-from ..rbf_gpu_accelerated import RBFInterpolatorGPU as RBFInterpolator
+from ._rbf_gpu import RBFInterpolator
 
 # from scipy.interpolate import Rbf
 from opticalib import folders as fp
@@ -209,7 +209,7 @@ f"Command length {len(cmd)} does not match the number of actuators {self.nActs}.
 
 class BaseFakeDp:
 
-    def __init__(self):
+    def __init__(self, force_recompute: bool = False):
         """The constuctor"""
         dmc = _dmc()
         self._name = "AdOpticaDP"
@@ -221,7 +221,7 @@ class BaseFakeDp:
         self.cmdHistory = None
         self._shape = np.ma.masked_array(self._mask * 0, mask=self._mask, dtype=float)
         self._idx0, self._idx1 = self._get_segments_idx()
-        self._load_matrices()
+        self._load_matrices(force_recompute=force_recompute)
         self._zern = _ZF(self._mask)
         self._actPos = [np.zeros(self.nActs // 2), np.zeros(self.nActs // 2)]
         self._ccalcurve = self._getCapsensCalibration()
@@ -331,11 +331,11 @@ class BaseFakeDp:
             self._shape[idx] += np.dot(cmd_amp, self.IM[s])
             self._actPos[s] += cmd_amp
 
-    def _load_matrices(self):
+    def _load_matrices(self, force_recompute: bool = False):
         """
         Loads the required matrices for the deformable mirror's operations.
         """
-        if not os.path.exists(fp.SIM_DATA_FILE(self._name, "IF")):
+        if not os.path.exists(fp.SIM_DATA_FILE(self._name, "IF")) or force_recompute:
             print(
                 f"First time simulating {self._name}.\nGenerating influence functions..."
             )
@@ -343,14 +343,14 @@ class BaseFakeDp:
         else:
             print(f"Loaded influence functions.")
             self._iffCube = osu.load_fits(fp.SIM_DATA_FILE(self._name, "IF"))
-        self._create_int_and_rec_matrices()
-        self._create_zernike_matrix()
+        self._create_int_and_rec_matrices(force_recompute=force_recompute)
+        self._create_zernike_matrix(force_recompute=force_recompute)
 
-    def _create_zernike_matrix(self):
+    def _create_zernike_matrix(self, force_recompute: bool = False):
         """
         Create the Zernike matrix for the DM.
         """
-        if not os.path.exists(fp.SIM_DATA_FILE(self._name, "ZM")):
+        if not os.path.exists(fp.SIM_DATA_FILE(self._name, "ZM")) or force_recompute:
             n_zern = self.nActs // 2
             print("Computing Zernike matrix...")
             from ..factory_functions import generateZernikeMatrix
@@ -367,13 +367,13 @@ class BaseFakeDp:
             zms = osu.load_fits(fp.SIM_DATA_FILE(self._name, "ZM"))
             self.ZM = [zms[:, :, i] for i in range(zms.shape[-1])]
 
-    def _create_int_and_rec_matrices(self):
+    def _create_int_and_rec_matrices(self, force_recompute: bool = False):
         """
         Create the interaction matrices for the DM.
         """
         imfile = fp.SIM_DATA_FILE(self._name, "IM")
         rmfile = fp.SIM_DATA_FILE(self._name, "RM")
-        if not all([os.path.exists(imfile), os.path.exists(rmfile)]):
+        if not all([os.path.exists(imfile), os.path.exists(rmfile)]) or force_recompute:
             print("Computing interaction matrix...")
             ims = []
             rms = []
@@ -466,7 +466,7 @@ class BaseFakeDp:
                     smoothing=0.0,  # No smoothing
                     degree=1,  # Polynomial degree for TPS
                 )
-                flat_img = rbf(pix_coords)
+                flat_img = xp.asnumpy(rbf(pix_coords))
 
                 img_cube[:, :, k] = flat_img.reshape((X, Y))
             # Create a cube mask that tiles the local mirror mask for each actuator.

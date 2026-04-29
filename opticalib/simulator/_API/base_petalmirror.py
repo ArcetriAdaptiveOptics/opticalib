@@ -6,7 +6,7 @@ from .. import factory_functions as ff
 from ...core import root as _root
 from ...ground.roi import roiGenerator
 from ...ground import osutils as osu
-from scipy.interpolate import RBFInterpolator
+from ._rbf_gpu import RBFInterpolator
 
 
 class BaseFakePTL():
@@ -161,7 +161,7 @@ class BaseFakePTL():
                     smoothing=0.0,  # No smoothing
                     degree=1,  # Polynomial degree for TPS
                 )
-                flat_img = rbf(pix_coords)
+                flat_img = xp.asnumpy(rbf(pix_coords))
 
                 img_cube[:, :, k] = flat_img.reshape((X, Y))
             

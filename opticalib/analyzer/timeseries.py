@@ -427,8 +427,8 @@ def noise_pushpull(tn: str, template: list[int], zern2remove: list[int] = [1, 2,
     for i in _np.arange(len(template)):
         template = _np.ones(template[i])
         template[1::2] = -1
-        nframes2use = int(nfiles / template[i]) * template[i]
-        img = _ip.pushPullReductionAlgorithm(fl[0:nframes2use], template)
+        nframes2use = int(nfiles / template[i] * template[i])
+        img = _ip.pushPullReductionAlgorithm(fl[:nframes2use], template)
         cc = zf.fit(img, zern2remove)
         # qui fare rimuovi fit # FIXME
         resrms.append(img.std())

@@ -44,11 +44,12 @@ dedicated folder in the flat root folder.
 import os as _os
 import numpy as _np
 from opticalib import typings as _ot
+from . import iff_processing as _ifp
 from opticalib.ground import osutils as _osu
 from opticalib.core.root import folders as _fn
 from opticalib.ground import computerec as _crec
-from . import iff_processing as _ifp, slaving as _ut
 from ..ground.logger import SystemLogger as _SL
+from ..analyzer.images_processing import modeRebinner as _rebin
 
 _ts = _osu.newtn
 
@@ -313,11 +314,12 @@ class Flattening:
         self._logger.info("Acquiring starting image from interferometer...")
 
         if img is None:
-            imgstart = interf.acquire_map(nframes, rebin=self.rebin)
+            self._startImg = interf.acquire_map(nframes)
+            img2pass = _rebin(self._startImg, self.rebin)
         else:
-            imgstart = img.copy()
+            self._startImg = img2pass = img.copy()
 
-        self.loadImage2Shape(imgstart)
+        self.loadImage2Shape(img2pass)
         self.computeRecMat(modes2discard)
         deltacmd = self.computeFlatCmd(modes2flat)
         cmd = self._dm.get_shape()  # TODO: check if this is correct for DP
@@ -327,7 +329,7 @@ class Flattening:
         self._logger.info(f"Applying flat command to the {self._dm._name}")
         self._dm.set_shape(deltacmd, differential=True, **setshape_kwargs)
 
-        self._lastFlatImg = interf.acquire_map(nframes, rebin=self.rebin)
+        self._lastFlatImg = interf.acquire_map(nframes)
 
         fold = None
         if save:
@@ -631,7 +633,7 @@ class Flattening:
             "imgflat.fits",
             "modes2flat.fits",
         ]
-        imgstart = self.shape2flat.copy()
+        imgstart = self._startImg.copy()
         imgflat = self._lastFlatImg.copy()
         deltacmd = self.flatCmd.copy()
         data = [cmd, deltacmd, imgstart, imgflat, modes2flat]

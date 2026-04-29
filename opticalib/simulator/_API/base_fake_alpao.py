@@ -7,7 +7,7 @@ from ...core import root as _root
 from ...core.read_config import getDmIffConfig as _dmc
 from abc import ABC, abstractmethod
 from opticalib.ground import osutils as osu
-from scipy.interpolate import RBFInterpolator
+from ._rbf_gpu import RBFInterpolator
 
 
 class BaseFakeAlpao(ABC):
@@ -15,7 +15,7 @@ class BaseFakeAlpao(ABC):
     Base class for deformable mirrors.
     """
 
-    def __init__(self, nActs: int):
+    def __init__(self, nActs: int, force_recompute: bool = False):
         """
         Initializes the base deformable mirror with the number of actuators.
         """
@@ -93,11 +93,11 @@ class BaseFakeAlpao(ABC):
         """
         raise NotImplementedError
 
-    def _load_matrices(self):
+    def _load_matrices(self, force_recompute: bool = False):
         """
         Loads the required matrices for the deformable mirror's operations.
         """
-        if not os.path.exists(_root.SIM_DATA_FILE(self._name, "IF")):
+        if not os.path.exists(_root.SIM_DATA_FILE(self._name, "IF")) or force_recompute:
             print(
                 f"First time simulating DM {self.nActs}. Generating influence functions..."
             )
@@ -107,14 +107,14 @@ class BaseFakeAlpao(ABC):
             self._iffCube = np.ma.masked_array(
                 osu.load_fits(_root.SIM_DATA_FILE(self._name, "IF"))
             )
-        self._create_int_and_rec_matrices()
-        self._create_zernike_matrix()
+        self._create_int_and_rec_matrices(force_recompute=force_recompute)
+        self._create_zernike_matrix(force_recompute=force_recompute)
 
-    def _create_zernike_matrix(self):
+    def _create_zernike_matrix(self, force_recompute: bool = False):
         """
         Create the Zernike matrix for the DM.
         """
-        if not os.path.exists(_root.SIM_DATA_FILE(self._name, "ZM")):
+        if not os.path.exists(_root.SIM_DATA_FILE(self._name, "ZM")) or force_recompute:
             n_zern = self.nActs
             print("Computing Zernike matrix...")
             self.ZM = xp.asnumpy(generateZernikeMatrix(n_zern, self._mask))
@@ -123,7 +123,7 @@ class BaseFakeAlpao(ABC):
             print(f"Loaded Zernike matrix.")
             self.ZM = osu.load_fits(_root.SIM_DATA_FILE(self._name, "ZM"))
 
-    def _create_int_and_rec_matrices(self):
+    def _create_int_and_rec_matrices(self, force_recompute: bool = False):
         """
         Create the interaction matrices for the DM.
         """
@@ -132,7 +132,7 @@ class BaseFakeAlpao(ABC):
                 os.path.exists(_root.SIM_DATA_FILE(self._name, "IM")),
                 os.path.exists(_root.SIM_DATA_FILE(self._name, "RM")),
             ]
-        ):
+        ) or force_recompute:
             print("Computing interaction matrix...")
             im = xp.array(
                 [
@@ -191,7 +191,7 @@ class BaseFakeAlpao(ABC):
                 smoothing=0.0,  # No smoothing
                 degree=1,  # Polynomial degree for TPS
             )
-            flat_img = rbf(pix_coords)
+            flat_img = xp.asnumpy(rbf(pix_coords))
 
             img_cube[:, :, k] = flat_img.reshape((max_x, max_y))
 

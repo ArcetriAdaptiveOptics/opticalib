@@ -194,9 +194,9 @@ class PetalMirror(BaseFakePTL):
 
 class AlpaoDm(BaseFakeAlpao):
 
-    def __init__(self, nActs: int):
+    def __init__(self, nActs: int, force_recompute: bool = False):
         self._logger = _SL(__class__)
-        super(AlpaoDm, self).__init__(nActs)
+        super(AlpaoDm, self).__init__(nActs, force_recompute=force_recompute)
         self.cmdHistory = None
         self._shape = np.ma.masked_array(self._mask * 0, mask=self._mask, dtype=float)
         self._idx = np.where(self._mask == 0)
@@ -481,13 +481,13 @@ class DP(BaseFakeDp):
         Visualizes the command amplitudes on the mirror's actuators.
     """
 
-    def __init__(self):
+    def __init__(self, **kwargs: dict[str, _t.Any]):
         """
         The constructor for the DPSimulator class.
         """
         self._live = False
         self._logger = _SL(__class__)
-        super().__init__()
+        super().__init__(**kwargs)
         self.is_segmented = True
         self.nSegments = 2
         self.nActsPerSegment = 111
@@ -637,11 +637,12 @@ class DP(BaseFakeDp):
     def __repr__(self) -> str:
         return f"{self._name}(nSegments={self.nSegments}, nActsPerSegment={self.nActsPerSegment})"
 
+
 class M4AU(BaseFakeM4):
 
-    def __init__(self):
+    def __init__(self, **kwargs: dict[str, _t.Any]):
         self._logger = _SL(__class__)
-        super().__init__()
+        super().__init__(**kwargs)
 
     def __repr__(self) -> str:
         return f"{self._name}(nSegments={self.nSegments}, nActsPerSegment={self.nActsPerSegment})"

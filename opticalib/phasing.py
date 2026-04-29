@@ -261,7 +261,7 @@ class SPL:
         exptime: float
             Base exposure time of the camera in seconds
         lambda_vector : ArrayLike, optional
-            Wavelenghts vector, of wavelengths between 400 and 700 nm. If None,
+            Wavelengths vector, of wavelengths between 400 and 700 nm. If None,
             a default vector is used:
             - from 400 to 700 with 20 nm step
 
@@ -269,7 +269,7 @@ class SPL:
         nframes : int, optional
             number of frames to average for each wavelength, by default 1
         mask: MaskData | None, optional
-            Mask to apply to the measurements. By default, an ampty mask
+            Mask to apply to the measurements. By default, an empty mask
             is applied.
 
         Returns
@@ -349,7 +349,6 @@ class SPL:
         self._logger.info(f"Saved tracking number: {tn}")
 
         self._last_measure_tn = tn
-
         return tn
 
     def analysis(
