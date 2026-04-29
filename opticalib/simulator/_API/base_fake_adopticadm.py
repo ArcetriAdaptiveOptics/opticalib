@@ -1,34 +1,227 @@
 import os
+import tempfile
+from opticalib.core.exceptions import CommandError
 import xupy as xp
 import numpy as np
-from scipy.interpolate import RBFInterpolator
+# from scipy.interpolate import RBFInterpolator
+from ._rbf_gpu import RBFInterpolator
 
 # from scipy.interpolate import Rbf
 from opticalib import folders as fp
 from opticalib import typings as _t
 from opticalib.ground import geometry as geo
-from opticalib import load_fits as lf, save_fits as sf
+from opticalib.ground import osutils as osu
+from opticalib.ground import roi
 from opticalib.core.read_config import getDmIffConfig as _dmc
 from opticalib.ground.modal_decomposer import ZernikeFitter as _ZF
 
 join = os.path.join
 
 
+class BaseFakeM4:
+    
+    def __init__(self):
+        """The constuctor"""
+        ## -- DATA LOADING AND CREATION -- ##
+        self._name = "M4AU"
+        self._rootDataDir = join(os.path.dirname(__file__), "SimData")
+        self._load_m4_data()
+        self._ZM = None
+
+        ## -- DM properties -- ##
+        self.is_segmented = True
+        self.nSegments = 6
+        self.nActsPerSegment = 892
+        self.nActs = self.nActsPerSegment * self.nSegments
+        
+        ## -- INITIALIZATION -- ##
+        self.cmdHistory = None
+        self._shape = (
+            np.ma.masked_array(self._mask * 0, mask=self._mask, dtype=float)
+        ).flatten()
+        self._seg_masks = roi.roiGenerator(self._shape)
+        self._actPos = np.zeros(self.nActs)
+        self._zern = _ZF(self._mask)
+
+    @property
+    def actCoord(self) -> _t.ArrayLike:
+        """Actuator coordinates in pixels."""
+        return self._coords.copy()
+
+    @property
+    def ZM(self):
+        """Zernike matrix for the DM."""
+        if self._ZM is None:
+            import warnings
+            
+            warnings.warn(
+                f"\nThe Zernike Modal Base is not available by default for {self._name} "
+                "since it is too heavy to be stored in the repo. You can generate it with:\n"
+"""                
+    from opticalib.simulator.factory_functions import generateZernikeMatrix
+    from opticalib.simulator import M4AU
+    
+    segs_to_simulate = 6 # change that at your will
+    m4 = M4AU()
+    ZM = []
+    for mask in m4._seg_masks:
+        ZM.append(generateZernikeMatrix(m4.nActsPerSegment, mask))
+""")
+        return self._ZM
+    
+    @ZM.setter
+    def ZM(self, value: list[_t.MatrixLike]):
+        self._ZM = value
+    
+    
+    def _mirror_command(self, cmd: _t.ArrayLike, diff: bool, modal: bool):
+        """
+        Applies the given command to the deformable mirror.
+
+        Parameters
+        ----------
+        cmd : np.array
+            Command to be processed by the deformable mirror.
+
+        diff : bool
+            If True, process the command differentially.
+
+        Returns
+        -------
+        np.array
+            Processed shape based on the command.
+        """
+        if not len(cmd) == self.nActs:
+            raise CommandError(
+f"Command length {len(cmd)} does not match the number of actuators {self.nActs}."
+            )
+        
+        nsag = self.nActsPerSegment
+
+        for seg in range(self.nSegments):
+            idx = self._idx[seg]
+
+            if modal and self.ZM is not None:
+                mode_img = np.dot(self.ZM[seg], cmd[seg * nsag : (seg + 1) * nsag])
+                cmd_amp = np.dot(mode_img, self.RM[seg])
+            else:
+                cmd_amp = cmd[seg * nsag : (seg + 1) * nsag]
+
+            if not diff:
+                cmd_amp = cmd_amp - self._actPos[seg * nsag : (seg + 1) * nsag]
+
+            self._shape[idx] += np.dot(cmd_amp, self.IM[seg])
+            self._actPos[seg * nsag : (seg + 1) * nsag] += cmd_amp
+    
+
+    def _load_m4_data(self):
+        """
+        Loads the required data for M4 simulation.
+        """
+        datadict = osu.load_h5(join(self._rootDataDir, "m4_data.h5"))
+        self._mask = 1 + -1*datadict["mask"].copy().astype(bool)
+        
+        self._coords = self._scale_coords(self._mask, datadict["coordinates"])
+        self.mirrorModes = datadict["mirrorModes"].copy()
+        self.ff = datadict["FFWD"].copy()
+
+        idxs = []
+        ims = []
+
+        for sect in range(6):
+            idxs.append(datadict[f'idx{sect}'])
+            ims.append(datadict[f'IM{sect}'])
+        
+        self._idx = idxs
+        self.IM = ims
+
+        self.RM = []
+        for im in self.IM:
+            self.RM.append(
+                xp.asnumpy(
+                    xp.linalg.pinv(
+                        xp.asarray(im)
+                    )
+                )
+            )
+
+    def _scale_coords(self, mask: _t.MaskData, coords: _t.ArrayLike) -> _t.ArrayLike:
+        """
+        Scales the metric coordinates to match the mask's pixel scale and orientation.
+        """
+        shape = mask.shape
+        maskprop = geo.get_circular_pupil_radii(mask)
+        outer_radius = maskprop["outer_radius"]
+
+        # Match coords to mask orientation by rotating by 30 degrees
+        alpha = np.deg2rad(30)
+        rot_matrix = np.array(
+            [
+                [np.cos(alpha), -np.sin(alpha)], 
+                [np.sin(alpha), np.cos(alpha)]
+            ]
+        )
+        rot_coords = coords @ rot_matrix
+
+        # Scale the coords to match the mask scale
+        rot_coords *= outer_radius / np.max(np.abs(rot_coords)) 
+        rot_coords += (np.asarray(shape) / 2)
+        
+        return rot_coords
+
+    def _wavefront(self, **kwargs: dict[str, _t.Any]) -> _t.ImageData:
+        """
+        Current shape of the mirror's surface. Only used for the interferometer's
+        live viewer (see `interferometer.py`).
+
+        Parameters
+        ----------
+        **kwargs : dict, optional
+            Additional keyword arguments for customization.
+            - zernike : int ,
+                Zernike mode to be removed from the wavefront.
+            - surf : bool ,
+                If True, the shape is returned instead of
+                the wavefront.
+            - noisy : bool ,
+                If True, adds noise to the wavefront.
+
+        Returns
+        -------
+        wf : np.array
+            Phase map of the interferometer.
+        """
+        zernike = kwargs.get("zernike", None)
+        surf = kwargs.get("surf", True)
+        noisy = kwargs.get("noisy", False)
+        img = self._shape.copy().reshape(self._mask.shape)
+        if zernike is not None:
+            img = self._zern.removeZernike(img, zernike)
+        if not surf:
+            Ilambda = 632.8e-9
+            phi = np.random.uniform(-0.25 * np.pi, 0.25 * np.pi) if noisy else 0
+            wf = np.sin(2 * np.pi / Ilambda * img.copy() + phi)
+            A = np.std(img) / np.std(wf)
+            wf *= A
+            img = wf.copy()
+            del wf
+        return geo.rotate_image(img, angle_deg=-30)
+
 class BaseFakeDp:
 
-    def __init__(self):
+    def __init__(self, force_recompute: bool = False):
         """The constuctor"""
         dmc = _dmc()
         self._name = "AdOpticaDP"
-        self._rootDataDir = join(os.path.dirname(__file__), "AdOpticaData")
-        self.mirrorModes = lf(os.path.join(self._rootDataDir, "dp_cmdmat.fits"))
-        self.ff = lf(os.path.join(self._rootDataDir, "dp_ffwd.fits"))
+        self._rootDataDir = join(os.path.dirname(__file__), "SimData")
+        self.mirrorModes = osu.load_fits(os.path.join(self._rootDataDir, "dp_cmdmat.fits"))
+        self.ff = osu.load_fits(os.path.join(self._rootDataDir, "dp_ffwd.fits"))
         self.nActs = self.mirrorModes.shape[0]
         self._createDpMaskAndCoords()
         self.cmdHistory = None
         self._shape = np.ma.masked_array(self._mask * 0, mask=self._mask, dtype=float)
         self._idx0, self._idx1 = self._get_segments_idx()
-        self._load_matrices()
+        self._load_matrices(force_recompute=force_recompute)
         self._zern = _ZF(self._mask)
         self._actPos = [np.zeros(self.nActs // 2), np.zeros(self.nActs // 2)]
         self._ccalcurve = self._getCapsensCalibration()
@@ -138,26 +331,26 @@ class BaseFakeDp:
             self._shape[idx] += np.dot(cmd_amp, self.IM[s])
             self._actPos[s] += cmd_amp
 
-    def _load_matrices(self):
+    def _load_matrices(self, force_recompute: bool = False):
         """
         Loads the required matrices for the deformable mirror's operations.
         """
-        if not os.path.exists(fp.SIM_DATA_FILE(self._name, "IF")):
+        if not os.path.exists(fp.SIM_DATA_FILE(self._name, "IF")) or force_recompute:
             print(
                 f"First time simulating {self._name}.\nGenerating influence functions..."
             )
             self._simulateDP()
         else:
             print(f"Loaded influence functions.")
-            self._iffCube = lf(fp.SIM_DATA_FILE(self._name, "IF"))
-        self._create_int_and_rec_matrices()
-        self._create_zernike_matrix()
+            self._iffCube = osu.load_fits(fp.SIM_DATA_FILE(self._name, "IF"))
+        self._create_int_and_rec_matrices(force_recompute=force_recompute)
+        self._create_zernike_matrix(force_recompute=force_recompute)
 
-    def _create_zernike_matrix(self):
+    def _create_zernike_matrix(self, force_recompute: bool = False):
         """
         Create the Zernike matrix for the DM.
         """
-        if not os.path.exists(fp.SIM_DATA_FILE(self._name, "ZM")):
+        if not os.path.exists(fp.SIM_DATA_FILE(self._name, "ZM")) or force_recompute:
             n_zern = self.nActs // 2
             print("Computing Zernike matrix...")
             from ..factory_functions import generateZernikeMatrix
@@ -167,20 +360,20 @@ class BaseFakeDp:
                 zm = generateZernikeMatrix(n_zern, mask)
                 zms.append(zm)
             ZM = np.dstack(zms)
-            sf(fp.SIM_DATA_FILE(self._name, "ZM"), ZM)
+            osu.save_fits(fp.SIM_DATA_FILE(self._name, "ZM"), ZM)
             self.ZM = zms
         else:
             print(f"Loaded Zernike matrix.")
-            zms = lf(fp.SIM_DATA_FILE(self._name, "ZM"))
+            zms = osu.load_fits(fp.SIM_DATA_FILE(self._name, "ZM"))
             self.ZM = [zms[:, :, i] for i in range(zms.shape[-1])]
 
-    def _create_int_and_rec_matrices(self):
+    def _create_int_and_rec_matrices(self, force_recompute: bool = False):
         """
         Create the interaction matrices for the DM.
         """
         imfile = fp.SIM_DATA_FILE(self._name, "IM")
         rmfile = fp.SIM_DATA_FILE(self._name, "RM")
-        if not all([os.path.exists(imfile), os.path.exists(rmfile)]):
+        if not all([os.path.exists(imfile), os.path.exists(rmfile)]) or force_recompute:
             print("Computing interaction matrix...")
             ims = []
             rms = []
@@ -196,16 +389,16 @@ class BaseFakeDp:
                 rms.append(xp.asnumpy(xp.linalg.pinv(im)))
             im = xp.dstack(ims)
             self.IM = [xp.asnumpy(ifm) for ifm in ims]
-            sf(imfile, im)
+            osu.save_fits(imfile, im)
             print("Computing reconstruction matrix...")
             self.RM = [rm for rm in rms]
-            sf(rmfile, np.dstack(rms))
+            osu.save_fits(rmfile, np.dstack(rms))
         else:
             print(f"Loaded interaction matrix.")
-            ims = lf(imfile)
+            ims = osu.load_fits(imfile)
             self.IM = [ims[:, :, i] for i in range(ims.shape[-1])]
             print(f"Loaded reconstruction matrix.")
-            rms = lf(rmfile)
+            rms = osu.load_fits(rmfile)
             self.RM = [rms[:, :, i] for i in range(rms.shape[-1])]
 
     def _getCapsensCalibration(self):
@@ -273,7 +466,7 @@ class BaseFakeDp:
                     smoothing=0.0,  # No smoothing
                     degree=1,  # Polynomial degree for TPS
                 )
-                flat_img = rbf(pix_coords)
+                flat_img = xp.asnumpy(rbf(pix_coords))
 
                 img_cube[:, :, k] = flat_img.reshape((X, Y))
             # Create a cube mask that tiles the local mirror mask for each actuator.
@@ -283,14 +476,14 @@ class BaseFakeDp:
             # Save the cube to a FITS file.
         iffcubes = np.ma.stack(iffcubes, axis=3)
         fits_file = fp.SIM_DATA_FILE(self._name, "IF")
-        sf(fits_file, iffcubes)
+        osu.save_fits(fits_file, iffcubes)
         self._iffCube = iffcubes
 
     def _createDpMaskAndCoords(self) -> tuple[_t.MaskData, _t.ArrayLike]:
         """
         Creates the mask and the actuator pixel coordinates for the DP
         """
-        dp_coords = lf(join(self._rootDataDir, "dp_coords.fits"))
+        dp_coords = osu.load_fits(join(self._rootDataDir, "dp_coords.fits"))
 
         # Get DP's shape vertex coordinates (only 1 segment)
 

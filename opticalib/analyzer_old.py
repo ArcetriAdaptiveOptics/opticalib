@@ -15,18 +15,12 @@ Description
 
 """
 
-from ast import Not
 import os as _os
-import xupy as _xp
 import numpy as _np
-import jdcal as _jdcal
-import matplotlib.pyplot as _plt
 from . import typings as _ot
-from .ground import modal_decomposer as zern
 from .ground import osutils as osu
-from .core import root as _foldname, fitsarray as _fa
-from .ground.geo import qpupil as _qpupil
-from scipy import stats as _stats, fft as _fft, ndimage as _ndimage
+from .core import root as _foldname
+from .ground import modal_decomposer as zern
 
 _OPDSER = _foldname.OPD_SERIES_ROOT_FOLDER
 

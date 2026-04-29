@@ -110,13 +110,13 @@ class BaseAlpaoMirror:
 
         Raises
         ------
-        ValueError
+        CommandError
             If the length of *cmd* does not match the number of
             actuators.
         """
         cmd = _np.asarray(cmd, dtype=float)
         if cmd.size != self.nActs:
-            raise ValueError(
+            raise CommandError(
                 f"Command length {cmd.size} does not match the number "
                 f"of actuators ({self.nActs})."
             )
@@ -271,28 +271,47 @@ class BaseAlpaoMirror:
         RuntimeError
             If neither *serial_number* nor *nacts* is provided.
         """
-        if serial_number is None and nacts is not None:
-            name = f"Alpao{int(nacts)}"
-            config = getDmConfig(name)
-            serial_number = config.get("serialNumber")
-        elif (serial_number, nacts) == (None, None):
+        name = f"Alpao{int(nacts)}"
+        config = getDmConfig(name)
+        serial_number = config.get("serialNumber", serial_number)
+        nacts = config.get("nActs", nacts)
+        sdkp = config.get("sdk_path", None)
+        
+        if (serial_number, nacts) == (None, None):
             raise RuntimeError("Either 'serial_number' or 'nacts' must be provided.")
+        
         self.serial_number = serial_number
+        self.nacts = nacts
 
         try:
             from ...core.root import CONFIGURATION_FOLDER
-            from os.path import join
+            import os
             import sys
+            
+            sdk_path = sdkp or os.path.join(CONFIGURATION_FOLDER, "alpao_sdk")
+            
+            if sdkp is not None and not os.path.exists(sdkp):
+                sdk_path = os.path.join(CONFIGURATION_FOLDER, sdkp)
+            
+            if not os.path.exists(sdk_path):
+                raise FileNotFoundError(
+                    f"SDK path '{sdk_path}' does not exist. "
+                    f"Ensure you either point to the {self.serial_number} Lib64 "
+                    f"folder in the configuration file or to place it in the experiment's "
+                    f"'.../SysConfig/alpao_sdk/<Lib64>'."
+                )
 
-            sys.path.append(join(CONFIGURATION_FOLDER, "alpao_sdk"))
+            sys.path.insert(0, sdk_path)
+
             from Lib64 import asdk  # type: ignore
+
         except Exception as e:
+
             if isinstance(e, ModuleNotFoundError):
                 raise ModuleNotFoundError(
                     "The 'asdk' module (Alpao SDK) is not installed or "
-                    "not found in the configuration folder."
-                    f"\nEnsure to have put your {self.serial_number} Lib64 folder"
-                    "in your `.../SysConfig/alpao_sdk/` folder."
+                    "not found in the specified path."
+                    f"Path: '{sdk_path}'"
                 ) from e
             else:
                 raise e

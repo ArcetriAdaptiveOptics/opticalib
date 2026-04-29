@@ -26,10 +26,14 @@ from . import flattening, iff_module, iff_processing
 from .flattening import Flattening
 from .iff_acquisition_preparation import IFFCapturePreparation
 
+from ._misc import *
+
 __all__ = [
     "Flattening",
     "IFFCapturePreparation",
     "iff_module",
     "iff_processing",
     "flattening",
+    "make_modal_base",
+    "get_buffer_mean_values",
 ]

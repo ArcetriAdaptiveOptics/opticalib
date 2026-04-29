@@ -236,10 +236,50 @@ class TestFlattening:
         f.loadImage2Shape(mock_interferometer.acquire_map())
         f.computeRecMat(threshold=5)
 
-        f.applyFlatCommand(mock_dm, mock_interferometer, modes2flat=5, nframes=1)
+        flat_tn = f.applyFlatCommand(
+            mock_dm, mock_interferometer, modes2flat=5, nframes=1
+        )
+
+        assert isinstance(flat_tn, str)
+        assert len(flat_tn) > 0
 
         # Verify interferometer was called
         assert mock_interferometer.acquire_map.call_count >= 2
         # Verify DM was called
         mock_dm.get_shape.assert_called()
         mock_dm.set_shape.assert_called()
+
+    def test_apply_flat_command_without_saving(
+        self,
+        sample_int_matrix_folder,
+        mock_dm,
+        mock_interferometer,
+        sample_image,
+    ):
+        """Test applying flat command with save=False does not save data."""
+        tn, _ = sample_int_matrix_folder
+
+        mock_dm._name = "TestDM"
+        mock_dm.nActs = 100
+        mock_dm.get_force.return_value = np.ones(mock_dm.nActs)
+        mock_dm.get_shape.return_value = np.zeros(mock_dm.nActs)
+        mock_dm.set_shape.return_value = None
+
+        mock_interferometer._name = "TestInterferometer"
+        mock_interferometer.acquire_map.return_value = sample_image
+
+        f = flt.Flattening(tn)
+        f.loadImage2Shape(sample_image)
+        f.computeRecMat(threshold=5)
+
+        with patch.object(f, "saveFlatData") as mocked_save:
+            out = f.applyFlatCommand(
+                mock_dm,
+                mock_interferometer,
+                modes2flat=5,
+                nframes=1,
+                save=False,
+            )
+
+        assert out is None
+        mocked_save.assert_not_called()

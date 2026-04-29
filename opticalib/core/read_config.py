@@ -112,7 +112,7 @@ def getDeviceConfig(device_type: str, device_name: str | None = None):
     Parameters
     ----------
     device_type : str
-        Type of the device (e.g., 'CAMERAS', 'DEFORMABLE.MIRRORS', 'INTERFEROMETER').
+        Type of the device (e.g., 'CAMERAS', 'DEFORMABLE.MIRRORS', 'WFS').
     device_name : str | None
         Name of the device. If None, returns the configuration for all devices of the specified type.
 
@@ -436,7 +436,7 @@ def getCamerasConfig(device_name: str = None):
     return config
 
 
-def getDmConfig(device_name: str):
+def getDmConfig(device_name: str) -> dict[str,_Any]:
     """
     Retrieves the DM address from the YAML configuration file.
 
@@ -447,10 +447,8 @@ def getDmConfig(device_name: str):
 
     Returns
     -------
-    ip : str
-        DM ip address.
-    port : int
-        DM port.
+    config : dict
+        DM dictionary containing the defined requested device in the configuration file.
     """
     try:
         config = (load_yaml_config(_cfile))["DEVICES"]["DEFORMABLE.MIRRORS"][
@@ -463,17 +461,17 @@ def getDmConfig(device_name: str):
 
 def getInterfConfig(device_name: str):
     """
-    Retrieves the interferometer address from the YAML configuration file.
+    Retrieves the wavefront sensor address from the YAML configuration file.
 
     Returns
     -------
     ip : str
-        Interferometer ip address.
+        Wavefront sensor ip address.
     port : int
-        Interferometer port.
+        Wavefront sensor port.
     """
     try:
-        config = (load_yaml_config(_cfile))["DEVICES"]["INTERFEROMETER"][device_name]
+        config = (load_yaml_config(_cfile))["DEVICES"]['INTERFEROMETERS'][device_name]
     except KeyError:
         raise DeviceNotFoundError(device_name)
     return config

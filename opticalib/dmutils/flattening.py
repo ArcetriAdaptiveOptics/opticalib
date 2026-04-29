@@ -44,11 +44,12 @@ dedicated folder in the flat root folder.
 import os as _os
 import numpy as _np
 from opticalib import typings as _ot
+from . import iff_processing as _ifp
 from opticalib.ground import osutils as _osu
 from opticalib.core.root import folders as _fn
 from opticalib.ground import computerec as _crec
-from . import iff_processing as _ifp, slaving as _ut
 from ..ground.logger import SystemLogger as _SL
+from ..analyzer.images_processing import modeRebinner as _rebin
 
 _ts = _osu.newtn
 
@@ -249,7 +250,7 @@ class Flattening:
         nframes: int = 5,
         save: bool = True,
         **setshape_kwargs: dict[str, _ot.Any],
-    ) -> str:
+    ) -> _ot.Optional[str]:
         """
         Computes, applies and (optionally) saves the computed flat command to
         the DM, given the calibration's TN.
@@ -276,8 +277,9 @@ class Flattening:
 
         Returns
         -------
-        tn : str
-            Tracking number of the saved flattening data.
+        tn : str, optional
+            Tracking number of the saved flattening data. Returns ``None``
+            when ``save=False``.
         """
         # if `DM` is not present, register the one provided
         if dm is None:
@@ -311,10 +313,13 @@ class Flattening:
 
         self._logger.info("Acquiring starting image from interferometer...")
 
-        imgstart = (
-            img if img is not None else interf.acquire_map(nframes, rebin=self.rebin)
-        )
-        self.loadImage2Shape(imgstart)
+        if img is None:
+            self._startImg = interf.acquire_map(nframes)
+            img2pass = _rebin(self._startImg, self.rebin)
+        else:
+            self._startImg = img2pass = img.copy()
+
+        self.loadImage2Shape(img2pass)
         self.computeRecMat(modes2discard)
         deltacmd = self.computeFlatCmd(modes2flat)
         cmd = self._dm.get_shape()  # TODO: check if this is correct for DP
@@ -324,8 +329,9 @@ class Flattening:
         self._logger.info(f"Applying flat command to the {self._dm._name}")
         self._dm.set_shape(deltacmd, differential=True, **setshape_kwargs)
 
-        self._lastFlatImg = interf.acquire_map(nframes, rebin=self.rebin)
+        self._lastFlatImg = interf.acquire_map(nframes)
 
+        fold = None
         if save:
             header = {}
             header["CALDATA"] = (self.tn, "calibration data used")
@@ -340,10 +346,11 @@ class Flattening:
             )
             fold = self.saveFlatData(cmd, header, modes2flat)
             print(f"Flat command saved in .../{'/'.join(fold.split('/')[-2:])}")
+            self._logger.info(f"Flat command and images saved in {fold}.")
+            return fold.split("/")[-1]
 
-        self._logger.info(f"Flat command and images saved in {fold}.")
-
-        return fold.split("/")[-1]
+        self._logger.info("Flat command applied without saving data.")
+        return None
 
     def load_flat_command(
         self, tn: str, apply: bool = False, **setshape_kwargs: dict[str, _ot.Any]
@@ -626,7 +633,7 @@ class Flattening:
             "imgflat.fits",
             "modes2flat.fits",
         ]
-        imgstart = self.shape2flat.copy()
+        imgstart = self._startImg.copy()
         imgflat = self._lastFlatImg.copy()
         deltacmd = self.flatCmd.copy()
         data = [cmd, deltacmd, imgstart, imgflat, modes2flat]
@@ -650,7 +657,6 @@ class Flattening:
         path = _osu.create_data_folder(_fn.FLAT_ROOT_FOLDER)
 
         for file, dat in zip(files, data):
-            print("Saving file: " + file)  # DEBUG
             _osu.save_fits(_os.path.join(path, file), dat, header=header)
 
         return path
@@ -766,7 +772,7 @@ class Flattening:
         rec : Reconstructor
             Reconstructor class.
         """
-        rec = _crec.ComputeReconstructor(self._intCube)
+        rec = _crec.ComputeReconstructor(interaction_matrix_cube=self._intCube)
         return rec
 
     def _loadFrameCenter(self):

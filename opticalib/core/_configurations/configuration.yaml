@@ -10,15 +10,17 @@ SYSTEM:
 # Follow the examples provided below, as they show the type of
 # devices implemented as of now.
 DEVICES:
-  # In the interferometer section can be defined any Wavefront sensor used to
+  # In the wavefront sensor section can be defined any Wavefront sensor used to
   # acquire phase maps.
-  INTERFEROMETER:
+  WFS: null
+
+  INTERFEROMETERS:
     PhaseCamX:
       ip: 
       port: 
       Paths:
         settings: 
-        copied_settings: 
+          copied_settings: 
         capture_4dpc: 
         produce_4dpc: 
         produce: 

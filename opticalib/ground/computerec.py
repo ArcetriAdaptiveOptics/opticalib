@@ -56,7 +56,7 @@ class ComputeReconstructor:
         self._intMat = None
 
         # Initialization w/ IM computation
-        self.loadInteractionCube(interaction_matrix_cube, tn)
+        self.loadInteractionCube(intCube=interaction_matrix_cube, tn=tn)
         self._setAnalysisMask()
 
         self._intMat_U = None
@@ -132,7 +132,9 @@ class ComputeReconstructor:
 
         return rec
 
-    def getSVD(self):
+    def getSVD(
+        self,
+    ) -> _ot.Optional[tuple[_ot.MatrixLike, _ot.ArrayLike, _ot.MatrixLike]]:
         """
         Returns the SVD components of the interaction matrix.
 
@@ -145,12 +147,12 @@ class ComputeReconstructor:
         Vt : MatrixLike
             Right singular vectors transposed.
         """
-        if not all(
+        if all(
             [x is not None for x in (self._intMat_U, self._intMat_S, self._intMat_Vt)]
         ):
             return self._intMat_U, self._intMat_S, self._intMat_Vt
-        else:
-            print("SVD has not been computed yet. Run the 'run' method first.")
+        print("SVD has not been computed yet. Run the 'run' method first.")
+        return None
 
     def loadShape2Flat(self, img: _ot.ImageData) -> "ComputeReconstructor":
         """
@@ -195,13 +197,22 @@ class ComputeReconstructor:
         self._setAnalysisMask()
         return self
 
-    def _computeIntMat(self) -> _ot.MatrixLike:
+    def _computeIntMat(
+        self
+    ) -> tuple[_ot.MatrixLike, _ot.MatrixLike, _ot.ArrayLike, _ot.MatrixLike]:
         """
         Subroutine which computes the interaction matrix and it's SVD, and stores
         it in class variables.
         """
 
-        if not _np.array_equal(self._imgMask, self._analysisMask):
+        # Recompute if mask changed, or if cached matrices are not initialized yet.
+        mask_changed = not _np.array_equal(self._imgMask, self._analysisMask)
+        cache_ready = all(
+            x is not None
+            for x in (self._intMat, self._intMat_U, self._intMat_S, self._intMat_Vt)
+        )
+
+        if mask_changed or not cache_ready:
             self._logger.info(
                 f"Computing interaction matrix from cube of size {self._intMatCube.shape}"
             )
@@ -234,11 +245,10 @@ class ComputeReconstructor:
                 )
                 raise e
 
-        else:
-            return (
-                _xp.asarray(x, dtype=_xp.float)
-                for x in (self._intMat, self._intMat_U, self._intMat_S, self._intMat_Vt)
-            )
+        return tuple(
+            _xp.asarray(x, dtype=_xp.float)
+            for x in (self._intMat, self._intMat_U, self._intMat_S, self._intMat_Vt)
+        )
 
     def _setAnalysisMask(self) -> _ot.MaskData:
         """
