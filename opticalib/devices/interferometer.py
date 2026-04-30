@@ -232,8 +232,15 @@ class _4DInterferometer(_api.BaseWavefrontSensor):
                 if isinstance(load_interf_config, str):
                     conf2load = load_interf_config
                 else:
+<<<<<<< Updated upstream
                     conf2load = _os.path.join(capture_local, "SoftwareSettings.4dini")
                 self._logger.info(f"Loading configuration file `{conf2load}`")
+=======
+                    conf2load = _os.path.join(
+                        capture4d, 'SoftwareSettings.4dini'
+                    )
+                self._logger.info(f"Loading configuration file `{conf2load}`") 
+>>>>>>> Stashed changes
                 self.loadConfiguration(conf2load)
 
             self._i4d.convertRawFramesInDirectoryToMeasurementsInDestinationDirectory(
