@@ -111,7 +111,7 @@ def get_buffer_mean_values(
         filt_ids.append(ids[-1])
         cmd_ids.append(filt_ids)
 
-    cmd_ids = _np.array(cmd_ids, dtype=int)
+    cmd_ids = _np.asarray(cmd_ids, dtype=int)
     cmd_ids = cmd_ids[:, 3:]  # remove trigger
 
     minCmdLen = _np.min(cmd_ids[:, 1:] - cmd_ids[:, :-1])
