@@ -48,8 +48,6 @@ class _4DInterferometer(_api.BaseWavefrontSensor):
         self._logger.info(
             f"Wavefront Sensor {self._name} initialized on address {self.ip}:{self.port}"
         )
-
-        super().__init__(self._name, ip, port)
         self._i4d = _api.I4D(self.ip, self.port)
         self._ic = _osu._InterferometerConverter()
         _folds._update_interf_paths()
