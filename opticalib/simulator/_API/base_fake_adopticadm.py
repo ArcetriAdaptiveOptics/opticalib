@@ -334,7 +334,7 @@ class BaseFakeDp:
         """
         Loads the required matrices for the deformable mirror's operations.
         """
-        if not os.path.exists(fp.SIM_DATA_FILE(self._name, "IF")) or force_recompute:
+        if not os.path.exists(fp.SIM_DATA_FILE(self._name, "IF")+'.fits') or force_recompute:
             print(
                 f"First time simulating {self._name}.\nGenerating influence functions..."
             )
@@ -349,7 +349,7 @@ class BaseFakeDp:
         """
         Create the Zernike matrix for the DM.
         """
-        if not os.path.exists(fp.SIM_DATA_FILE(self._name, "ZM")) or force_recompute:
+        if not os.path.exists(fp.SIM_DATA_FILE(self._name, "ZM")+'.fits') or force_recompute:
             n_zern = self.nActs // 2
             print("Computing Zernike matrix...")
             from ..factory_functions import generateZernikeMatrix
@@ -370,8 +370,8 @@ class BaseFakeDp:
         """
         Create the interaction matrices for the DM.
         """
-        imfile = fp.SIM_DATA_FILE(self._name, "IM")
-        rmfile = fp.SIM_DATA_FILE(self._name, "RM")
+        imfile = fp.SIM_DATA_FILE(self._name, "IM")+'.fits'
+        rmfile = fp.SIM_DATA_FILE(self._name, "RM")+'.fits'
         if not all([os.path.exists(imfile), os.path.exists(rmfile)]) or force_recompute:
             print("Computing interaction matrix...")
             ims = []

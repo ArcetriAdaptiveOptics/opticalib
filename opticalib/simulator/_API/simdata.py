@@ -8,11 +8,13 @@ from pathlib import Path
 from urllib import error as _urlerr
 from urllib import request as _urlreq
 
+from tqdm import tqdm as _tqdm
+
 from ...core import root as _root
 
 _DEFAULT_BASE_URL = (
     "https://github.com/ArcetriAdaptiveOptics/opticalib/"
-    "releases/download/simulation-data-v1"
+    "releases/download/v1.3.1-simdata"
 )
 
 
@@ -142,12 +144,22 @@ def _download_to_cache(filename: str, target: Path) -> None:
 
     try:
         with _urlreq.urlopen(url, timeout=120) as response:
-            with open(tmp_target, "wb") as fout:
+            total = int(response.headers.get("Content-Length", 0)) or None
+            chunk_size = 8 * 1024 * 1024
+            with open(tmp_target, "wb") as fout, _tqdm(
+                total=total,
+                unit="B",
+                ncols=90,
+                unit_scale=True,
+                unit_divisor=1024,
+                desc=filename,
+            ) as bar:
                 while True:
-                    chunk = response.read(8 * 1024 * 1024)
+                    chunk = response.read(chunk_size)
                     if not chunk:
                         break
                     fout.write(chunk)
+                    bar.update(len(chunk))
     except (_urlerr.URLError, TimeoutError) as exc:
         if tmp_target.exists():
             tmp_target.unlink(missing_ok=True)

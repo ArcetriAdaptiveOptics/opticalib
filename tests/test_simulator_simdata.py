@@ -16,7 +16,7 @@ class TestSimDataHelpers:
 
     def test_get_simdata_file_resolves_cached_file(self, monkeypatch, tmp_path):
         """Cached simulator files should resolve without download."""
-        monkeypatch.setattr(simdata._root, "OPT_DATA_ROOT_FOLDER", str(tmp_path))
+        monkeypatch.setattr(simdata._root, "CONFIGURATION_FOLDER", str(tmp_path))
         monkeypatch.setattr(simdata, "_validate_if_known", lambda *args: None)
         cache_dir = tmp_path / "SimData"
         cache_dir.mkdir(parents=True)
@@ -28,8 +28,9 @@ class TestSimDataHelpers:
         assert os.path.exists(path)
         assert path.endswith("dp_cmdmat.fits")
 
-    def test_missing_file_without_download_raises(self):
+    def test_missing_file_without_download_raises(self, monkeypatch, tmp_path):
         """Missing files should raise a clear error when download is disabled."""
+        monkeypatch.setattr(simdata._root, "CONFIGURATION_FOLDER", str(tmp_path))
         with pytest.raises(FileNotFoundError) as exc:
             simdata.get_simdata_file("m4_data.h5", auto_download=False)
 
