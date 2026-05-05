@@ -40,7 +40,7 @@ Upon installation, the software will create an entry point script called `calpy`
 calpy -f ~/alpao_experiment --create
 ```
 
-This will create, in the `~/alpao_experiment` folder, the package's data folder tree, together with a configuration file in the `SysConfig` folder. The [configuration file](./opticalib/core/_configurations/configuration.yaml), documented [here](./opticalib/core/_configurations/DOCS.md), is where all devices must be specified.
+This will create, in the `~/alpao_experiment` folder, the package's data folder tree, together with a configuration file in the `SysConfig` folder. The [configuration file](./opticalib/core/_configurations/configuration.yaml), documented in [configuration documentation](./opticalib/core/_configurations/DOCS.md), is where all devices must be specified.
 
 ### Example usage
 
@@ -66,4 +66,53 @@ tn = dmutils.iff_module.iffDataAcquisition(dm, interf) # Optional paramenters
 ```
 
 ## Documentation
-For the API references, check [here](docs/opticalib.pdf) (work in progress...), while for the configuration file documentation check [here](./opticalib/core/_configurations/DOCS.md)
+
+For the API references, check [Opticalib API PDF](docs/opticalib.pdf)
+(work in progress...), while for configuration details check
+[configuration documentation](./opticalib/core/_configurations/DOCS.md).
+
+## Simulator data without Git LFS
+
+Simulator data is no longer shipped inside the repository or Python package.
+All files used by the simulator are fetched on demand and cached locally.
+
+### Recommended distribution model
+
+1. Keep all simulator assets out of the repository and out of the package.
+2. Publish those files in an HTTP-accessible location (GitHub Release assets,
+   object storage, institutional web server, Zenodo, ...).
+3. Let opticalib download missing files on-demand to a local cache directory:
+   `~/.opticalib/OPTData/SimData` (or your configured OPTData path).
+
+### User configuration
+
+By default, opticalib looks for simulator files under this base URL:
+
+- `https://github.com/ArcetriAdaptiveOptics/opticalib/releases/download/simdata-v1`
+
+To use a custom endpoint, set:
+
+```bash
+export OPTICALIB_SIMDATA_BASE_URL="https://your-host/path/to/simdata"
+```
+
+You can also override one specific file URL:
+
+```bash
+export OPTICALIB_SIMDATA_URL_M4_DATA_H5="https://your-host/m4_data.h5"
+```
+
+### Optional prefetch
+
+You can pre-download all known simulator files:
+
+```python
+from opticalib.simulator import prefetch_simdata
+
+prefetch_simdata()
+```
+
+This avoids runtime downloads when simulators are instantiated.
+
+The repository intentionally does not include the `opticalib/simulator/_API/SimData`
+payload anymore.

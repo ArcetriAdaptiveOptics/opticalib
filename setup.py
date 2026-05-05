@@ -36,7 +36,6 @@ setup(
     package_data={
         "opticalib": [
             "core/_configurations/configuration.yaml",
-            "simulator/_API/AdOpticaData/*",
             "simulator/_API/alpao_conf.yaml",
             "__init_script__/initCalpy.py",
         ]

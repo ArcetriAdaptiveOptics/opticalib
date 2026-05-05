@@ -3,7 +3,7 @@ opticalib/core/_configurations/configuration.yaml
 opticalib/dmutils/pupil_calibration.py
 .venv/
 .idea/
-opticalib/simulator/_API/SimData/m4_data.h5
+opticalib/simulator/_API/SimData/
 .continue/
 notebooks/
 **/*.ipynb

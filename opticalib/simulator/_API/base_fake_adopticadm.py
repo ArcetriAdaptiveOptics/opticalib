@@ -14,6 +14,7 @@ from opticalib.ground import osutils as osu
 from opticalib.ground import roi
 from opticalib.core.read_config import getDmIffConfig as _dmc
 from opticalib.ground.modal_decomposer import ZernikeFitter as _ZF
+from .simdata import get_simdata_file
 
 join = os.path.join
 
@@ -24,7 +25,6 @@ class BaseFakeM4:
         """The constuctor"""
         ## -- DATA LOADING AND CREATION -- ##
         self._name = "M4AU"
-        self._rootDataDir = join(os.path.dirname(__file__), "SimData")
         self._load_m4_data()
         self._ZM = None
 
@@ -118,7 +118,7 @@ f"Command length {len(cmd)} does not match the number of actuators {self.nActs}.
         """
         Loads the required data for M4 simulation.
         """
-        datadict = osu.load_h5(join(self._rootDataDir, "m4_data.h5"))
+        datadict = osu.load_h5(get_simdata_file("m4_data.h5"))
         self._mask = 1 + -1*datadict["mask"].copy().astype(bool)
         
         self._coords = self._scale_coords(self._mask, datadict["coordinates"])
@@ -213,9 +213,8 @@ class BaseFakeDp:
         """The constuctor"""
         dmc = _dmc()
         self._name = "AdOpticaDP"
-        self._rootDataDir = join(os.path.dirname(__file__), "SimData")
-        self.mirrorModes = osu.load_fits(os.path.join(self._rootDataDir, "dp_cmdmat.fits"))
-        self.ff = osu.load_fits(os.path.join(self._rootDataDir, "dp_ffwd.fits"))
+        self.mirrorModes = osu.load_fits(get_simdata_file("dp_cmdmat.fits"))
+        self.ff = osu.load_fits(get_simdata_file("dp_ffwd.fits"))
         self.nActs = self.mirrorModes.shape[0]
         self._createDpMaskAndCoords()
         self.cmdHistory = None
@@ -483,7 +482,7 @@ class BaseFakeDp:
         """
         Creates the mask and the actuator pixel coordinates for the DP
         """
-        dp_coords = osu.load_fits(join(self._rootDataDir, "dp_coords.fits"))
+        dp_coords = osu.load_fits(get_simdata_file("dp_coords.fits"))
 
         # Get DP's shape vertex coordinates (only 1 segment)
 

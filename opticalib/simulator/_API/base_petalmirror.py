@@ -7,6 +7,7 @@ from ...core import root as _root
 from ...ground.roi import roiGenerator
 from ...ground import osutils as osu
 from ._rbf_gpu import RBFInterpolator
+from .simdata import get_simdata_file
 
 
 class BaseFakePTL():
@@ -22,7 +23,6 @@ class BaseFakePTL():
         force_recompute: bool = False,
     ):
         self._name = "FakePetalDM"
-        self._rootDataDir = os.path.join(os.path.dirname(__file__), "SimData")
         self._outer_radius = outer_radius
         self._inner_radius = inner_radius or _np.ceil(0.26666667* outer_radius)
         self._mask, self._coords = ff.getPetalmirrorMaskAndCoords(
@@ -259,7 +259,7 @@ class BaseFakePTL():
             coeffs= _np.array([6e-6, 0.5e-6, 0.5e-6, 0.1e-6])
         )
 
-        cmd = osu.load_fits(os.path.join(self._rootDataDir, "ptl_init.fits"))
+        cmd = osu.load_fits(get_simdata_file("ptl_init.fits"))
 
         self._shape[cr == 0] += cs[cr == 0]
         self._mirror_command(cmd, diff=False)
