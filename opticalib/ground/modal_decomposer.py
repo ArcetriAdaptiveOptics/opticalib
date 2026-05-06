@@ -347,7 +347,7 @@ class _ModeFitter(ABC):
         elif image is not None:
 
             # Handle the ROIs case
-            roiimg = _roi.roiGenerator(image)
+            roiimg = _roi.roiGenerator(_xp.asmarray(image))
             nroi = len(roiimg)
 
             image = self._put_on_gpu(image)
