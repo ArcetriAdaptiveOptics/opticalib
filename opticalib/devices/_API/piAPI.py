@@ -2,7 +2,7 @@ import numpy as np
 from opticalib import typings as _ot
 from pipython import GCSDevice, GCSError
 from pipython.pidevice.interfaces.pisocket import PISocket
-from opticalib.core.read_config import getDmConfig, getDmIffConfig as _dmc
+from opticalib.core.read_config import getDmConfig, getIffConfig as _dmc
 
 
 class BasePetalMirror:
@@ -46,8 +46,8 @@ class BasePetalMirror:
         self.nSegments = len(self._devices)
         self.nActsPerSegment = 3
         self.nActs = self.nSegments * self.nActsPerSegment
-        self._slaveIds = _dmc().get("slaveIds", [])
-        self._borderIds = _dmc().get("borderIds", [])
+        self._slaveIds = _dmc('DM').get("slaveIds", [])
+        self._borderIds = _dmc('DM').get("borderIds", [])
 
     @property
     def slaveIds(self):
@@ -248,11 +248,11 @@ class BasePetalMirror:
                 print(f"Reinitialization attempt {i+1}/10...", end="\r", flush=True)
                 try:
                     self = self.__init__()
+                    break
                 except ConnectionRefusedError as err:
                     self._logger.error(f"Error reinitializing: {err}")
-                finally:
-                    continue
-            self = self.__init__()
+            else:
+                self = self.__init__()
 
     def _enable_axes(self) -> None:
         """

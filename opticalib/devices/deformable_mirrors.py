@@ -9,6 +9,8 @@ Description
 -----------
 
 """
+# FIXME - Change the reading path of _dmc -> slave ids should not be read from the dm
+#           configuration of IFF section
 
 import os as _os
 import numpy as _np
@@ -17,7 +19,7 @@ from . import _API as _api
 from opticalib import typings as _ot
 from opticalib.core import exceptions as _oe
 from contextlib import contextmanager as _contextmanager
-from opticalib.core.read_config import getDmIffConfig as _dmc
+from opticalib.core.read_config import getIffConfig as _dmc
 from opticalib.core.root import OPD_IMAGES_ROOT_FOLDER as _opdi
 from opticalib.ground.osutils import (
     newtn as _ts, save_fits as _sf, create_data_folder as _cdf
@@ -101,7 +103,7 @@ class PetalMirror(_api.BasePetalMirror, _api.base_devices.BaseDeformableMirror):
         """
         self._logger.info("Starting to run the command history")
 
-        iff_config = _dmc()
+        iff_config = _dmc('DM')
 
         if self.cmdHistory is None:
             self._logger.error("MatrixError: No Command History to run!")
@@ -151,8 +153,8 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
         self._name = "AdOpticaDM"
         super().__init__(tn)
         self._last_cmd = _np.zeros(self.nActs)
-        self._slaveIds = _dmc().get("slaveIds", [])
-        self._borderIds = _dmc().get("borderIds", [])
+        self._slaveIds = _dmc('DM').get("slaveIds", [])
+        self._borderIds = _dmc('DM').get("borderIds", [])
 
     @property
     def slaveIds(self):
@@ -301,7 +303,7 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
                 f"Expecting a 2D Matrix of shape (used_acts, nmodes), got instead: {tcmdhist.shape}"
             )
         tcmdhist += self._last_cmd[:, None]
-        trig = _dmc()["triggerMode"]
+        trig = _dmc('DM')["triggerMode"]
         self.cmdHistory = tcmdhist.copy()
         if trig is not False:
             self._aoClient.timeHistoryUpload(tcmdhist)
@@ -334,7 +336,7 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
         save : str, optional
             If provided, the command history will be saved with this name as a timestamp.
         """
-        dmifconf = _dmc()
+        dmifconf = _dmc('DM')
         triggered = dmifconf["triggerMode"]
         sequential_delay = dmifconf["sequentialDelay"]
         if triggered is not False:
@@ -466,7 +468,7 @@ class DP(AdOpticaDm):
             raise _oe.BufferError(
                 "Missing `total_frames` value: either load a command history or provide the variable's value"
             )
-        triggered = _dmc()["triggerMode"]
+        triggered = _dmc('DM')["triggerMode"]
         if triggered is not False:
             thistfreq = triggered.get("frequency", 1.0)
         if segment == 0:
@@ -592,8 +594,8 @@ class AlpaoDm(_api.BaseAlpaoMirror, _api.base_devices.BaseDeformableMirror):
         super().__init__(serial_number, nacts)
         self.set_zeros_to_acts()
         self.is_segmented = False
-        self._slaveIds = _dmc().get("slaveIds", [])
-        self._borderIds = _dmc().get("borderIds", [])
+        self._slaveIds = _dmc('DM').get("slaveIds", [])
+        self._borderIds = _dmc('DM').get("borderIds", [])
         self.has_slaved_acts = False if len(self._slaveIds) == 0 else True
 
     @property
@@ -674,7 +676,7 @@ class AlpaoDm(_api.BaseAlpaoMirror, _api.base_devices.BaseDeformableMirror):
             Tracking number of the directory where the images are saved.
 
         """
-        iff_config = _dmc()
+        iff_config = _dmc('DM')
         delay: float = iff_config.get("delay", 0.0)
 
         if self.cmdHistory is None:
@@ -786,8 +788,8 @@ class SplattDm(_api.base_devices.BaseDeformableMirror):
         self.baseDataPath = _opdi
         self.refAct = 16
         self.is_segmented = False
-        self._slaveIds = _dmc().get("slaveIds", [])
-        self._borderIds = _dmc().get("borderIds", [])
+        self._slaveIds = _dmc('DM').get("slaveIds", [])
+        self._borderIds = _dmc('DM').get("borderIds", [])
         self._logger = _SL(the_class=__class__)
 
     @property

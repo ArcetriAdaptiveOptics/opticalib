@@ -12,7 +12,7 @@ from opticalib import typings as _t
 from opticalib.ground import geometry as geo
 from opticalib.ground import osutils as osu
 from opticalib.ground import roi
-from opticalib.core.read_config import getDmIffConfig as _dmc
+from opticalib.core.read_config import getIffConfig as _dmc
 from opticalib.ground.modal_decomposer import ZernikeFitter as _ZF
 from .simdata import get_simdata_file
 
@@ -211,7 +211,7 @@ class BaseFakeDp:
 
     def __init__(self, force_recompute: bool = False):
         """The constuctor"""
-        dmc = _dmc()
+        dmc = _dmc('DM')
         self._name = "AdOpticaDP"
         self.mirrorModes = osu.load_fits(get_simdata_file("dp_cmdmat.fits"))
         self.ff = osu.load_fits(get_simdata_file("dp_ffwd.fits"))

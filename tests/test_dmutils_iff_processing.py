@@ -286,7 +286,6 @@ class TestGetAcqInfo:
     """Test _getAcqInfo function."""
 
     @patch("opticalib.dmutils.iff_processing._rif.getIffConfig")
-    @patch("opticalib.dmutils.iff_processing._rif.getDmIffConfig")
     def test_get_acq_info(self, mock_dm_config, mock_iff_config, temp_dir, monkeypatch):
         """Test getting acquisition info."""
         from opticalib.core.root import folders
@@ -316,6 +315,12 @@ class TestGetAcqInfo:
                 "template": [1, -1],
                 "modalBase": "mirror",
                 "paddingZeros": 0,
+            },
+            {
+                "nacts": 100,
+                "timing": 10,
+                "delay": 5,
+                "triggerMode": False,
             },
         ]
         mock_dm_config.return_value = {"nacts": 100, "timing": 10}
