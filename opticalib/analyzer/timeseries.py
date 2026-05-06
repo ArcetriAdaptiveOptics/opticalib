@@ -396,14 +396,22 @@ def noise_strfunct(
     return mean_rms, n_meas
 
 
-def noise_pushpull(tn: str, template: list[int], zern2remove: list[int] = [1, 2, 3]):
+def noise_pushpull(
+    tn_or_fl: str | list[_ot.ImageData] | list[str] | _ot.CubeData,
+    template: list[int],
+    zern2remove: _ot.Optional[list[int]] = None
+) -> tuple[_ot.ArrayLike, _ot.ArrayLike]:
     """
     Computes the noise structure function using a push-pull reduction algorithm.
 
     Parameters
     ----------
-    tn : str
-        Tracking number of the frames to process.
+    tn_or_fl : str | list[ImageData] | list[str] | CubeData
+        The data to be processed. Can be either:
+        - A tracking number (str)
+        - A list of file paths (str)
+        - A list of ImageData objects
+        - A CubeData object
     template : list[int]
         List of integers representing the push-pull template to apply to the frames.
     zern2remove : list[int], optional
@@ -417,25 +425,52 @@ def noise_pushpull(tn: str, template: list[int], zern2remove: list[int] = [1, 2,
     restt : _ot.ArrayLike
         Array of residual Tip/TiltZernike coefficients for each template configuration.
     """
+    zern2remove = zern2remove or [1, 2, 3]
     zf = _md.ZernikeFitter()
 
-    fold = osu.findTracknum(tn)
-    fl = osu.getFileList(tn, key=("20" if fold == "OPDSeries" else "4D"))
-    nfiles = len(fl)
+    if isinstance(tn_or_fl, str):
+        fold = osu.findTracknum(tn_or_fl)
+        cube = osu.loadCubeFromFilelist(
+            tn_or_fl,
+            fold=fold,
+            key=("20" if fold == "OPDSeries" else "4D")
+        )
+    elif _ot.isinstance_(tn_or_fl, "CubeData"):
+        cube = tn_or_fl    
+    elif isinstance(tn_or_fl, list) and all(
+        _ot.isinstance_(item, "ImageData") or isinstance(item, str)
+        for item in tn_or_fl
+    ):
+        cube = _ip.createCube(tn_or_fl)
+    else:
+        raise ValueError("Invalid input type for tn_or_fl. Must be a string,"
+                         " CubeData, or list of ImageData.")
+
+    nfiles = cube.shape[2]
     resrms = []
     restt = []
-    for i in _np.arange(len(template)):
-        template = _np.ones(template[i])
-        template[1::2] = -1
-        nframes2use = int(nfiles / template[i] * template[i])
-        img = _ip.pushPullReductionAlgorithm(fl[:nframes2use], template)
-        cc = zf.fit(img, zern2remove)
-        # qui fare rimuovi fit # FIXME
-        resrms.append(img.std())
-        restt.append(cc)
-    resrms = _np.array(resrms)
-    restt = _np.array(restt)
-    return resrms, restt
+
+    for T in template:
+        thetemplate = _np.ones(T, dtype=int)
+        thetemplate[1::2] = -1
+        nframes2use = int(nfiles / T) * T
+        print(f"Processing {nframes2use} frames with template {thetemplate}")
+
+        rms = []
+        tt = []
+        for k in range(0, nframes2use, T):
+            img = _ip.pushPullReductionAlgorithm(
+                cube[:, :, k : k + T].transpose(2, 0, 1),
+                thetemplate
+            )
+            cc,_ = zf.fit(img, zern2remove)
+            tt.append(cc)
+            rms.append(zf.removeZernike(img, zern2remove).std())
+
+        resrms.append(_np.mean(rms))
+        restt.append(_np.mean(tt, axis=0))
+
+    return _np.asarray(resrms), _np.asarray(restt)
 
 
 def _track2jd(tni: str) -> float:
