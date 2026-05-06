@@ -637,14 +637,18 @@ class Flattening:
         imgflat = self._lastFlatImg.copy()
         deltacmd = self.flatCmd.copy()
         data = [cmd, deltacmd, imgstart, imgflat, modes2flat]
+        
+        if self._cavityOffset is not None:
+            data.append(self._cavityOffset.copy())
+            files.append("cavityOffset.fits")
 
-        optionals = {
+        dm_optionals = {
             "_last_cmd": "flatCommand.fits",
             "_bias_cmd": "BiasCommand.fits",
             "_bias_force": "BiasForces.fits",
         }
 
-        for op, file in optionals.items():
+        for op, file in dm_optionals.items():
             if hasattr(self._dm, op):
                 data.append(getattr(self._dm, op).copy())
                 files.append(file)
