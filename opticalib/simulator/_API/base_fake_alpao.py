@@ -97,7 +97,7 @@ class BaseFakeAlpao(ABC):
         """
         Loads the required matrices for the deformable mirror's operations.
         """
-        if not os.path.exists(_root.SIM_DATA_FILE(self._name, "IF")) or force_recompute:
+        if not os.path.exists(_root.SIM_DATA_FILE(self._name, "IF")+ ".fits") or force_recompute:
             print(
                 f"First time simulating DM {self.nActs}. Generating influence functions..."
             )
@@ -114,7 +114,7 @@ class BaseFakeAlpao(ABC):
         """
         Create the Zernike matrix for the DM.
         """
-        if not os.path.exists(_root.SIM_DATA_FILE(self._name, "ZM")) or force_recompute:
+        if not os.path.exists(_root.SIM_DATA_FILE(self._name, "ZM")+ ".fits") or force_recompute:
             n_zern = self.nActs
             print("Computing Zernike matrix...")
             self.ZM = xp.asnumpy(generateZernikeMatrix(n_zern, self._mask))
@@ -129,8 +129,8 @@ class BaseFakeAlpao(ABC):
         """
         if not all(
             [
-                os.path.exists(_root.SIM_DATA_FILE(self._name, "IM")),
-                os.path.exists(_root.SIM_DATA_FILE(self._name, "RM")),
+                os.path.exists(_root.SIM_DATA_FILE(self._name, "IM")+ ".fits"),
+                os.path.exists(_root.SIM_DATA_FILE(self._name, "RM")+ ".fits"),
             ]
         ) or force_recompute:
             print("Computing interaction matrix...")

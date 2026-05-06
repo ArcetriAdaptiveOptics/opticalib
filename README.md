@@ -71,38 +71,10 @@ For the API references, check [Opticalib API PDF](docs/opticalib.pdf)
 (work in progress...), while for configuration details check
 [configuration documentation](./opticalib/core/_configurations/DOCS.md).
 
-## Simulator data without Git LFS
+## Simulator data
 
 Simulator data is no longer shipped inside the repository or Python package.
 All files used by the simulator are fetched on demand and cached locally.
-
-### Recommended distribution model
-
-1. Keep all simulator assets out of the repository and out of the package.
-2. Publish those files in an HTTP-accessible location (GitHub Release assets,
-   object storage, institutional web server, Zenodo, ...).
-3. Let opticalib download missing files on-demand to a local cache directory:
-   `~/.opticalib/OPTData/SimData` (or your configured OPTData path).
-
-### User configuration
-
-By default, opticalib looks for simulator files under this base URL:
-
-- `https://github.com/ArcetriAdaptiveOptics/opticalib/releases/download/simdata-v1`
-
-To use a custom endpoint, set:
-
-```bash
-export OPTICALIB_SIMDATA_BASE_URL="https://your-host/path/to/simdata"
-```
-
-You can also override one specific file URL:
-
-```bash
-export OPTICALIB_SIMDATA_URL_M4_DATA_H5="https://your-host/m4_data.h5"
-```
-
-### Optional prefetch
 
 You can pre-download all known simulator files:
 
