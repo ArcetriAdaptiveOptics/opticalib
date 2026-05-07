@@ -179,10 +179,10 @@ class IFFCapturePreparation:
             self._shuffle = shuffle
             self._indexingList = _np.arange(0, len(modesList), 1)
             self._n_repetitions = n_repetitions
-
-        self.createCmdMatrixHistory(
-            modesList, modesAmp, template, modalBase, shuffle, n_repetitions
-        )
+        else:
+            self.createCmdMatrixHistory(
+                modesList, modesAmp, template, modalBase, shuffle, n_repetitions
+            )
 
         self.triggPadCmdHist = triggerMat.copy() if triggerMat is not None else None
         self.regPadCmdHist = registrationMat.copy() if registrationMat is not None else None
