@@ -853,9 +853,11 @@ def _modes_matrix_reorganization(
 
     # Shuffled case
     N, M, T = modesMat.shape
-    # s_modes contains the shuffled mode IDs from the acquisition, reshaped to [N, M]
-    # where N is the number of repetitions and M is the number of modes per repetition
-    s_modes = _np.asarray(info['modesVector'].reshape((N,M)),dtype=int) # [N, M]
+    
+    # indexList contains the shuffle indices: indexList[j] tells us that the mode
+    # at position j in the shuffled acquisition was originally at position indexList[j]
+    # in the requested modesList
+    indexList = _np.asarray(info['indexList'].reshape((N, M)), dtype=int)  # [N, M]
     
     NM = len(info['modesVector'])
 
@@ -873,28 +875,15 @@ def _modes_matrix_reorganization(
         )
     ## -------------- ##
 
-    # Get unique mode IDs and create a mapping from mode_id to position (0..M-1)
-    # This handles cases where mode IDs are not sequential (e.g., [4, 21, 34])
-    # np.unique returns sorted values, so we can use them directly
-    unique_modes = _np.unique(s_modes)
-    if len(unique_modes) != M:
-        raise ValueError(
-            f"Expected {M} unique modes, but found {len(unique_modes)} in modesVector"
-        )
-    
-    # Create mapping: mode_id -> position in sorted order
-    mode_to_position = {mode_id: pos for pos, mode_id in enumerate(unique_modes)}
-    
     new_modesMat = _np.zeros_like(modesMat)
 
     for i in range(N):
         for j in range(M):
-            mode_id = s_modes[i, j]
-            # Map mode_id to its position in the sorted mode list
-            target_position = mode_to_position[mode_id]
-            # Mode ``mode_id`` located at row ``j`` in the original matrix, 
-            # is moved to row ``target_position`` in the new matrix.
-            new_modesMat[i, target_position, :] = modesMat[i, j, :]
+            # The mode at position j in the shuffled acquisition was originally
+            # at position indexList[i, j] in the requested modesList.
+            # Move data from shuffled position j to original position indexList[i, j]
+            original_position = indexList[i, j]
+            new_modesMat[i, original_position, :] = modesMat[i, j, :]
 
     return new_modesMat # [N, M, T]
 
