@@ -812,7 +812,7 @@ def getIffFileMatrix(tn: str, info: dict[str,_ot.Any]) -> _ot.ArrayLike:
         _os.path.isdir(fold)
     else:
         fold = None
-    fileList = _osu.getFileList(tn, fold=fold, key='image_')
+    fileList = _osu.getFileList(tn, fold="OPDImages" if fold is None else fold, key='image_')
 
     infoIF = info['IFFUNC']
     _, regEnd = getRegFrames(tn, info)
