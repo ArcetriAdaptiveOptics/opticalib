@@ -853,6 +853,8 @@ def _modes_matrix_reorganization(
 
     # Shuffled case
     N, M, T = modesMat.shape
+    # s_modes contains the shuffled mode IDs from the acquisition, reshaped to [N, M]
+    # where N is the number of repetitions and M is the number of modes per repetition
     s_modes = _np.asarray(info['modesVector'].reshape((N,M)),dtype=int) # [N, M]
     
     NM = len(info['modesVector'])
@@ -873,6 +875,7 @@ def _modes_matrix_reorganization(
 
     # Get unique mode IDs and create a mapping from mode_id to position (0..M-1)
     # This handles cases where mode IDs are not sequential (e.g., [4, 21, 34])
+    # np.unique returns sorted values, so we can use them directly
     unique_modes = _np.unique(s_modes)
     if len(unique_modes) != M:
         raise ValueError(
@@ -880,7 +883,7 @@ def _modes_matrix_reorganization(
         )
     
     # Create mapping: mode_id -> position in sorted order
-    mode_to_position = {mode_id: pos for pos, mode_id in enumerate(_np.sort(unique_modes))}
+    mode_to_position = {mode_id: pos for pos, mode_id in enumerate(unique_modes)}
     
     new_modesMat = _np.zeros_like(modesMat)
 
