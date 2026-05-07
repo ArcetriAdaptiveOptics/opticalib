@@ -44,6 +44,19 @@ applyTo: '**/*.py'
 - Always prioritize code performance (speed)
 - Never change the core functionality of the code when optimizing for performance, unless explicitly asked to do so.
 
+## Commit message generation
+- When generating commit messages, ensure they are well explicative and follow the format: `<mod> <type>: <subject>`, where:
+    - `<mod>` is the name of the module, file or Class being changed, without the path or extension.
+    - `<type>` is one of the following: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`.
+    - `<subject>` is a description of the change, concise but informative enough to understand the change without looking at the code.
+- When a new function is added, the commit message should include the name of the function and a brief description of its purpose.
+- If `__version__` is updated, the commit message should include the new version number and a summary of the changes included in that version.
+
+### Example of commit messages
+- `iff_processing refactor: optimized mode matrix processing for generalized use cases and better performance`
+- `ComputeReconstructor perf: improved performance of reconstructor computation by optimizing matrix operations and reducing redundant calculations`
+- `iff_processing feat: added ``_squash_mode_matrix`` function to handle cases with shuffle disabled`
+
 ## Example of Proper Documentation
 
 ```python

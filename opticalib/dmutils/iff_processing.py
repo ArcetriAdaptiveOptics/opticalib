@@ -140,14 +140,17 @@ def process(
     modesMat = getIffFileMatrix(tn, info)
     
     modesMat = _modes_matrix_reorganization(modesMat, info)
+    # At this point, the ``modesMat`` is reordered as 0,1,..,M-1, where M is 
+    # the number of modes, and is of shape (N, M, T), where: N is the number of 
+    # template realizations, and T is the push-pull template sequence.
 
     iffRedux(
         tn=tn,
         fileMat=modesMat,
-        ampVect=info["ampVector"],
-        modeList=info["modesVector"],
+        ampVect=info['IFFUNC']["amplitude"],
+        modeList=info['IFFUNC']["modes"],
         template=info["template"],
-        shuffle=info["shuffle"],
+        n_repetitions=info['n_repetitions'],
         io_workers=nworkers,
         prefetch=nmode_prefetch,
     )
@@ -482,6 +485,7 @@ def filterZernikeCube(
         _sh.copyfile(CmdMat, _os.path.join(new_tn, _MATRIX_FILE))
         _sh.copyfile(ModesVec, _os.path.join(new_tn, _MODES_FILE))
         print(f"Filtered cube saved at {new_tn}")
+
     return ffcube, new_tn.split("/")[-1]
 
 
@@ -491,6 +495,7 @@ def iffRedux(
     ampVect: _ot.ArrayLike,
     modeList: _ot.ArrayLike,
     template: _ot.ArrayLike,
+    n_repetitions: int = 1,
     *,
     io_workers: int = 1,
     prefetch: int = 0,
@@ -517,6 +522,8 @@ def iffRedux(
         Vector conaining the list of commanded modes.
     template : int | ArrayLike
         Template for the push-pull command actuation.
+    n_repetitions : int, optional
+        Number of repetitions for each mode. The default is 1.
     io_workers : int, optional
         Number of threads to use for I/O prefetching. The default is 1.
     prefetch : int, optional
@@ -531,7 +538,8 @@ def iffRedux(
     from opticalib.analyzer import pushPullReductionAlgorithm
 
     fold = _os.path.join(_ifFold, tn)
-    nmodes = len(modeList)
+    
+    N, M, T = fileMat.shape
 
     # Helper: read one mode's frame block
     def _read_mode(paths: list[str]) -> list[_ot.ImageData]:
@@ -704,7 +712,6 @@ def getTriggerFrame(tn: str, amplitude: int | float = None, roi: int = None) -> 
     trigFrame = i
     return trigFrame
 
-
 def getRegFrames(tn: str, info: dict[str,_ot.Any]) -> tuple[int, _ot.ArrayLike]:
     """
     Search for the registration frames in the images file list.
@@ -734,7 +741,6 @@ def getRegFrames(tn: str, info: dict[str,_ot.Any]) -> tuple[int, _ot.ArrayLike]:
         regStart = trigFrame + infoR["zeros"] * timing + (1 if trigFrame != 0 else 0)
         regEnd = regStart + len(infoR["modes"]) * len(infoR["template"]) * timing
     return regStart, regEnd
-
 
 def getRegFileMatrix(tn: str, info: dict[str,_ot.Any]) -> tuple[int, _ot.ArrayLike]:
     """
@@ -779,14 +785,14 @@ def getIffFileMatrix(tn: str, info: dict[str,_ot.Any]) -> _ot.ArrayLike:
     iffMat : ndarray
         A matrix of images in string format, conatining all the images for the
         IFF acquisition, that is all the modes with each push-pull realization.
-        It has shape (modes, n_push_pull)
+        It has shape ``(n_repetitions, n_modes, n_push_pull)``
     """
     if not _osu.is_tn(tn):
         fold = tn[:-15]
         _os.path.isdir(fold)
     else:
         fold = None
-    fileList = _osu.getFileList(tn, fold=fold)
+    fileList = _osu.getFileList(tn, fold=fold, key='image_')
 
     infoIF = info['IFFUNC']
     _, regEnd = getRegFrames(tn, info)
@@ -797,8 +803,8 @@ def getIffFileMatrix(tn: str, info: dict[str,_ot.Any]) -> _ot.ArrayLike:
     iffList = fileList[k : k + n_useful_frames]
     iffMat = _np.reshape(
         iffList, 
-        (len(infoIF["modes"]), len(infoIF["template"]), info['n_repetitions'])
-    ) # [M, T, N]
+        (info['n_repetitions'], len(infoIF["modes"]), len(infoIF["template"]))
+    ) # [N, M, T]
     return iffMat
 
 
@@ -810,30 +816,75 @@ def _modes_matrix_reorganization(
 
     Parameters
     ----------
-    modesMat : array-like
-        The original modes matrix, with shape (modes, n_push_pull).
+    modesMat : MatrixLike
+        The original modes matrix, with shape (n_repetitions, modes, n_push_pull).
     info : dict
         Dictionary containing the information read from the IFFunctions folder.
 
     Returns
     -------
-    new_modesMat : array-like
-        The reorganized modes matrix, with shape ``(modes, n_push_pull, n_repetitions)``,
-        where the modes are ordered according to the mode list in the info dictionary.
+    new_modesMat : MatrixLike
+        The reorganized modes matrix, with shape ``(n_repetitions, modes, n_push_pull)``,
+        where the modes are re-ordered as 0,1,..,M-1.
     """
+    # Not shuffled case
     if not info['shuffle']:
-        return modesMat
+        return _squash_mode_matrix(modesMat)
 
-    rmodes = info['modesVector']
-    rindex = info['indexList']
-    nrep   = info['n_repetitions']
+    # Shuffled case
+    N, M, T = modesMat.shape
+    s_modes = _np.asarray(info['modesVector'].reshape((N,M)),dtype=int) # [N, M]
     
-    assert nrep == modesMat.shape[2], ValueError(
+    NM = len(info['modesVector'])
+
+    ## --- Checks --- ##    
+    assert N == info['n_repetitions'], ValueError(
         "the IFF file matrix has mismatching ``n_repetitions``: "
-        f"{modesMat.shape[2]} != {nrep}"
+        f"{N} != {info['n_repetitions']}"
     )
 
+    assert NM == N*M, ValueError(
+        "the IFF file matrix has mismatching (total) number of modes: "
+        f"{NM} != {N*M}"
+    )
+    ## -------------- ##
+
+    new_modesMat = _np.zeros_like(modesMat)
+
+    for i in range(N):
+        for j in range(M):
+            mode_id = s_modes[i, j]
+            # Mode ``mode_id`` located at row ``j`` in the original matrix, 
+            # is moved to row ``mode_id`` in the new matrix.
+            new_modesMat[i, mode_id, :] = modesMat[i, j, :]
+
+    return new_modesMat.reshape((NM, T))
+
+def _squash_mode_matrix(modesMat: _ot.MatrixLike) -> _ot.MatrixLike:
+    """
+    Squashes the mode matrix by removing the repetitions dimension, if it is 1.
+
+    Parameters
+    ----------
+    modesMat : array-like
+        The original modes matrix, with shape (modes, n_push_pull, n_repetitions).
+
+    Returns
+    -------
+    new_modesMat : array-like
+        The squashed modes matrix, with shape (modes, n_push_pull), if n_repetitions is 1.
+        Otherwise, returns the original modes matrix.
+    """
+    try:
+        N, M, T= modesMat.shape
+    except TypeError:
+        # modesMat is already 2D
+        return modesMat
     
+    if N == 1:
+        return modesMat[0]
+    else:
+        return modesMat.reshape((M*N, T))
 
 def _add_vect_to_mat(
     vector: _ot.ArrayLike,
@@ -1060,11 +1111,10 @@ def _check_information_consistency(info: dict[str, _ot.Any]) -> None:
     del M,m
 
     T = len(info['template'])
-    t = info['IFFUNC']['template']
+    t = len(info['IFFUNC']['template'])
     assert T == t, f"Template length mismatch! {T} != {t}"
     del T,t
-    
-    
+
 
 def __flag(
     tnlist: list[str],

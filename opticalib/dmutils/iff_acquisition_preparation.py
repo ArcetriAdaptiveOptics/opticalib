@@ -95,6 +95,27 @@ class IFFCapturePreparation:
         self.triggPadCmdHist = None
         self.regPadCmdHist = None
 
+    def getInfoToSave(self) -> dict[str, _ot.Any]:
+        """
+        Return the data to save as fits files, arranged in a dictionary
+
+        Returns
+        -------
+        info : dict
+            Dictionary containing all the vectors and matrices needed
+        """
+        info = {
+            "timedCmdHistory": self.timedCmdHistory,
+            "cmdMatrix": self._cmdMatrix,
+            "modesVector": self._modesList,
+            "regActs": self._regActs,
+            "ampVector": self._modesAmp,
+            "indexList": self._indexingList,
+            "template": self._template,
+            "shuffle": self._shuffle,
+        }
+        return info
+
     def createTimedCmdHistory(
         self,
         cmdMat: _ot.Optional[_ot.MatrixLike] = None,
@@ -159,10 +180,9 @@ class IFFCapturePreparation:
             self._indexingList = _np.arange(0, len(modesList), 1)
             self._n_repetitions = n_repetitions
 
-        elif self.cmdMatHistory is None:
-            self.createCmdMatrixHistory(
-                modesList, modesAmp, template, modalBase, shuffle, n_repetitions
-            )
+        self.createCmdMatrixHistory(
+            modesList, modesAmp, template, modalBase, shuffle, n_repetitions
+        )
 
         self.triggPadCmdHist = triggerMat.copy() if triggerMat is not None else None
         self.regPadCmdHist = registrationMat.copy() if registrationMat is not None else None
@@ -181,27 +201,6 @@ class IFFCapturePreparation:
         timedCmdHist = _np.repeat(cmdHistory, timing, axis=1)
         self.timedCmdHistory = timedCmdHist
         return timedCmdHist
-
-    def getInfoToSave(self) -> dict[str, _ot.Any]:
-        """
-        Return the data to save as fits files, arranged in a dictionary
-
-        Returns
-        -------
-        info : dict
-            Dictionary containing all the vectors and matrices needed
-        """
-        info = {
-            "timedCmdHistory": self.timedCmdHistory,
-            "cmdMatrix": self._cmdMatrix,
-            "modesVector": self._modesList,
-            "regActs": self._regActs,
-            "ampVector": self._modesAmp,
-            "indexList": self._indexingList,
-            "template": self._template,
-            "shuffle": self._shuffle,
-        }
-        return info
 
     def createCmdMatrixHistory(
         self,
@@ -310,10 +309,7 @@ class IFFCapturePreparation:
             'N_REP': n_repetitions,
         }
 
-        cmdMatHist = _fa(
-            cmd_matrixHistory,
-            header=header
-        )
+        cmdMatHist = _fa(cmd_matrixHistory,header=header)
         
         self._modesList = _fa(final_mlist, header=header)
         self._indexingList = _fa(final_ilist, header=header)
@@ -351,6 +347,7 @@ class IFFCapturePreparation:
         matrices = [m for m in [self.triggPadCmdHist, self.regPadCmdHist] if m is not None]
         aux_cmdHistory = _np.hstack(matrices) if matrices else None
         self.auxCmdHistory = aux_cmdHistory
+        return aux_cmdHistory
 
     def _createRegistrationPattern(self) -> None:
         """
