@@ -725,3 +725,35 @@ class TestIFFCapturePreparation:
 
         assert prep.modalBaseId == "hadamard"
         assert prep._modalBase.shape[0] == mock_dm.nActs
+
+    @patch("opticalib.dmutils.iff_acquisition_preparation._getAcqInfo")
+    def test_create_cmd_matrix_history_invalid_n_repetitions(
+        self, mock_get_info, mock_dm
+    ):
+        """Test that createCmdMatrixHistory raises ValueError for invalid n_repetitions."""
+        mock_get_info.return_value = (
+            None,
+            None,
+            {
+                "modes": [0, 1, 2],
+                "amplitude": 0.1,
+                "template": [1, -1],
+                "zeros": 0,
+            },
+            None,
+        )
+
+        prep = ifa.IFFCapturePreparation(mock_dm)
+
+        # Test n_repetitions = 0
+        with pytest.raises(ValueError, match="n_repetitions must be >= 1"):
+            prep.createCmdMatrixHistory(modesList=np.arange(5), n_repetitions=0)
+
+        # Test n_repetitions = -1
+        with pytest.raises(ValueError, match="n_repetitions must be >= 1"):
+            prep.createCmdMatrixHistory(modesList=np.arange(5), n_repetitions=-1)
+
+        # Test n_repetitions = -10
+        with pytest.raises(ValueError, match="n_repetitions must be >= 1"):
+            prep.createCmdMatrixHistory(modesList=np.arange(5), n_repetitions=-10)
+

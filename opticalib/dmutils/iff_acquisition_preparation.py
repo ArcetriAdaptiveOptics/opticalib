@@ -253,6 +253,11 @@ class IFFCapturePreparation:
         modesAmp = modesAmp if modesAmp is not None else infoIF.get("amplitude")
         zeroScheme = infoIF["zeros"]
 
+        if n_repetitions < 1:
+            raise ValueError(
+                f"n_repetitions must be >= 1, got {n_repetitions}"
+            )
+
         self._createCmdMatrix(modesList, modalBase)
         A, M = self._cmdMatrix.shape
         n_push_pull = len(template)
