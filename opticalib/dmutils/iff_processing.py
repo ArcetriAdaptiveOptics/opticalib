@@ -538,13 +538,15 @@ def iffRedux(
     from opticalib.analyzer import pushPullReductionAlgorithm
 
     fold = _os.path.join(_ifFold, tn)
-    
-    N, M, T = fileMat.shape
 
-    # Helper: read one mode's frame block
-    def _read_mode(paths: list[str]) -> list[_ot.ImageData]:
-        # Sequential reads inside a worker to keep per-mode locality
-        return [_osu.read_phasemap(p) for p in paths]
+    N, M, T = fileMat.shape
+    
+    if _np.size(ampVect) == 1:
+        ampVect = _np.full(M, ampVect, dtype=_np.float32)
+
+    # Updated helper: now follows tensor logic:
+    def _read_block(rep_idx: int, mode_idx: int) -> list[_ot.ImageData]:
+        return [_osu.read_phasemap(p) for p in fileMat[rep_idx, mode_idx, :]]
 
     ## NEW METHOD: THREADING I/O WORKERS WITH PREFETCHING ##
     # ---------------------------------------------------- #
@@ -553,40 +555,58 @@ def iffRedux(
     io_workers = max(1, int(io_workers))
     prefetch = max(0, int(prefetch))
 
-    futures: dict[int, _ot.Any] = {}
     with _tpe(max_workers=io_workers) as ex:
-        for j in range(min(prefetch, nmodes)):
-            futures[j] = ex.submit(_read_mode, fileMat[j, :])
+        futures: dict[int, _ot.Any] = {}
 
-        for i in _tqdm(
-            range(nmodes), desc="Processing...", total=nmodes, unit="modes", ncols=80
+        # New helper for scheduling a mode within the repetitions.
+        def _schedule_mode(mode_idx: int) -> None:
+            if mode_idx >= M:
+                return
+            for rep_idx in range(N):
+                key = (rep_idx, mode_idx)
+                if key not in futures:
+                    futures[key] = ex.submit(_read_block, rep_idx, mode_idx)
+
+        for mode_idx in range(min(M, prefetch + 1)):
+            _schedule_mode(mode_idx)
+
+        for mode_idx in _tqdm(
+            range(M), desc="Processing...", total=M, unit="modes", ncols=85
         ):
-            # Ensure current mode is scheduled
-            if i not in futures:
-                futures[i] = ex.submit(_read_mode, fileMat[i, :])
+            _schedule_mode(mode_idx + prefetch + 1)
 
-            # Fetch prefetched images (waits here if not yet done)
-            imagelist = futures[i].result()
-            del futures[i]
+            sum_data = None
+            union_mask = None
 
-            # Schedule next mode to keep window full
-            j = i + prefetch
-            if j < nmodes and j not in futures:
-                futures[j] = ex.submit(_read_mode, fileMat[j, :])
+            for rep_idx in range(N):
+                imgs = futures.pop((rep_idx, mode_idx)).result()
+                red = pushPullReductionAlgorithm(
+                    imgs,
+                    template,
+                    normalization=max(len(template) - 1, 1) * 2 * ampVect[mode_idx],
+                )
 
-            norm_img = pushPullReductionAlgorithm(
-                imagelist,
-                template,
-                normalization=(_np.max(((template.shape[0] - 1), 1)) * 2 * ampVect[i])
+                if sum_data is None:
+                    sum_data = red.data.astype(_np.float32, copy=True)
+                    union_mask = red.mask.copy()
+                else:
+                    sum_data += red.data
+                    union_mask |= red.mask
+
+            mode_img = _np.ma.masked_array(sum_data / n_repetitions, mask=union_mask)
+
+            _osu.save_fits(
+                _os.path.join(fold, f"mode_{int(modeList[mode_idx]):04d}.fits"),
+                mode_img,
+                overwrite=True,
+                header={
+                    "MODEID": (int(modeList[mode_idx]), "mode id"),
+                    "AMP": (float(ampVect[mode_idx]), "mode amplitude"),
+                    "TEMPLATE": (len(template), "push-pull length"),
+                    "NREP": (int(n_repetitions), "averaged repetitions"),
+                },
             )
-
-            img_name = _os.path.join(fold, f"mode_{int(modeList[i]):04d}.fits")
-            header = {
-                "MODEID": (int(modeList[i]), "mode id"),
-                "AMP": (float(ampVect[i]), "mode amplitude"),
-                "TEMPLATE": (len(template), "push-pull length"),
-            }
-            _osu.save_fits(img_name, norm_img, overwrite=True, header=header)
+            
 
 
 def registrationRedux(tn: str, fileMat: list[str]) -> list[_ot.ImageData]:
@@ -829,7 +849,7 @@ def _modes_matrix_reorganization(
     """
     # Not shuffled case
     if not info['shuffle']:
-        return _squash_mode_matrix(modesMat)
+        return modesMat
 
     # Shuffled case
     N, M, T = modesMat.shape
@@ -858,33 +878,8 @@ def _modes_matrix_reorganization(
             # is moved to row ``mode_id`` in the new matrix.
             new_modesMat[i, mode_id, :] = modesMat[i, j, :]
 
-    return new_modesMat.reshape((NM, T))
+    return new_modesMat # [N, M, T]
 
-def _squash_mode_matrix(modesMat: _ot.MatrixLike) -> _ot.MatrixLike:
-    """
-    Squashes the mode matrix by removing the repetitions dimension, if it is 1.
-
-    Parameters
-    ----------
-    modesMat : array-like
-        The original modes matrix, with shape (modes, n_push_pull, n_repetitions).
-
-    Returns
-    -------
-    new_modesMat : array-like
-        The squashed modes matrix, with shape (modes, n_push_pull), if n_repetitions is 1.
-        Otherwise, returns the original modes matrix.
-    """
-    try:
-        N, M, T= modesMat.shape
-    except TypeError:
-        # modesMat is already 2D
-        return modesMat
-    
-    if N == 1:
-        return modesMat[0]
-    else:
-        return modesMat.reshape((M*N, T))
 
 def _add_vect_to_mat(
     vector: _ot.ArrayLike,
@@ -984,11 +979,7 @@ def _getCubeList(
     return cubeList, matrixList, modesVectList, rebin
 
 
-def _getAcqPar(
-    tn: str,
-) -> tuple[
-    _ot.ArrayLike, _ot.ArrayLike, _ot.ArrayLike, _ot.ArrayLike, _ot.ArrayLike, bool, int
-]:
+def _getAcqPar(tn: str) -> dict[str,_ot.ArrayLike | bool | int]:
     """
     Reads ad returns the acquisition parameters from fits files.
 
