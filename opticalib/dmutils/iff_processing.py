@@ -856,7 +856,7 @@ def _modes_matrix_reorganization(
     
     # indexList[i, j] stores the original position (in the requested modesList) of the
     # mode that was placed at position j during repetition i of the shuffled acquisition
-    indexList = _np.asarray(info['indexList'].reshape((N, M)), dtype=int)  # [N, M]
+    shuffled_modes = _np.asarray(info['modesVector'].reshape((N, M)), dtype=int)  # [N, M]
     
     NM = len(info['modesVector'])
 
@@ -875,12 +875,25 @@ def _modes_matrix_reorganization(
     ## -------------- ##
 
     new_modesMat = _np.zeros_like(modesMat)
+    
+    modes_to_pos = {}
+    for i in range(shuffled_modes.shape[0]):
+        modes_to_pos[i] = {}
+        sorted_modes = _np.sort(shuffled_modes[i])
+        for shuffle_idx, mode in enumerate(shuffled_modes[i]):
+            for target_idx in range(len(shuffled_modes[i])):
+                if mode == sorted_modes[target_idx]:
+                    modes_to_pos[i][shuffle_idx] = target_idx
+                    break
+
+    # the `modes_to_pos` dictionary, indexed at the higest level by the repetition
+    # index, has the mapping {shuffled_position_id: target_position_id}
 
     for i in range(N):
-        for j in range(M):
-            # Restore original order: move data from shuffled position j to original position
-            original_position = indexList[i, j]
-            new_modesMat[i, original_position, :] = modesMat[i, j, :]
+        mapping = modes_to_pos[i]
+        for shuffle_idx in mapping.keys():
+            target_idx = mapping[shuffle_idx]
+            new_modesMat[i, target_idx, :] = modesMat[i, shuffle_idx, :]
 
     return new_modesMat # [N, M, T]
 
