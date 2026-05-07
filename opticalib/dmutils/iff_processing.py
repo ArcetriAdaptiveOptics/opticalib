@@ -854,9 +854,8 @@ def _modes_matrix_reorganization(
     # Shuffled case
     N, M, T = modesMat.shape
     
-    # indexList contains the shuffle indices: indexList[j] tells us that the mode
-    # at position j in the shuffled acquisition was originally at position indexList[j]
-    # in the requested modesList
+    # indexList[i, j] stores the original position (in the requested modesList) of the
+    # mode that was placed at position j during repetition i of the shuffled acquisition
     indexList = _np.asarray(info['indexList'].reshape((N, M)), dtype=int)  # [N, M]
     
     NM = len(info['modesVector'])
@@ -879,9 +878,7 @@ def _modes_matrix_reorganization(
 
     for i in range(N):
         for j in range(M):
-            # The mode at position j in the shuffled acquisition was originally
-            # at position indexList[i, j] in the requested modesList.
-            # Move data from shuffled position j to original position indexList[i, j]
+            # Restore original order: move data from shuffled position j to original position
             original_position = indexList[i, j]
             new_modesMat[i, original_position, :] = modesMat[i, j, :]
 
