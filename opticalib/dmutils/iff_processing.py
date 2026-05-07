@@ -1087,24 +1087,38 @@ def _checkStackedCubes(tnlist: str) -> dict[str, _ot.Any]:
 
 def _check_information_consistency(info: dict[str, _ot.Any]) -> None:
     """
-    Checks the consistency of the information read from the IFFunctions folder with
-    respect to the one read from the configuration file.
+    Check consistency between folder metadata and configuration metadata.
+
+    Parameters
+    ----------
+    info : dict[str, _ot.Any]
+        Dictionary containing acquisition metadata gathered from the
+        IFFunctions folder and the related configuration.
 
     Raises
     ------
-    AssertionError
-        If discrepancies are found within the available information.
+    ValueError
+        Raised when the number of modes or template lengths do not match
+        the expected values from the configuration.
     """
-    M = len(info['IFFUNC']['modes'])*info['n_repetitions']
-    m = len(info['modesVector'])
-    assert M == m, "The expected number of modes does not match the number of" \
-                  f" modes in the modes vector| {M} != {m}"
-    del M,m
+    expected_modes_count = (
+        len(info["IFFUNC"]["modes"]) * info["n_repetitions"]
+    )
+    actual_modes_count = len(info["modesVector"])
+    if expected_modes_count != actual_modes_count:
+        raise ValueError(
+            "Expected number of modes does not match the number of "
+            "entries in the modes vector: "
+            f"{expected_modes_count} != {actual_modes_count}"
+        )
 
-    T = len(info['template'])
-    t = len(info['IFFUNC']['template'])
-    assert T == t, f"Template length mismatch! {T} != {t}"
-    del T,t
+    folder_template_length = len(info["template"])
+    config_template_length = len(info["IFFUNC"]["template"])
+    if folder_template_length != config_template_length:
+        raise ValueError(
+            "Template length mismatch: "
+            f"{folder_template_length} != {config_template_length}"
+        )
 
 
 def __flag(
