@@ -858,25 +858,40 @@ def _modes_matrix_reorganization(
     NM = len(info['modesVector'])
 
     ## --- Checks --- ##    
-    assert N == info['n_repetitions'], ValueError(
-        "the IFF file matrix has mismatching ``n_repetitions``: "
-        f"{N} != {info['n_repetitions']}"
-    )
+    if N != info['n_repetitions']:
+        raise ValueError(
+            "the IFF file matrix has mismatching ``n_repetitions``: "
+            f"{N} != {info['n_repetitions']}"
+        )
 
-    assert NM == N*M, ValueError(
-        "the IFF file matrix has mismatching (total) number of modes: "
-        f"{NM} != {N*M}"
-    )
+    if NM != N*M:
+        raise ValueError(
+            "the IFF file matrix has mismatching (total) number of modes: "
+            f"{NM} != {N*M}"
+        )
     ## -------------- ##
 
+    # Get unique mode IDs and create a mapping from mode_id to position (0..M-1)
+    # This handles cases where mode IDs are not sequential (e.g., [4, 21, 34])
+    unique_modes = _np.unique(s_modes)
+    if len(unique_modes) != M:
+        raise ValueError(
+            f"Expected {M} unique modes, but found {len(unique_modes)} in modesVector"
+        )
+    
+    # Create mapping: mode_id -> position in sorted order
+    mode_to_position = {mode_id: pos for pos, mode_id in enumerate(_np.sort(unique_modes))}
+    
     new_modesMat = _np.zeros_like(modesMat)
 
     for i in range(N):
         for j in range(M):
             mode_id = s_modes[i, j]
+            # Map mode_id to its position in the sorted mode list
+            target_position = mode_to_position[mode_id]
             # Mode ``mode_id`` located at row ``j`` in the original matrix, 
-            # is moved to row ``mode_id`` in the new matrix.
-            new_modesMat[i, mode_id, :] = modesMat[i, j, :]
+            # is moved to row ``target_position`` in the new matrix.
+            new_modesMat[i, target_position, :] = modesMat[i, j, :]
 
     return new_modesMat # [N, M, T]
 
