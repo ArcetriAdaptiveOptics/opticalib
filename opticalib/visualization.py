@@ -232,6 +232,7 @@ def superimshow(
     titles: list[str] | str = None,
     xlabels: list[str] | str = None,
     ylabels: list[str] | str = None,
+    set_axis_off: bool = False,
     *mplargs: _ot.Any,
     **mplkwargs: dict[str, _ot.Any],
 ):
@@ -252,6 +253,8 @@ def superimshow(
         List of x-axis labels for each image. If not provided, the labels are 'X [px]'.
     ylabels : list or str, optional
         List of y-axis labels for each image. If not provided, the labels are 'Y [px]'.
+    set_axis_off : bool, optional
+        If True, the axes will be turned off. The default is False.
     *mplargs
         Additional arguments to be passed to `imshow`.
     **mplkwargs
@@ -264,6 +267,8 @@ def superimshow(
     axs : numpy.ndarray
         Array of axes objects corresponding to each subplot.
     """
+    # TODO: add the possibility to set the axis off. Useful for small images.
+
     import matplotlib.pyplot as plt
     from mpl_toolkits.axes_grid1 import make_axes_locatable
 
@@ -287,6 +292,7 @@ def superimshow(
     )
     ncol = int(np.ceil(np.sqrt(Nplots))) if ncols is None else ncols
     nrow = int(np.ceil(Nplots / ncol)) if nrows is None else nrows
+
     if (nrow * ncol) < Nplots:
         raise ValueError(
             f"Number of rows and columns is not enough to display {Nplots} images."
@@ -309,6 +315,8 @@ def superimshow(
         ax.set_xlabel(xlabel[i])
         ax.set_ylabel(ylabel[i])
         ax.set_aspect("equal")
+        if set_axis_off:
+            ax.axis("off")
         # Aggiunta del colorbar
         fig.colorbar(im, cax=cax)
     # Se rimangono assi vuoti, li spegniamo

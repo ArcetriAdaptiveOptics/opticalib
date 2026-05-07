@@ -182,12 +182,16 @@ def getIffConfig(key: str, bpath: str = _cfold):
         cc = config["INFLUENCE.FUNCTIONS"][key]
     except KeyError:
         cc = config[key]
+    
+    if key == 'DM':
+        return cc
+
     nzeros = int(cc[_nzeroName])
     modeId = _parse_val(cc[_modeIdName])
     modeAmp = _parse_val(cc[_modeAmpName])
     modalBase = cc[_modalBaseName]
     template = _parse_val(cc[_templateName])
-    info = {
+    return {
         "zeros": nzeros,
         "modes": modeId,
         "amplitude": modeAmp,
@@ -195,8 +199,6 @@ def getIffConfig(key: str, bpath: str = _cfold):
         "modalBase": modalBase,
         "paddingZeros": cc.get("paddingZeros", 0),
     }
-    return info
-
 
 def copyIffConfigFile(tn: str, old_path: str = _cfold):
     """
@@ -301,27 +303,6 @@ def updateConfigFile(key: str, item: str, value: _Any, bpath: str = _cfold):
     else:
         config["INFLUENCE.FUNCTIONS"][key][item] = str(value)
     dump_yaml_config(config, bpath)
-
-
-def getDmIffConfig(bpath: str = _cfold):
-    """
-    Retrieves the DM configuration from the YAML file.
-
-    Parameters
-    ----------
-    bpath : str, optional
-        Base path of the configuration file.
-
-    Returns
-    -------
-    config : dict
-        The DM configuration dictionary.
-    """
-    config = load_yaml_config(bpath)
-    try:
-        return config["INFLUENCE.FUNCTIONS"]["DM"]
-    except KeyError:
-        return config["DM"]
 
 
 def getNActs(bpath: str = _cfold):

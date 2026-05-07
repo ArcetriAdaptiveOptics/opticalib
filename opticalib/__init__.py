@@ -44,7 +44,9 @@ from . import (
     ground,
     dmutils,
     simulator,
+    visualization,
 )
+vis = visualization
 
 __all__ = [
     "analyzer",
@@ -52,6 +54,7 @@ __all__ = [
     "ground",
     "dmutils",
     "simulator",
+    "visualization",
     "load_fits",
     "save_fits",
     "read_phasemap",

@@ -26,6 +26,7 @@ def iffDataAcquisition(
     template: _ot.Optional[_ot.ArrayLike] = None,
     modalbase: _ot.Optional[str] = None,
     shuffle: bool = False,
+    n_repetitions: int = 1,
     read_buffer: bool | dict[str, _ot.Any] = False,
 ) -> str:
     """
@@ -70,6 +71,7 @@ def iffDataAcquisition(
         template=template,
         shuffle=shuffle,
         modalBase=modalbase,
+        n_repetitions=n_repetitions,
     )
     info = ifc.getInfoToSave()
     tn, _ = _prepareData2Save(info)

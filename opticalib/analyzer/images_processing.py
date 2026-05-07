@@ -110,9 +110,8 @@ def piston_unwrap(
 def pushPullReductionAlgorithm(
     imagelist: list[_ot.ImageData] | _ot.CubeData,
     template: _ot.ArrayLike,
-    normalization: _ot.Optional[float | int] = None,
-    shuffle: int = 0,
-):
+    normalization: _ot.Optional[float | int] = None
+) -> _ot.ImageData:
     """
     Performs the basic operation of processing PushPull data.
 
@@ -133,43 +132,29 @@ def pushPullReductionAlgorithm(
     """
     template = _np.asarray(template)
     n_images = len(imagelist)
-    if shuffle == 0:
-        # Template weights computation
-        w = _xp.asarray(
-            template.astype(_np.result_type(template, imagelist[0].data), copy=True),
-            dtype=_xp.float,
-        )
-        if n_images > 2:
-            w[1:-1] *= 2.0
-        # OR-reduce all masks once
-        master_mask = _np.logical_or.reduce([ima.mask for ima in imagelist])
-        # Compute weighted sum over realizations on raw data
-        stack = _xp.stack(
-            [_xp.asarray(ima.data, dtype=_xp.float) for ima in imagelist],
-            axis=0,
-            dtype=_xp.float,
-        )  # (n, H, W)
-        image = _xp.asnumpy(_xp.tensordot(w, stack, axes=(0, 0)))  # (H, W)
-    else:
-        print("Shuffle option")
-        for i in range(0, shuffle - 1):
-            for x in range(1, 2):
-                opd2add = (
-                    imagelist[i * 3 + x] * template[x]
-                    + imagelist[i * 3 + x - 1] * template[x - 1]
-                )
-                master_mask2add = _np.ma.mask_or(
-                    imagelist[i * 3 + x].mask, imagelist[i * 3 + x - 1].mask
-                )
-                if i == 0 and x == 1:
-                    master_mask = master_mask2add
-                else:
-                    master_mask = _np.ma.mask_or(master_mask, master_mask2add)
-                image += opd2add
+
+    # Template weights computation
+    w = _xp.asarray(
+        template.astype(_np.result_type(template, imagelist[0].data), copy=True),
+        dtype=_xp.float,
+    )
+    if n_images > 2:
+        w[1:-1] *= 2.0
+    # OR-reduce all masks once
+    master_mask = _np.logical_or.reduce([ima.mask for ima in imagelist])
+    # Compute weighted sum over realizations on raw data
+    stack = _xp.stack(
+        [_xp.asarray(ima.data, dtype=_xp.float) for ima in imagelist],
+        axis=0,
+        dtype=_xp.float,
+    )  # (n, H, W)
+    image = _xp.asnumpy(_xp.tensordot(w, stack, axes=(0, 0)))  # (H, W)
+
     if normalization is None:
         norm_factor = _np.max(((template.shape[0] - 1), 1))
     else:
         norm_factor = normalization
+
     image = _np.ma.masked_array(image, mask=master_mask) / norm_factor
     return image
 

@@ -4,7 +4,7 @@ import numpy as np
 from ... import typings as _t
 from ..factory_functions import *
 from ...core import root as _root
-from ...core.read_config import getDmIffConfig as _dmc
+from ...core.read_config import getIffConfig as _dmc
 from abc import ABC, abstractmethod
 from opticalib.ground import osutils as osu
 from ._rbf_gpu import RBFInterpolator
@@ -30,7 +30,7 @@ class BaseFakeAlpao(ABC):
         self.ZM = None
         self.RM = None
         self._load_matrices()
-        dmc = _dmc()
+        dmc = _dmc('DM')
         self._slaveIds = dmc.get("slaveIds", [])
         self._borderIds = dmc.get("borderIds", [])
 

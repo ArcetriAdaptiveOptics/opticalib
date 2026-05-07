@@ -270,24 +270,22 @@ class TestGetAcqPar:
 
         tn, tn_folder = sample_iff_folder_structure
 
-        ampVector, modesVector, template, indexList, registrationActs, shuffle = (
-            ifp._getAcqPar(tn)
-        )
+        ret = ifp._getAcqPar(tn)
 
-        assert ampVector is not None
-        assert modesVector is not None
-        assert template is not None
-        assert indexList is not None
-        assert registrationActs is not None
-        assert isinstance(shuffle, int)
+        assert ret["ampVector"] is not None
+        assert ret["modesVector"] is not None
+        assert ret["template"] is not None
+        assert ret["indexList"] is not None
+        assert ret["registrationActs"] is not None
+        assert isinstance(ret["shuffle"], bool)
+        assert isinstance(ret['n_repetitions'], int)
 
 
 class TestGetAcqInfo:
     """Test _getAcqInfo function."""
 
     @patch("opticalib.dmutils.iff_processing._rif.getIffConfig")
-    @patch("opticalib.dmutils.iff_processing._rif.getDmIffConfig")
-    def test_get_acq_info(self, mock_dm_config, mock_iff_config, temp_dir, monkeypatch):
+    def test_get_acq_info(self, mock_iff_config, temp_dir, monkeypatch):
         """Test getting acquisition info."""
         from opticalib.core.root import folders
 
@@ -317,8 +315,13 @@ class TestGetAcqInfo:
                 "modalBase": "mirror",
                 "paddingZeros": 0,
             },
+            {
+                "nacts": 100,
+                "timing": 10,
+                "delay": 5,
+                "triggerMode": False,
+            },
         ]
-        mock_dm_config.return_value = {"nacts": 100, "timing": 10}
 
         config_folder = os.path.join(temp_dir, "SysConfig")
         os.makedirs(config_folder, exist_ok=True)

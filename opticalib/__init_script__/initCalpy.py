@@ -12,6 +12,7 @@ modal_decomposer = zern = opticalib.ground.modal_decomposer
 osutils = osu = opticalib.ground.osutils
 analyzer = az = opticalib.analyzer
 simulator = sim = opticalib.simulator
+oplt = opticalib.visualization
 
 ifp = dmutils.iff_processing
 ifm = dmutils.iff_module

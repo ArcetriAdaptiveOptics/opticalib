@@ -202,7 +202,6 @@ def sample_iff_folder_structure(temp_dir, monkeypatch):
         "indexList.fits": np.array([0, 1, 2]),
         "regActs.fits": np.array([1, 2]),
         "cmdMatrix.fits": np.random.randn(100, 3).astype(np.float32),
-        "shuffle.dat": "0",
     }
 
     for fname, data in files_to_create.items():
