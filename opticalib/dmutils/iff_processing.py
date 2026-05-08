@@ -519,7 +519,7 @@ def iffRedux(
     ampVect : float | ArrayLike
         Vector containing the amplitude for each commanded mode.
     modeList : int | ArrayLike
-        Vector conaining the list of commanded modes.
+        Vector containing the list of commanded modes.
     template : int | ArrayLike
         Template for the push-pull command actuation.
     n_repetitions : int, optional
@@ -671,7 +671,7 @@ def findFrameOffset(
     return dp
 
 
-def getTriggerFrame(tn: str, amplitude: int | float = None, roi: int = None) -> int:
+def getTriggerFrame(tn: str, amplitude: _ot.Optional[int | float] = None, roi: _ot.Optional[int] = None) -> int:
     """
     Analyze the tracking number's images list and search for the trigger frame.
 
@@ -683,6 +683,9 @@ def getTriggerFrame(tn: str, amplitude: int | float = None, roi: int = None) -> 
         Amplitude of the commanded trigger mode, which serves as the check value
         for finding the frame. If no value is passed it is loaded from the iffConfig.ini
         file.
+    roi : int, optional
+        Region of interest to be used for the analysis. If no value is passed, 
+        the entire image is used.
 
     Returns
     -------
@@ -876,18 +879,10 @@ def _modes_matrix_reorganization(
 
     new_modesMat = _np.zeros_like(modesMat)
     
-    modes_to_pos = {}
-    for i in range(shuffled_modes.shape[0]):
-        modes_to_pos[i] = {}
-        sorted_modes = _np.sort(shuffled_modes[i])
-        for shuffle_idx, mode in enumerate(shuffled_modes[i]):
-            for target_idx in range(len(shuffled_modes[i])):
-                if mode == sorted_modes[target_idx]:
-                    modes_to_pos[i][shuffle_idx] = target_idx
-                    break
-
     # the `modes_to_pos` dictionary, indexed at the higest level by the repetition
     # index, has the mapping {shuffled_position_id: target_position_id}
+    modes_to_pos = {i: dict(enumerate(_np.argsort(_np.argsort(shuffled_modes[i])))) 
+                    for i in range(shuffled_modes.shape[0])}
 
     for i in range(N):
         mapping = modes_to_pos[i]
@@ -1042,7 +1037,7 @@ def _getAcqPar(tn: str) -> dict[str,_ot.ArrayLike | bool | int]:
     }
 
 def _getAcqInfo(
-    tn: str = None,
+    tn: _ot.Optional[str] = None,
 ) -> tuple[
     dict[str, _ot.Any], dict[str, _ot.Any], dict[str, _ot.Any], dict[str, _ot.Any]
 ]:
