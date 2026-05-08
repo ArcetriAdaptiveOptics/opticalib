@@ -44,14 +44,14 @@ import shutil as _sh
 import configparser as _cp
 from tqdm import tqdm as _tqdm
 from opticalib import typings as _ot
-from opticalib.core.root import _folds
+from opticalib.core.root import folders
 from opticalib.core import fitsarray as _fa
 from opticalib.core import read_config as _rif
 from concurrent.futures import ThreadPoolExecutor as _tpe
 from opticalib.analyzer.images_processing import cubeRebinner as _cr
 from opticalib.ground import modal_decomposer as _zern, osutils as _osu, roi as _roi
 
-_fn = _folds()
+_fn = folders()
 _config = _cp.ConfigParser()
 _ifFold = _fn.IFFUNCTIONS_ROOT_FOLDER
 _intMatFold = _fn.INTMAT_ROOT_FOLDER
@@ -878,7 +878,7 @@ def _modes_matrix_reorganization(
     ## -------------- ##
 
     new_modesMat = _np.zeros_like(modesMat)
-    
+
     # the `modes_to_pos` dictionary, indexed at the higest level by the repetition
     # index, has the mapping {shuffled_position_id: target_position_id}
     modes_to_pos = {i: dict(enumerate(_np.argsort(_np.argsort(shuffled_modes[i])))) 
