@@ -51,7 +51,7 @@ from concurrent.futures import ThreadPoolExecutor as _tpe
 from opticalib.analyzer.images_processing import cubeRebinner as _cr
 from opticalib.ground import modal_decomposer as _zern, osutils as _osu, roi as _roi
 
-_fn = folders()
+_fn = folders
 _config = _cp.ConfigParser()
 _ifFold = _fn.IFFUNCTIONS_ROOT_FOLDER
 _intMatFold = _fn.INTMAT_ROOT_FOLDER
