@@ -27,7 +27,7 @@ def iffDataAcquisition(
     modalbase: _ot.Optional[str] = None,
     shuffle: bool = False,
     n_repetitions: int = 1,
-    read_buffer: bool | dict[str, _ot.Any] = False,
+    read_buffer: bool | dict[str,_ot.Any] = False,
 ) -> str:
     """
     This is the user-lever function for the acquisition of the IFF data, given a
@@ -112,7 +112,7 @@ def acquirePistonData(
     nstep: int = 50,
     reverse: bool = False,
     differential: bool = False,
-    read_buffer: bool = False,
+    read_buffer: bool | dict[str,_ot.Any] = False,
 ) -> str:
     """
     This is the user-lever function for the acquisition of piston data of a

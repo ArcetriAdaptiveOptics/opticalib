@@ -120,13 +120,27 @@ def findTracknum(tn: str, complete_path: bool = False) -> str | list[str]:
         List containing all the folders (within the OPTData path) in which the
         tracking number is present, sorted in alphabetical order.
     """
-    tn_path = []
-    for root, dirs, _ in _os.walk(_OPTDATA):
-        if tn in dirs:
-            if complete_path:
-                tn_path.append(_os.path.join(root, tn))
-            else:
-                tn_path.append(_os.path.relpath(root, _OPTDATA))
+    # Fast path for the common OPTData layout, avoiding deep recursion.
+    parent_paths = _find_tracknum_parents(tn)
+
+    # Fallback for uncommon deeper structures.
+    if not parent_paths:
+        for root, dirs, _ in _os.walk(_OPTDATA, topdown=True):
+            if tn in dirs:
+                parent_paths.append(root)
+
+            # Tracking-number folders are leaves for this search: pruning them
+            # avoids descending into potentially huge trees of files.
+            dirs[:] = [dir_name for dir_name in dirs if not is_tn(dir_name)]
+
+        parent_paths = sorted(set(parent_paths))
+
+    tn_path: list[str] = []
+    for parent in parent_paths:
+        if complete_path:
+            tn_path.append(_os.path.join(parent, tn))
+        else:
+            tn_path.append(_os.path.relpath(parent, _OPTDATA))
 
     path_list = sorted(tn_path)
     if len(path_list) == 1:
@@ -808,6 +822,60 @@ def get_h5file_info(filepath: str) -> dict[str, _ot.Any]:
     info["file_size_mb"] = file_size_bytes / (1024 * 1024)
     return info
 
+
+def _find_tracknum_parents(tn: str) -> list[str]:
+    """
+    Fast bounded-depth search for parents containing ``tn`` as subdirectory.
+
+    The expected OPTData layout is typically ``OPTData/<group>/<tn>`` and,
+    in some cases, ``OPTData/<group>/<subgroup>/<tn>``. This helper scans only
+    these levels and avoids deep recursion into tracking-number folders.
+
+    Parameters
+    ----------
+    tn : str
+        Tracking number to be searched.
+
+    Returns
+    -------
+    list of str
+        Absolute paths of parent folders containing ``tn``.
+    """
+    parent_paths: set[str] = set()
+
+    try:
+        with _os.scandir(_OPTDATA) as level0:
+            for entry0 in level0:
+                if not entry0.is_dir(follow_symlinks=False):
+                    continue
+
+                # Case: OPTData/<tn>
+                if entry0.name == tn:
+                    parent_paths.add(_OPTDATA)
+
+                # Case: OPTData/<group>/<tn>
+                if _os.path.isdir(_os.path.join(entry0.path, tn)):
+                    parent_paths.add(entry0.path)
+
+                # Skip expensive scans in tracking-number folders.
+                if is_tn(entry0.name):
+                    continue
+
+                # Case: OPTData/<group>/<subgroup>/<tn>
+                try:
+                    with _os.scandir(entry0.path) as level1:
+                        for entry1 in level1:
+                            if not entry1.is_dir(follow_symlinks=False):
+                                continue
+                            if _os.path.isdir(_os.path.join(entry1.path, tn)):
+                                parent_paths.add(entry1.path)
+                except OSError:
+                    # Ignore inaccessible directories and continue.
+                    continue
+    except OSError:
+        return []
+
+    return sorted(parent_paths)
 
 def _header_from_dict(
     dictheader: dict[str, _ot.Any | tuple[_ot.Any, str]],
