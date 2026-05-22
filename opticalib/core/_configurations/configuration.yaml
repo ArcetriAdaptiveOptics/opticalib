@@ -50,8 +50,13 @@ DEVICES:
   # the system, such as DMs, SLMs, etc.
   DEFORMABLE.MIRRORS:
     AlpaoXXX:
-      serialNumber:
-      diameter:
+      # AlpaoDM serial number, BAX<YYY>
+      serialNumber: 
+      # Parent folder containing Lib64/ (e.g. .../Linux/Samples/Python3)
+      sdk_folder_path: 
+      # Folder containing the .acfg hardware config file (sets ACECFG env var)
+      acfg_path: 
+      diameter: 
     PetalDM:
       ip0: 
       ip1: 

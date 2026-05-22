@@ -103,13 +103,28 @@ below.
 
    DEVICES:
      DEFORMABLE.MIRRORS:
-       AlpaoDm97:               # arbitrary name
-         serialNumber: BAX240
-         diameter: 10.5        # aperture in mm
+       Alpao820:                # key must be Alpao{nacts} (e.g. Alpao820 for BAX751)
+         serialNumber: BAX751
+         sdk_folder_path: /path/to/Linux/Samples/Python3   # parent of Lib64/
+         acfg_path: /path/to/Config                        # folder with BAX751.acfg
+         diameter: 13.5        # aperture in mm
 
 ``serialNumber`` : *str*
     Hardware serial number printed on the Alpao mirror unit.  Used to open
     the SDK connection.
+
+``sdk_folder_path`` : *str*
+    Path to the **parent** folder containing the SDK's ``Lib64/``
+    directory (e.g. ``.../Linux/Samples/Python3``).  This folder is
+    prepended to ``sys.path`` so that ``from Lib64 import asdk`` succeeds.
+    Leave empty to fall back to ``<SysConfig>/alpao_sdk/``.
+
+``acfg_path`` : *str*
+    Path to the directory holding the ``.acfg`` hardware-configuration
+    file (e.g. ``BAX751.acfg``).  The SDK reads the device IP address and
+    port from this file; opticalib sets the ``ACECFG`` environment
+    variable to this path automatically before opening the connection.
+    Leave empty if ``ACECFG`` is already set externally.
 
 ``diameter`` : *float*
     Aperture diameter in millimetres.
@@ -590,7 +605,7 @@ The configuration file is read and written programmatically through
     interf_cfg = read_config.getInterfConfig('PhaseCam6110')
 
     # Get configuration for a named DM
-    dm_cfg = read_config.getDmConfig('AlpaoDm97')
+    dm_cfg = read_config.getDmConfig('Alpao820')
 
     # Get configuration for a named camera
     cam_cfg = read_config.getCamerasConfig('AVT_MANTA_5G')

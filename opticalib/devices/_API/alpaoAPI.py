@@ -258,6 +258,14 @@ class BaseAlpaoMirror:
         2. The ``serialNumber`` key in the device configuration file
            (looked up by *nacts*).
 
+        When *nacts* is provided the device configuration block
+        ``Alpao{nacts}`` is read from the configuration file, allowing
+        ``serialNumber``, ``sdk_folder_path``, and ``acfg_path`` to be
+        set there instead of being passed as arguments.  When only
+        *serial_number* is given the configuration lookup is skipped and
+        the caller is responsible for having ``ACECFG`` set in the
+        environment.
+
         Parameters
         ----------
         serial_number : str or None
@@ -270,51 +278,63 @@ class BaseAlpaoMirror:
         ------
         RuntimeError
             If neither *serial_number* nor *nacts* is provided.
+        FileNotFoundError
+            If the resolved SDK path does not exist on disk.
+        ModuleNotFoundError
+            If the ``asdk`` module cannot be imported from the SDK path.
         """
-        name = f"Alpao{int(nacts)}"
-        config = getDmConfig(name)
-        serial_number = config.get("serialNumber", serial_number)
-        nacts = config.get("nActs", nacts)
-        sdkp = config.get("sdk_path", None)
-        
-        if (serial_number, nacts) == (None, None):
-            raise RuntimeError("Either 'serial_number' or 'nacts' must be provided.")
-        
+        import os
+        import sys
+        from ...core.root import CONFIGURATION_FOLDER
+
+        if serial_number is None and nacts is None:
+            raise RuntimeError(
+                "Either 'serial_number' or 'nacts' must be provided."
+            )
+
+        # Config lookup is only possible when nacts is known.
+        config: dict = {}
+        if nacts is not None:
+            name = f"Alpao{int(nacts)}"
+            config = getDmConfig(name)
+            serial_number = config.get("serialNumber", serial_number)
+
         self.serial_number = serial_number
-        self.nacts = nacts
+        sdkp = config.get("sdk_folder_path", None)
+        acfg = config.get("acfg_path", None)
+
+        # Set the ACECFG environment variable so the native libasdk.so can
+        # locate the .acfg hardware-configuration file (contains IP, port,
+        # etc.).  If not set here the caller must have ACECFG in the
+        # environment already.
+        if acfg is not None:
+            os.environ["ACECFG"] = acfg
 
         try:
-            from ...core.root import CONFIGURATION_FOLDER
-            import os
-            import sys
-            
             sdk_path = sdkp or os.path.join(CONFIGURATION_FOLDER, "alpao_sdk")
-            
+
             if sdkp is not None and not os.path.exists(sdkp):
                 sdk_path = os.path.join(CONFIGURATION_FOLDER, sdkp)
-            
+
             if not os.path.exists(sdk_path):
                 raise FileNotFoundError(
                     f"SDK path '{sdk_path}' does not exist. "
-                    f"Ensure you either point to the {self.serial_number} Lib64 "
-                    f"folder in the configuration file or to place it in the experiment's "
-                    f"'.../SysConfig/alpao_sdk/<Lib64>'."
+                    f"Set 'sdk_folder_path' in the configuration file to the "
+                    f"parent folder that contains the 'Lib64/' directory, or "
+                    f"place the SDK under "
+                    f"'<SysConfig>/alpao_sdk/'."
                 )
 
             sys.path.insert(0, sdk_path)
 
             from Lib64 import asdk  # type: ignore
 
-        except Exception as e:
-
-            if isinstance(e, ModuleNotFoundError):
-                raise ModuleNotFoundError(
-                    "The 'asdk' module (Alpao SDK) is not installed or "
-                    "not found in the specified path."
-                    f"Path: '{sdk_path}'"
-                ) from e
-            else:
-                raise e
+        except ModuleNotFoundError as e:
+            raise ModuleNotFoundError(
+                "The 'asdk' module (Alpao SDK) could not be imported. "
+                "Ensure 'sdk_folder_path' points to the parent folder "
+                f"containing 'Lib64/' (current path: '{sdk_path}')."
+            ) from e
 
         self._sdk_dm = asdk.DM(serial_number)
         self._sdk_dm.Reset()
