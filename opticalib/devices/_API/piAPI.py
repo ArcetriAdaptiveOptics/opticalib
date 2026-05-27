@@ -3,6 +3,7 @@ from opticalib import typings as _ot
 from pipython import GCSDevice, GCSError
 from pipython.pidevice.interfaces.pisocket import PISocket
 from opticalib.core.read_config import getDmConfig, getIffConfig as _dmc
+from opticalib.core.exceptions import CommandError
 
 
 class BasePetalMirror:
@@ -169,7 +170,7 @@ class BasePetalMirror:
         """
 
         if not len(cmd) == self.nActs:
-            raise ValueError(f"command length must be {self.nActs}")
+            raise CommandError(f"command length must be {self.nActs}")
 
         if differential:
             cmd = cmd.copy() + self._get_last_cmd()
