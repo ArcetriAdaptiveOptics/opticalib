@@ -21,10 +21,10 @@ The functions are designed to operate on Opticalib typing aliases and
 import xupy as _xp
 import numpy as _np
 from .. import typings as _ot
-from ..ground import osutils as osu
 from ..core import fitsarray as _fa
-from scipy import stats as _stats, fft as _fft, ndimage as _ndimage
 from skimage.transform import resize as _resize
+from ..ground import osutils as osu, modal_decomposer as _md
+from scipy import stats as _stats, fft as _fft, ndimage as _ndimage
 
 
 def frame(idx: int, mylist: list[_ot.ImageData] | _ot.CubeData) -> _ot.ImageData:
@@ -57,9 +57,97 @@ def frame(idx: int, mylist: list[_ot.ImageData] | _ot.CubeData) -> _ot.ImageData
     return img
 
 
+def image_tilt_detrend(
+    img: _ot.ImageData, active_roi: int|_ot.MaskData, 
+) -> _ot.ImageData:
+    """
+    Detrends a specified image's ROI by fitting piston, tip and tilt from all other
+    ROIs in the image.
+
+    Parameters
+    ----------
+    img : ImageData
+        Image to be detrended.
+    active_roi : int | MaskData
+        ID or mask of the active ROI to be detrended.
+
+    Returns
+    -------
+    detrended_img : ImageData
+        Detrended image.
+    """
+    if isinstance(active_roi, int):
+        from ..ground.roi import roiGenerator
+
+        active_roi = roiGenerator(img)[active_roi]
+
+    elif not _ot.isinstance_(active_roi, "MaskData"):
+        raise TypeError("active_roi must be either an int or a MaskData")
+
+    zf = _md.ZernikeFitter(img)
+
+    r2r_image = img.copy()
+    r2r_image.mask[active_roi == 0] = True
+    
+    coeffs = zf.fitOnRoi(r2r_image, [1,2,3], mode='global')
+    _, matrix = zf.fit(img, [1,2,3])
+    
+    s2r = zf.makeSurface(
+        modes_indices=[1,2,3],
+        image=img,
+        coeffs=coeffs,
+        mat=matrix,
+        mode='full-aperture'
+    )
+    
+    return img - s2r
+
+def unwrap_image(
+    image: _ot.ImageData,
+    expected_piston: float = None,
+    wavelength: float = 632.8e-9,
+    period: int = 2,
+) -> _ot.ImageData:
+    """
+    Unwraps a single image by correcting for jumps that exceed a specified threshold.
+
+    Parameters
+    ----------
+    image : _ot.ImageData
+        Image to be unwrapped.
+    expected_piston : float, optional
+        Expected piston value for the image. If None, the default is the image 
+        mean.
+    wavelength : float, optional
+        Wavelength of the piston measurements. If None, the default is 632.8 nm
+        (He-Ne laser).
+    period : int, optional
+        Period for unwrapping. The default is 2, meaning the unwrapping will
+        consider jumps larger than half the wavelength.
+
+    Returns
+    -------
+    unwrapped_img : _ot.ImageData
+        Unwrapped image.
+    """
+    if expected_piston is None:
+        expected_piston = _np.mean(image)
+    
+    phase_jump = wavelength / period
+    threshold = phase_jump / 2
+    
+    if expected_piston > threshold:
+        unwrapped_img = image - _np.abs(phase_jump * (round(expected_piston / phase_jump)))
+    elif expected_piston < -threshold:
+        unwrapped_img = image + _np.abs(phase_jump * (round(expected_piston / phase_jump)))
+    else:
+        unwrapped_img = image.copy()
+    
+    return unwrapped_img
+
 def piston_unwrap(
-    piston_vec: _ot.ArrayLike,
-    commanded_piston_vec: _ot.ArrayLike = None,
+    piston_vector: _ot.ArrayLike,
+    commanded_piston_vector: _ot.ArrayLike = None,
     wavelength: float = None,
     period: int = 2,
 ) -> _ot.ArrayLike:
@@ -68,9 +156,9 @@ def piston_unwrap(
 
     Parameters
     ----------
-    piston_vec : _ot.ArrayLike
-        Input piston vector to be unwrapped.
-    commanded_piston_vec : _ot.ArrayLike, optional
+    piston_vector : ArrayLike
+        Vector of piston values to be unwrapped.
+    commanded_piston_vector : _ot.ArrayLike, optional
         Commanded piston vector. The default is None.
     wavelength : float, optional
         Wavelength of the piston measurements. If None, the default is 632.8 nm
@@ -93,16 +181,16 @@ def piston_unwrap(
     if wavelength < 1:  # assuming input in m
         wavelength *= 1e9  # convert to nm
 
-    if _np.max(piston_vec) < 1:  # assuming input in nm
-        piston_vec *= 1e9  # convert to nm
+    if _np.max(piston_vector) < 1:  # assuming input in nm
+        piston_vector *= 1e9  # convert to nm
 
     pwl = wavelength / period
 
-    if commanded_piston_vec is None:
-        reconstructed_piston = _np.unwrap(piston_vec, discont=wavelength, period=pwl)
+    if commanded_piston_vector is None:
+        reconstructed_piston = _np.unwrap(piston_vector, discont=wavelength, period=pwl)
     else:
-        k = _np.round((commanded_piston_vec - piston_vec) / pwl)
-        reconstructed_piston = piston_vec + k * pwl
+        k = _np.round((commanded_piston_vector - piston_vector) / pwl)
+        reconstructed_piston = piston_vector + k * pwl
 
     return reconstructed_piston
 

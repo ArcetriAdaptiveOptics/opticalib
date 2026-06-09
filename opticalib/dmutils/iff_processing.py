@@ -43,13 +43,14 @@ import numpy as _np
 import shutil as _sh
 import configparser as _cp
 from tqdm import tqdm as _tqdm
+from ..core.root import folders
+from ..core import fitsarray as _fa
 from opticalib import typings as _ot
-from opticalib.core.root import folders
-from opticalib.core import fitsarray as _fa
-from opticalib.core import read_config as _rif
+from ..core import read_config as _rif
 from concurrent.futures import ThreadPoolExecutor as _tpe
-from opticalib.analyzer.images_processing import cubeRebinner as _cr
-from opticalib.ground import modal_decomposer as _zern, osutils as _osu, roi as _roi
+from ..analyzer import images_processing as _ip
+from ..ground import modal_decomposer as _zern, osutils as _osu, roi as _roi
+from ..core.decorators import expand_list_arguments as _expand_list_arguments
 
 _fn = folders
 _config = _cp.ConfigParser()
@@ -74,7 +75,7 @@ def process(
     save: bool = False,
     rebin: int = 1,
     *,
-    trigger_roi: int = None,
+    trigger_roi: int|None = None,
     nworkers: int = 2,
     nmode_prefetch: int = 1,
 ) -> None:
@@ -95,7 +96,7 @@ def process(
     rebin : int, optional
         Rebinning factor to apply to the images before stacking them into the
         cube. The default is 1, which means no rebinning.
-    roi : int, optional
+    trigger_roi : int, optional
         If not None, it defines the size of the square ROI to be used for the
         registration algorithm. The default is None.
     nworkers : int, optional
@@ -135,7 +136,7 @@ def process(
     info["trigFrame"] = trigFrame
 
     _check_information_consistency(info)
-    
+
     regMat = getRegFileMatrix(tn, info)
     modesMat = getIffFileMatrix(tn, info)
     
@@ -161,6 +162,152 @@ def process(
         dx = register
     if save:
         saveCube(tn, rebin=rebin, register=dx)
+
+
+@_expand_list_arguments(["tn", "active_roi", "reference_roi"])
+def pistonProcess(
+    tn: str | list[str],
+    active_roi: int | list[int],
+    reference_roi: int | list[int],
+    pist_algorithm: str = 'zernike',
+    tilt_detrend: bool = True,
+    roinull: bool = True,
+    unwrap_args: dict[str,_ot.Any] | None = None,
+    save: bool = False,
+    rebin: int = 1,
+    register: bool = False,
+    trigger_roi: int|None = None
+) -> None:
+    """
+    Process the data for a given tracking number using a piston-based 
+    algorithm to unwrap the influence functions from phase ambiguity.
+
+    Parameters
+    ----------
+    tn : str | list of str
+        Tracking number(s) of the data to be processed.
+    active_roi : int | list of int
+        The index or ID of the active ROI (the area being acted upon).
+    reference_roi : int | list of int
+        The index or ID of the reference ROI used for calculation.
+    register : bool, optional
+        Whether to perform registration on the data. Default is False.
+    save : bool, optional
+        If True, saves the processed results to the INTMatrices folder. 
+        Default is False.
+    rebin : int, optional
+        The factor by which to rebin the images before saving. Default is 1.
+    pist_algorithm : str, optional
+        The algorithm used for piston calculation ('average' or 'zernike'). 
+        Default is 'zernike'.
+    tilt_detrend : bool, optional
+        Whether to perform tilt detrending on the active ROI. Default is True.
+    roinull : bool, optional
+        If True, sets the pixels outside the active ROI to zero. 
+        Default is True.
+    trigger_roi : int, optional
+        The size of the square ROI used for the registration algorithm. 
+        Default is None.
+
+    Returns
+    -------
+    None
+    """
+    unwrap_args = unwrap_args or {}
+    
+    exp_pist = unwrap_args.get("expected_piston", None)
+    wvl = unwrap_args.get("wavelength", 632.8e-9/2)
+    period = unwrap_args.get("period", 2)
+    
+    info = _getAcqPar(tn)
+    if not info["modesVector"].dtype.type is _np.int_:
+        info["modesVector"] = info["modesVector"].astype(int)
+    
+    for k, dic in zip(
+        ['TRIGGER','REGISTRATION','IFFUNC','DM'], _getAcqInfo(tn)
+    ):
+        info.update({k: dic})
+
+    fold  = _os.path.join(_ifFold, tn)
+    if not _os.path.exists(fold):
+        _os.mkdir(fold)
+
+    trigFrame = getTriggerFrame(tn, roi=trigger_roi)
+    info["trigFrame"] = trigFrame
+
+    _check_information_consistency(info)
+
+    modesMat = _modes_matrix_reorganization(
+        getIffFileMatrix(tn, info), info
+    )[0] # (M, T)
+
+    M = len(info['IFFUNC']["modes"])
+    T = len(info['template'])
+    modeList = info['IFFUNC']["modes"]
+    ampVect = info['IFFUNC']["amplitude"]
+
+    img0  = _osu.read_phasemap(modesMat[0,0])
+    zfit  = _zern.ZernikeFitter(img0)
+
+    for j in range(M):
+        runnimglist = []
+
+        for i in range(1, T):
+            img1 = _osu.read_phasemap(modesMat[j, i])
+            master_mask = _np.logical_or(img0.mask, img1.mask)
+            dimg = _np.power(-1,i+1) * (img0 - img1)
+            rois = _roi.roiGenerator(dimg)
+
+            match pist_algorithm:
+                case 'average':
+                    r1 = _np.mean(dimg[rois[reference_roi] == 0])
+
+                case 'zernike':
+                    r1 = zfit.fitOnRoi(dimg, [1,2,3], "local")[reference_roi, 0]
+                
+                case _:
+                    raise ValueError(
+                        f"Unknown piston estimation algorithm: {pist_algorithm}"
+                    )
+
+            if tilt_detrend == True:
+                dimg = _ip.image_tilt_detrend(
+                    dimg,
+                    active_roi=active_roi
+                )
+
+            dimg0 = _ip.unwrap_image(
+                _np.ma.masked_array(dimg.data, mask=rois[active_roi]) - r1,
+                expected_piston=exp_pist,
+                wavelength=wvl,
+                period=period
+            )
+            dimg0 = _np.ma.masked_array(dimg0.data, mask=master_mask)
+            
+            if roinull:
+                dimg0.data[rois[active_roi] == 1] = 0
+
+            runnimglist.append(dimg0)
+            img0 = img1
+
+        iffimg = _ip.unwrap_image(
+            image=_np.ma.average(runnimglist,axis=0),
+            expected_piston=exp_pist,
+            wavelength=wvl,
+            period=period
+        ) / (ampVect[j]*(T-1))
+
+        img_name = _os.path.join(fold, f"mode_{int(modeList[j]):05d}.fits")
+        header = {
+            "MODEID": (int(modeList[j]), "mode id"),
+            "AMP": (float(ampVect[j]), "mode amplitude"),
+            "TEMPLATE": (T, "push-pull length"),
+            "UNWRAP": (True, "flag for unwrapped image"),
+            }
+        _osu.save_fits(img_name, iffimg, overwrite=True, header=header)
+
+    if save:
+        saveCube(tn, rebin=rebin, register=register)
 
 
 def cubeRoiProcessing(
@@ -336,7 +483,7 @@ def saveCube(
     header = {}
     header["REBIN"] = (rebin, "Rebinning factor applied")
     if rebin > 1:
-        cube = _cr(cube, rebin)
+        cube = _ip.cubeRebinner(cube, rebin)
     cube.header.update(header)
     # Saving the cube
     cube_path = _os.path.join(new_fold, _CUBE_FILE)
@@ -350,28 +497,28 @@ def saveCube(
     return cube
 
 
-def stackCubes(tnlist: str, cubeNames: _ot.Optional[list[str]] = None) -> None:
+def stackCubes(tnlist: list[str], cube_names: _ot.Optional[list[str]] = None) -> str:
     """
-    Stack the cubes sontained in the corresponding tracking number folder, creating
+    Stack the cubes contained in the corresponding tracking number folder, creating
     a new cube, along with stacked command matrix and modes vector.
 
     Parameters
     ----------
     tnlist : list of str
         List containing the tracking numbers of the cubes to stack.
-    cubeNames : list of str, optional
+    cube_names : list of str, optional
         List containing the names of the cube files, corresponding to the tn, to stack.
         If not provided, the default names `IMCube.fits` will be used.
 
     Returns
     -------
-    stacked_cube : masked_array
-        Final cube, stacked along the 3th axis.
+    tn : str
+        New tracking number of the stacked cube.
     """
     new_tn = _ts()
     stacked_cube_fold = _os.path.join(_intMatFold, new_tn)
     _os.mkdir(stacked_cube_fold)
-    cube_parameters = _getCubeList(tnlist, cubeNames)
+    cube_parameters = _getCubeList(tnlist, cube_names)
     flag = _checkStackedCubes(tnlist)["Flag"]["Cube type"]
     # Stacking the cube and the matrices
     # Convert FitsMaskedArrayGpu to regular masked arrays for dstack
@@ -382,7 +529,7 @@ def stackCubes(tnlist: str, cubeNames: _ot.Optional[list[str]] = None) -> None:
     stacked_cube = _np.ma.dstack(cube_list)
     stacked_cmat = _np.hstack(cube_parameters[1])
     stacked_mvec = _np.dstack(cube_parameters[2])
-    # Saving everithing to a new file into a new tn
+    # Saving everything to a new file into a new tn
     nchead = {}
     nchead["FLAG"] = (flag, "stacking mode")
     nchead["NSTACK"] = (len(tnlist), "number of stacked cubes")
@@ -596,7 +743,7 @@ def iffRedux(
             mode_img = _np.ma.masked_array(sum_data / n_repetitions, mask=union_mask)
 
             _osu.save_fits(
-                _os.path.join(fold, f"mode_{int(modeList[mode_idx]):04d}.fits"),
+                _os.path.join(fold, f"mode_{int(modeList[mode_idx]):05d}.fits"),
                 mode_img,
                 overwrite=True,
                 header={

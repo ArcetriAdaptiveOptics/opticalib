@@ -464,8 +464,9 @@ def noise_pushpull(
                 thetemplate
             )
             cc,_ = zf.fit(img, zern2remove)
+            surf = zf.makeSurface(zern2remove, img, coeffs=cc)
             tt.append(cc)
-            rms.append(zf.removeZernike(img, zern2remove).std())
+            rms.append((img - surf).std())
 
         resrms.append(_np.mean(rms))
         restt.append(_np.mean(tt, axis=0))
