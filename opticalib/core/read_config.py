@@ -182,8 +182,8 @@ def getIffConfig(key: str, bpath: str = _cfold):
         cc = config["INFLUENCE.FUNCTIONS"][key]
     except KeyError:
         cc = config[key]
-    
-    if key == 'DM':
+
+    if key == "DM":
         return cc
 
     nzeros = int(cc[_nzeroName])
@@ -199,6 +199,7 @@ def getIffConfig(key: str, bpath: str = _cfold):
         "modalBase": modalBase,
         "paddingZeros": cc.get("paddingZeros", 0),
     }
+
 
 def copyIffConfigFile(tn: str, old_path: str = _cfold):
     """
@@ -417,7 +418,7 @@ def getCamerasConfig(device_name: str = None):
     return config
 
 
-def getDmConfig(device_name: str) -> dict[str,_Any]:
+def getDmConfig(device_name: str) -> dict[str, _Any]:
     """
     Retrieves the DM address from the YAML configuration file.
 
@@ -452,7 +453,7 @@ def getInterfConfig(device_name: str):
         Wavefront sensor port.
     """
     try:
-        config = (load_yaml_config(_cfile))["DEVICES"]['INTERFEROMETERS'][device_name]
+        config = (load_yaml_config(_cfile))["DEVICES"]["INTERFEROMETERS"][device_name]
     except KeyError:
         raise DeviceNotFoundError(device_name)
     return config

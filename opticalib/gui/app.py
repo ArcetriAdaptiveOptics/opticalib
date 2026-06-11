@@ -428,7 +428,7 @@ class DevicePanel(QGroupBox):
         "DP": "devices.DP",
         "M4AU": "devices.M4AU",
         # Cameras
-        "AVT": "devices.AVTCamera",
+        "AVT": "devices.GigaVision",
     }
 
     _SIM_ALPAO_CMD = (

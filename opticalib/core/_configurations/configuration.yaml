@@ -20,7 +20,7 @@ DEVICES:
       port: 
       Paths:
         settings: 
-          copied_settings: 
+        copied_settings: 
         capture_4dpc: 
         produce_4dpc: 
         produce: 

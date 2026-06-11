@@ -35,8 +35,8 @@ class _4DInterferometer(_api.BaseWavefrontSensor):
         """The constructor"""
         global _folds
 
-        if (ip and port) is None:         
-            from opticalib.core.read_config import getInterfConfig 
+        if (ip and port) is None:
+            from opticalib.core.read_config import getInterfConfig
 
             config = getInterfConfig(self._name)
             ip = config["ip"]
@@ -94,7 +94,7 @@ class _4DInterferometer(_api.BaseWavefrontSensor):
             masked_ima = _modeRebinner(masked_ima, rebin)
         return masked_ima
 
-    def acquireFullFrame(self, **kwargs:dict[str,_ot.Any]) -> _ot.ImageData:
+    def acquireFullFrame(self, **kwargs: dict[str, _ot.Any]) -> _ot.ImageData:
         """
         Wrapper for the consecutive execution of `acquire_mapo` and `intoFullFrame`.
 
@@ -230,9 +230,7 @@ class _4DInterferometer(_api.BaseWavefrontSensor):
                 if isinstance(load_interf_config, str):
                     conf2load = load_interf_config
                 else:
-                    conf2load = _os.path.join(
-                        capture4d, 'SoftwareSettings.4dini'
-                    )
+                    conf2load = _os.path.join(capture4d, "SoftwareSettings.4dini")
                 self._logger.info(f"Loading configuration file `{conf2load}`")
                 self.loadConfiguration(conf2load)
 

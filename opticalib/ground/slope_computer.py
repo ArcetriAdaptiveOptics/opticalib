@@ -2,19 +2,20 @@
 SLOPE COMPUTER
 ==============
 
-This module contains the `SlopeComputer` class, which computes the slopes of the 
-wavefront based on the measurements from the wavefront sensor. The `SlopeComputer` 
-class takes into account the geometry of the wavefront sensor and the configuration 
-of the optical system to accurately compute the slopes. The computed slopes can 
+This module contains the `SlopeComputer` class, which computes the slopes of the
+wavefront based on the measurements from the wavefront sensor. The `SlopeComputer`
+class takes into account the geometry of the wavefront sensor and the configuration
+of the optical system to accurately compute the slopes. The computed slopes can
 then be used for wavefront reconstruction and correction in adaptive optics systems.
 
 """
 
+
 class SlopeComputer:
     """
-    The `SlopeComputer` class is responsible for computing the slopes of the wavefront 
-    based on the measurements from the wavefront sensor. It takes into account the 
-    geometry of the wavefront sensor and the configuration of the optical system to 
+    The `SlopeComputer` class is responsible for computing the slopes of the wavefront
+    based on the measurements from the wavefront sensor. It takes into account the
+    geometry of the wavefront sensor and the configuration of the optical system to
     accurately compute the slopes.
 
     Attributes:

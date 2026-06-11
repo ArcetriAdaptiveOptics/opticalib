@@ -399,7 +399,7 @@ def noise_strfunct(
 def noise_pushpull(
     tn_or_fl: str | list[_ot.ImageData] | list[str] | _ot.CubeData,
     template: list[int],
-    zern2remove: _ot.Optional[list[int]] = None
+    zern2remove: _ot.Optional[list[int]] = None,
 ) -> tuple[_ot.ArrayLike, _ot.ArrayLike]:
     """
     Computes the noise structure function using a push-pull reduction algorithm.
@@ -431,20 +431,19 @@ def noise_pushpull(
     if isinstance(tn_or_fl, str):
         fold = osu.findTracknum(tn_or_fl)
         cube = osu.loadCubeFromFilelist(
-            tn_or_fl,
-            fold=fold,
-            key=("20" if fold == "OPDSeries" else "4D")
+            tn_or_fl, fold=fold, key=("20" if fold == "OPDSeries" else "4D")
         )
     elif _ot.isinstance_(tn_or_fl, "CubeData"):
-        cube = tn_or_fl    
+        cube = tn_or_fl
     elif isinstance(tn_or_fl, list) and all(
-        _ot.isinstance_(item, "ImageData") or isinstance(item, str)
-        for item in tn_or_fl
+        _ot.isinstance_(item, "ImageData") or isinstance(item, str) for item in tn_or_fl
     ):
         cube = _ip.createCube(tn_or_fl)
     else:
-        raise ValueError("Invalid input type for tn_or_fl. Must be a string,"
-                         " CubeData, or list of ImageData.")
+        raise ValueError(
+            "Invalid input type for tn_or_fl. Must be a string,"
+            " CubeData, or list of ImageData."
+        )
 
     nfiles = cube.shape[2]
     resrms = []
@@ -460,10 +459,9 @@ def noise_pushpull(
         tt = []
         for k in range(0, nframes2use, T):
             img = _ip.pushPullReductionAlgorithm(
-                cube[:, :, k : k + T].transpose(2, 0, 1),
-                thetemplate
+                cube[:, :, k : k + T].transpose(2, 0, 1), thetemplate
             )
-            cc,_ = zf.fit(img, zern2remove)
+            cc, _ = zf.fit(img, zern2remove)
             surf = zf.makeSurface(zern2remove, img, coeffs=cc)
             tt.append(cc)
             rms.append((img - surf).std())

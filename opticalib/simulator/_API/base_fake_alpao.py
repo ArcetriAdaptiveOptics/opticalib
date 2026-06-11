@@ -30,7 +30,7 @@ class BaseFakeAlpao(ABC):
         self.ZM = None
         self.RM = None
         self._load_matrices()
-        dmc = _dmc('DM')
+        dmc = _dmc("DM")
         self._slaveIds = dmc.get("slaveIds", [])
         self._borderIds = dmc.get("borderIds", [])
 
@@ -97,7 +97,10 @@ class BaseFakeAlpao(ABC):
         """
         Loads the required matrices for the deformable mirror's operations.
         """
-        if not os.path.exists(_root.SIM_DATA_FILE(self._name, "IF")+ ".fits") or force_recompute:
+        if (
+            not os.path.exists(_root.SIM_DATA_FILE(self._name, "IF") + ".fits")
+            or force_recompute
+        ):
             print(
                 f"First time simulating DM {self.nActs}. Generating influence functions..."
             )
@@ -114,7 +117,10 @@ class BaseFakeAlpao(ABC):
         """
         Create the Zernike matrix for the DM.
         """
-        if not os.path.exists(_root.SIM_DATA_FILE(self._name, "ZM")+ ".fits") or force_recompute:
+        if (
+            not os.path.exists(_root.SIM_DATA_FILE(self._name, "ZM") + ".fits")
+            or force_recompute
+        ):
             n_zern = self.nActs
             print("Computing Zernike matrix...")
             self.ZM = xp.asnumpy(generateZernikeMatrix(n_zern, self._mask))
@@ -127,12 +133,15 @@ class BaseFakeAlpao(ABC):
         """
         Create the interaction matrices for the DM.
         """
-        if not all(
-            [
-                os.path.exists(_root.SIM_DATA_FILE(self._name, "IM")+ ".fits"),
-                os.path.exists(_root.SIM_DATA_FILE(self._name, "RM")+ ".fits"),
-            ]
-        ) or force_recompute:
+        if (
+            not all(
+                [
+                    os.path.exists(_root.SIM_DATA_FILE(self._name, "IM") + ".fits"),
+                    os.path.exists(_root.SIM_DATA_FILE(self._name, "RM") + ".fits"),
+                ]
+            )
+            or force_recompute
+        ):
             print("Computing interaction matrix...")
             im = xp.array(
                 [

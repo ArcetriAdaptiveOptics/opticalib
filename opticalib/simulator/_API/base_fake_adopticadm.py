@@ -3,6 +3,7 @@ import tempfile
 from opticalib.core.exceptions import CommandError
 import xupy as xp
 import numpy as np
+
 # from scipy.interpolate import RBFInterpolator
 from ._rbf_gpu import RBFInterpolator
 
@@ -20,7 +21,7 @@ join = os.path.join
 
 
 class BaseFakeM4:
-    
+
     def __init__(self):
         """The constuctor"""
         ## -- DATA LOADING AND CREATION -- ##
@@ -33,7 +34,7 @@ class BaseFakeM4:
         self.nSegments = 6
         self.nActsPerSegment = 892
         self.nActs = self.nActsPerSegment * self.nSegments
-        
+
         ## -- INITIALIZATION -- ##
         self.cmdHistory = None
         self._shape = (
@@ -53,11 +54,11 @@ class BaseFakeM4:
         """Zernike matrix for the DM."""
         if self._ZM is None:
             import warnings
-            
+
             warnings.warn(
                 f"\nThe Zernike Modal Base is not available by default for {self._name} "
                 "since it is too heavy to be stored in the repo. You can generate it with:\n"
-"""                
+                """                
     from opticalib.simulator.factory_functions import generateZernikeMatrix
     from opticalib.simulator import M4AU
     
@@ -66,14 +67,14 @@ class BaseFakeM4:
     ZM = []
     for mask in m4._seg_masks:
         ZM.append(generateZernikeMatrix(m4.nActsPerSegment, mask))
-""")
+"""
+            )
         return self._ZM
-    
+
     @ZM.setter
     def ZM(self, value: list[_t.MatrixLike]):
         self._ZM = value
-    
-    
+
     def _mirror_command(self, cmd: _t.ArrayLike, diff: bool, modal: bool):
         """
         Applies the given command to the deformable mirror.
@@ -93,9 +94,9 @@ class BaseFakeM4:
         """
         if not len(cmd) == self.nActs:
             raise CommandError(
-f"Command length {len(cmd)} does not match the number of actuators {self.nActs}."
+                f"Command length {len(cmd)} does not match the number of actuators {self.nActs}."
             )
-        
+
         nsag = self.nActsPerSegment
 
         for seg in range(self.nSegments):
@@ -112,15 +113,14 @@ f"Command length {len(cmd)} does not match the number of actuators {self.nActs}.
 
             self._shape[idx] += np.dot(cmd_amp, self.IM[seg])
             self._actPos[seg * nsag : (seg + 1) * nsag] += cmd_amp
-    
 
     def _load_m4_data(self):
         """
         Loads the required data for M4 simulation.
         """
         datadict = osu.load_h5(get_simdata_file("m4_data.h5"))
-        self._mask = 1 + -1*datadict["mask"].copy().astype(bool)
-        
+        self._mask = 1 + -1 * datadict["mask"].copy().astype(bool)
+
         self._coords = self._scale_coords(self._mask, datadict["coordinates"])
         self.mirrorModes = datadict["mirrorModes"].copy()
         self.ff = datadict["FFWD"].copy()
@@ -129,21 +129,15 @@ f"Command length {len(cmd)} does not match the number of actuators {self.nActs}.
         ims = []
 
         for sect in range(6):
-            idxs.append(datadict[f'idx{sect}'])
-            ims.append(datadict[f'IM{sect}'])
-        
+            idxs.append(datadict[f"idx{sect}"])
+            ims.append(datadict[f"IM{sect}"])
+
         self._idx = idxs
         self.IM = ims
 
         self.RM = []
         for im in self.IM:
-            self.RM.append(
-                xp.asnumpy(
-                    xp.linalg.pinv(
-                        xp.asarray(im)
-                    )
-                )
-            )
+            self.RM.append(xp.asnumpy(xp.linalg.pinv(xp.asarray(im))))
 
     def _scale_coords(self, mask: _t.MaskData, coords: _t.ArrayLike) -> _t.ArrayLike:
         """
@@ -156,17 +150,14 @@ f"Command length {len(cmd)} does not match the number of actuators {self.nActs}.
         # Match coords to mask orientation by rotating by 30 degrees
         alpha = np.deg2rad(30)
         rot_matrix = np.array(
-            [
-                [np.cos(alpha), -np.sin(alpha)], 
-                [np.sin(alpha), np.cos(alpha)]
-            ]
+            [[np.cos(alpha), -np.sin(alpha)], [np.sin(alpha), np.cos(alpha)]]
         )
         rot_coords = coords @ rot_matrix
 
         # Scale the coords to match the mask scale
-        rot_coords *= outer_radius / np.max(np.abs(rot_coords)) 
-        rot_coords += (np.asarray(shape) / 2)
-        
+        rot_coords *= outer_radius / np.max(np.abs(rot_coords))
+        rot_coords += np.asarray(shape) / 2
+
         return rot_coords
 
     def _wavefront(self, **kwargs: dict[str, _t.Any]) -> _t.ImageData:
@@ -207,11 +198,12 @@ f"Command length {len(cmd)} does not match the number of actuators {self.nActs}.
             del wf
         return geo.rotate_image(img, angle_deg=-30)
 
+
 class BaseFakeDp:
 
     def __init__(self, force_recompute: bool = False):
         """The constuctor"""
-        dmc = _dmc('DM')
+        dmc = _dmc("DM")
         self._name = "AdOpticaDP"
         self.mirrorModes = osu.load_fits(get_simdata_file("dp_cmdmat.fits"))
         self.ff = osu.load_fits(get_simdata_file("dp_ffwd.fits"))
@@ -334,7 +326,10 @@ class BaseFakeDp:
         """
         Loads the required matrices for the deformable mirror's operations.
         """
-        if not os.path.exists(fp.SIM_DATA_FILE(self._name, "IF")+'.fits') or force_recompute:
+        if (
+            not os.path.exists(fp.SIM_DATA_FILE(self._name, "IF") + ".fits")
+            or force_recompute
+        ):
             print(
                 f"First time simulating {self._name}.\nGenerating influence functions..."
             )
@@ -349,7 +344,10 @@ class BaseFakeDp:
         """
         Create the Zernike matrix for the DM.
         """
-        if not os.path.exists(fp.SIM_DATA_FILE(self._name, "ZM")+'.fits') or force_recompute:
+        if (
+            not os.path.exists(fp.SIM_DATA_FILE(self._name, "ZM") + ".fits")
+            or force_recompute
+        ):
             n_zern = self.nActs // 2
             print("Computing Zernike matrix...")
             from ..factory_functions import generateZernikeMatrix
@@ -370,8 +368,8 @@ class BaseFakeDp:
         """
         Create the interaction matrices for the DM.
         """
-        imfile = fp.SIM_DATA_FILE(self._name, "IM")+'.fits'
-        rmfile = fp.SIM_DATA_FILE(self._name, "RM")+'.fits'
+        imfile = fp.SIM_DATA_FILE(self._name, "IM") + ".fits"
+        rmfile = fp.SIM_DATA_FILE(self._name, "RM") + ".fits"
         if not all([os.path.exists(imfile), os.path.exists(rmfile)]) or force_recompute:
             print("Computing interaction matrix...")
             ims = []

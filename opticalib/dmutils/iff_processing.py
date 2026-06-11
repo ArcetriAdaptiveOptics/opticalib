@@ -75,7 +75,7 @@ def process(
     save: bool = False,
     rebin: int = 1,
     *,
-    trigger_roi: int|None = None,
+    trigger_roi: int | None = None,
     nworkers: int = 2,
     nmode_prefetch: int = 1,
 ) -> None:
@@ -122,10 +122,8 @@ def process(
     info = _getAcqPar(tn)
     if not info["modesVector"].dtype.type is _np.int_:
         info["modesVector"] = info["modesVector"].astype(int)
-    
-    for k, dic in zip(
-        ['TRIGGER','REGISTRATION','IFFUNC','DM'], _getAcqInfo(tn)
-    ):
+
+    for k, dic in zip(["TRIGGER", "REGISTRATION", "IFFUNC", "DM"], _getAcqInfo(tn)):
         info.update({k: dic})
 
     new_fold = _os.path.join(_intMatFold, tn)
@@ -139,19 +137,19 @@ def process(
 
     regMat = getRegFileMatrix(tn, info)
     modesMat = getIffFileMatrix(tn, info)
-    
+
     modesMat = _modes_matrix_reorganization(modesMat, info)
-    # At this point, the ``modesMat`` is reordered as 0,1,..,M-1, where M is 
-    # the number of modes, and is of shape (N, M, T), where: N is the number of 
+    # At this point, the ``modesMat`` is reordered as 0,1,..,M-1, where M is
+    # the number of modes, and is of shape (N, M, T), where: N is the number of
     # template realizations, and T is the push-pull template sequence.
 
     iffRedux(
         tn=tn,
         fileMat=modesMat,
-        ampVect=info['IFFUNC']["amplitude"],
-        modeList=info['IFFUNC']["modes"],
+        ampVect=info["IFFUNC"]["amplitude"],
+        modeList=info["IFFUNC"]["modes"],
         template=info["template"],
-        n_repetitions=info['n_repetitions'],
+        n_repetitions=info["n_repetitions"],
         io_workers=nworkers,
         prefetch=nmode_prefetch,
     )
@@ -169,17 +167,17 @@ def pistonProcess(
     tn: str | list[str],
     active_roi: int | list[int],
     reference_roi: int | list[int],
-    pist_algorithm: str = 'zernike',
+    pist_algorithm: str = "zernike",
     tilt_detrend: bool = True,
     roinull: bool = True,
-    unwrap_args: dict[str,_ot.Any] | None = None,
+    unwrap_args: dict[str, _ot.Any] | None = None,
     save: bool = False,
     rebin: int = 1,
     register: bool = False,
-    trigger_roi: int|None = None
+    trigger_roi: int | None = None,
 ) -> None:
     """
-    Process the data for a given tracking number using a piston-based 
+    Process the data for a given tracking number using a piston-based
     algorithm to unwrap the influence functions from phase ambiguity.
 
     Parameters
@@ -193,20 +191,20 @@ def pistonProcess(
     register : bool, optional
         Whether to perform registration on the data. Default is False.
     save : bool, optional
-        If True, saves the processed results to the INTMatrices folder. 
+        If True, saves the processed results to the INTMatrices folder.
         Default is False.
     rebin : int, optional
         The factor by which to rebin the images before saving. Default is 1.
     pist_algorithm : str, optional
-        The algorithm used for piston calculation ('average' or 'zernike'). 
+        The algorithm used for piston calculation ('average' or 'zernike').
         Default is 'zernike'.
     tilt_detrend : bool, optional
         Whether to perform tilt detrending on the active ROI. Default is True.
     roinull : bool, optional
-        If True, sets the pixels outside the active ROI to zero. 
+        If True, sets the pixels outside the active ROI to zero.
         Default is True.
     trigger_roi : int, optional
-        The size of the square ROI used for the registration algorithm. 
+        The size of the square ROI used for the registration algorithm.
         Default is None.
 
     Returns
@@ -214,21 +212,19 @@ def pistonProcess(
     None
     """
     unwrap_args = unwrap_args or {}
-    
+
     exp_pist = unwrap_args.get("expected_piston", None)
-    wvl = unwrap_args.get("wavelength", 632.8e-9/2)
+    wvl = unwrap_args.get("wavelength", 632.8e-9 / 2)
     period = unwrap_args.get("period", 2)
-    
+
     info = _getAcqPar(tn)
     if not info["modesVector"].dtype.type is _np.int_:
         info["modesVector"] = info["modesVector"].astype(int)
-    
-    for k, dic in zip(
-        ['TRIGGER','REGISTRATION','IFFUNC','DM'], _getAcqInfo(tn)
-    ):
+
+    for k, dic in zip(["TRIGGER", "REGISTRATION", "IFFUNC", "DM"], _getAcqInfo(tn)):
         info.update({k: dic})
 
-    fold  = _os.path.join(_ifFold, tn)
+    fold = _os.path.join(_ifFold, tn)
     if not _os.path.exists(fold):
         _os.mkdir(fold)
 
@@ -237,17 +233,17 @@ def pistonProcess(
 
     _check_information_consistency(info)
 
-    modesMat = _modes_matrix_reorganization(
-        getIffFileMatrix(tn, info), info
-    )[0] # (M, T)
+    modesMat = _modes_matrix_reorganization(getIffFileMatrix(tn, info), info)[
+        0
+    ]  # (M, T)
 
-    M = len(info['IFFUNC']["modes"])
-    T = len(info['template'])
-    modeList = info['IFFUNC']["modes"]
-    ampVect = info['IFFUNC']["amplitude"]
+    M = len(info["IFFUNC"]["modes"])
+    T = len(info["template"])
+    modeList = info["IFFUNC"]["modes"]
+    ampVect = info["IFFUNC"]["amplitude"]
 
-    img0  = _osu.read_phasemap(modesMat[0,0])
-    zfit  = _zern.ZernikeFitter(img0)
+    img0 = _osu.read_phasemap(modesMat[0, 0])
+    zfit = _zern.ZernikeFitter(img0)
 
     for j in range(M):
         runnimglist = []
@@ -255,35 +251,32 @@ def pistonProcess(
         for i in range(1, T):
             img1 = _osu.read_phasemap(modesMat[j, i])
             master_mask = _np.logical_or(img0.mask, img1.mask)
-            dimg = _np.power(-1,i+1) * (img0 - img1)
+            dimg = _np.power(-1, i + 1) * (img0 - img1)
             rois = _roi.roiGenerator(dimg)
 
             match pist_algorithm:
-                case 'average':
+                case "average":
                     r1 = _np.mean(dimg[rois[reference_roi] == 0])
 
-                case 'zernike':
-                    r1 = zfit.fitOnRoi(dimg, [1,2,3], "local")[reference_roi, 0]
-                
+                case "zernike":
+                    r1 = zfit.fitOnRoi(dimg, [1, 2, 3], "local")[reference_roi, 0]
+
                 case _:
                     raise ValueError(
                         f"Unknown piston estimation algorithm: {pist_algorithm}"
                     )
 
             if tilt_detrend == True:
-                dimg = _ip.image_tilt_detrend(
-                    dimg,
-                    active_roi=active_roi
-                )
+                dimg = _ip.image_tilt_detrend(dimg, active_roi=active_roi)
 
             dimg0 = _ip.unwrap_image(
                 _np.ma.masked_array(dimg.data, mask=rois[active_roi]) - r1,
                 expected_piston=exp_pist,
                 wavelength=wvl,
-                period=period
+                period=period,
             )
             dimg0 = _np.ma.masked_array(dimg0.data, mask=master_mask)
-            
+
             if roinull:
                 dimg0.data[rois[active_roi] == 1] = 0
 
@@ -291,11 +284,11 @@ def pistonProcess(
             img0 = img1
 
         iffimg = _ip.unwrap_image(
-            image=_np.ma.average(runnimglist,axis=0),
+            image=_np.ma.average(runnimglist, axis=0),
             expected_piston=exp_pist,
             wavelength=wvl,
-            period=period
-        ) / (ampVect[j]*(T-1))
+            period=period,
+        ) / (ampVect[j] * (T - 1))
 
         img_name = _os.path.join(fold, f"mode_{int(modeList[j]):05d}.fits")
         header = {
@@ -303,7 +296,7 @@ def pistonProcess(
             "AMP": (float(ampVect[j]), "mode amplitude"),
             "TEMPLATE": (T, "push-pull length"),
             "UNWRAP": (True, "flag for unwrapped image"),
-            }
+        }
         _osu.save_fits(img_name, iffimg, overwrite=True, header=header)
 
     if save:
@@ -687,7 +680,7 @@ def iffRedux(
     fold = _os.path.join(_ifFold, tn)
 
     N, M, T = fileMat.shape
-    
+
     if _np.size(ampVect) == 1:
         ampVect = _np.full(M, ampVect, dtype=_np.float32)
 
@@ -753,7 +746,6 @@ def iffRedux(
                     "NREP": (int(n_repetitions), "averaged repetitions"),
                 },
             )
-            
 
 
 def registrationRedux(tn: str, fileMat: list[str]) -> list[_ot.ImageData]:
@@ -818,7 +810,9 @@ def findFrameOffset(
     return dp
 
 
-def getTriggerFrame(tn: str, amplitude: _ot.Optional[int | float] = None, roi: _ot.Optional[int] = None) -> int:
+def getTriggerFrame(
+    tn: str, amplitude: _ot.Optional[int | float] = None, roi: _ot.Optional[int] = None
+) -> int:
     """
     Analyze the tracking number's images list and search for the trigger frame.
 
@@ -831,7 +825,7 @@ def getTriggerFrame(tn: str, amplitude: _ot.Optional[int | float] = None, roi: _
         for finding the frame. If no value is passed it is loaded from the iffConfig.ini
         file.
     roi : int, optional
-        Region of interest to be used for the analysis. If no value is passed, 
+        Region of interest to be used for the analysis. If no value is passed,
         the entire image is used.
 
     Returns
@@ -882,7 +876,8 @@ def getTriggerFrame(tn: str, amplitude: _ot.Optional[int | float] = None, roi: _
     trigFrame = i
     return trigFrame
 
-def getRegFrames(tn: str, info: dict[str,_ot.Any]) -> tuple[int, _ot.ArrayLike]:
+
+def getRegFrames(tn: str, info: dict[str, _ot.Any]) -> tuple[int, _ot.ArrayLike]:
     """
     Search for the registration frames in the images file list.
 
@@ -902,7 +897,7 @@ def getRegFrames(tn: str, info: dict[str,_ot.Any]) -> tuple[int, _ot.ArrayLike]:
         Index which identifies the last registration frame in the images file
         list.
     """
-    infoR = info['REGISTRATION']
+    infoR = info["REGISTRATION"]
     trigFrame = info["trigFrame"]
     timing = _rif.getTiming()
     if infoR["zeros"] == 0 and len(infoR["modes"]) == 0:
@@ -912,7 +907,8 @@ def getRegFrames(tn: str, info: dict[str,_ot.Any]) -> tuple[int, _ot.ArrayLike]:
         regEnd = regStart + len(infoR["modes"]) * len(infoR["template"]) * timing
     return regStart, regEnd
 
-def getRegFileMatrix(tn: str, info: dict[str,_ot.Any]) -> tuple[int, _ot.ArrayLike]:
+
+def getRegFileMatrix(tn: str, info: dict[str, _ot.Any]) -> tuple[int, _ot.ArrayLike]:
     """
     Search for the registration frames in the images file list, and creates the
     registration file matrix.
@@ -934,14 +930,14 @@ def getRegFileMatrix(tn: str, info: dict[str,_ot.Any]) -> tuple[int, _ot.ArrayLi
     else:
         fold = None
     fileList = _osu.getFileList(tn, fold="OPDImages" if fold is None else fold)
-    infoR = info['REGISTRATION']
+    infoR = info["REGISTRATION"]
     regStart, regEnd = getRegFrames(tn, info)
     regList = fileList[regStart:regEnd]
     regMat = _np.reshape(regList, (len(infoR["modes"]), len(infoR["template"])))
     return regMat
 
 
-def getIffFileMatrix(tn: str, info: dict[str,_ot.Any]) -> _ot.ArrayLike:
+def getIffFileMatrix(tn: str, info: dict[str, _ot.Any]) -> _ot.ArrayLike:
     """
     Creates the iffMat
 
@@ -962,24 +958,25 @@ def getIffFileMatrix(tn: str, info: dict[str,_ot.Any]) -> _ot.ArrayLike:
         _os.path.isdir(fold)
     else:
         fold = None
-    fileList = _osu.getFileList(tn, fold="OPDImages" if fold is None else fold, key='image_')
+    fileList = _osu.getFileList(
+        tn, fold="OPDImages" if fold is None else fold, key="image_"
+    )
 
-    infoIF = info['IFFUNC']
+    infoIF = info["IFFUNC"]
     _, regEnd = getRegFrames(tn, info)
     k = regEnd + infoIF["zeros"]
     # `k` is the starting point in the file list for the IFF frames
 
-    n_useful_frames = len(info["modesVector"]) * len(info["template"]) # [M x N x T]
+    n_useful_frames = len(info["modesVector"]) * len(info["template"])  # [M x N x T]
     iffList = fileList[k : k + n_useful_frames]
     iffMat = _np.reshape(
-        iffList, 
-        (info['n_repetitions'], len(infoIF["modes"]), len(infoIF["template"]))
-    ) # [N, M, T]
+        iffList, (info["n_repetitions"], len(infoIF["modes"]), len(infoIF["template"]))
+    )  # [N, M, T]
     return iffMat
 
 
 def _modes_matrix_reorganization(
-    modesMat: _ot.MatrixLike, info: dict[str,_ot.Any]
+    modesMat: _ot.MatrixLike, info: dict[str, _ot.Any]
 ) -> _ot.MatrixLike:
     """
     Reorganizes the modes matrix according to the mode list in the info dictionary.
@@ -998,26 +995,28 @@ def _modes_matrix_reorganization(
         where the modes are re-ordered as 0,1,..,M-1.
     """
     # Not shuffled case
-    if not info['shuffle']:
+    if not info["shuffle"]:
         return modesMat
 
     # Shuffled case
     N, M, T = modesMat.shape
-    
+
     # indexList[i, j] stores the original position (in the requested modesList) of the
     # mode that was placed at position j during repetition i of the shuffled acquisition
-    shuffled_modes = _np.asarray(info['modesVector'].reshape((N, M)), dtype=int)  # [N, M]
-    
-    NM = len(info['modesVector'])
+    shuffled_modes = _np.asarray(
+        info["modesVector"].reshape((N, M)), dtype=int
+    )  # [N, M]
 
-    ## --- Checks --- ##    
-    if N != info['n_repetitions']:
+    NM = len(info["modesVector"])
+
+    ## --- Checks --- ##
+    if N != info["n_repetitions"]:
         raise ValueError(
             "the IFF file matrix has mismatching ``n_repetitions``: "
             f"{N} != {info['n_repetitions']}"
         )
 
-    if NM != N*M:
+    if NM != N * M:
         raise ValueError(
             "the IFF file matrix has mismatching (total) number of modes: "
             f"{NM} != {N*M}"
@@ -1028,8 +1027,10 @@ def _modes_matrix_reorganization(
 
     # the `modes_to_pos` dictionary, indexed at the higest level by the repetition
     # index, has the mapping {shuffled_position_id: target_position_id}
-    modes_to_pos = {i: dict(enumerate(_np.argsort(_np.argsort(shuffled_modes[i])))) 
-                    for i in range(shuffled_modes.shape[0])}
+    modes_to_pos = {
+        i: dict(enumerate(_np.argsort(_np.argsort(shuffled_modes[i]))))
+        for i in range(shuffled_modes.shape[0])
+    }
 
     for i in range(N):
         mapping = modes_to_pos[i]
@@ -1037,7 +1038,7 @@ def _modes_matrix_reorganization(
             target_idx = mapping[shuffle_idx]
             new_modesMat[i, target_idx, :] = modesMat[i, shuffle_idx, :]
 
-    return new_modesMat # [N, M, T]
+    return new_modesMat  # [N, M, T]
 
 
 def _add_vect_to_mat(
@@ -1138,7 +1139,7 @@ def _getCubeList(
     return cubeList, matrixList, modesVectList, rebin
 
 
-def _getAcqPar(tn: str) -> dict[str,_ot.ArrayLike | bool | int]:
+def _getAcqPar(tn: str) -> dict[str, _ot.ArrayLike | bool | int]:
     """
     Reads ad returns the acquisition parameters from fits files.
 
@@ -1180,8 +1181,9 @@ def _getAcqPar(tn: str) -> dict[str,_ot.ArrayLike | bool | int]:
         "indexList": indexList,
         "registrationActs": registrationActs,
         "shuffle": shuffle,
-        "n_repetitions": n_repetitions
+        "n_repetitions": n_repetitions,
     }
+
 
 def _getAcqInfo(
     tn: _ot.Optional[str] = None,
@@ -1212,8 +1214,9 @@ def _getAcqInfo(
     infoT = _rif.getIffConfig("TRIGGER", bpath=path)
     infoR = _rif.getIffConfig("REGISTRATION", bpath=path)
     infoIF = _rif.getIffConfig("IFFUNC", bpath=path)
-    infoDM = _rif.getIffConfig('DM', bpath=path)
+    infoDM = _rif.getIffConfig("DM", bpath=path)
     return infoT, infoR, infoIF, infoDM
+
 
 def _checkStackedCubes(tnlist: str) -> dict[str, _ot.Any]:
     """
@@ -1244,6 +1247,7 @@ def _checkStackedCubes(tnlist: str) -> dict[str, _ot.Any]:
         flag = __flag(tnlist, modesVectList, rebin, 0)
     return flag
 
+
 def _check_information_consistency(info: dict[str, _ot.Any]) -> None:
     """
     Check consistency between folder metadata and configuration metadata.
@@ -1260,9 +1264,7 @@ def _check_information_consistency(info: dict[str, _ot.Any]) -> None:
         Raised when the number of modes or template lengths do not match
         the expected values from the configuration.
     """
-    expected_modes_count = (
-        len(info["IFFUNC"]["modes"]) * info["n_repetitions"]
-    )
+    expected_modes_count = len(info["IFFUNC"]["modes"]) * info["n_repetitions"]
     actual_modes_count = len(info["modesVector"])
     if expected_modes_count != actual_modes_count:
         raise ValueError(

@@ -23,7 +23,7 @@ class PetalMirror(BaseFakePTL):
     visualize_shape(cmd=None)
         Visualizes the command amplitudes on the mirror's actuators.
     """
-    
+
     def __init__(self, **kwargs: dict[str, _t.Any]):
         self._live = False
         self._logger = _SL(__class__)
@@ -33,7 +33,7 @@ class PetalMirror(BaseFakePTL):
         self.nActsPerSegment = 3
         self._zern = _ZF(self._mask)
         self.mirrorModes = None
-    
+
     @property
     def slaveIds(self) -> _t.ArrayLike:
         """
@@ -93,7 +93,7 @@ class PetalMirror(BaseFakePTL):
             Current amplitudes commanded to the dm's actuators.
         """
         return self._2modes(self._actPos.copy()) / np.tile(self._unit_calib, 6)
-    
+
     def uploadCmdHistory(self, cmdhist: _t.MatrixLike):
         """
         Upload the command history to the deformable mirror memory.
@@ -103,7 +103,7 @@ class PetalMirror(BaseFakePTL):
             f"Uploading command history of shape {cmdhist.shape} to {self._name}"
         )
         self.cmdHistory = cmdhist
-    
+
     def runCmdHistory(
         self,
         interf: _t.InterferometerDevice = None,
@@ -182,9 +182,7 @@ class PetalMirror(BaseFakePTL):
             cmd = self._actPos.copy()
         plt.figure(figsize=(7, 6))
         size = (120 * 97) / self.nActs
-        plt.scatter(
-            self._coords[:, 0], self._coords[:, 1], c=cmd, s=size
-        )
+        plt.scatter(self._coords[:, 0], self._coords[:, 1], c=cmd, s=size)
         plt.xlabel(r"$x$ $[px]$")
         plt.ylabel(r"$y$ $[px]$")
         plt.title(f"DM {self.nActs} Actuator's Coordinates")
@@ -646,7 +644,7 @@ class M4AU(BaseFakeM4):
 
     def __repr__(self) -> str:
         return f"{self._name}(nSegments={self.nSegments}, nActsPerSegment={self.nActsPerSegment})"
-    
+
     def set_shape(
         self, command: _t.ArrayLike, differential: bool = False, modal: bool = False
     ):
@@ -666,7 +664,7 @@ class M4AU(BaseFakeM4):
         if self._live:
             time.sleep(0.15)
             plt.pause(0.05)
-    
+
     def get_shape(self):
         """
         Returns the current amplitudes commanded to the dm's actuators.
@@ -677,7 +675,7 @@ class M4AU(BaseFakeM4):
             Current amplitudes commanded to the dm's actuators.
         """
         return self._actPos.copy()
-    
+
     def visualize_shape(self, cmd: _t.ArrayLike = None, **kwargs: dict[str, _t.Any]):
         """
         Visualizes the command amplitudes on the mirror's actuators.
@@ -720,7 +718,7 @@ class M4AU(BaseFakeM4):
         plt.title(f"{self._name} {self.nActs} Actuator's Coordinates")
         plt.colorbar()
         plt.show()
-    
+
     def uploadCmdHistory(self, cmdhist: _t.MatrixLike):
         """
         Upload the command history to the deformable mirror memory.
@@ -730,7 +728,7 @@ class M4AU(BaseFakeM4):
             f"Uploading command history of shape {cmdhist.shape} to {self._name}"
         )
         self.cmdHistory = cmdhist
-    
+
     def runCmdHistory(
         self,
         interf: _t.InterferometerDevice = None,

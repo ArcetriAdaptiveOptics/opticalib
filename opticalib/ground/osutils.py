@@ -877,6 +877,7 @@ def _find_tracknum_parents(tn: str) -> list[str]:
 
     return sorted(parent_paths)
 
+
 def _header_from_dict(
     dictheader: dict[str, _ot.Any | tuple[_ot.Any, str]],
 ) -> _fits.Header:
