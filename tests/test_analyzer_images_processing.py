@@ -120,7 +120,7 @@ class TestPistonUnwrap:
         """Test unwrapping with a commanded piston vector."""
         commanded = np.array([100.0, 200.0, 300.0])
         measured = np.array([100.0, 200.0, 300.0])  # no offset
-        result = ip.piston_unwrap(measured, commanded_piston_vec=commanded, wavelength=632.8)
+        result = ip.piston_unwrap(measured, commanded_piston_vector=commanded, wavelength=632.8)
 
         assert result.shape == measured.shape
 
