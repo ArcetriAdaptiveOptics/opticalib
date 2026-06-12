@@ -152,8 +152,8 @@ def cmdplot(cmd: _ot.ArrayLike, **kwargs: dict[str, _ot.Any]):
         The list of line objects returned by plot.
     """
     title = kwargs.pop("title", "DM Command")
-    xlabel = kwargs.pop("xlabel", "X [px]")
-    ylabel = kwargs.pop("ylabel", "Y [px]")
+    xlabel = kwargs.pop("xlabel", "Actuator Index")
+    ylabel = kwargs.pop("ylabel", "Amplitude")
     c = _osu.get_kwargs(("color", "c"), default="black", pop=True, kwargs=kwargs)
 
     fig, ax = plt.subplots()

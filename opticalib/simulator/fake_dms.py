@@ -359,7 +359,7 @@ class AlpaoDm(BaseFakeAlpao):
         self.set_shape(s)
         return tn
 
-    def visualize_shape(self, cmd: _t.ArrayLike = None):
+    def visualize_shape(self, cmd: _t.ArrayLike = None, **scatter_kwargs: dict[str, _t.Any]):
         """
         Visualizes the command amplitudes on the mirror's actuators.
 
@@ -374,12 +374,26 @@ class AlpaoDm(BaseFakeAlpao):
         np.array
             Processed shape based on the command.
         """
-        if cmd is None:
-            cmd = self._actPos.copy()
         plt.figure(figsize=(7, 6))
-        size = (120 * 97) / self.nActs
+        if cmd is None:
+            cmd = self.get_shape()
+
+            for i, (x, y) in enumerate(self._scaledActCoords):
+                plt.annotate(
+                    str(i),
+                    (x, y),
+                    textcoords="offset points",
+                    xytext=(3, 3),
+                    ha="left",
+                    va="bottom",
+                    fontsize=7,
+                    color="black",
+                )
+
         plt.scatter(
-            self._scaledActCoords[:, 0], self._scaledActCoords[:, 1], c=cmd, s=size
+            self._scaledActCoords[:, 0], self._scaledActCoords[:, 1], c=cmd,
+            s=scatter_kwargs.pop("s", (120 * 97) / self.nActs),
+            **scatter_kwargs,
         )
         plt.xlabel(r"$x$ $[px]$")
         plt.ylabel(r"$y$ $[px]$")

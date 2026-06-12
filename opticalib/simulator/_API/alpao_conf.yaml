@@ -28,8 +28,8 @@ DM277:
 
 DM292:
   coords : [4, 8, 12, 14, 16, 16, 18, 18, 20]
-  opt_diameter : 30
-  pixel_scale : 17.06667
+  opt_diameter : 26.5
+  pixel_scale : 19.320754717
   act_px_size : 25.6
   act_mm_size : 1.28
 
