@@ -97,9 +97,10 @@ def surfshow(
         The surface object returned by plot_surface.
     """
     if not d3:
+        clab = kwargs.pop("clabel", "meters")
         fig, ax, im = myimshow(image, cut=cut, **kwargs)
         cbar = im.colorbar
-        cbar.set_label(kwargs.get("clabel", "meters"))
+        cbar.set_label(clab)
         return fig, ax, im
     else:
         fig, ax = plt.subplots(figsize=(7, 6), subplot_kw={"projection": "3d"})

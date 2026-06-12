@@ -26,6 +26,13 @@ DM277:
   act_px_size : 26.947
   act_mm_size : 1.316
 
+DM292:
+  coords : [4, 8, 12, 14, 16, 16, 18, 18, 20]
+  opt_diameter : 30
+  pixel_scale : 17.06667
+  act_px_size : 25.6
+  act_mm_size : 1.28
+
 DM468:
   coords : [8, 12, 16, 18, 20, 20, 22, 22, 24]
   opt_diameter : 33.5

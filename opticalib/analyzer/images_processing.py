@@ -422,6 +422,7 @@ def modeRebinner(
 def cubeRebinner(
     cube: _ot.CubeData,
     rebin: int,
+    axis: int = -1,
     method: str = "averaging",
     anti_aliasing: bool = False,
     preserve_flux: bool = False,
@@ -437,6 +438,9 @@ def cubeRebinner(
         Cube to rebin.
     rebin : int
         Rebinning factor.
+    axis : int, optional
+        Axis to cycle through for frame-by-frame rebinning. Default is ``-1``
+        (last axis).
     method : str, optional
         Rebinning method. Supported values are:
         'averaging'/'mean', 'sum', 'median',
@@ -464,11 +468,14 @@ def cubeRebinner(
     else:
         header = {}
 
+    axis = int(axis)
+    moved_cube = _np.moveaxis(cube, axis, -1)
+
     newCube = []
-    for i in range(cube.shape[-1]):
+    for i in range(moved_cube.shape[-1]):
         newCube.append(
             modeRebinner(
-                cube[:, :, i],
+                moved_cube[:, :, i],
                 rebin,
                 method=method,
                 anti_aliasing=anti_aliasing,
@@ -477,7 +484,9 @@ def cubeRebinner(
                 cval=cval,
             )
         )
-    return _fa.fits_array(_np.ma.dstack(newCube), header=header)
+    rebinned_cube = _np.ma.dstack(newCube)
+    rebinned_cube = _np.moveaxis(rebinned_cube, -1, axis)
+    return _fa.fits_array(rebinned_cube, header=header)
 
 
 def comp_filtered_image(

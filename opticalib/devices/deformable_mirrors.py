@@ -51,7 +51,13 @@ class PetalMirror(_api.BasePetalMirror, _api.base_devices.BaseDeformableMirror):
         """
         return self._read_act_position()
 
-    def set_shape(self, cmd: _ot.ArrayLike, differential: bool = False) -> None:
+    def set_shape(
+        self,
+        cmd: _ot.ArrayLike,
+        differential: bool = False,
+        *,
+        slave: bool | str = False,
+    ) -> None:
         """
         Applies the given command to the DM actuators.
 
@@ -63,7 +69,11 @@ class PetalMirror(_api.BasePetalMirror, _api.base_devices.BaseDeformableMirror):
         differential : bool, optional
             If True, the command will be applied as a differential command
             with respect to the current shape (default is False).
+        slave : bool | str, optional
+            Slaving option for the input command. If ``True``, the slaving method
+            is chosen automatically; if a string is provided, it is used as method.
         """
+        cmd = self._apply_slaving(cmd=cmd, slave=slave)
         self._mirror_command(cmd, differential)
 
     def uploadCmdHistory(self, tcmdhist: _ot.MatrixLike) -> None:
@@ -187,8 +197,7 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
         differential: bool = False,
         incremental: float | int = False,
         *,
-        slave: bool = False,
-        slaving_method: str = "zero-force",
+        slave: bool | str = False,
     ) -> None:
         """
         Applies the given command to the DM actuators.
@@ -209,16 +218,9 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
             If incremental is positive, the command is applied from the current
             shape to the target shape, while if negative, it is applied in reverse
             (so, if a `lastCmd` is available, it returns to it, else it goes to 0 cmd).
-        slave : bool, optional
-            If True, the command will be modified according to the slaving of the
-            slave actuators (default is False).
-        slaving_method : str, optional
-            Method to compute the master-to-slave matrix. Options are:
-            - 'zero-force' : zero-force slaving, in which the slave actuators are
-                commanded a position which needs zero force to be used (my require
-                nearby actuators to apply more force)
-            - 'minimum-rms' : minimum-RMS-force slaving, in which the slave actuators
-                are set to minimize the overall force of nearby actuators.
+        slave : bool | str, optional
+            Slaving option for the input command. If ``True``, the slaving method
+            is chosen automatically; if a string is provided, it is used as method.
         """
         cmd = command.copy()
 
@@ -226,8 +228,7 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
             raise _oe.CommandError(
                 f"Command length {len(cmd)} does not match the number of actuators {self.nActs}."
             )
-        if slave:
-            cmd = self._slaveCmd(cmd=cmd, method=slaving_method)
+        cmd = self._apply_slaving(cmd=cmd, slave=slave)
 
         fc1 = self._get_frame_counter()
 
@@ -615,7 +616,13 @@ class AlpaoDm(_api.BaseAlpaoMirror, _api.base_devices.BaseDeformableMirror):
         """Retrieve the actuators positions."""
         return super().get_shape()
 
-    def set_shape(self, cmd: _ot.ArrayLike, differential: bool = False) -> None:
+    def set_shape(
+        self,
+        cmd: _ot.ArrayLike,
+        differential: bool = False,
+        *,
+        slave: bool | str = False,
+    ) -> None:
         """
         Applies the given command to the DM actuators.
 
@@ -625,7 +632,11 @@ class AlpaoDm(_api.BaseAlpaoMirror, _api.base_devices.BaseDeformableMirror):
             Command to be applied to the actuators.
         differential : bool, optional
             If True, the command is applied differentially (added to the current shape).
+        slave : bool | str, optional
+            Slaving option for the input command. If ``True``, the slaving method
+            is chosen automatically; if a string is provided, it is used as method.
         """
+        cmd = self._apply_slaving(cmd=cmd, slave=slave)
         if differential:
             shape = self.get_shape()
             cmd = cmd + shape
@@ -807,7 +818,14 @@ class SplattDm(_api.base_devices.BaseDeformableMirror):
         shape = self._dm.get_position()
         return shape
 
-    def set_shape(self, cmd: _ot.ArrayLike, differential: bool = False) -> None:
+    def set_shape(
+        self,
+        cmd: _ot.ArrayLike,
+        differential: bool = False,
+        *,
+        slave: bool | str = False,
+    ) -> None:
+        cmd = self._apply_slaving(cmd=cmd, slave=slave)
         if differential:
             lastCmd = self._dm.get_position_command()
             cmd = cmd + lastCmd

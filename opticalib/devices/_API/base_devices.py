@@ -3,7 +3,8 @@ from opticalib.ground import logger as _logger
 from opticalib.ground.osutils import newtn as _newtn
 from opticalib.core.read_config import getInterfConfig
 from opticalib.core.root import _updateInterfPaths, folders as _folds
-
+from opticalib import typings as _ot
+from opticalib.dmutils.slaving import compute_slave_cmd
 
 class BaseWavefrontSensor(ABC):
     """
@@ -56,11 +57,31 @@ class BaseDeformableMirror(ABC):
         """
         raise NotImplementedError("Subclasses must implement runCmdHistory method")
 
-    def _slaveCmd(self, cmd, method: str):
-        """ """
-        from opticalib.dmutils.slaving import compute_slave_cmd
+    def _get_slaving_method(self, slave: bool | str) -> _ot.Optional[str]:
+        """
+        Resolve the slaving method from the ``slave`` argument.
+        """
+        if isinstance(slave, str):
+            return slave
 
-        if len(self.slaveIds) == 0:
+        if not slave:
+            return None
+
+        slave_ids = getattr(self, "slaveIds", [])
+        border_ids = getattr(self, "borderIds", [])
+        s, b = len(slave_ids), len(border_ids)
+        if not (s or b):
+            _logger.warning(
+                "Slaving requested but no slave or border actuators defined. Defaulting to zero-force slaving."
+            )
+            return None
+        return "minimum-rms" if (s and b) else "zero-force"
+
+    def _apply_slaving(self, cmd: _ot.ArrayLike, slave: bool | str) -> _ot.ArrayLike:
+        """
+        Apply actuator slaving to a command when requested.
+        """
+        method = self._get_slaving_method(slave)
+        if method is None:
             return cmd
-        else:
-            return compute_slave_cmd(self, cmd, method=method)
+        return compute_slave_cmd(self, cmd, method=method)

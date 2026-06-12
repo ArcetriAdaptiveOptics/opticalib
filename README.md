@@ -1,16 +1,22 @@
-# OptiCalib : adaptive OPTics package for deformable mirrors CALibration
+# OptiCalib : python framework for OPTical CALibration of deformable mirror and AO experimentation
 
 ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/ArcetriAdaptiveOptics/opticalib/tests.yml)
 
-`Adaptive Optics Group, INAF - Osservatorio Astrofisico di Arcetri`  
+`Adaptive Optics Group, INAF - Osservatorio Astrofisico di Arcetri`
 
 - [Pietro Ferraiuolo](mailto:pietro.ferraiuolo@inaf.it)
 
 - [Marco Xompero](mailto:marco.xompero@inaf.it)
 
+- [Runa Briguglio](mailto:runa.briguglio@inaf.it)
+
+- [Matteo Menessini](mailto:matteo.menessini@inaf.it)
+
 OptiCalib is a python package which first goal is to make easy deformable mirror's calibration in the laboratory (and not only).
 
 It was born as a general extrapolation of the software built for the control and calibration of the `ELT @ M4` adaptive mirror and it's calibration tower, `OTT` (`Optical Test Tower`).
+
+__Note__: to cite this package check [CITATION.bib](CITATION.bib)
 
 ## Description
 

@@ -23,7 +23,8 @@ Contents:
 """
 
 from . import flattening, iff_module, iff_processing
-from .flattening import Flattening, FlatData
+from .flattening import Flattening
+from ..core.dataclass import FlatData
 from .iff_acquisition_preparation import IFFCapturePreparation
 
 from ._misc import *
