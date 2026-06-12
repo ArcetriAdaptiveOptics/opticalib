@@ -69,7 +69,7 @@ def draw_polygonal_mask(
 
 def find_circular_pupil(
     image: _ot.ImageData, method: str = "COG", as_mask: bool = False
-) -> _ot.MaskData | _ot.CircularMask:
+) -> _ot.MaskData | CircularMask:
     """
     Finds the circular pupil in the given image.
 
