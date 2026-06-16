@@ -463,9 +463,10 @@ def noise_pushpull(
                 cube[:, :, k : k + T].transpose(2, 0, 1),
                 thetemplate
             )
-            cc,_ = zf.fit(img, zern2remove)
-            surf = zf.makeSurface(zern2remove, img, coeffs=cc)
-            tt.append(cc)
+            cc,zmatrix = zf.fit(img, zern2remove)
+            surf = zf.makeSurface(zern2remove, img, coeffs=cc,mat = zmatrix)
+            
+            tt.append(_np.sqrt(_np.sum(cc[1:]**2)))
             rms.append((img - surf).std())
 
         resrms.append(_np.mean(rms))
