@@ -515,6 +515,8 @@ def set_configuration_file(config_path: str) -> None:
     config_path = _os.path.expanduser(config_path)
     if not _os.path.isabs(config_path):
         config_path = _os.path.join(_os.getcwd(), config_path)
+    if "SysConfig" not in config_path:
+        config_path = _os.path.join(config_path, "SysConfig/configuration.yaml")
     if ".yaml" not in config_path:
         config_path = _os.path.join(config_path, "configuration.yaml")
     if not _os.path.exists(config_path):
