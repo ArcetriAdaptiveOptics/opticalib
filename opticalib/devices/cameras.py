@@ -2,10 +2,9 @@ import vmbpy as _vmbpy
 from .. import typings as _ot
 from ..ground.logger import SystemLogger as _sl
 from ..core.read_config import getCamerasConfig as _gcc
-from contextlib import contextmanager as _contextmanager
 
 
-class AVTCamera:
+class GigaVision:
 
     def __init__(self, name: str):
         """
@@ -13,14 +12,15 @@ class AVTCamera:
 
         Parameters:
         -----------
-        cam_id : str
-            The ID of the camera to be used, as defined in the configuration
+        name : str
+            The name of the camera to be used, as defined in the configuration
             file.
         """
         self._name = name
         self._cam_config = _gcc(device_name=self._name)
-        self._logger = _sl()
+        self._logger = _sl(__class__)
         self._base_timeout = 2000  # milliseconds
+        self._exptime = None
 
         # retrieve device ID or IP
         try:
@@ -38,20 +38,57 @@ class AVTCamera:
                 f"Camera configuration for {self._name} must contain either 'id' or 'ip'."
             )
 
-        # Try to connect to the camera
+        # Connect to Vimba and the Camera persistently
         try:
-            repr = self.__str__()
+            self._vimba = _vmbpy.VmbSystem.get_instance()
+            self._vimba.__enter__()
+
+            if self.cam_id is not None:
+                self._cam = self._vimba.get_camera_by_id(self.cam_id)
+            else:
+                self._cam = self._vimba.get_camera_by_id(self.cam_ip)
+
+            self._cam.__enter__()
+
+            # Try to adjust GeV packet size once upon connection. This Feature is only available for GigE - Cameras.
+            try:
+                stream = self._cam.get_streams()[0]
+                stream.GVSPAdjustPacketSize.run()
+                while not stream.GVSPAdjustPacketSize.is_done():
+                    pass
+            except (AttributeError, _vmbpy.VmbFeatureError):
+                pass
+
+            repr_str = self.__str__()
             if "ip" in self._cam_config.keys():
                 ip = self._cam_config["ip"]
-                repr += f"/// IP Address    : {ip}"
-            print(f"Connected to camera:\n{repr}")
+                repr_str += f"/// IP Address    : {ip}"
+            print(f"Connected to camera:\n{repr_str}")
+
         except Exception as e:
+            self.close()
             raise RuntimeError(
                 f"Could not connect to camera {self._name} with ID {self.cam_id}."
             ) from e
 
-        self._logger = _sl(__class__)
-        self._exptime = None
+    def close(self):
+        """Gracefully closes the camera and VmbSystem context."""
+        if hasattr(self, "_cam") and self._cam is not None:
+            try:
+                self._cam.__exit__(None, None, None)
+                self._cam = None
+            except Exception as e:
+                self._logger.warning(f"Error closing camera: {e}")
+        if hasattr(self, "_vimba") and self._vimba is not None:
+            try:
+                self._vimba.__exit__(None, None, None)
+                self._vimba = None
+            except Exception as e:
+                self._logger.warning(f"Error closing VmbSystem: {e}")
+
+    def __del__(self):
+        """Ensure connection is closed upon object deletion."""
+        self.close()
 
     def get_exptime(self) -> float:
         """
@@ -63,10 +100,8 @@ class AVTCamera:
             The exposure time in micro-seconds.
         """
         if self._exptime is None:
-            with self._prepare_camera() as cam:
-                exptimeFeat = cam.get_feature_by_name("ExposureTimeAbs")
-                exposure_time = exptimeFeat.get()
-            self._exptime = exposure_time
+            exptimeFeat = self._cam.get_feature_by_name("ExposureTimeAbs")
+            self._exptime = exptimeFeat.get()
         return self._exptime
 
     def set_exptime(self, exptime_us: float):
@@ -83,10 +118,9 @@ class AVTCamera:
                 f"Exposure time is already set to {exptime_us} us, skipping."
             )
             return
-        with self._prepare_camera() as cam:
-            self._logger.info("Setting exposure time to {} us".format(exptime_us))
-            exptimeFeat = cam.get_feature_by_name("ExposureTimeAbs")
-            exptimeFeat.set(exptime_us)
+        self._logger.info("Setting exposure time to {} us".format(exptime_us))
+        exptimeFeat = self._cam.get_feature_by_name("ExposureTimeAbs")
+        exptimeFeat.set(exptime_us)
         self._exptime = exptime_us
 
     def acquire_frames(
@@ -109,8 +143,6 @@ class AVTCamera:
             or 'mean' to return the mean frame.
 
             Defaults to `mean`
-        timeout : int
-            The timeout in milliseconds.
         mode : str
             The acquisition mode. Can be 'sync' (synchronous) or 'async' (asynchronous).
         allocation_mode : vmbpy.AllocationMode
@@ -119,71 +151,71 @@ class AVTCamera:
             - 1 (vmbpy.AllocationMode.AllocAndAnnounceFrame) : buffer allocated by the Transport Layer
         """
         frames = []
-        with self._prepare_camera() as cam:
+        cam = self._cam
 
-            if mode == "sync":
-                exptimeInMs = max(1, int(self._exptime / 1000))
-                self._logger.info("Starting synchronous acquisition")
-                self._logger.info(
-                    f"Acquiring {nframes} frames with timeout {self._base_timeout*exptimeInMs} ms"
-                )
-                if nframes is not None and nframes > 1:
-                    import copy
+        if mode == "sync":
+            exptimeInMs = max(1, int(self.get_exptime() / 1000))
+            self._logger.info("Starting synchronous acquisition")
+            self._logger.info(
+                f"Acquiring {nframes} frames with timeout {self._base_timeout*exptimeInMs} ms"
+            )
+            if nframes is not None and nframes > 1:
+                import copy
 
-                    for f in cam.get_frame_generator(
-                        limit=nframes,
-                        timeout_ms=int(self._base_timeout * exptimeInMs * nframes),
-                    ):
-                        frames.append(
-                            copy.deepcopy(f).as_numpy_ndarray().transpose(2, 0, 1)
-                        )
-                else:
-                    frames.append(
-                        cam.get_frame(
-                            timeout_ms=int(self._base_timeout * self._exptime)
-                        )
-                        .as_numpy_ndarray()
-                        .transpose(2, 0, 1)
-                    )
-
-            elif mode == "async":
-                import time
-
-                exposure_time = cam.get_feature_by_name("ExposureTimeAbs").get()
-
-                self._logger.info("Starting asynchronous acquisition")
-                self._logger.info(f"Acquiring frames until Enter is pressed")
-                aframes = []
-
-                def frame_handler(
-                    cam: _vmbpy.Camera, stream: _vmbpy.Stream, frame: _vmbpy.Frame
+                for f in cam.get_frame_generator(
+                    limit=nframes,
+                    timeout_ms=int(self._base_timeout * exptimeInMs * nframes),
                 ):
-                    print("{} acquired {}".format(cam, frame), flush=True)
-                    aframes.append(frame)
-                    cam.queue_frame(frame)
-
-                am = (
-                    _vmbpy.AllocationMode.AnnounceFrame
-                    if allocation_mode == 0
-                    else _vmbpy.AllocationMode.AllocAndAnnounceFrame
-                )
-                self._logger.info("Waiting for stop trigger (Enter)...")
-                cam.start_streaming(
-                    handler=frame_handler, buffer_count=10, allocation_mode=am
-                )
-                if nframes is None:
-                    input()  # wait until Enter is pressed
-                    cam.stop_streaming()
-                else:
-                    while len(aframes) < nframes:
-                        time.sleep(exposure_time / 1_000_000)
-                    cam.stop_streaming()
-
-                frames = [f.as_numpy_ndarray().transpose(2, 0, 1) for f in aframes]
-
+                    frames.append(
+                        copy.deepcopy(f).as_numpy_ndarray().transpose(2, 0, 1)
+                    )
             else:
-                self._logger.error("Invalid acquisition mode specified")
-                raise ValueError("Invalid mode. Choose either 'sync' or 'async'.")
+                frames.append(
+                    cam.get_frame(
+                        timeout_ms=int(self._base_timeout * exptimeInMs)
+                    )
+                    .as_numpy_ndarray()
+                    .transpose(2, 0, 1)
+                )
+
+        elif mode == "async":
+            import time
+
+            exposure_time = self.get_exptime()
+
+            self._logger.info("Starting asynchronous acquisition")
+            self._logger.info(f"Acquiring frames until Enter is pressed")
+            aframes = []
+
+            def frame_handler(
+                cam: _vmbpy.Camera, stream: _vmbpy.Stream, frame: _vmbpy.Frame
+            ):
+                print("{} acquired {}".format(cam, frame), flush=True)
+                aframes.append(frame)
+                cam.queue_frame(frame)
+
+            am = (
+                _vmbpy.AllocationMode.AnnounceFrame
+                if allocation_mode == 0
+                else _vmbpy.AllocationMode.AllocAndAnnounceFrame
+            )
+            self._logger.info("Waiting for stop trigger (Enter)...")
+            cam.start_streaming(
+                handler=frame_handler, buffer_count=10, allocation_mode=am
+            )
+            if nframes is None:
+                input()  # wait until Enter is pressed
+                cam.stop_streaming()
+            else:
+                while len(aframes) < nframes:
+                    time.sleep(exposure_time / 1_000_000)
+                cam.stop_streaming()
+
+            frames = [f.as_numpy_ndarray().transpose(2, 0, 1) for f in aframes]
+
+        else:
+            self._logger.error("Invalid acquisition mode specified")
+            raise ValueError("Invalid mode. Choose either 'sync' or 'async'.")
 
         # Remove first dimension, since it's 1
         frames = [f.squeeze(0) if f.shape[0] == 1 else f for f in frames]
@@ -212,72 +244,19 @@ class AVTCamera:
         """
         self._base_timeout = timeout_ms
 
-    @_contextmanager
-    def _prepare_camera(self):
-        """
-        Context manager to prepare the camera for use.
-        """
-        self._logger.info("Retrieving camera instance")
-        print("per entrare nel `get_instance`...", end="\r", flush=True)
-        with _vmbpy.VmbSystem.get_instance():
-            print("dentro il `get_instance`...", end="\r", flush=True)
-            with self._get_camera() as cam:
-                print("dentro il `_get_camera`...", end="\r", flush=True)
-                # Try to adjust GeV packet size. This Feature is only available for GigE - Cameras.
-                try:
-                    print("nel try block...", end="\r", flush=True)
-                    stream = cam.get_streams()[0]
-                    stream.GVSPAdjustPacketSize.run()
-                    while not stream.GVSPAdjustPacketSize.is_done():
-                        print("dentro il while...", end="\r", flush=True)
-                        pass
-
-                except (AttributeError, _vmbpy.VmbFeatureError):
-                    pass
-                print("Yelding the camera instance...", end="\r", flush=True)
-                self._logger.info("Camera instance ready")
-                yield cam
-
-    def _get_camera(self):
-        """
-        Retrieves the camera object using the Vimba API.
-
-        Returns:
-        --------
-        cam : vmbpy.Camera
-            The camera object.
-        """
-        self._logger.info(f"Getting camera with ID: {self.cam_id}")
-        try:
-            with _vmbpy.VmbSystem.get_instance() as vimba:
-                return vimba.get_camera_by_id(self.cam_id)
-        except Exception as e:
-            try:
-                with _vmbpy.VmbSystem.get_instance() as vimba:
-                    return vimba.get_camera_by_id(self.cam_ip)
-            except Exception as e:
-                self._logger.error(
-                    f"Could not find camera with ID {self.cam_id} or IP {self.cam_ip}"
-                )
-                raise RuntimeError(
-                    f"Could not find camera with ID {self.cam_id} or IP {self.cam_ip}"
-                ) from e
-
     def __str__(self):
         """
         Returns a string representation of the camera.
         """
-        with _vmbpy.VmbSystem.get_instance():
-            with self._get_camera() as cam:
-                text = ""
-                text += "/// Camera Name   : {}\n".format(
-                    " ".join(cam.get_name().split(" ")[:-3])
-                )
-                text += "/// Model Name    : {}\n".format(cam.get_model())
-                text += "/// Camera ID     : {}\n".format(cam.get_id())
-                text += "/// Serial Number : {}\n".format(cam.get_serial())
-                text += "/// Interface ID  : {}\n".format(cam.get_interface_id())
-                return text
+        text = ""
+        text += "/// Camera Name   : {}\n".format(
+            " ".join(self._cam.get_name().split(" ")[:-3])
+        )
+        text += "/// Model Name    : {}\n".format(self._cam.get_model())
+        text += "/// Camera ID     : {}\n".format(self._cam.get_id())
+        text += "/// Serial Number : {}\n".format(self._cam.get_serial())
+        text += "/// Interface ID  : {}\n".format(self._cam.get_interface_id())
+        return text
 
     def __repr__(self):
         arg1 = f"id={self.cam_id}" if self.cam_id is not None else f"ip={self.cam_ip}"

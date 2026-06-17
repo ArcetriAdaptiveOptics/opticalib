@@ -61,6 +61,33 @@ class TestNewtn:
         assert tn1 != tn2
 
 
+class TestListTn:
+    """Test list_tn function."""
+
+    def test_list_tn_from_folder_name(self, temp_dir, monkeypatch):
+        """Test listing tracking numbers from a folder name."""
+        monkeypatch.setattr(osutils, "_OPTDATA", temp_dir)
+
+        fold = os.path.join(temp_dir, "OPDImages")
+        os.makedirs(fold, exist_ok=True)
+        tn0 = "20240101_120000"
+        tn1 = "20240101_120100"
+        os.makedirs(os.path.join(fold, tn0), exist_ok=True)
+        os.makedirs(os.path.join(fold, tn1), exist_ok=True)
+        os.makedirs(os.path.join(fold, "not_a_tn"), exist_ok=True)
+
+        out = osutils.list_tn("OPDImages")
+        assert out == [tn0, tn1]
+
+    def test_list_tn_from_absolute_path(self, temp_dir):
+        """Test listing tracking numbers from an absolute path."""
+        tn = "20240101_120000"
+        os.makedirs(os.path.join(temp_dir, tn), exist_ok=True)
+
+        out = osutils.list_tn(temp_dir)
+        assert out == [tn]
+
+
 class TestFindTracknum:
     """Test findTracknum function."""
 

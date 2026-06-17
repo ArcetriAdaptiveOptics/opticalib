@@ -58,7 +58,8 @@ def frame(idx: int, mylist: list[_ot.ImageData] | _ot.CubeData) -> _ot.ImageData
 
 
 def image_tilt_detrend(
-    img: _ot.ImageData, active_roi: int|_ot.MaskData, 
+    img: _ot.ImageData,
+    active_roi: int | _ot.MaskData,
 ) -> _ot.ImageData:
     """
     Detrends a specified image's ROI by fitting piston, tip and tilt from all other
@@ -88,19 +89,20 @@ def image_tilt_detrend(
 
     r2r_image = img.copy()
     r2r_image.mask[active_roi == 0] = True
-    
-    coeffs = zf.fitOnRoi(r2r_image, [1,2,3], mode='global')
-    _, matrix = zf.fit(img, [1,2,3])
-    
+
+    coeffs = zf.fitOnRoi(r2r_image, [1, 2, 3], mode="global")
+    _, matrix = zf.fit(img, [1, 2, 3])
+
     s2r = zf.makeSurface(
-        modes_indices=[1,2,3],
+        modes_indices=[1, 2, 3],
         image=img,
         coeffs=coeffs,
         mat=matrix,
-        mode='full-aperture'
+        mode="full-aperture",
     )
-    
+
     return img - s2r
+
 
 def unwrap_image(
     image: _ot.ImageData,
@@ -116,7 +118,7 @@ def unwrap_image(
     image : _ot.ImageData
         Image to be unwrapped.
     expected_piston : float, optional
-        Expected piston value for the image. If None, the default is the image 
+        Expected piston value for the image. If None, the default is the image
         mean.
     wavelength : float, optional
         Wavelength of the piston measurements. If None, the default is 632.8 nm
@@ -132,18 +134,23 @@ def unwrap_image(
     """
     if expected_piston is None:
         expected_piston = _np.mean(image)
-    
+
     phase_jump = wavelength / period
     threshold = phase_jump / 2
-    
+
     if expected_piston > threshold:
-        unwrapped_img = image - _np.abs(phase_jump * (round(expected_piston / phase_jump)))
+        unwrapped_img = image - _np.abs(
+            phase_jump * (round(expected_piston / phase_jump))
+        )
     elif expected_piston < -threshold:
-        unwrapped_img = image + _np.abs(phase_jump * (round(expected_piston / phase_jump)))
+        unwrapped_img = image + _np.abs(
+            phase_jump * (round(expected_piston / phase_jump))
+        )
     else:
         unwrapped_img = image.copy()
-    
+
     return unwrapped_img
+
 
 def piston_unwrap(
     piston_vector: _ot.ArrayLike,
@@ -198,7 +205,7 @@ def piston_unwrap(
 def pushPullReductionAlgorithm(
     imagelist: list[_ot.ImageData] | _ot.CubeData,
     template: _ot.ArrayLike,
-    normalization: _ot.Optional[float | int] = None
+    normalization: _ot.Optional[float | int] = None,
 ) -> _ot.ImageData:
     """
     Performs the basic operation of processing PushPull data.
@@ -415,6 +422,7 @@ def modeRebinner(
 def cubeRebinner(
     cube: _ot.CubeData,
     rebin: int,
+    axis: int = -1,
     method: str = "averaging",
     anti_aliasing: bool = False,
     preserve_flux: bool = False,
@@ -430,6 +438,9 @@ def cubeRebinner(
         Cube to rebin.
     rebin : int
         Rebinning factor.
+    axis : int, optional
+        Axis to cycle through for frame-by-frame rebinning. Default is ``-1``
+        (last axis).
     method : str, optional
         Rebinning method. Supported values are:
         'averaging'/'mean', 'sum', 'median',
@@ -457,11 +468,14 @@ def cubeRebinner(
     else:
         header = {}
 
+    axis = int(axis)
+    moved_cube = _np.moveaxis(cube, axis, -1)
+
     newCube = []
-    for i in range(cube.shape[-1]):
+    for i in range(moved_cube.shape[-1]):
         newCube.append(
             modeRebinner(
-                cube[:, :, i],
+                moved_cube[:, :, i],
                 rebin,
                 method=method,
                 anti_aliasing=anti_aliasing,
@@ -470,7 +484,9 @@ def cubeRebinner(
                 cval=cval,
             )
         )
-    return _fa.fits_array(_np.ma.dstack(newCube), header=header)
+    rebinned_cube = _np.ma.dstack(newCube)
+    rebinned_cube = _np.moveaxis(rebinned_cube, -1, axis)
+    return _fa.fits_array(rebinned_cube, header=header)
 
 
 def comp_filtered_image(

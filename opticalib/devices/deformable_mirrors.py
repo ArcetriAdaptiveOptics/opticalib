@@ -9,6 +9,7 @@ Description
 -----------
 
 """
+
 # FIXME - Change the reading path of _dmc -> slave ids should not be read from the dm
 #           configuration of IFF section
 
@@ -22,7 +23,9 @@ from contextlib import contextmanager as _contextmanager
 from opticalib.core.read_config import getIffConfig as _dmc
 from opticalib.core.root import OPD_IMAGES_ROOT_FOLDER as _opdi
 from opticalib.ground.osutils import (
-    newtn as _ts, save_fits as _sf, create_data_folder as _cdf
+    newtn as _ts,
+    save_fits as _sf,
+    create_data_folder as _cdf,
 )
 from opticalib.ground.logger import SystemLogger as _SL
 
@@ -48,7 +51,13 @@ class PetalMirror(_api.BasePetalMirror, _api.base_devices.BaseDeformableMirror):
         """
         return self._read_act_position()
 
-    def set_shape(self, cmd: _ot.ArrayLike, differential: bool = False) -> None:
+    def set_shape(
+        self,
+        cmd: _ot.ArrayLike,
+        differential: bool = False,
+        *,
+        slave: bool | str = False,
+    ) -> None:
         """
         Applies the given command to the DM actuators.
 
@@ -60,7 +69,11 @@ class PetalMirror(_api.BasePetalMirror, _api.base_devices.BaseDeformableMirror):
         differential : bool, optional
             If True, the command will be applied as a differential command
             with respect to the current shape (default is False).
+        slave : bool | str, optional
+            Slaving option for the input command. If ``True``, the slaving method
+            is chosen automatically; if a string is provided, it is used as method.
         """
+        cmd = self._apply_slaving(cmd=cmd, slave=slave)
         self._mirror_command(cmd, differential)
 
     def uploadCmdHistory(self, tcmdhist: _ot.MatrixLike) -> None:
@@ -103,7 +116,7 @@ class PetalMirror(_api.BasePetalMirror, _api.base_devices.BaseDeformableMirror):
         """
         self._logger.info("Starting to run the command history")
 
-        iff_config = _dmc('DM')
+        iff_config = _dmc("DM")
 
         if self.cmdHistory is None:
             self._logger.error("MatrixError: No Command History to run!")
@@ -153,8 +166,8 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
         self._name = "AdOpticaDM"
         super().__init__(tn)
         self._last_cmd = _np.zeros(self.nActs)
-        self._slaveIds = _dmc('DM').get("slaveIds", [])
-        self._borderIds = _dmc('DM').get("borderIds", [])
+        self._slaveIds = _dmc("DM").get("slaveIds", [])
+        self._borderIds = _dmc("DM").get("borderIds", [])
 
     @property
     def slaveIds(self):
@@ -184,8 +197,7 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
         differential: bool = False,
         incremental: float | int = False,
         *,
-        slave: bool = False,
-        slaving_method: str = "zero-force",
+        slave: bool | str = False,
     ) -> None:
         """
         Applies the given command to the DM actuators.
@@ -206,16 +218,9 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
             If incremental is positive, the command is applied from the current
             shape to the target shape, while if negative, it is applied in reverse
             (so, if a `lastCmd` is available, it returns to it, else it goes to 0 cmd).
-        slave : bool, optional
-            If True, the command will be modified according to the slaving of the
-            slave actuators (default is False).
-        slaving_method : str, optional
-            Method to compute the master-to-slave matrix. Options are:
-            - 'zero-force' : zero-force slaving, in which the slave actuators are
-                commanded a position which needs zero force to be used (my require
-                nearby actuators to apply more force)
-            - 'minimum-rms' : minimum-RMS-force slaving, in which the slave actuators
-                are set to minimize the overall force of nearby actuators.
+        slave : bool | str, optional
+            Slaving option for the input command. If ``True``, the slaving method
+            is chosen automatically; if a string is provided, it is used as method.
         """
         cmd = command.copy()
 
@@ -223,8 +228,7 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
             raise _oe.CommandError(
                 f"Command length {len(cmd)} does not match the number of actuators {self.nActs}."
             )
-        if slave:
-            cmd = self._slaveCmd(cmd=cmd, method=slaving_method)
+        cmd = self._apply_slaving(cmd=cmd, slave=slave)
 
         fc1 = self._get_frame_counter()
 
@@ -303,7 +307,7 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
                 f"Expecting a 2D Matrix of shape (used_acts, nmodes), got instead: {tcmdhist.shape}"
             )
         tcmdhist += self._last_cmd[:, None]
-        trig = _dmc('DM')["triggerMode"]
+        trig = _dmc("DM")["triggerMode"]
         self.cmdHistory = tcmdhist.copy()
         if trig is not False:
             self._aoClient.timeHistoryUpload(tcmdhist)
@@ -336,7 +340,7 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
         save : str, optional
             If provided, the command history will be saved with this name as a timestamp.
         """
-        dmifconf = _dmc('DM')
+        dmifconf = _dmc("DM")
         triggered = dmifconf["triggerMode"]
         sequential_delay = dmifconf["sequentialDelay"]
         if triggered is not False:
@@ -358,7 +362,7 @@ class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
                     interf.capture(nframes - 2, save)
             self.set_shape(ins)
             self._logger.info("Command history execution completed")
-            
+
             return None
         else:
             if self.cmdHistory is None:
@@ -468,7 +472,7 @@ class DP(AdOpticaDm):
             raise _oe.BufferError(
                 "Missing `total_frames` value: either load a command history or provide the variable's value"
             )
-        triggered = _dmc('DM')["triggerMode"]
+        triggered = _dmc("DM")["triggerMode"]
         if triggered is not False:
             thistfreq = triggered.get("frequency", 1.0)
         if segment == 0:
@@ -594,8 +598,8 @@ class AlpaoDm(_api.BaseAlpaoMirror, _api.base_devices.BaseDeformableMirror):
         super().__init__(serial_number, nacts)
         self.set_zeros_to_acts()
         self.is_segmented = False
-        self._slaveIds = _dmc('DM').get("slaveIds", [])
-        self._borderIds = _dmc('DM').get("borderIds", [])
+        self._slaveIds = _dmc("DM").get("slaveIds", [])
+        self._borderIds = _dmc("DM").get("borderIds", [])
         self.has_slaved_acts = False if len(self._slaveIds) == 0 else True
 
     @property
@@ -612,7 +616,13 @@ class AlpaoDm(_api.BaseAlpaoMirror, _api.base_devices.BaseDeformableMirror):
         """Retrieve the actuators positions."""
         return super().get_shape()
 
-    def set_shape(self, cmd: _ot.ArrayLike, differential: bool = False) -> None:
+    def set_shape(
+        self,
+        cmd: _ot.ArrayLike,
+        differential: bool = False,
+        *,
+        slave: bool | str = False,
+    ) -> None:
         """
         Applies the given command to the DM actuators.
 
@@ -622,7 +632,11 @@ class AlpaoDm(_api.BaseAlpaoMirror, _api.base_devices.BaseDeformableMirror):
             Command to be applied to the actuators.
         differential : bool, optional
             If True, the command is applied differentially (added to the current shape).
+        slave : bool | str, optional
+            Slaving option for the input command. If ``True``, the slaving method
+            is chosen automatically; if a string is provided, it is used as method.
         """
+        cmd = self._apply_slaving(cmd=cmd, slave=slave)
         if differential:
             shape = self.get_shape()
             cmd = cmd + shape
@@ -676,7 +690,7 @@ class AlpaoDm(_api.BaseAlpaoMirror, _api.base_devices.BaseDeformableMirror):
             Tracking number of the directory where the images are saved.
 
         """
-        iff_config = _dmc('DM')
+        iff_config = _dmc("DM")
         delay: float = iff_config.get("delay", 0.0)
 
         if self.cmdHistory is None:
@@ -788,8 +802,8 @@ class SplattDm(_api.base_devices.BaseDeformableMirror):
         self.baseDataPath = _opdi
         self.refAct = 16
         self.is_segmented = False
-        self._slaveIds = _dmc('DM').get("slaveIds", [])
-        self._borderIds = _dmc('DM').get("borderIds", [])
+        self._slaveIds = _dmc("DM").get("slaveIds", [])
+        self._borderIds = _dmc("DM").get("borderIds", [])
         self._logger = _SL(the_class=__class__)
 
     @property
@@ -804,7 +818,14 @@ class SplattDm(_api.base_devices.BaseDeformableMirror):
         shape = self._dm.get_position()
         return shape
 
-    def set_shape(self, cmd: _ot.ArrayLike, differential: bool = False) -> None:
+    def set_shape(
+        self,
+        cmd: _ot.ArrayLike,
+        differential: bool = False,
+        *,
+        slave: bool | str = False,
+    ) -> None:
+        cmd = self._apply_slaving(cmd=cmd, slave=slave)
         if differential:
             lastCmd = self._dm.get_position_command()
             cmd = cmd + lastCmd

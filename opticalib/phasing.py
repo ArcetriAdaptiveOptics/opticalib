@@ -7,7 +7,7 @@ from . import typings as _ot
 from .ground import osutils as _osu
 from .core.root import folders as _fn
 from .ground.logger import SystemLogger as _SL
-from .devices.cameras import AVTCamera as _cam
+from .devices.cameras import GigaVision as _cam
 from .core.fitsarray import fits_array as _fits_array
 from .core.read_config import getDeviceConfig as _gdc, getPhasingConfig as _gpc
 
@@ -40,7 +40,7 @@ class SPL:
 
     Parameters
     ----------
-    camera: AVTCamera
+    camera: GigaVision
         The camera used to acquire images in the SPL system
     tunable_filter: object
         The tunable filter client to regulate the wavelength of the incoming light.
@@ -260,6 +260,11 @@ class SPL:
         ----------
         exptime: float
             Base exposure time of the camera in seconds
+        filter_mode: str, optional
+            The tunable filter working mode. For acquisition can be:
+            - `narrow`
+            - `medium`
+            - `wide`
         lambda_vector : ArrayLike, optional
             Wavelengths vector, of wavelengths between 400 and 700 nm. If None,
             a default vector is used:

@@ -8,5 +8,5 @@ opticalib.devices.cameras
 
    .. autosummary::
    
-      AVTCamera
+      GigaVision
    

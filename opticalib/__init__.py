@@ -46,6 +46,7 @@ from . import (
     simulator,
     visualization,
 )
+
 vis = visualization
 
 __all__ = [

@@ -67,6 +67,37 @@ def newtn() -> str:
     return _time.strftime("%Y%m%d_%H%M%S")
 
 
+def list_tn(folder: str) -> list[str]:
+    """
+    List tracking numbers available in a folder.
+
+    Parameters
+    ----------
+    folder : str
+        Folder name inside OPTData or an absolute folder path.
+
+    Returns
+    -------
+    list[str]
+        Sorted list of tracking numbers found in the folder.
+    """
+    if _os.path.isabs(folder):
+        path = folder
+    else:
+        path = _os.path.join(_OPTDATA, folder)
+
+    if not _os.path.isdir(path):
+        raise FileNotFoundError(f"Folder not found: {path}")
+
+    return sorted(
+        [
+            entry
+            for entry in _os.listdir(path)
+            if is_tn(entry) and _os.path.isdir(_os.path.join(path, entry))
+        ]
+    )
+
+
 def create_data_folder(
     basepath: str = _fn.OPD_IMAGES_ROOT_FOLDER, get_tn: bool = False
 ) -> str:
@@ -876,6 +907,7 @@ def _find_tracknum_parents(tn: str) -> list[str]:
         return []
 
     return sorted(parent_paths)
+
 
 def _header_from_dict(
     dictheader: dict[str, _ot.Any | tuple[_ot.Any, str]],

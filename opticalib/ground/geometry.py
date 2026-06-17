@@ -67,7 +67,9 @@ def draw_polygonal_mask(
     return mask
 
 
-def find_circular_pupil(image: _ot.ImageData, method: str = "COG") -> _ot.MaskData:
+def find_circular_pupil(
+    image: _ot.ImageData, method: str = "COG", as_mask: bool = False
+) -> _ot.MaskData | CircularMask:
     """
     Finds the circular pupil in the given image.
 
@@ -83,23 +85,32 @@ def find_circular_pupil(image: _ot.ImageData, method: str = "COG") -> _ot.MaskDa
         - "ImageMoments";
         - "RANSAC";
         - "correlation".
+    as_mask: bool
+        If True, returns the binary mask of the pupil.
+        If False, returns a ``arte.types.mask.CircularMask`` object.
 
     Refer to arte.types.mask.CircularMask for more details on each method.
 
     Returns
     -------
-    mask: np.ndarray
-        A binary mask with the circular pupil area set to False.
+    mask: MaskData or CircularMask
+        If as_mask is True, returns a binary mask with the circular pupil area
+        set to False.
+        If as_mask is False, returns a CircularMask object containing the pupil
+        parameters.
     """
-    mask = CircularMask.fromMaskedArray(image, method=method).mask()
+    mask = CircularMask.fromMaskedArray(image, method=method)
+    if as_mask:
+        return mask.mask()
     return mask
+
 
 def get_circular_pupil_radii(
     mask: np.ndarray, pixel_size: float = 1.0, nbins: int | None = None
 ) -> dict[str, float | bool | tuple[float, float]]:
     """
     Estimate inner and outer pupil radii from a boolean mask.
-    
+
     Parameters
     ----------
     mask : np.ndarray
@@ -108,7 +119,7 @@ def get_circular_pupil_radii(
         Physical size of a pixel (e.g., mm/px) for scaling the output radii.
     nbins : int or None
         Number of radial bins for occupancy profile. If None, uses max radius.
-    
+
     Returns
     -------
     dict[str, float | bool | tuple[float, float]]

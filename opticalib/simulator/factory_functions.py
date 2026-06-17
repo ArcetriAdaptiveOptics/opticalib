@@ -10,6 +10,7 @@ _alpao_list = os.path.join(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "_API"), "alpao_conf.yaml"
 )
 
+
 def getAlpaoCoordsMask(
     nacts: int, shape: tuple[int] = (512, 512)
 ) -> tuple[_t.ArrayLike, _t.MaskData]:
@@ -56,6 +57,7 @@ def getAlpaoCoordsMask(
     y, x = np.ogrid[:height, :width]
     mask = (x - cx) ** 2 + (y - cy) ** 2 >= radius**2
     return coords, mask
+
 
 def pixel_scale(nacts: int):
     """
@@ -132,7 +134,7 @@ def getPetalmirrorMaskAndCoords(
         Coordinates of the centers of the segments in the petal-shaped mask.
     """
     if central_segment_radius is None:
-        central_segment_radius = np.ceil(0.26666667* pupil_radius)
+        central_segment_radius = np.ceil(0.26666667 * pupil_radius)
 
     hexagon_outer = geo.draw_hexagonal_mask(
         shape, radius=central_segment_radius + 10, masked=True
@@ -156,15 +158,15 @@ def getPetalmirrorMaskAndCoords(
 
     segmask[pupil == 1] = 1
     segmask[hexagon_ring == 0] = 1
-    
+
     offset = (shape[0] // 2, shape[1] // 2)
     dr = pupil_radius - central_segment_radius
-    
+
     y_act1 = np.ceil(dr * 0.25 + offset[0] + central_segment_radius)
     y_act2 = np.ceil(dr * 0.75 + offset[0] + central_segment_radius)
-    
-    x_left = np.ceil((y_act2-y_act1) * np.tan(np.deg2rad(-30)) + offset[1])
-    x_right = np.ceil((y_act2-y_act1) * np.tan(np.deg2rad(30)) + offset[1])
+
+    x_left = np.ceil((y_act2 - y_act1) * np.tan(np.deg2rad(-30)) + offset[1])
+    x_right = np.ceil((y_act2 - y_act1) * np.tan(np.deg2rad(30)) + offset[1])
 
     s0 = np.array(
         [
@@ -173,9 +175,9 @@ def getPetalmirrorMaskAndCoords(
             [y_act2, x_right],
         ]
     )
-    
+
     coords = np.zeros((18, 2))
-    
+
     for jj, a in enumerate([0, 60, -60, 120, -120, 180]):
         rotmat = np.array(
             [
@@ -183,7 +185,7 @@ def getPetalmirrorMaskAndCoords(
                 [np.sin(np.deg2rad(a)), np.cos(np.deg2rad(a))],
             ]
         )
-        coords[jj*3:jj*3+3, :] = ((s0-offset) @ rotmat) + offset
+        coords[jj * 3 : jj * 3 + 3, :] = ((s0 - offset) @ rotmat) + offset
 
     return segmask, coords
 

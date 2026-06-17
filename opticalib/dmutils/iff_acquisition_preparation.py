@@ -185,7 +185,9 @@ class IFFCapturePreparation:
             )
 
         self.triggPadCmdHist = triggerMat.copy() if triggerMat is not None else None
-        self.regPadCmdHist = registrationMat.copy() if registrationMat is not None else None
+        self.regPadCmdHist = (
+            registrationMat.copy() if registrationMat is not None else None
+        )
 
         # Create the auxiliary command history if needed
         if self.auxCmdHistory is None:
@@ -232,7 +234,7 @@ class IFFCapturePreparation:
             Decides to wether shuffle or not the order in which the modes are
             applied. Default is False
         n_repetitions : int
-            Number of times the command matrix is repeated. 
+            Number of times the command matrix is repeated.
             Default is 1.
 
         Returns
@@ -243,20 +245,16 @@ class IFFCapturePreparation:
         """
         _, _, infoIF, _ = _getAcqInfo()
         modesList = _np.asarray(
-            modesList if modesList is not None else infoIF.get("modes"),
-            dtype=int
+            modesList if modesList is not None else infoIF.get("modes"), dtype=int
         )
         template = _np.asarray(
-            template if template is not None else infoIF.get("template"),
-            dtype=int
+            template if template is not None else infoIF.get("template"), dtype=int
         )
         modesAmp = modesAmp if modesAmp is not None else infoIF.get("amplitude")
         zeroScheme = infoIF["zeros"]
 
         if n_repetitions < 1:
-            raise ValueError(
-                f"n_repetitions must be >= 1, got {n_repetitions}"
-            )
+            raise ValueError(f"n_repetitions must be >= 1, got {n_repetitions}")
 
         self._createCmdMatrix(modesList, modalBase)
         A, M = self._cmdMatrix.shape
@@ -270,23 +268,21 @@ class IFFCapturePreparation:
                 f" equal to the number of modes ({M})"
             )
 
-        if shuffle is not False:            
-            final_cmd_mat = _np.zeros(
-                (A, M * n_repetitions)
-            )
+        if shuffle is not False:
+            final_cmd_mat = _np.zeros((A, M * n_repetitions))
             final_mlist = _np.zeros(M * n_repetitions, dtype=int)
             final_ilist = _np.zeros(M * n_repetitions, dtype=int)
-            final_amps  = _np.zeros(len(modesAmp) * n_repetitions)
-            
+            final_amps = _np.zeros(len(modesAmp) * n_repetitions)
+
             for R in range(n_repetitions):
                 indexList = _np.arange(M)
                 _np.random.shuffle(indexList)
-                
+
                 cmd_matrix = self._cmdMatrix[:, indexList]
-                final_cmd_mat[:, R*M:(R+1)*M] = cmd_matrix
-                final_ilist[R*M:(R+1)*M] = indexList
-                final_mlist[R*M:(R+1)*M] = modesList[indexList]
-                final_amps[R*M:(R+1)*M] = modesAmp[indexList]
+                final_cmd_mat[:, R * M : (R + 1) * M] = cmd_matrix
+                final_ilist[R * M : (R + 1) * M] = indexList
+                final_mlist[R * M : (R + 1) * M] = modesList[indexList]
+                final_amps[R * M : (R + 1) * M] = modesAmp[indexList]
 
         else:
             final_cmd_mat = _np.tile(self._cmdMatrix, (1, n_repetitions))
@@ -305,17 +301,19 @@ class IFFCapturePreparation:
             # for j in range(n_push_pull):
             #     cmd_matrixHistory.T[k] = final_cmd_mat[:, i] * template[j] * modesAmp[i]
             #     k += 1
-            scaled_cmd = final_cmd_mat[:, i:i+1] * template[_np.newaxis, :] * final_amps[i]
-            cmd_matrixHistory[:, k:k+n_push_pull] = scaled_cmd
+            scaled_cmd = (
+                final_cmd_mat[:, i : i + 1] * template[_np.newaxis, :] * final_amps[i]
+            )
+            cmd_matrixHistory[:, k : k + n_push_pull] = scaled_cmd
             k += n_push_pull
-        
+
         header = {
-            'SHUFFLE': shuffle,
-            'N_REP': n_repetitions,
+            "SHUFFLE": shuffle,
+            "N_REP": n_repetitions,
         }
 
-        cmdMatHist = _fa(cmd_matrixHistory,header=header)
-        
+        cmdMatHist = _fa(cmd_matrixHistory, header=header)
+
         self._modesList = _fa(final_mlist, header=header)
         self._indexingList = _fa(final_ilist, header=header)
         self._modesAmp = _fa(final_amps, header=header)
@@ -349,7 +347,9 @@ class IFFCapturePreparation:
         #     aux_cmdHistory = self.regPadCmdHist
         # else:
         #     aux_cmdHistory = None
-        matrices = [m for m in [self.triggPadCmdHist, self.regPadCmdHist] if m is not None]
+        matrices = [
+            m for m in [self.triggPadCmdHist, self.regPadCmdHist] if m is not None
+        ]
         aux_cmdHistory = _np.hstack(matrices) if matrices else None
         self.auxCmdHistory = aux_cmdHistory
         return aux_cmdHistory
@@ -395,9 +395,7 @@ class IFFCapturePreparation:
         triggHist = _np.hstack((zeroScheme, trigMode))
         self.triggPadCmdHist = triggHist.copy()
 
-    def _createCmdMatrix(
-        self, mlist: int | _ot.ArrayLike, mbase: str = None
-    ) -> None:
+    def _createCmdMatrix(self, mlist: int | _ot.ArrayLike, mbase: str = None) -> None:
         """
         Cuts the modal base according the given modes list
         """

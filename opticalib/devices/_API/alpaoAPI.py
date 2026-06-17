@@ -288,9 +288,7 @@ class BaseAlpaoMirror:
         from ...core.root import CONFIGURATION_FOLDER
 
         if serial_number is None and nacts is None:
-            raise RuntimeError(
-                "Either 'serial_number' or 'nacts' must be provided."
-            )
+            raise RuntimeError("Either 'serial_number' or 'nacts' must be provided.")
 
         # Config lookup is only possible when nacts is known.
         config: dict = {}

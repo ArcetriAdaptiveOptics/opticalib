@@ -8,15 +8,15 @@ become the bottleneck.
 Theory:
     An RBF interpolant is a linear combination of radial basis functions
     centered at data points y plus a polynomial:
-    
+
         f(x) = Σᵢ aᵢ φ(||x - yᵢ||) + Σⱼ bⱼ pⱼ(x)
-    
+
     where φ is the RBF kernel (e.g., TPS: r² log(r)) and pⱼ are polynomial
     monomials. The coefficients (a, b) are found by solving:
-    
+
         [K + λI   P] [a] = [d]
         [P^T      0] [b]   [0]
-    
+
     where K is the RBF Gram matrix and λ is smoothing.
 
 References:
@@ -30,77 +30,69 @@ import xupy as xp
 
 if xp.on_gpu:
 
-    _DEFAULT_MAX_CHUNK_BYTES = 1024 * 1024 ** 2
+    _DEFAULT_MAX_CHUNK_BYTES = 1024 * 1024**2
     _DEFAULT_MIN_CHUNK_SIZE = 4096
 
-    def _euclidean_distance(
-        x: _ot.ArrayLike,
-        y: _ot.ArrayLike
-    ) -> _ot.ArrayLike:
+    def _euclidean_distance(x: _ot.ArrayLike, y: _ot.ArrayLike) -> _ot.ArrayLike:
         """
         Compute Euclidean distance matrix between points.
-        
+
         Parameters
         ----------
         x : array, shape (n, d)
             First set of points.
         y : array, shape (m, d)
             Second set of points.
-        
+
         Returns
         -------
         dist : array, shape (n, m)
             Pairwise Euclidean distances.
         """
         # ||x - y||² = ||x||² + ||y||² - 2 x·y  (more numerically stable)
-        x_sqnorm = (x ** 2).sum(axis=1, keepdims=True)  # (n, 1)
-        y_sqnorm = (y ** 2).sum(axis=1, keepdims=True)  # (m, 1)
+        x_sqnorm = (x**2).sum(axis=1, keepdims=True)  # (n, 1)
+        y_sqnorm = (y**2).sum(axis=1, keepdims=True)  # (m, 1)
         xy = x @ y.T  # (n, m)
-        
+
         dist_sq = x_sqnorm + y_sqnorm.T - 2 * xy
         dist_sq = xp.clip(dist_sq, 0, None)  # Handle numerical errors
-        
+
         return xp.sqrt(dist_sq)
 
-    def _thin_plate_spline_kernel(r: _ot.ArrayLike
-                                ) -> _ot.ArrayLike:
+    def _thin_plate_spline_kernel(r: _ot.ArrayLike) -> _ot.ArrayLike:
         """
         Thin Plate Spline (TPS) kernel: φ(r) = r² log(r).
-        
+
         Parameters
         ----------
         r : array
             Distances.
-        
+
         Returns
         -------
         kernel : array
             TPS kernel values. For r=0, returns 0 (limit of r²log(r)).
         """
         # Use numpy.errstate for both numpy and cupy arrays
-        with np.errstate(divide='ignore', invalid='ignore'):
-            result = r ** 2 * xp.log(r)
-        
+        with np.errstate(divide="ignore", invalid="ignore"):
+            result = r**2 * xp.log(r)
+
         result = xp.nan_to_num(result, nan=0.0, posinf=0.0, neginf=0.0)
         return result
 
-
-    def _polynomial_matrix(
-        x: _ot.ArrayLike,
-        degree: int = 1
-    ) -> _ot.ArrayLike:
+    def _polynomial_matrix(x: _ot.ArrayLike, degree: int = 1) -> _ot.ArrayLike:
         """
         Build polynomial matrix for TPS.
-        
+
         For degree=1 (default for TPS), includes [1, x, y] terms.
-        
+
         Parameters
         ----------
         x : array, shape (n, d)
             Data point coordinates.
         degree : int, optional
             Polynomial degree (default: 1).
-        
+
         Returns
         -------
         P : array, shape (n, n_poly)
@@ -108,7 +100,7 @@ if xp.on_gpu:
             P = [1, x₁, x₂, ..., xₙ, y₁, y₂, ..., yₙ]^T (roughly)
         """
         n, d = x.shape
-        
+
         if degree == -1:
             # No polynomial terms
             return xp.empty((n, 0), dtype=x.dtype)
@@ -121,15 +113,14 @@ if xp.on_gpu:
         else:
             raise NotImplementedError(f"Polynomial degree {degree} not implemented")
 
-
     class RBFInterpolator:
         """
         GPU-accelerated Radial Basis Function Interpolator using xupy.
-        
+
         Supports TPS (Thin Plate Spline) and other RBF kernels on GPU.
         For problems with >1000 constraint points, typically 5-50x faster than
         scipy's CPU implementation, depending on GPU capability.
-        
+
         Parameters
         ----------
         y : array, shape (n, d)
@@ -148,7 +139,7 @@ if xp.on_gpu:
         memory_efficient : bool, optional
             If True, chunk computations during evaluation to reduce GPU memory.
             Default: True.
-        
+
         Examples
         --------
         >>> import cupy as cp
@@ -163,12 +154,12 @@ if xp.on_gpu:
         >>> x = cp.random.rand(10000, 2)
         >>> values = rbf(x)
         """
-        
+
         def __init__(
             self,
             y: _ot.ArrayLike,
             d: _ot.ArrayLike,
-            kernel: str = 'thin_plate_spline',
+            kernel: str = "thin_plate_spline",
             smoothing: _ot.Union[float, _ot.ArrayLike] = 0.0,
             degree: int = 1,
             memory_efficient: bool = True,
@@ -176,23 +167,23 @@ if xp.on_gpu:
             min_chunk_size: int = _DEFAULT_MIN_CHUNK_SIZE,
         ):
             """Initialize GPU RBF interpolator."""
-            
+
             # Convert to CuPy if needed
             self.y = xp.asarray(y, dtype=xp.double)
             self._d_was_vector = np.ndim(d) == 1
             self.d = xp.asarray(d, dtype=xp.double)
-            
+
             if self.d.ndim == 1:
                 self.d = self.d[:, None]
-            
+
             self.kernel = kernel.lower()
             self.degree = degree
             self.memory_efficient = memory_efficient
             self.max_chunk_bytes = int(max_chunk_bytes)
             self.min_chunk_size = int(min_chunk_size)
             self.output_dim = self.d.shape[1]
-            
-            if self.kernel != 'thin_plate_spline':
+
+            if self.kernel != "thin_plate_spline":
                 raise NotImplementedError(
                     f"Kernel '{self.kernel}' not yet implemented. "
                     "Only 'thin_plate_spline' is optimized for GPU."
@@ -203,24 +194,24 @@ if xp.on_gpu:
 
             if self.min_chunk_size <= 0:
                 raise ValueError("`min_chunk_size` must be positive.")
-            
+
             n = self.y.shape[0]
             if isinstance(smoothing, (int, float)):
                 self.smoothing = xp.full(n, smoothing, dtype=xp.double)
             else:
                 self.smoothing = xp.asarray(smoothing, dtype=xp.double)
-            
+
             # Build and solve the system
             self._build_system()
-        
+
         def _build_system(self) -> None:
             """
             Build and solve the RBF linear system.
-            
+
             Constructs the block matrix:
                 [K + λI   P] [a] = [d]
                 [P^T      0] [b]   [0]
-            
+
             where K is RBF Gram matrix, P is polynomial matrix, λ is smoothing.
             """
             n = self.y.shape[0]
@@ -229,7 +220,7 @@ if xp.on_gpu:
             P = _polynomial_matrix(self.y, self.degree)
             n_poly = P.shape[1]
             self.n_poly = n_poly
-            
+
             # Build block matrix
             n_sys = n + n_poly
             A = xp.zeros((n_sys, n_sys), dtype=xp.double)
@@ -244,14 +235,14 @@ if xp.on_gpu:
             A[:n, :n] += xp.diag(self.smoothing)
 
             b = xp.zeros((n_sys, self.output_dim), dtype=xp.double)
-            
+
             # Fill blocks
             if n_poly > 0:
                 A[:n, n:] = P
                 A[n:, :n] = P.T
-            
+
             b[:n] = self.d
-            
+
             # Solve: [a, b]^T = A⁻¹ [d, 0]^T
             try:
                 coeffs = xp.linalg.solve(A, b)
@@ -260,7 +251,7 @@ if xp.on_gpu:
                     f"Failed to solve RBF system (singular matrix): {e}. "
                     "Try increasing smoothing parameter."
                 )
-            
+
             self.coeffs_rbf = coeffs[:n]
             self.coeffs_poly = coeffs[n:] if n_poly > 0 else None
 
@@ -298,15 +289,13 @@ if xp.on_gpu:
             estimated_chunk = self.max_chunk_bytes // max(bytes_per_eval, 1)
             estimated_chunk = max(self.min_chunk_size, int(estimated_chunk))
             return max(1, min(n_eval, estimated_chunk))
-        
+
         def __call__(
-            self,
-            x: _ot.ArrayLike,
-            chunk_size: _ot.Optional[int] = None
+            self, x: _ot.ArrayLike, chunk_size: _ot.Optional[int] = None
         ) -> _ot.ArrayLike:
             """
             Evaluate interpolant at points x.
-            
+
             Parameters
             ----------
             x : array, shape (m, d)
@@ -314,7 +303,7 @@ if xp.on_gpu:
             chunk_size : int, optional
                 Chunk size for memory-efficient evaluation. If None, computes
                 in one batch. Useful for large evaluation sets on limited GPU.
-            
+
             Returns
             -------
             f : array, shape (m, ...)
@@ -336,7 +325,7 @@ if xp.on_gpu:
                 return out[:, 0]
 
             return out
-        
+
         def _evaluate_batch(self, x: _ot.ArrayLike) -> _ot.ArrayLike:
             """Evaluate interpolant on a batch of points."""
             # RBF contribution: Σ aᵢ φ(||x - yᵢ||)
@@ -345,29 +334,32 @@ if xp.on_gpu:
             del dist
             rbf_vals = K @ self.coeffs_rbf  # (m, d)
             del K
-            
+
             # Polynomial contribution: Σ bⱼ pⱼ(x)
             if self.coeffs_poly is not None and self.coeffs_poly.shape[0] > 0:
                 P = _polynomial_matrix(x, self.degree)
                 rbf_vals += P @ self.coeffs_poly  # (m, d)
-            
+
             return rbf_vals
-        
+
         def to_cpu(self) -> dict:
             """
             Convert coefficients to CPU (numpy) for storage or CPU evaluation.
-            
+
             Returns
             -------
             state : dict
                 Dictionary with 'y', 'coeffs_rbf', 'coeffs_poly' as numpy arrays.
             """
             return {
-                'y': xp.asnumpy(self.y),
-                'coeffs_rbf': xp.asnumpy(self.coeffs_rbf),
-                'coeffs_poly': (xp.asnumpy(self.coeffs_poly)
-                            if self.coeffs_poly is not None else None),
-                'degree': self.degree,
+                "y": xp.asnumpy(self.y),
+                "coeffs_rbf": xp.asnumpy(self.coeffs_rbf),
+                "coeffs_poly": (
+                    xp.asnumpy(self.coeffs_poly)
+                    if self.coeffs_poly is not None
+                    else None
+                ),
+                "degree": self.degree,
             }
 
 else:

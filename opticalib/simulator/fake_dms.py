@@ -8,6 +8,26 @@ from opticalib.ground import osutils as osu
 from opticalib import folders as fp, typings as _t
 from opticalib.ground.logger import SystemLogger as _SL
 from opticalib.ground.modal_decomposer import ZernikeFitter as _ZF
+from opticalib.dmutils.slaving import compute_slave_cmd as _compute_slave_cmd
+
+
+def _apply_slaving(
+    dm: _t.FakeDeformableMirrorDevice,
+    cmd: _t.ArrayLike,
+    slave: bool | str,
+) -> _t.ArrayLike:
+    """
+    Apply slaving to command if requested.
+    """
+    if isinstance(slave, str):
+        method = slave
+    elif slave:
+        if len(dm.slaveIds) == 0:
+            return cmd
+        method = "zero-force" if len(dm.borderIds) == 0 else "minimum-rms"
+    else:
+        return cmd
+    return _compute_slave_cmd(dm, cmd, method=method)
 
 
 class PetalMirror(BaseFakePTL):
@@ -23,7 +43,7 @@ class PetalMirror(BaseFakePTL):
     visualize_shape(cmd=None)
         Visualizes the command amplitudes on the mirror's actuators.
     """
-    
+
     def __init__(self, **kwargs: dict[str, _t.Any]):
         self._live = False
         self._logger = _SL(__class__)
@@ -33,7 +53,7 @@ class PetalMirror(BaseFakePTL):
         self.nActsPerSegment = 3
         self._zern = _ZF(self._mask)
         self.mirrorModes = None
-    
+
     @property
     def slaveIds(self) -> _t.ArrayLike:
         """
@@ -64,7 +84,12 @@ class PetalMirror(BaseFakePTL):
         return self._coords.copy()
 
     def set_shape(
-        self, command: _t.ArrayLike, differential: bool = False, modal: bool = False
+        self,
+        command: _t.ArrayLike,
+        differential: bool = False,
+        modal: bool = False,
+        *,
+        slave: bool | str = False,
     ):
         """
         Applies the given command to the deformable mirror.
@@ -77,6 +102,7 @@ class PetalMirror(BaseFakePTL):
         differential : bool
             If True, the command is applied differentially.
         """
+        command = _apply_slaving(self, command, slave)
         self._logger.info(f"Sending mirror command to {self._name}")
         self._mirror_command(command, differential)
         if self._live:
@@ -93,7 +119,7 @@ class PetalMirror(BaseFakePTL):
             Current amplitudes commanded to the dm's actuators.
         """
         return self._2modes(self._actPos.copy()) / np.tile(self._unit_calib, 6)
-    
+
     def uploadCmdHistory(self, cmdhist: _t.MatrixLike):
         """
         Upload the command history to the deformable mirror memory.
@@ -103,7 +129,7 @@ class PetalMirror(BaseFakePTL):
             f"Uploading command history of shape {cmdhist.shape} to {self._name}"
         )
         self.cmdHistory = cmdhist
-    
+
     def runCmdHistory(
         self,
         interf: _t.InterferometerDevice = None,
@@ -182,9 +208,7 @@ class PetalMirror(BaseFakePTL):
             cmd = self._actPos.copy()
         plt.figure(figsize=(7, 6))
         size = (120 * 97) / self.nActs
-        plt.scatter(
-            self._coords[:, 0], self._coords[:, 1], c=cmd, s=size
-        )
+        plt.scatter(self._coords[:, 0], self._coords[:, 1], c=cmd, s=size)
         plt.xlabel(r"$x$ $[px]$")
         plt.ylabel(r"$y$ $[px]$")
         plt.title(f"DM {self.nActs} Actuator's Coordinates")
@@ -231,7 +255,12 @@ class AlpaoDm(BaseFakeAlpao):
         return self._borderIds
 
     def set_shape(
-        self, command: _t.ArrayLike, differential: bool = False, modal: bool = False
+        self,
+        command: _t.ArrayLike,
+        differential: bool = False,
+        modal: bool = False,
+        *,
+        slave: bool | str = False,
     ):
         """
         Applies the given command to the deformable mirror.
@@ -244,6 +273,7 @@ class AlpaoDm(BaseFakeAlpao):
         differential : bool
             If True, the command is applied differentially.
         """
+        command = _apply_slaving(self, command, slave)
         scaled_cmd = command * 1e-5  # more realistic command
         self._logger.info(f"Sending mirror command to {self._name}")
         self._mirror_command(scaled_cmd, differential, modal)
@@ -329,7 +359,7 @@ class AlpaoDm(BaseFakeAlpao):
         self.set_shape(s)
         return tn
 
-    def visualize_shape(self, cmd: _t.ArrayLike = None):
+    def visualize_shape(self, cmd: _t.ArrayLike = None, **scatter_kwargs: dict[str, _t.Any]):
         """
         Visualizes the command amplitudes on the mirror's actuators.
 
@@ -344,12 +374,26 @@ class AlpaoDm(BaseFakeAlpao):
         np.array
             Processed shape based on the command.
         """
-        if cmd is None:
-            cmd = self._actPos.copy()
         plt.figure(figsize=(7, 6))
-        size = (120 * 97) / self.nActs
+        if cmd is None:
+            cmd = self.get_shape()
+
+            for i, (x, y) in enumerate(self._scaledActCoords):
+                plt.annotate(
+                    str(i),
+                    (x, y),
+                    textcoords="offset points",
+                    xytext=(3, 3),
+                    ha="left",
+                    va="bottom",
+                    fontsize=7,
+                    color="black",
+                )
+
         plt.scatter(
-            self._scaledActCoords[:, 0], self._scaledActCoords[:, 1], c=cmd, s=size
+            self._scaledActCoords[:, 0], self._scaledActCoords[:, 1], c=cmd,
+            s=scatter_kwargs.pop("s", (120 * 97) / self.nActs),
+            **scatter_kwargs,
         )
         plt.xlabel(r"$x$ $[px]$")
         plt.ylabel(r"$y$ $[px]$")
@@ -493,7 +537,12 @@ class DP(BaseFakeDp):
         self.nActsPerSegment = 111
 
     def set_shape(
-        self, command: _t.ArrayLike, differential: bool = False, modal: bool = False
+        self,
+        command: _t.ArrayLike,
+        differential: bool = False,
+        modal: bool = False,
+        *,
+        slave: bool | str = False,
     ):
         """
         Applies the given command to the deformable mirror.
@@ -506,6 +555,7 @@ class DP(BaseFakeDp):
         differential : bool
             If True, the command is applied differentially.
         """
+        command = _apply_slaving(self, command, slave)
         self._logger.info(f"Sending mirror command to {self._name}")
         self._mirror_command(command, differential, modal)
         if self._live:
@@ -646,9 +696,14 @@ class M4AU(BaseFakeM4):
 
     def __repr__(self) -> str:
         return f"{self._name}(nSegments={self.nSegments}, nActsPerSegment={self.nActsPerSegment})"
-    
+
     def set_shape(
-        self, command: _t.ArrayLike, differential: bool = False, modal: bool = False
+        self,
+        command: _t.ArrayLike,
+        differential: bool = False,
+        modal: bool = False,
+        *,
+        slave: bool | str = False,
     ):
         """
         Applies the given command to the deformable mirror.
@@ -661,12 +716,13 @@ class M4AU(BaseFakeM4):
         differential : bool
             If True, the command is applied differentially.
         """
+        command = _apply_slaving(self, command, slave)
         self._logger.info(f"Sending mirror command to {self._name}")
         self._mirror_command(command, differential, modal)
         if self._live:
             time.sleep(0.15)
             plt.pause(0.05)
-    
+
     def get_shape(self):
         """
         Returns the current amplitudes commanded to the dm's actuators.
@@ -677,7 +733,7 @@ class M4AU(BaseFakeM4):
             Current amplitudes commanded to the dm's actuators.
         """
         return self._actPos.copy()
-    
+
     def visualize_shape(self, cmd: _t.ArrayLike = None, **kwargs: dict[str, _t.Any]):
         """
         Visualizes the command amplitudes on the mirror's actuators.
@@ -720,7 +776,7 @@ class M4AU(BaseFakeM4):
         plt.title(f"{self._name} {self.nActs} Actuator's Coordinates")
         plt.colorbar()
         plt.show()
-    
+
     def uploadCmdHistory(self, cmdhist: _t.MatrixLike):
         """
         Upload the command history to the deformable mirror memory.
@@ -730,7 +786,7 @@ class M4AU(BaseFakeM4):
             f"Uploading command history of shape {cmdhist.shape} to {self._name}"
         )
         self.cmdHistory = cmdhist
-    
+
     def runCmdHistory(
         self,
         interf: _t.InterferometerDevice = None,

@@ -198,7 +198,7 @@ class ComputeReconstructor:
         return self
 
     def _computeIntMat(
-        self
+        self,
     ) -> tuple[_ot.MatrixLike, _ot.MatrixLike, _ot.ArrayLike, _ot.MatrixLike]:
         """
         Subroutine which computes the interaction matrix and it's SVD, and stores

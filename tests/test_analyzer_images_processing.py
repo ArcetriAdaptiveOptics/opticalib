@@ -282,6 +282,13 @@ class TestCubeRebinner:
 
         assert result.shape[2] == n_frames
 
+    def test_axis_parameter(self):
+        """Test rebinning when frames are stored on a custom axis."""
+        cube = fits_array(ma.masked_array(np.random.randn(4, 80, 80)))
+        result = ip.cubeRebinner(cube, 2, axis=0)
+
+        assert result.shape == (4, 40, 40)
+
 
 class TestRebin2DArray:
     """Tests for the rebin2DArray function."""

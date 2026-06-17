@@ -97,9 +97,10 @@ def surfshow(
         The surface object returned by plot_surface.
     """
     if not d3:
+        clab = kwargs.pop("clabel", "meters")
         fig, ax, im = myimshow(image, cut=cut, **kwargs)
         cbar = im.colorbar
-        cbar.set_label(kwargs.get("clabel", "meters"))
+        cbar.set_label(clab)
         return fig, ax, im
     else:
         fig, ax = plt.subplots(figsize=(7, 6), subplot_kw={"projection": "3d"})
@@ -151,8 +152,8 @@ def cmdplot(cmd: _ot.ArrayLike, **kwargs: dict[str, _ot.Any]):
         The list of line objects returned by plot.
     """
     title = kwargs.pop("title", "DM Command")
-    xlabel = kwargs.pop("xlabel", "X [px]")
-    ylabel = kwargs.pop("ylabel", "Y [px]")
+    xlabel = kwargs.pop("xlabel", "Actuator Index")
+    ylabel = kwargs.pop("ylabel", "Amplitude")
     c = _osu.get_kwargs(("color", "c"), default="black", pop=True, kwargs=kwargs)
 
     fig, ax = plt.subplots()

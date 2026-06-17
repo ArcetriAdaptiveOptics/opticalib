@@ -12,174 +12,171 @@ from inspect import Signature, signature
 from typing import Any, Callable, TypeVar
 
 try:
-	from typing import ParamSpec
+    from typing import ParamSpec
 except ImportError:  # pragma: no cover
-	from typing_extensions import ParamSpec
+    from typing_extensions import ParamSpec
 
 P = ParamSpec("P")
 R = TypeVar("R")
 
 
 def _build_call_arguments(
-	sig: Signature,
-	arguments: dict[str, Any],
+    sig: Signature,
+    arguments: dict[str, Any],
 ) -> tuple[list[Any], dict[str, Any]]:
-	"""
-	Rebuild positional and keyword arguments from a bound argument mapping.
+    """
+    Rebuild positional and keyword arguments from a bound argument mapping.
 
-	Parameters
-	----------
-	sig : Signature
-		Signature of the wrapped function.
-	arguments : dict[str, Any]
-		Mapping produced by ``Signature.bind_partial``.
+    Parameters
+    ----------
+    sig : Signature
+            Signature of the wrapped function.
+    arguments : dict[str, Any]
+            Mapping produced by ``Signature.bind_partial``.
 
-	Returns
-	-------
-	args : list[Any]
-		Positional arguments for the function call.
-	kwargs : dict[str, Any]
-		Keyword arguments for the function call.
-	"""
-	args: list[Any] = []
-	kwargs: dict[str, Any] = {}
+    Returns
+    -------
+    args : list[Any]
+            Positional arguments for the function call.
+    kwargs : dict[str, Any]
+            Keyword arguments for the function call.
+    """
+    args: list[Any] = []
+    kwargs: dict[str, Any] = {}
 
-	for name, param in sig.parameters.items():
-		if name not in arguments:
-			continue
+    for name, param in sig.parameters.items():
+        if name not in arguments:
+            continue
 
-		value = arguments[name]
-		if param.kind in (
-			param.POSITIONAL_ONLY,
-			param.POSITIONAL_OR_KEYWORD,
-		):
-			args.append(value)
-		elif param.kind is param.VAR_POSITIONAL:
-			args.extend(value)
-		elif param.kind is param.KEYWORD_ONLY:
-			kwargs[name] = value
-		elif param.kind is param.VAR_KEYWORD:
-			kwargs.update(value)
+        value = arguments[name]
+        if param.kind in (
+            param.POSITIONAL_ONLY,
+            param.POSITIONAL_OR_KEYWORD,
+        ):
+            args.append(value)
+        elif param.kind is param.VAR_POSITIONAL:
+            args.extend(value)
+        elif param.kind is param.KEYWORD_ONLY:
+            kwargs[name] = value
+        elif param.kind is param.VAR_KEYWORD:
+            kwargs.update(value)
 
-	return args, kwargs
+    return args, kwargs
 
 
 def expand_list_arguments(
-	param_names: list[str],
-	*,
-	strict_length: bool = True,
+    param_names: list[str],
+    *,
+    strict_length: bool = True,
 ) -> Callable[[Callable[P, R]], Callable[P, R | list[R]]]:
-	"""
-	Expand list-valued parameters into multiple single-value function calls.
+    """
+    Expand list-valued parameters into multiple single-value function calls.
 
-	This decorator reproduces the common pattern where a function accepts either
-	a scalar argument or a list of arguments. If at least one of ``param_names``
-	is a list, then all tracked parameters must be lists; mixed scalar/list
-	tracked inputs are rejected. In list mode, the wrapped function is called
-	once per list element, replacing list arguments with their ``i``-th element.
+    This decorator reproduces the common pattern where a function accepts either
+    a scalar argument or a list of arguments. If at least one of ``param_names``
+    is a list, then all tracked parameters must be lists; mixed scalar/list
+    tracked inputs are rejected. In list mode, the wrapped function is called
+    once per list element, replacing list arguments with their ``i``-th element.
 
-	Parameters
-	----------
-	param_names : list[str]
-		Names of parameters to inspect for list-expansion behavior.
-	strict_length : bool, optional
-		If True, all list arguments among ``param_names`` must have the same
-		length; otherwise, a ``ValueError`` is raised. The default is True.
+    Parameters
+    ----------
+    param_names : list[str]
+            Names of parameters to inspect for list-expansion behavior.
+    strict_length : bool, optional
+            If True, all list arguments among ``param_names`` must have the same
+            length; otherwise, a ``ValueError`` is raised. The default is True.
 
-	Returns
-	-------
-	Callable
-		A decorator that wraps the target function.
+    Returns
+    -------
+    Callable
+            A decorator that wraps the target function.
 
-	Raises
-	------
-	KeyError
-		If one or more ``param_names`` are not present in the target function
-		signature.
-	ValueError
-		If tracked parameters mix list and non-list values in the same call.
-	ValueError
-		If ``strict_length`` is True and detected list arguments have different
-		lengths.
+    Raises
+    ------
+    KeyError
+            If one or more ``param_names`` are not present in the target function
+            signature.
+    ValueError
+            If tracked parameters mix list and non-list values in the same call.
+    ValueError
+            If ``strict_length`` is True and detected list arguments have different
+            lengths.
 
-	Examples
-	--------
-	>>> @expand_list_arguments(["tn"])
-	... def process(tn: str, save: bool = False) -> str:
-	...     return f"Processed {tn}"
-	>>> process("20260101_000000")
-	'Processed 20260101_000000'
-	>>> process(["20260101_000000", "20260101_000001"])
-	['Processed 20260101_000000', 'Processed 20260101_000001']
+    Examples
+    --------
+    >>> @expand_list_arguments(["tn"])
+    ... def process(tn: str, save: bool = False) -> str:
+    ...     return f"Processed {tn}"
+    >>> process("20260101_000000")
+    'Processed 20260101_000000'
+    >>> process(["20260101_000000", "20260101_000001"])
+    ['Processed 20260101_000000', 'Processed 20260101_000001']
 
-	>>> @expand_list_arguments(["tn", "active_roi", "reference_roi"])
-	... def piston_process(
-	...     tn: str,
-	...     active_roi: int,
-	...     reference_roi: int,
-	... ) -> tuple[str, int, int]:
-	...     return tn, active_roi, reference_roi
-	"""
+    >>> @expand_list_arguments(["tn", "active_roi", "reference_roi"])
+    ... def piston_process(
+    ...     tn: str,
+    ...     active_roi: int,
+    ...     reference_roi: int,
+    ... ) -> tuple[str, int, int]:
+    ...     return tn, active_roi, reference_roi
+    """
 
-	def decorator(func: Callable[P, R]) -> Callable[P, R | list[R]]:
-		sig = signature(func)
+    def decorator(func: Callable[P, R]) -> Callable[P, R | list[R]]:
+        sig = signature(func)
 
-		missing = [name for name in param_names if name not in sig.parameters]
-		if missing:
-			msg = (
-				"Parameter(s) not found in function signature: "
-				+ ", ".join(missing)
-			)
-			raise KeyError(msg)
+        missing = [name for name in param_names if name not in sig.parameters]
+        if missing:
+            msg = "Parameter(s) not found in function signature: " + ", ".join(missing)
+            raise KeyError(msg)
 
-		@wraps(func)
-		def wrapper(*args: P.args, **kwargs: P.kwargs) -> R | list[R]:
-			bound = sig.bind_partial(*args, **kwargs)
-			bound.apply_defaults()
+        @wraps(func)
+        def wrapper(*args: P.args, **kwargs: P.kwargs) -> R | list[R]:
+            bound = sig.bind_partial(*args, **kwargs)
+            bound.apply_defaults()
 
-			is_list_flags: list[bool] = []
-			for name in param_names:
-				value = bound.arguments.get(name)
-				is_list_flags.append(isinstance(value, list))
+            is_list_flags: list[bool] = []
+            for name in param_names:
+                value = bound.arguments.get(name)
+                is_list_flags.append(isinstance(value, list))
 
-			if any(is_list_flags) and not all(is_list_flags):
-				raise ValueError(
-					"Tracked parameters must be all lists or all scalars. "
-					"Mixed list/scalar values are not allowed."
-				)
+            if any(is_list_flags) and not all(is_list_flags):
+                raise ValueError(
+                    "Tracked parameters must be all lists or all scalars. "
+                    "Mixed list/scalar values are not allowed."
+                )
 
-			list_lengths: list[int] = []
-			for name in param_names:
-				value = bound.arguments.get(name)
-				if isinstance(value, list):
-					list_lengths.append(len(value))
+            list_lengths: list[int] = []
+            for name in param_names:
+                value = bound.arguments.get(name)
+                if isinstance(value, list):
+                    list_lengths.append(len(value))
 
-			if not list_lengths:
-				return func(*args, **kwargs)
+            if not list_lengths:
+                return func(*args, **kwargs)
 
-			if strict_length and len(set(list_lengths)) != 1:
-				raise ValueError(
-					"All list-valued parameters must have the same length."
-				)
+            if strict_length and len(set(list_lengths)) != 1:
+                raise ValueError(
+                    "All list-valued parameters must have the same length."
+                )
 
-			n_calls = list_lengths[0]
-			results: list[R] = []
+            n_calls = list_lengths[0]
+            results: list[R] = []
 
-			for i in range(n_calls):
-				call_arguments = dict(bound.arguments)
-				for name in param_names:
-					value = call_arguments.get(name)
-					if isinstance(value, list):
-						call_arguments[name] = value[i]
+            for i in range(n_calls):
+                call_arguments = dict(bound.arguments)
+                for name in param_names:
+                    value = call_arguments.get(name)
+                    if isinstance(value, list):
+                        call_arguments[name] = value[i]
 
-				call_args, call_kwargs = _build_call_arguments(sig, call_arguments)
-				results.append(func(*call_args, **call_kwargs))
+                call_args, call_kwargs = _build_call_arguments(sig, call_arguments)
+                results.append(func(*call_args, **call_kwargs))
 
-			return results
+            return results
 
-		return wrapper
+        return wrapper
 
-	return decorator
+    return decorator
 
 
 __all__ = ["expand_list_arguments"]

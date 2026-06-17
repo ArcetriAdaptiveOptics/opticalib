@@ -47,8 +47,8 @@ class BasePetalMirror:
         self.nSegments = len(self._devices)
         self.nActsPerSegment = 3
         self.nActs = self.nSegments * self.nActsPerSegment
-        self._slaveIds = _dmc('DM').get("slaveIds", [])
-        self._borderIds = _dmc('DM').get("borderIds", [])
+        self._slaveIds = _dmc("DM").get("slaveIds", [])
+        self._borderIds = _dmc("DM").get("borderIds", [])
 
     @property
     def slaveIds(self):
