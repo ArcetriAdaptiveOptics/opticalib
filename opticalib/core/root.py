@@ -471,3 +471,128 @@ class ConfSettingReader4D:
             self.path_section, "UserSettingsFilePath"
         )
         return user_setting_file_path
+
+
+def set_configuration_file(config_path: str) -> None:
+    """
+    Dynamically set a new configuration file and reload all runtime modules.
+
+    This function allows changing the opticalib configuration at runtime by
+    updating the AOCONF environment variable and reloading all modules that
+    depend on the configuration. This ensures the entire package points to
+    the new configuration file and data structure.
+
+    Parameters
+    ----------
+    config_path : str
+        Path to the new configuration file. Can be a directory (configuration.yaml
+        will be appended) or a direct path to the configuration.yaml file.
+
+    Raises
+    ------
+    FileNotFoundError
+        If the specified configuration file cannot be found.
+
+    Notes
+    -----
+    This function updates the configuration by:
+    - Modifying the AOCONF environment variable
+    - Reloading the opticalib.core.root module
+    - Reloading the opticalib.core.read_config module
+    - Updating all cached folder paths and configuration references
+    
+    All globally cached references and folder objects are updated to point to
+    the new configuration and data structure.
+
+    Example
+    -------
+    >>> import opticalib
+    >>> opticalib.set_configuration_file('/path/to/config')
+    """
+    import sys
+    import importlib
+
+    config_path = _os.path.expanduser(config_path)
+    if not _os.path.isabs(config_path):
+        config_path = _os.path.join(_os.getcwd(), config_path)
+
+    if ".yaml" not in config_path:
+        config_path = _os.path.join(config_path, "configuration.yaml")
+
+    if not _os.path.exists(config_path):
+        raise FileNotFoundError(
+            f"Configuration file not found at {config_path}"
+        )
+
+    _os.environ["AOCONF"] = config_path
+
+    root_module = sys.modules["opticalib.core.root"]
+    read_config_module = sys.modules["opticalib.core.read_config"]
+
+    importlib.reload(root_module)
+    importlib.reload(read_config_module)
+
+    with open(config_path, "r") as _f:
+        _config = _gyml.load(_f)
+
+    _bdp = _config["SYSTEM"].get("data_path")
+    _fallback_bdp = _os.path.join(_os.path.expanduser("~"), ".opticalib")
+    new_base_data_path = _bdp if not _bdp == "" else _fallback_bdp
+
+    create_folder_tree(new_base_data_path)
+    new_config_file = config_path
+    if new_base_data_path == _fallback_bdp:
+        new_config_file = _os.path.join(
+            new_base_data_path, "SysConfig", "configuration.yaml"
+        )
+
+    new_opt_data_root_folder = _os.path.join(new_base_data_path, "OPTData")
+    new_logging_root_folder = _os.path.join(new_base_data_path, "Logging")
+    new_configuration_folder = _os.path.join(new_base_data_path, "SysConfig")
+    new_opd_series_root_folder = _os.path.join(
+        new_opt_data_root_folder, "OPDSeries"
+    )
+    new_opd_images_root_folder = _os.path.join(
+        new_opt_data_root_folder, "OPDImages"
+    )
+    new_alignment_root_folder = _os.path.join(new_opt_data_root_folder, "Alignment")
+    new_flat_root_folder = _os.path.join(new_opt_data_root_folder, "Flattening")
+    new_modalbase_root_folder = _os.path.join(
+        new_opt_data_root_folder, "ModalBases"
+    )
+    new_iffunctions_root_folder = _os.path.join(
+        new_opt_data_root_folder, "IFFunctions"
+    )
+    new_intmat_root_folder = _os.path.join(new_opt_data_root_folder, "INTMatrices")
+    new_control_matrix_folder = _os.path.join(
+        new_alignment_root_folder, "ControlMatrices"
+    )
+    new_align_calibration_root_folder = _os.path.join(
+        new_alignment_root_folder, "Calibration"
+    )
+    new_align_results_root_folder = _os.path.join(
+        new_alignment_root_folder, "Results"
+    )
+    new_spl_data_root_folder = _os.path.join(new_opt_data_root_folder, "SPL")
+    new_spl_fringes_root_folder = _os.path.join(
+        new_spl_data_root_folder, "Fringes"
+    )
+
+    old_folders = root_module.folders
+    old_folders.BASE_DATA_PATH = new_base_data_path
+    old_folders.CONFIGURATION_FILE = new_config_file
+    old_folders.OPT_DATA_ROOT_FOLDER = new_opt_data_root_folder
+    old_folders.LOGGING_ROOT_FOLDER = new_logging_root_folder
+    old_folders.CONFIGURATION_FOLDER = new_configuration_folder
+    old_folders.OPD_SERIES_ROOT_FOLDER = new_opd_series_root_folder
+    old_folders.OPD_IMAGES_ROOT_FOLDER = new_opd_images_root_folder
+    old_folders.ALIGNMENT_ROOT_FOLDER = new_alignment_root_folder
+    old_folders.FLAT_ROOT_FOLDER = new_flat_root_folder
+    old_folders.MODALBASE_ROOT_FOLDER = new_modalbase_root_folder
+    old_folders.IFFUNCTIONS_ROOT_FOLDER = new_iffunctions_root_folder
+    old_folders.INTMAT_ROOT_FOLDER = new_intmat_root_folder
+    old_folders.CONTROL_MATRIX_FOLDER = new_control_matrix_folder
+    old_folders.ALIGN_CALIBRATION_ROOT_FOLDER = new_align_calibration_root_folder
+    old_folders.ALIGN_RESULTS_ROOT_FOLDER = new_align_results_root_folder
+    old_folders.SPL_DATA_ROOT_FOLDER = new_spl_data_root_folder
+    old_folders.SPL_FRINGES_ROOT_FOLDER = new_spl_fringes_root_folder

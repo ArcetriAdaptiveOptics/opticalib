@@ -179,12 +179,12 @@ def expand_list_arguments(
     return decorator
 
 
-def auto_reconnect(
+def vmbpy_reconnect(
     max_retries: int = 5,
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """
-    Decorator that automatically attempts to reconnect to a camera if a
-    VmbFeatureError occurs, indicating the camera connection was lost.
+    Decorator that automatically attempts to reconnect to a vmbpy camera
+    if a VmbFeatureError occurs, indicating the camera connection was lost.
 
     This decorator catches VmbFeatureError exceptions, calls the
     ``reconnect`` method on ``self``, and retries the decorated function
@@ -209,8 +209,8 @@ def auto_reconnect(
 
     Examples
     --------
-    >>> class Camera:
-    ...     @auto_reconnect(max_retries=3)
+    >>> class VmbCamera:
+    ...     @vmbpy_reconnect(max_retries=3)
     ...     def get_frame(self):
     ...         # Implementation that might raise VmbFeatureError
     ...         return self.cam.get_frame()
@@ -269,4 +269,4 @@ class ReconnectionError(Exception):
     pass
 
 
-__all__ = ["expand_list_arguments", "auto_reconnect", "ReconnectionError"]
+__all__ = ["expand_list_arguments", "vmbpy_reconnect", "ReconnectionError"]

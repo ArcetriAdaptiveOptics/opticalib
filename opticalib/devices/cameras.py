@@ -4,7 +4,7 @@ import vmbpy as _vmbpy
 
 from .. import typings as _ot
 from ..core.decorators import ReconnectionError as _re
-from ..core.decorators import auto_reconnect as _ar
+from ..core.decorators import vmbpy_reconnect as _vr
 from ..ground.logger import SystemLogger as _sl
 from ..core.read_config import getCamerasConfig as _gcc
 
@@ -166,7 +166,7 @@ class GigaVision:
         except Exception:
             pass
 
-    @_ar()
+    @_vr()
     def get_exptime(self) -> float:
         """
         Get the exposure time of the camera in micro-seconds.
@@ -181,7 +181,7 @@ class GigaVision:
             self._exptime = exptimeFeat.get()
         return self._exptime
 
-    @_ar()
+    @_vr()
     def set_exptime(self, exptime_us: float):
         """
         Set the exposure time of the camera.
@@ -201,7 +201,7 @@ class GigaVision:
         exptimeFeat.set(exptime_us)
         self._exptime = exptime_us
 
-    @_ar()
+    @_vr()
     def acquire_frames(
         self,
         nframes: int | None = None,

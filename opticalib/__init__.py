@@ -27,6 +27,7 @@ from .ground.osutils import load_fits, save_fits, getFileList, read_phasemap
 from .core.root import (
     folders,
     create_configuration_file,
+    set_configuration_file,
 )
 from .core import read_config
 from .core.fitsarray import fits_array
@@ -62,6 +63,7 @@ __all__ = [
     "getFileList",
     "folders",
     "create_configuration_file",
+    "set_configuration_file",
     "read_config",
     "getCameraSettings",
     "getFrameRate",
