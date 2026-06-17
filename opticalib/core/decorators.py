@@ -220,11 +220,6 @@ def allow_reconnect(
     def decorator(func: Callable[P, R]) -> Callable[P, R]:
         @wraps(func)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
-            # Import vmbpy inside the wrapper to avoid import errors
-            try:
-                import vmbpy
-            except ImportError:
-                return func(*args, **kwargs)
 
             attempt = 0
             last_error = None
@@ -258,6 +253,31 @@ def allow_reconnect(
         return wrapper
 
     return decorator
+
+
+def vmbpy_reconnect(
+    max_retries: int = 5,
+) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    """
+    Decorator that retries a method after reconnecting a vmbpy camera.
+
+    Parameters
+    ----------
+    max_retries : int, optional
+            Maximum number of reconnection attempts before raising
+            ReconnectionError. The default is 5.
+
+    Returns
+    -------
+    Callable
+            A decorator for methods that may raise ``vmbpy.VmbFeatureError``.
+    """
+    import vmbpy
+
+    return allow_reconnect(
+        max_retries=max_retries,
+        error_instance=vmbpy.VmbFeatureError,
+    )
 
 
 class ReconnectionError(Exception):

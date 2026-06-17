@@ -522,9 +522,17 @@ def set_configuration_file(config_path: str) -> None:
 
     _os.environ["AOCONF"] = config_path
 
-    root_module = sys.modules["opticalib.core.root"]
-    read_config_module = sys.modules["opticalib.core.read_config"]
-    opticalib_module = sys.modules["opticalib"]
+    root_module = sys.modules.get("opticalib.core.root")
+    if root_module is None:
+        root_module = importlib.import_module("opticalib.core.root")
+
+    read_config_module = sys.modules.get("opticalib.core.read_config")
+    if read_config_module is None:
+        read_config_module = importlib.import_module("opticalib.core.read_config")
+
+    opticalib_module = sys.modules.get("opticalib")
+    if opticalib_module is None:
+        opticalib_module = importlib.import_module("opticalib")
 
     # Keep the startup folders instance alive so modules imported in initCalpy
     # (and any "from ... import folders" aliases) stay synchronized.

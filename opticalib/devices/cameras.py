@@ -80,7 +80,7 @@ class GigaVision:
         """
         Attempt to reconnect to the camera after a disconnection.
 
-        This method is called by the auto_reconnect decorator when a
+        This method is called by the vmbpy_reconnect decorator when a
         VmbFeatureError is detected. It closes the current connection and
         attempts to re-establish it.
 
@@ -104,6 +104,9 @@ class GigaVision:
                 )
                 self.close()
                 _time.sleep(0.5 * (attempt + 1))
+
+                self._vimba = _vmbpy.VmbSystem.get_instance()
+                self._vimba.__enter__()
 
                 if self.cam_id is not None:
                     self._cam = self._vimba.get_camera_by_id(self.cam_id)
