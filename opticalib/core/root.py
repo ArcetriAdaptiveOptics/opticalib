@@ -529,6 +529,8 @@ def set_configuration_file(config_path: str) -> None:
     root_module = sys.modules["opticalib.core.root"]
     read_config_module = sys.modules["opticalib.core.read_config"]
 
+    cached_folders = root_module.folders
+
     importlib.reload(root_module)
     importlib.reload(read_config_module)
 
@@ -578,21 +580,20 @@ def set_configuration_file(config_path: str) -> None:
         new_spl_data_root_folder, "Fringes"
     )
 
-    old_folders = root_module.folders
-    old_folders.BASE_DATA_PATH = new_base_data_path
-    old_folders.CONFIGURATION_FILE = new_config_file
-    old_folders.OPT_DATA_ROOT_FOLDER = new_opt_data_root_folder
-    old_folders.LOGGING_ROOT_FOLDER = new_logging_root_folder
-    old_folders.CONFIGURATION_FOLDER = new_configuration_folder
-    old_folders.OPD_SERIES_ROOT_FOLDER = new_opd_series_root_folder
-    old_folders.OPD_IMAGES_ROOT_FOLDER = new_opd_images_root_folder
-    old_folders.ALIGNMENT_ROOT_FOLDER = new_alignment_root_folder
-    old_folders.FLAT_ROOT_FOLDER = new_flat_root_folder
-    old_folders.MODALBASE_ROOT_FOLDER = new_modalbase_root_folder
-    old_folders.IFFUNCTIONS_ROOT_FOLDER = new_iffunctions_root_folder
-    old_folders.INTMAT_ROOT_FOLDER = new_intmat_root_folder
-    old_folders.CONTROL_MATRIX_FOLDER = new_control_matrix_folder
-    old_folders.ALIGN_CALIBRATION_ROOT_FOLDER = new_align_calibration_root_folder
-    old_folders.ALIGN_RESULTS_ROOT_FOLDER = new_align_results_root_folder
-    old_folders.SPL_DATA_ROOT_FOLDER = new_spl_data_root_folder
-    old_folders.SPL_FRINGES_ROOT_FOLDER = new_spl_fringes_root_folder
+    cached_folders.BASE_DATA_PATH = new_base_data_path
+    cached_folders.CONFIGURATION_FILE = new_config_file
+    cached_folders.OPT_DATA_ROOT_FOLDER = new_opt_data_root_folder
+    cached_folders.LOGGING_ROOT_FOLDER = new_logging_root_folder
+    cached_folders.CONFIGURATION_FOLDER = new_configuration_folder
+    cached_folders.OPD_SERIES_ROOT_FOLDER = new_opd_series_root_folder
+    cached_folders.OPD_IMAGES_ROOT_FOLDER = new_opd_images_root_folder
+    cached_folders.ALIGNMENT_ROOT_FOLDER = new_alignment_root_folder
+    cached_folders.FLAT_ROOT_FOLDER = new_flat_root_folder
+    cached_folders.MODALBASE_ROOT_FOLDER = new_modalbase_root_folder
+    cached_folders.IFFUNCTIONS_ROOT_FOLDER = new_iffunctions_root_folder
+    cached_folders.INTMAT_ROOT_FOLDER = new_intmat_root_folder
+    cached_folders.CONTROL_MATRIX_FOLDER = new_control_matrix_folder
+    cached_folders.ALIGN_CALIBRATION_ROOT_FOLDER = new_align_calibration_root_folder
+    cached_folders.ALIGN_RESULTS_ROOT_FOLDER = new_align_results_root_folder
+    cached_folders.SPL_DATA_ROOT_FOLDER = new_spl_data_root_folder
+    cached_folders.SPL_FRINGES_ROOT_FOLDER = new_spl_fringes_root_folder
