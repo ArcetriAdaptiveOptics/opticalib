@@ -1,5 +1,10 @@
+import time as _time
+
 import vmbpy as _vmbpy
+
 from .. import typings as _ot
+from ..core.decorators import ReconnectionError as _re
+from ..core.decorators import auto_reconnect as _ar
 from ..ground.logger import SystemLogger as _sl
 from ..core.read_config import getCamerasConfig as _gcc
 
@@ -71,47 +76,120 @@ class GigaVision:
                 f"Could not connect to camera {self._name} with ID {self.cam_id}."
             ) from e
 
+    def reconnect(self, max_attempts: int = 5) -> None:
+        """
+        Attempt to reconnect to the camera after a disconnection.
+
+        This method is called by the auto_reconnect decorator when a
+        VmbFeatureError is detected. It closes the current connection and
+        attempts to re-establish it.
+
+        Parameters
+        ----------
+        max_attempts : int, optional
+                Maximum number of reconnection attempts. The default is 5.
+
+        Raises
+        ------
+        RuntimeError
+                If reconnection fails after all attempts.
+        """
+        attempt = 0
+
+        while attempt < max_attempts:
+            try:
+                self._logger.info(
+                    f"Attempting to reconnect to camera {self._name} "
+                    f"(attempt {attempt + 1}/{max_attempts})"
+                )
+                self.close()
+                _time.sleep(0.5 * (attempt + 1))
+
+                if self.cam_id is not None:
+                    self._cam = self._vimba.get_camera_by_id(self.cam_id)
+                else:
+                    self._cam = self._vimba.get_camera_by_id(self.cam_ip)
+
+                self._cam.__enter__()
+                self._exptime = None
+                self._logger.info(
+                    f"Successfully reconnected to camera {self._name}"
+                )
+                return
+
+            except Exception as e:
+                self._logger.warning(
+                    f"Reconnection attempt {attempt + 1} failed: {e}"
+                )
+                attempt += 1
+
+        raise RuntimeError(
+            f"Failed to reconnect to camera {self._name} after "
+            f"{max_attempts} attempts"
+        )
+
     def close(self):
-        """Gracefully closes the camera and VmbSystem context."""
+        """
+        Gracefully close the camera and VmbSystem context.
+
+        This method safely closes both the camera and VmbSystem connections,
+        suppressing any exceptions that may occur during cleanup. This
+        ensures that even if the camera is in a disconnected or error state,
+        the cleanup completes without raising exceptions.
+        """
         if hasattr(self, "_cam") and self._cam is not None:
             try:
                 self._cam.__exit__(None, None, None)
-                self._cam = None
             except Exception as e:
-                self._logger.warning(f"Error closing camera: {e}")
+                self._logger.debug(f"Exception while closing camera: {type(e).__name__}: {e}")
+            finally:
+                self._cam = None
+
         if hasattr(self, "_vimba") and self._vimba is not None:
             try:
                 self._vimba.__exit__(None, None, None)
-                self._vimba = None
             except Exception as e:
-                self._logger.warning(f"Error closing VmbSystem: {e}")
+                self._logger.debug(f"Exception while closing VmbSystem: {type(e).__name__}: {e}")
+            finally:
+                self._vimba = None
 
     def __del__(self):
-        """Ensure connection is closed upon object deletion."""
-        self.close()
+        """
+        Ensure connection is closed upon object deletion.
 
+        This method is called when the object is garbage collected.
+        It safely closes the connection without raising exceptions,
+        even if the camera is already in a disconnected state.
+        """
+        try:
+            self.close()
+        except Exception:
+            pass
+
+    @_ar()
     def get_exptime(self) -> float:
         """
-        Gets the exposure time of the camera in micro-seconds.
+        Get the exposure time of the camera in micro-seconds.
 
-        Returns:
-        --------
-        exposure_time : float
-            The exposure time in micro-seconds.
+        Returns
+        -------
+        float
+                The exposure time in micro-seconds.
         """
         if self._exptime is None:
             exptimeFeat = self._cam.get_feature_by_name("ExposureTimeAbs")
             self._exptime = exptimeFeat.get()
         return self._exptime
 
+    @_ar()
     def set_exptime(self, exptime_us: float):
         """
-        Sets the exposure time of the camera.
+        Set the exposure time of the camera.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         exptime_us : float
-            The exposure time in micro-seconds.
+                The exposure time in micro-seconds.
         """
         if self._exptime == exptime_us:
             self._logger.info(
@@ -123,6 +201,7 @@ class GigaVision:
         exptimeFeat.set(exptime_us)
         self._exptime = exptime_us
 
+    @_ar()
     def acquire_frames(
         self,
         nframes: int | None = None,
@@ -131,24 +210,33 @@ class GigaVision:
         allocation_mode: int = 0,
     ) -> _ot.ImageData | _ot.CubeData:
         """
-        Acquires frames from the camera.
+        Acquire frames from the camera.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         nframes : int | None
-            The number of frames to acquire. If in `sync` mode and None, acquires a single frame,
-            while if in `async` mode and None, acquires frames until stopped.
+                The number of frames to acquire. If in `sync` mode and None,
+                acquires a single frame, while if in `async` mode and None,
+                acquires frames until stopped.
         multiframe_out_mode : str
-            The output mode for multiple frames. Can be 'cube' to return a cube of frames,
-            or 'mean' to return the mean frame.
-
-            Defaults to `mean`
+                The output mode for multiple frames. Can be 'cube' to return
+                a cube of frames, or 'mean' to return the mean frame.
+                Defaults to `mean`.
         mode : str
-            The acquisition mode. Can be 'sync' (synchronous) or 'async' (asynchronous).
+                The acquisition mode. Can be 'sync' (synchronous) or
+                'async' (asynchronous).
         allocation_mode : vmbpy.AllocationMode
-            The allocation mode for asynchronous acquisition. Options are:
-            - 0 (vmbpy.AllocationMode.AnnounceFrame) : buffer allocated by `vmbpy`
-            - 1 (vmbpy.AllocationMode.AllocAndAnnounceFrame) : buffer allocated by the Transport Layer
+                The allocation mode for asynchronous acquisition. Options are:
+                - 0 (vmbpy.AllocationMode.AnnounceFrame): buffer allocated
+                  by `vmbpy`
+                - 1 (vmbpy.AllocationMode.AllocAndAnnounceFrame): buffer
+                  allocated by the Transport Layer
+
+        Returns
+        -------
+        ImageData | CubeData
+                Acquired frame(s) as numpy array or cube depending on
+                multiframe_out_mode.
         """
         frames = []
         cam = self._cam

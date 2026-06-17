@@ -179,4 +179,94 @@ def expand_list_arguments(
     return decorator
 
 
-__all__ = ["expand_list_arguments"]
+def auto_reconnect(
+    max_retries: int = 5,
+) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    """
+    Decorator that automatically attempts to reconnect to a camera if a
+    VmbFeatureError occurs, indicating the camera connection was lost.
+
+    This decorator catches VmbFeatureError exceptions, calls the
+    ``reconnect`` method on ``self``, and retries the decorated function
+    up to ``max_retries`` times. If all retries fail, a
+    ReconnectionError is raised.
+
+    Parameters
+    ----------
+    max_retries : int, optional
+            Maximum number of reconnection attempts before raising
+            ReconnectionError. The default is 5.
+
+    Returns
+    -------
+    Callable
+            A decorator that wraps the target method.
+
+    Raises
+    ------
+    ReconnectionError
+            If the camera cannot be reconnected after all retry attempts.
+
+    Examples
+    --------
+    >>> class Camera:
+    ...     @auto_reconnect(max_retries=3)
+    ...     def get_frame(self):
+    ...         # Implementation that might raise VmbFeatureError
+    ...         return self.cam.get_frame()
+    """
+    import time
+
+    def decorator(func: Callable[P, R]) -> Callable[P, R]:
+        @wraps(func)
+        def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+            # Import vmbpy inside the wrapper to avoid import errors
+            try:
+                import vmbpy
+            except ImportError:
+                return func(*args, **kwargs)
+
+            attempt = 0
+            last_error = None
+
+            while attempt <= max_retries:
+                try:
+                    return func(*args, **kwargs)
+                except vmbpy.VmbFeatureError as e:
+                    last_error = e
+                    if attempt < max_retries:
+                        attempt += 1
+                        # Call reconnect on self (assumes first arg is self)
+                        if args:
+                            self_obj = args[0]
+                            if hasattr(self_obj, "reconnect"):
+                                try:
+                                    self_obj.reconnect()
+                                    time.sleep(
+                                        0.1 * attempt
+                                    )  # Backoff delay
+                                except Exception:
+                                    pass
+                    else:
+                        break
+
+            raise ReconnectionError(
+                f"Failed to reconnect after {max_retries} attempts. "
+                f"Original error: {last_error}"
+            ) from last_error
+
+        return wrapper
+
+    return decorator
+
+
+class ReconnectionError(Exception):
+    """
+    Exception raised when camera reconnection fails after multiple
+    attempts.
+    """
+
+    pass
+
+
+__all__ = ["expand_list_arguments", "auto_reconnect", "ReconnectionError"]
