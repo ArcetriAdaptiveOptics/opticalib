@@ -393,7 +393,7 @@ def noise_strfunct(
         mean_rms_list.append(aa)
     mean_rms = _np.array(mean_rms_list)
     n_meas = rms_vector.shape[0] * 2 * tau_vector.shape[0]
-    return mean_rms, n_meas
+    return mean_rms#, n_meas
 
 
 def noise_pushpull(
