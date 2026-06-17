@@ -528,11 +528,14 @@ def set_configuration_file(config_path: str) -> None:
 
     root_module = sys.modules["opticalib.core.root"]
     read_config_module = sys.modules["opticalib.core.read_config"]
-
-    cached_folders = root_module.folders
+    opticalib_module = sys.modules["opticalib"]
 
     importlib.reload(root_module)
     importlib.reload(read_config_module)
+
+    # Update the opticalib module's reference to folders
+    opticalib_module.folders = root_module.folders
+    cached_folders = root_module.folders
 
     with open(config_path, "r") as _f:
         _config = _gyml.load(_f)
