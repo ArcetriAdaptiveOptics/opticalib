@@ -4,9 +4,10 @@ Tests for opticalib.core.root module.
 
 import pytest
 import os
-import tempfile
 import shutil
 from unittest.mock import patch, MagicMock
+from pathlib import Path
+import opticalib
 from opticalib.core import root
 
 
@@ -250,3 +251,69 @@ class TestUpdateInterfPaths:
         assert root.PRODUCE_FOLDER_NAME_4D_PC == paths["produce_4dpc"]
         assert root.PRODUCE_FOLDER_NAME_LOCAL_PC == paths["produce"]
         assert root.CAPTURE_FOLDER_NAME_LOCAL_PC == paths["capture"]
+
+
+class TestSetConfigurationFile:
+    """Test runtime configuration switching behavior."""
+
+    @staticmethod
+    def _create_config_file(config_dir: str, data_path: str) -> str:
+        """
+        Create a temporary configuration file with a custom data path.
+
+        Parameters
+        ----------
+        config_dir : str
+            Directory where the configuration file is created.
+        data_path : str
+            Value for SYSTEM.data_path.
+
+        Returns
+        -------
+        str
+            Absolute path to the generated configuration file.
+        """
+        Path(config_dir).mkdir(parents=True, exist_ok=True)
+        config_path = os.path.join(config_dir, "configuration.yaml")
+        shutil.copy(root.TEMPLATE_CONF_FILE, config_path)
+        with open(config_path, "r", encoding="utf-8") as stream:
+            config = root._gyml.load(stream)
+        config["SYSTEM"]["data_path"] = data_path
+        with open(config_path, "w", encoding="utf-8") as stream:
+            root._gyml.dump(config, stream)
+        return config_path
+
+    def test_set_configuration_file_updates_runtime_imports(self, temp_dir):
+        """
+        Ensure already-imported modules pick up the new runtime configuration.
+
+        The initCalpy bootstrap imports modules that keep references to root
+        symbols at import time. This test verifies those references remain
+        synchronized after configuration switching.
+        """
+        import opticalib.dmutils.iff_module as iff_module
+        import opticalib.devices.deformable_mirrors as deformable_mirrors
+
+        original_config = opticalib.folders.CONFIGURATION_FILE
+        startup_folders = opticalib.folders
+        try:
+            config1 = self._create_config_file(
+                os.path.join(temp_dir, "config1"),
+                os.path.join(temp_dir, "data1"),
+            )
+            config2 = self._create_config_file(
+                os.path.join(temp_dir, "config2"),
+                os.path.join(temp_dir, "data2"),
+            )
+
+            opticalib.set_configuration_file(config1)
+            opticalib.set_configuration_file(config2)
+
+            assert opticalib.folders is startup_folders
+            assert iff_module._fn is startup_folders
+            assert startup_folders.BASE_DATA_PATH == os.path.join(
+                temp_dir, "data2"
+            )
+            assert deformable_mirrors._opdi == startup_folders.OPD_IMAGES_ROOT_FOLDER
+        finally:
+            opticalib.set_configuration_file(original_config)

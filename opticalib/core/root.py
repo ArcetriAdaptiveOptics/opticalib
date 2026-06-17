@@ -509,20 +509,16 @@ def set_configuration_file(config_path: str) -> None:
     >>> import opticalib
     >>> opticalib.set_configuration_file('/path/to/config')
     """
-    import sys
     import importlib
+    import sys
 
     config_path = _os.path.expanduser(config_path)
     if not _os.path.isabs(config_path):
         config_path = _os.path.join(_os.getcwd(), config_path)
-
     if ".yaml" not in config_path:
         config_path = _os.path.join(config_path, "configuration.yaml")
-
     if not _os.path.exists(config_path):
-        raise FileNotFoundError(
-            f"Configuration file not found at {config_path}"
-        )
+        raise FileNotFoundError(f"Configuration file not found at {config_path}")
 
     _os.environ["AOCONF"] = config_path
 
@@ -530,73 +526,41 @@ def set_configuration_file(config_path: str) -> None:
     read_config_module = sys.modules["opticalib.core.read_config"]
     opticalib_module = sys.modules["opticalib"]
 
+    # Keep the startup folders instance alive so modules imported in initCalpy
+    # (and any "from ... import folders" aliases) stay synchronized.
+    cached_folders = opticalib_module.folders
+
     importlib.reload(root_module)
     importlib.reload(read_config_module)
 
-    # Update the opticalib module's reference to folders
-    opticalib_module.folders = root_module.folders
-    cached_folders = root_module.folders
+    for key, value in root_module.folders.__dict__.items():
+        setattr(cached_folders, key, value)
 
-    with open(config_path, "r") as _f:
-        _config = _gyml.load(_f)
+    root_module.folders = cached_folders
+    opticalib_module.folders = cached_folders
 
-    _bdp = _config["SYSTEM"].get("data_path")
-    _fallback_bdp = _os.path.join(_os.path.expanduser("~"), ".opticalib")
-    new_base_data_path = _bdp if not _bdp == "" else _fallback_bdp
+    read_config_module._update_imports()
 
-    create_folder_tree(new_base_data_path)
-    new_config_file = config_path
-    if new_base_data_path == _fallback_bdp:
-        new_config_file = _os.path.join(
-            new_base_data_path, "SysConfig", "configuration.yaml"
+    runtime_prefixes = (
+        "opticalib.analyzer",
+        "opticalib.dmutils",
+        "opticalib.ground",
+        "opticalib.simulator",
+        "opticalib.visualization",
+        "opticalib.devices",
+    )
+    loaded_modules = [
+        name
+        for name in sys.modules
+        if any(
+            name == prefix or name.startswith(f"{prefix}.")
+            for prefix in runtime_prefixes
         )
-
-    new_opt_data_root_folder = _os.path.join(new_base_data_path, "OPTData")
-    new_logging_root_folder = _os.path.join(new_base_data_path, "Logging")
-    new_configuration_folder = _os.path.join(new_base_data_path, "SysConfig")
-    new_opd_series_root_folder = _os.path.join(
-        new_opt_data_root_folder, "OPDSeries"
-    )
-    new_opd_images_root_folder = _os.path.join(
-        new_opt_data_root_folder, "OPDImages"
-    )
-    new_alignment_root_folder = _os.path.join(new_opt_data_root_folder, "Alignment")
-    new_flat_root_folder = _os.path.join(new_opt_data_root_folder, "Flattening")
-    new_modalbase_root_folder = _os.path.join(
-        new_opt_data_root_folder, "ModalBases"
-    )
-    new_iffunctions_root_folder = _os.path.join(
-        new_opt_data_root_folder, "IFFunctions"
-    )
-    new_intmat_root_folder = _os.path.join(new_opt_data_root_folder, "INTMatrices")
-    new_control_matrix_folder = _os.path.join(
-        new_alignment_root_folder, "ControlMatrices"
-    )
-    new_align_calibration_root_folder = _os.path.join(
-        new_alignment_root_folder, "Calibration"
-    )
-    new_align_results_root_folder = _os.path.join(
-        new_alignment_root_folder, "Results"
-    )
-    new_spl_data_root_folder = _os.path.join(new_opt_data_root_folder, "SPL")
-    new_spl_fringes_root_folder = _os.path.join(
-        new_spl_data_root_folder, "Fringes"
-    )
-
-    cached_folders.BASE_DATA_PATH = new_base_data_path
-    cached_folders.CONFIGURATION_FILE = new_config_file
-    cached_folders.OPT_DATA_ROOT_FOLDER = new_opt_data_root_folder
-    cached_folders.LOGGING_ROOT_FOLDER = new_logging_root_folder
-    cached_folders.CONFIGURATION_FOLDER = new_configuration_folder
-    cached_folders.OPD_SERIES_ROOT_FOLDER = new_opd_series_root_folder
-    cached_folders.OPD_IMAGES_ROOT_FOLDER = new_opd_images_root_folder
-    cached_folders.ALIGNMENT_ROOT_FOLDER = new_alignment_root_folder
-    cached_folders.FLAT_ROOT_FOLDER = new_flat_root_folder
-    cached_folders.MODALBASE_ROOT_FOLDER = new_modalbase_root_folder
-    cached_folders.IFFUNCTIONS_ROOT_FOLDER = new_iffunctions_root_folder
-    cached_folders.INTMAT_ROOT_FOLDER = new_intmat_root_folder
-    cached_folders.CONTROL_MATRIX_FOLDER = new_control_matrix_folder
-    cached_folders.ALIGN_CALIBRATION_ROOT_FOLDER = new_align_calibration_root_folder
-    cached_folders.ALIGN_RESULTS_ROOT_FOLDER = new_align_results_root_folder
-    cached_folders.SPL_DATA_ROOT_FOLDER = new_spl_data_root_folder
-    cached_folders.SPL_FRINGES_ROOT_FOLDER = new_spl_fringes_root_folder
+    ]
+    for module_name in sorted(loaded_modules, key=lambda name: name.count(".")):
+        try:
+            importlib.reload(sys.modules[module_name])
+        except Exception as exc:
+            raise RuntimeError(
+                f"Failed to reload runtime module '{module_name}'"
+            ) from exc
