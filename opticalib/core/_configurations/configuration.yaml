@@ -71,8 +71,8 @@ DEVICES:
       id: DEV_000F314DE425
       ip: 
   
-  # The motor devices usually use the `plico_motor` interface, as their SDK is 
-  # not implemented in Linux.
+# The motor devices usually use the `plico_motor` interface, as their SDK is 
+# not implemented in Linux.
   MOTORS:
     TunableFilter:
       ip: 

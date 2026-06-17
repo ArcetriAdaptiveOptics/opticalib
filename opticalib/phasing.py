@@ -260,6 +260,11 @@ class SPL:
         ----------
         exptime: float
             Base exposure time of the camera in seconds
+        filter_mode: str, optional
+            The tunable filter working mode. For acquisition can be:
+            - `narrow`
+            - `medium`
+            - `wide`
         lambda_vector : ArrayLike, optional
             Wavelengths vector, of wavelengths between 400 and 700 nm. If None,
             a default vector is used:
