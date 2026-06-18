@@ -7,9 +7,10 @@ from ..core.decorators import ReconnectionError as _re
 from ..core.decorators import allow_reconnect as _ar
 from ..ground.logger import SystemLogger as _sl
 from ..core.read_config import getCamerasConfig as _gcc
+from ._API import BaseCamera
 
 
-class GigaVision:
+class GigaVision(BaseCamera):
 
     def __init__(self, name: str):
         """
