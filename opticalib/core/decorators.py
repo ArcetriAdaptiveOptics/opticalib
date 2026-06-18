@@ -10,6 +10,7 @@ from __future__ import annotations
 from functools import wraps
 from inspect import Signature, signature
 from typing import Any, Callable, TypeVar
+from .exceptions import ReconnectionError
 
 try:
     from typing import ParamSpec
@@ -18,50 +19,6 @@ except ImportError:  # pragma: no cover
 
 P = ParamSpec("P")
 R = TypeVar("R")
-
-
-def _build_call_arguments(
-    sig: Signature,
-    arguments: dict[str, Any],
-) -> tuple[list[Any], dict[str, Any]]:
-    """
-    Rebuild positional and keyword arguments from a bound argument mapping.
-
-    Parameters
-    ----------
-    sig : Signature
-            Signature of the wrapped function.
-    arguments : dict[str, Any]
-            Mapping produced by ``Signature.bind_partial``.
-
-    Returns
-    -------
-    args : list[Any]
-            Positional arguments for the function call.
-    kwargs : dict[str, Any]
-            Keyword arguments for the function call.
-    """
-    args: list[Any] = []
-    kwargs: dict[str, Any] = {}
-
-    for name, param in sig.parameters.items():
-        if name not in arguments:
-            continue
-
-        value = arguments[name]
-        if param.kind in (
-            param.POSITIONAL_ONLY,
-            param.POSITIONAL_OR_KEYWORD,
-        ):
-            args.append(value)
-        elif param.kind is param.VAR_POSITIONAL:
-            args.extend(value)
-        elif param.kind is param.KEYWORD_ONLY:
-            kwargs[name] = value
-        elif param.kind is param.VAR_KEYWORD:
-            kwargs.update(value)
-
-    return args, kwargs
 
 
 def expand_list_arguments(
@@ -181,7 +138,7 @@ def expand_list_arguments(
 
 def allow_reconnect(
     max_retries: int = 5,
-    error_instance: type[Exception] = Exception,
+    error_instance: tuple[type[Exception],...] = (Exception,),
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """
     Decorator that automatically attempts to reconnect to a hardware which has
@@ -193,7 +150,7 @@ def allow_reconnect(
     max_retries : int, optional
             Maximum number of reconnection attempts before raising
             ReconnectionError. The default is 5.
-    error_instance : Exception type, optional
+    error_instances : tuple of Exception type, optional
             The specific exception type that triggers a reconnection attempt.
             The default is the base Exception class, which will catch all exceptions.
 
@@ -240,7 +197,7 @@ def allow_reconnect(
                                     time.sleep(
                                         0.1 * attempt
                                     )  # Backoff delay
-                                except Exception:
+                                except Exception: # TODO: catch `error_instance` instead? A way to catch on `reconnect`
                                     pass
                     else:
                         break
@@ -255,38 +212,49 @@ def allow_reconnect(
     return decorator
 
 
-def vmbpy_reconnect(
-    max_retries: int = 5,
-) -> Callable[[Callable[P, R]], Callable[P, R]]:
+def _build_call_arguments(
+    sig: Signature,
+    arguments: dict[str, Any],
+) -> tuple[list[Any], dict[str, Any]]:
     """
-    Decorator that retries a method after reconnecting a vmbpy camera.
+    Rebuild positional and keyword arguments from a bound argument mapping.
 
     Parameters
     ----------
-    max_retries : int, optional
-            Maximum number of reconnection attempts before raising
-            ReconnectionError. The default is 5.
+    sig : Signature
+            Signature of the wrapped function.
+    arguments : dict[str, Any]
+            Mapping produced by ``Signature.bind_partial``.
 
     Returns
     -------
-    Callable
-            A decorator for methods that may raise ``vmbpy.VmbFeatureError``.
+    args : list[Any]
+            Positional arguments for the function call.
+    kwargs : dict[str, Any]
+            Keyword arguments for the function call.
     """
-    import vmbpy
+    args: list[Any] = []
+    kwargs: dict[str, Any] = {}
 
-    return allow_reconnect(
-        max_retries=max_retries,
-        error_instance=vmbpy.VmbFeatureError,
-    )
+    for name, param in sig.parameters.items():
+        if name not in arguments:
+            continue
 
+        value = arguments[name]
+        if param.kind in (
+            param.POSITIONAL_ONLY,
+            param.POSITIONAL_OR_KEYWORD,
+        ):
+            args.append(value)
+        elif param.kind is param.VAR_POSITIONAL:
+            args.extend(value)
+        elif param.kind is param.KEYWORD_ONLY:
+            kwargs[name] = value
+        elif param.kind is param.VAR_KEYWORD:
+            kwargs.update(value)
 
-class ReconnectionError(Exception):
-    """
-    Exception raised when camera reconnection fails after multiple
-    attempts.
-    """
+    return args, kwargs
 
-    pass
 
 
 __all__ = ["expand_list_arguments", "vmbpy_reconnect", "ReconnectionError"]

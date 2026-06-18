@@ -4,7 +4,7 @@ import vmbpy as _vmbpy
 
 from .. import typings as _ot
 from ..core.decorators import ReconnectionError as _re
-from ..core.decorators import vmbpy_reconnect as _vr
+from ..core.decorators import allow_reconnect as _ar
 from ..ground.logger import SystemLogger as _sl
 from ..core.read_config import getCamerasConfig as _gcc
 
@@ -76,23 +76,23 @@ class GigaVision:
                 f"Could not connect to camera {self._name} with ID {self.cam_id}."
             ) from e
 
-    def reconnect(self, max_attempts: int = 5) -> None:
+    def reconnect(self, max_attempts: int = 2) -> None:
         """
         Attempt to reconnect to the camera after a disconnection.
 
-        This method is called by the vmbpy_reconnect decorator when a
-        VmbFeatureError is detected. It closes the current connection and
-        attempts to re-establish it.
+        This method is called by the ``allow_reconnection`` decorator when a
+        disconnection related error is detected. It closes the current connection
+        and attempts to re-establish it.
 
         Parameters
         ----------
         max_attempts : int, optional
-                Maximum number of reconnection attempts. The default is 5.
+            Maximum number of reconnection attempts. The default is 2.
 
         Raises
         ------
         RuntimeError
-                If reconnection fails after all attempts.
+            If reconnection fails after all attempts.
         """
         attempt = 0
 
@@ -103,7 +103,7 @@ class GigaVision:
                     f"(attempt {attempt + 1}/{max_attempts})"
                 )
                 self.close()
-                _time.sleep(0.5 * (attempt + 1))
+                _time.sleep(0.25)
 
                 self._vimba = _vmbpy.VmbSystem.get_instance()
                 self._vimba.__enter__()
@@ -169,7 +169,7 @@ class GigaVision:
         except Exception:
             pass
 
-    @_vr()
+    @_ar(error_instance=(_vmbpy.VmbFeatureError,AttributeError))
     def get_exptime(self) -> float:
         """
         Get the exposure time of the camera in micro-seconds.
@@ -184,7 +184,7 @@ class GigaVision:
             self._exptime = exptimeFeat.get()
         return self._exptime
 
-    @_vr()
+    @_ar(error_instance=(_vmbpy.VmbFeatureError,AttributeError))
     def set_exptime(self, exptime_us: float):
         """
         Set the exposure time of the camera.
@@ -204,7 +204,7 @@ class GigaVision:
         exptimeFeat.set(exptime_us)
         self._exptime = exptime_us
 
-    @_vr()
+    @_ar(error_instance=(_vmbpy.VmbCameraError,_vmbpy.VmbTimeout,AttributeError))
     def acquire_frames(
         self,
         nframes: int | None = None,
