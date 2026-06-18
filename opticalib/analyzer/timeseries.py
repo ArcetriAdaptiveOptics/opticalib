@@ -37,7 +37,7 @@ from . import images_processing as _ip
 from ..core.root import OPD_SERIES_ROOT_FOLDER as _OPDSER
 
 
-def averageFrames(
+def average_frames(
     tn_or_fl: str | list[_ot.ImageData] | _ot.CubeData,
     first: int = 0,
     last: int = -1,
@@ -116,7 +116,7 @@ def averageFrames(
     return aveimg
 
 
-def saveAverage(
+def save_average(
     tn: str,
     average_img: _ot.ImageData = None,
     overwrite: bool = False,
@@ -168,7 +168,7 @@ def saveAverage(
     print(f"Saved average at '{fname}'")
 
 
-def openAverage(tn: str):
+def open_average(tn: str):
     """
     Loads an averaged frame from an 'average.fits' file, found inside the input
     tracking number
@@ -197,7 +197,7 @@ def openAverage(tn: str):
     return image
 
 
-def runningDiff(
+def running_diff(
     tn_or_fl: str | list[str] | list[_ot.ImageData] | _ot.CubeData,
     gap: int = 2,
     remove_zernikes: bool | list[int] = False,
@@ -293,7 +293,7 @@ def timevec(tn: str) -> _ot.ArrayLike:
     return timevector
 
 
-def runningMean(vec: _ot.ArrayLike, npoints: int) -> _ot.ArrayLike:
+def running_mean(vec: _ot.ArrayLike, npoints: int) -> _ot.ArrayLike:
     """
     Computes the running mean of a 1D array.
 
@@ -501,12 +501,12 @@ def _track2jd(tni: str) -> float:
 
 
 __all__ = [
-    "averageFrames",
-    "saveAverage",
-    "openAverage",
-    "runningDiff",
+    "average_frames",
+    "save_average",
+    "open_average",
+    "running_diff",
     "timevec",
-    "runningMean",
+    "running_mean",
     "structfunc",
     "noise_strfunct",
     "noise_pushpull",

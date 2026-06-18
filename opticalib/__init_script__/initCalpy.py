@@ -13,6 +13,7 @@ osutils = osu = opticalib.ground.osutils
 analyzer = az = opticalib.analyzer
 simulator = sim = opticalib.simulator
 oplt = opticalib.visualization
+roi = opticalib.ground.roi
 
 ifp = dmutils.iff_processing
 ifm = dmutils.iff_module
@@ -39,6 +40,7 @@ __all__ = [
     "az",
     "simulator",
     "sim",
+    "roi",
     "ifp",
     "ifm",
 ]
