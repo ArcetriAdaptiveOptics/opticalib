@@ -12,6 +12,7 @@
 		],
 		"cursorpyright.analysis.extraPaths": [
 			"~/git/XuPy"
-		]
+		],
+		"jupyter.askForKernelRestart": false,
 	}
 }

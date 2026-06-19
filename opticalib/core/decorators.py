@@ -197,7 +197,7 @@ def allow_reconnect(
                                     time.sleep(
                                         0.1 * attempt
                                     )  # Backoff delay
-                                except Exception: # TODO: catch `error_instance` instead? A way to catch on `reconnect`
+                                except Exception:
                                     pass
                     else:
                         break

@@ -572,3 +572,14 @@ def set_configuration_file(config_path: str) -> None:
             raise RuntimeError(
                 f"Failed to reload runtime module '{module_name}'"
             ) from exc
+
+def unset_configuration_file() -> None:
+    """
+    Reset the configuration file to the fallback configuration file in `~/.opticalib`.
+    """
+    default_config_path = _os.path.join(
+        _fallback_bdp,
+        'SysConfig',
+        "configuration.yaml",
+    )
+    set_configuration_file(default_config_path)
