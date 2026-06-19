@@ -1,10 +1,8 @@
 from abc import ABC, abstractmethod
-from opticalib.ground import logger as _logger
-from opticalib.ground.osutils import newtn as _newtn
-from opticalib.core.read_config import getInterfConfig
-from opticalib.core.root import _updateInterfPaths, folders as _folds
 from opticalib import typings as _ot
+from opticalib.ground import logger as _logger
 from opticalib.dmutils.slaving import compute_slave_cmd
+
 
 class BaseWavefrontSensor(ABC):
     """
@@ -85,3 +83,17 @@ class BaseDeformableMirror(ABC):
         if method is None:
             return cmd
         return compute_slave_cmd(self, cmd, method=method)
+
+
+class BaseCamera(ABC):
+
+    @abstractmethod
+    def acquire_frames(self, nframes, *args):
+        """Main function for acquiring frames from the camera"""
+        raise NotImplementedError("Camera classes must implement this method!")
+    
+    @abstractmethod
+    def reconnect(self, *args):
+        """Function for reconnecting to the camera device in case of disconnection.
+        Used also for the ``allow_reconnection`` decorator"""
+        raise NotImplementedError("Camera classes must implement this method!")

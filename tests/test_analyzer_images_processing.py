@@ -92,27 +92,27 @@ class TestFrame:
 
 
 class TestPistonUnwrap:
-    """Tests for the piston_unwrap function."""
+    """Tests for the unwrap_piston function."""
 
     def test_no_wrapping_needed(self):
         """Test that a smooth piston vector is unchanged."""
         piston = np.array([100.0, 200.0, 300.0], dtype=float)
-        result = ip.piston_unwrap(piston, wavelength=632.8)
+        result = ip.unwrap_piston(piston, wavelength=632.8)
 
         assert result.shape == piston.shape
 
     def test_default_wavelength_message(self, capsys):
         """Test that missing wavelength prints a warning."""
         piston = np.array([100.0, 200.0, 300.0], dtype=float)
-        ip.piston_unwrap(piston)
+        ip.unwrap_piston(piston)
         captured = capsys.readouterr()
         assert "Wavelength not specified" in captured.out
 
     def test_wavelength_in_meters_converted(self):
         """Test that wavelength in metres is converted to nm internally."""
         piston = np.array([100.0, 200.0, 300.0], dtype=float)
-        result_nm = ip.piston_unwrap(piston.copy(), wavelength=632.8)
-        result_m = ip.piston_unwrap(piston.copy(), wavelength=632.8e-9)
+        result_nm = ip.unwrap_piston(piston.copy(), wavelength=632.8)
+        result_m = ip.unwrap_piston(piston.copy(), wavelength=632.8e-9)
 
         np.testing.assert_allclose(result_nm, result_m, rtol=1e-6)
 
@@ -120,14 +120,14 @@ class TestPistonUnwrap:
         """Test unwrapping with a commanded piston vector."""
         commanded = np.array([100.0, 200.0, 300.0])
         measured = np.array([100.0, 200.0, 300.0])  # no offset
-        result = ip.piston_unwrap(measured, commanded_piston_vector=commanded, wavelength=632.8)
+        result = ip.unwrap_piston(measured, commanded_piston_vector=commanded, wavelength=632.8)
 
         assert result.shape == measured.shape
 
     def test_output_shape_preserved(self):
         """Test that the output shape matches the input."""
         piston = np.random.randn(50) * 100
-        result = ip.piston_unwrap(piston, wavelength=632.8)
+        result = ip.unwrap_piston(piston, wavelength=632.8)
 
         assert result.shape == piston.shape
 
