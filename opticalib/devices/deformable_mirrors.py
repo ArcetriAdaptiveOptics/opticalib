@@ -720,6 +720,7 @@ class AlpaoDm(_api.BaseAlpaoMirror, _api.base_devices.BaseDeformableMirror):
                 else:
                     tn = save
                     datafold = _os.path.join(_opdi, tn)
+                    _os.makedirs(datafold, exist_ok=True)
                 print(f"{tn} - {self.cmdHistory.shape[-1]} images to go.")
 
             for i, cmd in enumerate(self.cmdHistory.T):

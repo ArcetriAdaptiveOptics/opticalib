@@ -30,6 +30,7 @@ Example::
 
 import logging as _l
 import logging.handlers as _lh
+import os
 
 
 class SystemLogger:
@@ -146,6 +147,33 @@ class SystemLogger:
         )
 
 
+def _find_rotating_file_handler(
+    logger: _l.Logger, file_path: str
+) -> _lh.RotatingFileHandler | None:
+    """
+    Return the rotating file handler already configured for a log file.
+
+    Parameters
+    ----------
+    logger : logging.Logger
+        The logger whose handlers should be inspected.
+    file_path : str
+        Absolute or relative path of the log file.
+
+    Returns
+    -------
+    logging.handlers.RotatingFileHandler or None
+        The existing handler bound to ``file_path``, if any.
+    """
+    normalized_path = os.path.abspath(file_path)
+    for handler in logger.handlers:
+        if not isinstance(handler, _lh.RotatingFileHandler):
+            continue
+        if os.path.abspath(handler.baseFilename) == normalized_path:
+            return handler
+    return None
+
+
 def set_up_logger(
     filename: str, logging_level: int = _l.DEBUG, format: str | None = None
 ) -> _l.Logger:
@@ -179,24 +207,29 @@ def set_up_logger(
 
         set_up_logger('/path/to/logfile.log', logging.DEBUG)
     """
-    import os
     from opticalib.core.root import LOGGING_ROOT_FOLDER
 
-    file_path = os.path.join(LOGGING_ROOT_FOLDER, filename)
+    file_path = os.path.abspath(os.path.join(LOGGING_ROOT_FOLDER, filename))
     if format is not None:
         FORMAT = format
     else:
         FORMAT = "[%(levelname)s] - %(asctime)s - %(name)s : %(message)s"
     formato = _l.Formatter(fmt=FORMAT, datefmt="%Y%m%d_%H%M%S")
-    handler = _lh.RotatingFileHandler(
-        file_path, encoding="utf8", maxBytes=10000000, backupCount=1
-    )
     root_logger = _l.getLogger()
     root_logger.setLevel(logging_level)
+    handler = _find_rotating_file_handler(root_logger, file_path)
+    should_rollover = handler is None
+
+    if handler is None:
+        handler = _lh.RotatingFileHandler(
+            file_path, encoding="utf8", maxBytes=10000000, backupCount=1
+        )
+        root_logger.addHandler(handler)
+
     handler.setFormatter(formato)
     handler.setLevel(logging_level)
-    root_logger.addHandler(handler)
-    handler.doRollover()
+    if should_rollover:
+        handler.doRollover()
     return root_logger
 
 

@@ -64,6 +64,55 @@ class TestSetUpLogger:
         ]
         assert len(rotating_handlers) > 0
 
+    def test_set_up_logger_reuses_existing_handler(self, temp_dir, monkeypatch):
+        """Test repeated setup reuses the same file handler."""
+        monkeypatch.setattr("opticalib.core.root.LOGGING_ROOT_FOLDER", temp_dir)
+        import importlib
+
+        importlib.reload(logger)
+
+        log_file = "test_reuse.log"
+        first_logger = logger.set_up_logger(log_file, logging.INFO)
+        second_logger = logger.set_up_logger(log_file, logging.INFO)
+
+        log_path = os.path.abspath(os.path.join(temp_dir, log_file))
+        rotating_handlers = [
+            h
+            for h in second_logger.handlers
+            if isinstance(h, logging.handlers.RotatingFileHandler)
+            and os.path.abspath(h.baseFilename) == log_path
+        ]
+
+        assert first_logger is second_logger
+        assert len(rotating_handlers) == 1
+
+    def test_set_up_logger_rolls_over_only_once(self, temp_dir, monkeypatch):
+        """Test repeated setup does not trigger a second rollover."""
+        monkeypatch.setattr("opticalib.core.root.LOGGING_ROOT_FOLDER", temp_dir)
+        import importlib
+
+        importlib.reload(logger)
+
+        rollover_calls = 0
+        original_rollover = logging.handlers.RotatingFileHandler.doRollover
+
+        def tracked_rollover(self):
+            """Track rollover calls while preserving handler behavior."""
+            nonlocal rollover_calls
+            rollover_calls += 1
+            return original_rollover(self)
+
+        monkeypatch.setattr(
+            logging.handlers.RotatingFileHandler,
+            "doRollover",
+            tracked_rollover,
+        )
+
+        logger.set_up_logger("test_rollover.log", logging.INFO)
+        logger.set_up_logger("test_rollover.log", logging.INFO)
+
+        assert rollover_calls == 1
+
 
 class TestSystemLogger:
     """Test SystemLogger class."""
