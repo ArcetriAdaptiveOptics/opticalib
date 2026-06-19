@@ -10,6 +10,7 @@ from __future__ import annotations
 from functools import wraps
 from inspect import Signature, signature
 from typing import Any, Callable, TypeVar
+from .exceptions import ReconnectionError
 
 try:
     from typing import ParamSpec
@@ -18,50 +19,6 @@ except ImportError:  # pragma: no cover
 
 P = ParamSpec("P")
 R = TypeVar("R")
-
-
-def _build_call_arguments(
-    sig: Signature,
-    arguments: dict[str, Any],
-) -> tuple[list[Any], dict[str, Any]]:
-    """
-    Rebuild positional and keyword arguments from a bound argument mapping.
-
-    Parameters
-    ----------
-    sig : Signature
-            Signature of the wrapped function.
-    arguments : dict[str, Any]
-            Mapping produced by ``Signature.bind_partial``.
-
-    Returns
-    -------
-    args : list[Any]
-            Positional arguments for the function call.
-    kwargs : dict[str, Any]
-            Keyword arguments for the function call.
-    """
-    args: list[Any] = []
-    kwargs: dict[str, Any] = {}
-
-    for name, param in sig.parameters.items():
-        if name not in arguments:
-            continue
-
-        value = arguments[name]
-        if param.kind in (
-            param.POSITIONAL_ONLY,
-            param.POSITIONAL_OR_KEYWORD,
-        ):
-            args.append(value)
-        elif param.kind is param.VAR_POSITIONAL:
-            args.extend(value)
-        elif param.kind is param.KEYWORD_ONLY:
-            kwargs[name] = value
-        elif param.kind is param.VAR_KEYWORD:
-            kwargs.update(value)
-
-    return args, kwargs
 
 
 def expand_list_arguments(
@@ -179,4 +136,125 @@ def expand_list_arguments(
     return decorator
 
 
-__all__ = ["expand_list_arguments"]
+def allow_reconnect(
+    max_retries: int = 5,
+    error_instance: tuple[type[Exception],...] = (Exception,),
+) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    """
+    Decorator that automatically attempts to reconnect to a hardware which has
+    a `reconnect` method when a specified exception is raised during the execution
+    of the decorated function.
+
+    Parameters
+    ----------
+    max_retries : int, optional
+            Maximum number of reconnection attempts before raising
+            ReconnectionError. The default is 5.
+    error_instances : tuple of Exception type, optional
+            The specific exception type that triggers a reconnection attempt.
+            The default is the base Exception class, which will catch all exceptions.
+
+    Returns
+    -------
+    Callable
+            A decorator that wraps the target method.
+
+    Raises
+    ------
+    ReconnectionError
+            If the camera cannot be reconnected after all retry attempts.
+
+    Examples
+    --------
+    >>> class VmbCamera:
+    ...     @vmbpy_reconnect(max_retries=3)
+    ...     def get_frame(self):
+    ...         # Implementation that might raise VmbFeatureError
+    ...         return self.cam.get_frame()
+    """
+    import time
+
+    def decorator(func: Callable[P, R]) -> Callable[P, R]:
+        @wraps(func)
+        def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+
+            attempt = 0
+            last_error = None
+
+            while attempt <= max_retries:
+                try:
+                    return func(*args, **kwargs)
+                except error_instance as e:
+                    last_error = e
+                    if attempt < max_retries:
+                        attempt += 1
+                        # Call reconnect on self (assumes first arg is self)
+                        if args:
+                            self_obj = args[0]
+                            if hasattr(self_obj, "reconnect"):
+                                try:
+                                    self_obj.reconnect()
+                                    time.sleep(
+                                        0.1 * attempt
+                                    )  # Backoff delay
+                                except Exception: # TODO: catch `error_instance` instead? A way to catch on `reconnect`
+                                    pass
+                    else:
+                        break
+
+            raise ReconnectionError(
+                f"Failed to reconnect after {max_retries} attempts. "
+                f"Original error: {last_error}"
+            ) from last_error
+
+        return wrapper
+
+    return decorator
+
+
+def _build_call_arguments(
+    sig: Signature,
+    arguments: dict[str, Any],
+) -> tuple[list[Any], dict[str, Any]]:
+    """
+    Rebuild positional and keyword arguments from a bound argument mapping.
+
+    Parameters
+    ----------
+    sig : Signature
+            Signature of the wrapped function.
+    arguments : dict[str, Any]
+            Mapping produced by ``Signature.bind_partial``.
+
+    Returns
+    -------
+    args : list[Any]
+            Positional arguments for the function call.
+    kwargs : dict[str, Any]
+            Keyword arguments for the function call.
+    """
+    args: list[Any] = []
+    kwargs: dict[str, Any] = {}
+
+    for name, param in sig.parameters.items():
+        if name not in arguments:
+            continue
+
+        value = arguments[name]
+        if param.kind in (
+            param.POSITIONAL_ONLY,
+            param.POSITIONAL_OR_KEYWORD,
+        ):
+            args.append(value)
+        elif param.kind is param.VAR_POSITIONAL:
+            args.extend(value)
+        elif param.kind is param.KEYWORD_ONLY:
+            kwargs[name] = value
+        elif param.kind is param.VAR_KEYWORD:
+            kwargs.update(value)
+
+    return args, kwargs
+
+
+
+__all__ = ["expand_list_arguments", "vmbpy_reconnect", "ReconnectionError"]

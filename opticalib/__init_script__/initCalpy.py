@@ -7,12 +7,13 @@ from opticalib import dmutils
 opt = opticalib
 join = os.path.join
 
-folders = fp = opticalib.folders
+folders = opath = opticalib.folders
 modal_decomposer = zern = opticalib.ground.modal_decomposer
 osutils = osu = opticalib.ground.osutils
 analyzer = az = opticalib.analyzer
 simulator = sim = opticalib.simulator
 oplt = opticalib.visualization
+roi = opticalib.ground.roi
 
 ifp = dmutils.iff_processing
 ifm = dmutils.iff_module
@@ -30,7 +31,7 @@ __all__ = [
     "opt",
     "join",
     "folders",
-    "fp",
+    "opath",
     "modal_decomposer",
     "zern",
     "osutils",
@@ -39,6 +40,7 @@ __all__ = [
     "az",
     "simulator",
     "sim",
+    "roi",
     "ifp",
     "ifm",
 ]

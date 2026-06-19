@@ -54,3 +54,13 @@ class PathError(Exception):
 
     def __init__(self, message: str):
         super().__init__(message)
+
+
+class ReconnectionError(Exception):
+    """
+    Exception raised when a device reconnection fails after multiple
+    attempts.
+    """
+
+    def __init__(self, message: str):
+        super().__init__(message)

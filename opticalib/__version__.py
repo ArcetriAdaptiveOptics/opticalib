@@ -7,9 +7,9 @@ Pietro Ferraiuolo
 """
 
 __title__ = "opticalib"
-__long_title__ = "OPTICALIB : adaptive OPTIcs package for dm CALibrationS"
-__description__ = "This package is a python interface for laboratory adaptive optics systems, with a focus on the calibration of deformable mirrors (DMs) and the acquisition of wavefront data using interferometers."
-__version__ = "1.3.2"
+__long_title__ = "OPTICALIB : python framework for OPTIcal CALIBration of deformable mirrors and adaptive optics experimentation"
+__description__ = "This package is a python interface for laboratory adaptive optics systems, with a focus on the calibration of deformable mirrors (DMs) and the acquisition of wavefront data using wavefront sensors."
+__version__ = "1.3.3"
 __author__ = "Adaptive Optics Group - INAF - Osservatorio Astrofisico di Arcetri"
 __maintainer__ = "Pietro Ferraiuolo"
 __author_email__ = "pietro.ferraiuolo@inaf.it"

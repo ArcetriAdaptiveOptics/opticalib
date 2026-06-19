@@ -44,12 +44,12 @@ def _make_cube(shape=(10, 10, 5)):
 
 
 class TestAverageFrames:
-    """Tests for the averageFrames function."""
+    """Tests for the average_frames function."""
 
     def test_average_from_image_list(self):
         """Test averaging a list of ImageData objects."""
         imgs = [_make_image((10, 10)) for _ in range(5)]
-        result = timeseries.averageFrames(imgs)
+        result = timeseries.average_frames(imgs)
 
         assert result.shape == (10, 10)
         assert isinstance(result, np.ma.MaskedArray)
@@ -57,7 +57,7 @@ class TestAverageFrames:
     def test_average_from_cube(self):
         """Test averaging from a 3D masked array cube."""
         cube = _make_cube((10, 10, 5))
-        result = timeseries.averageFrames(cube)
+        result = timeseries.average_frames(cube)
 
         assert result.shape == (10, 10)
 
@@ -69,7 +69,7 @@ class TestAverageFrames:
             fits_array(ma.masked_array(data * i, mask=mask))
             for i in [1.0, 2.0, 3.0]
         ]
-        result = timeseries.averageFrames(imgs)
+        result = timeseries.average_frames(imgs)
 
         expected = np.full((5, 5), 2.0)
         np.testing.assert_allclose(result.data, expected, rtol=1e-6)
@@ -77,28 +77,28 @@ class TestAverageFrames:
     def test_average_with_file_selector(self):
         """Test averaging with a file_selector list."""
         imgs = [_make_image((8, 8)) for _ in range(6)]
-        result = timeseries.averageFrames(imgs, file_selector=[0, 2, 4])
+        result = timeseries.average_frames(imgs, file_selector=[0, 2, 4])
 
         assert result.shape == (8, 8)
 
     def test_average_with_first_last(self):
         """Test averaging a sub-range of images using first and last."""
         imgs = [_make_image((8, 8)) for _ in range(10)]
-        result = timeseries.averageFrames(imgs, first=2, last=5)
+        result = timeseries.average_frames(imgs, first=2, last=5)
 
         assert result.shape == (8, 8)
 
     def test_average_from_cube_sliced(self):
         """Test averaging a slice of a cube using first and last."""
         cube = _make_cube((10, 10, 10))
-        result = timeseries.averageFrames(cube, first=0, last=5)
+        result = timeseries.average_frames(cube, first=0, last=5)
 
         assert result.shape == (10, 10)
 
     def test_average_with_thresh_flag(self):
         """Test averaging with the threshold flag enabled."""
         imgs = [_make_image((8, 8)) for _ in range(4)]
-        result = timeseries.averageFrames(imgs, thresh=True)
+        result = timeseries.average_frames(imgs, thresh=True)
 
         assert result.shape == (8, 8)
         assert isinstance(result, np.ma.MaskedArray)
@@ -110,7 +110,7 @@ class TestRunningMean:
     def test_basic_running_mean(self):
         """Test the running mean of a simple increasing sequence."""
         vec = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
-        result = timeseries.runningMean(vec, 3)
+        result = timeseries.running_mean(vec, 3)
 
         expected = np.array([2.0, 3.0, 4.0])
         np.testing.assert_allclose(result, expected)
@@ -119,14 +119,14 @@ class TestRunningMean:
         """Test that output length equals len(vec) - npoints + 1."""
         vec = np.random.randn(20)
         npoints = 5
-        result = timeseries.runningMean(vec, npoints)
+        result = timeseries.running_mean(vec, npoints)
 
         assert len(result) == len(vec) - npoints + 1
 
     def test_window_of_one_returns_same(self):
         """Test that a window of 1 returns the input unchanged."""
         vec = np.array([1.0, 2.0, 3.0, 4.0])
-        result = timeseries.runningMean(vec, 1)
+        result = timeseries.running_mean(vec, 1)
 
         np.testing.assert_allclose(result, vec)
 
@@ -134,14 +134,14 @@ class TestRunningMean:
         """Test that running mean of a constant array is the same constant."""
         val = 7.5
         vec = np.full(15, val)
-        result = timeseries.runningMean(vec, 4)
+        result = timeseries.running_mean(vec, 4)
 
         np.testing.assert_allclose(result, val)
 
     def test_output_dtype_is_float(self):
         """Test that output is a float array."""
         vec = np.array([1, 2, 3, 4, 5], dtype=int)
-        result = timeseries.runningMean(vec, 2)
+        result = timeseries.running_mean(vec, 2)
 
         assert np.issubdtype(result.dtype, np.floating)
 

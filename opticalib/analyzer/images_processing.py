@@ -152,7 +152,7 @@ def unwrap_image(
     return unwrapped_img
 
 
-def piston_unwrap(
+def unwrap_piston(
     piston_vector: _ot.ArrayLike,
     commanded_piston_vector: _ot.ArrayLike = None,
     wavelength: float = None,
@@ -866,7 +866,9 @@ def rebin2DArray(
 
 __all__ = [
     "frame",
-    "piston_unwrap",
+    "unwrap_piston",
+    "unwrap_image",
+    "image_tilt_detrend",
     "pushPullReductionAlgorithm",
     "createCube",
     "removeZernikeFromCube",

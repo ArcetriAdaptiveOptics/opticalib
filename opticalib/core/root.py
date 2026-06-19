@@ -471,3 +471,104 @@ class ConfSettingReader4D:
             self.path_section, "UserSettingsFilePath"
         )
         return user_setting_file_path
+
+
+def set_configuration_file(config_path: str) -> None:
+    """
+    Dynamically set a new configuration file and reload all runtime modules.
+
+    This function allows changing the opticalib configuration at runtime by
+    updating the AOCONF environment variable and reloading all modules that
+    depend on the configuration. This ensures the entire package points to
+    the new configuration file and data structure.
+
+    Parameters
+    ----------
+    config_path : str
+        Path to the new configuration file. Can be a directory (configuration.yaml
+        will be appended) or a direct path to the configuration.yaml file.
+
+    Raises
+    ------
+    FileNotFoundError
+        If the specified configuration file cannot be found.
+
+    Notes
+    -----
+    This function updates the configuration by:
+    - Modifying the AOCONF environment variable
+    - Reloading the opticalib.core.root module
+    - Reloading the opticalib.core.read_config module
+    - Updating all cached folder paths and configuration references
+    
+    All globally cached references and folder objects are updated to point to
+    the new configuration and data structure.
+
+    Example
+    -------
+    >>> import opticalib
+    >>> opticalib.set_configuration_file('/path/to/config')
+    """
+    import importlib
+    import sys
+
+    config_path = _os.path.expanduser(config_path)
+    if not _os.path.isabs(config_path):
+        config_path = _os.path.join(_os.getcwd(), config_path)
+    if ".yaml" not in config_path:
+        config_path = _os.path.join(config_path, "configuration.yaml")
+    if not _os.path.exists(config_path):
+        raise FileNotFoundError(f"Configuration file not found at {config_path}")
+
+    _os.environ["AOCONF"] = config_path
+
+    root_module = sys.modules.get("opticalib.core.root")
+    if root_module is None:
+        root_module = importlib.import_module("opticalib.core.root")
+
+    read_config_module = sys.modules.get("opticalib.core.read_config")
+    if read_config_module is None:
+        read_config_module = importlib.import_module("opticalib.core.read_config")
+
+    opticalib_module = sys.modules.get("opticalib")
+    if opticalib_module is None:
+        opticalib_module = importlib.import_module("opticalib")
+
+    # Keep the startup folders instance alive so modules imported in initCalpy
+    # (and any "from ... import folders" aliases) stay synchronized.
+    cached_folders = opticalib_module.folders
+
+    importlib.reload(root_module)
+    importlib.reload(read_config_module)
+
+    for key, value in root_module.folders.__dict__.items():
+        setattr(cached_folders, key, value)
+
+    root_module.folders = cached_folders
+    opticalib_module.folders = cached_folders
+
+    read_config_module._update_imports()
+
+    runtime_prefixes = (
+        "opticalib.analyzer",
+        "opticalib.dmutils",
+        "opticalib.ground",
+        "opticalib.simulator",
+        "opticalib.visualization",
+        "opticalib.devices",
+    )
+    loaded_modules = [
+        name
+        for name in sys.modules
+        if any(
+            name == prefix or name.startswith(f"{prefix}.")
+            for prefix in runtime_prefixes
+        )
+    ]
+    for module_name in sorted(loaded_modules, key=lambda name: name.count(".")):
+        try:
+            importlib.reload(sys.modules[module_name])
+        except Exception as exc:
+            raise RuntimeError(
+                f"Failed to reload runtime module '{module_name}'"
+            ) from exc
