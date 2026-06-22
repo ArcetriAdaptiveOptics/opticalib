@@ -1,4 +1,4 @@
-opticalib.analyzer.images\_processing
+﻿opticalib.analyzer.images\_processing
 =====================================
 
 .. automodule:: opticalib.analyzer.images_processing
@@ -10,13 +10,15 @@ opticalib.analyzer.images\_processing
    
       comp_filtered_image
       compute_psd
-      createCube
-      cubeRebinner
+      create_cube
+      cube_rebinner
       frame
+      image_tilt_detrend
       integrate_psd
-      modeRebinner
-      piston_unwrap
-      pushPullReductionAlgorithm
-      rebin2DArray
-      removeZernikeFromCube
+      mode_rebinner
+      push_pull_reduction_algorithm
+      rebin2_d_array
+      remove_zernike_from_cube
+      unwrap_image
+      unwrap_piston
    

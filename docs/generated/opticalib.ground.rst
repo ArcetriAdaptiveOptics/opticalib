@@ -11,7 +11,6 @@ opticalib.ground
    :recursive:
 
    computerec
-   geo
    geometry
    logger
    modal_decomposer

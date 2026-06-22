@@ -17,7 +17,9 @@
    devices
    dmutils
    ground
+   gui
    measurements
    phasing
    simulator
    typings
+   visualization

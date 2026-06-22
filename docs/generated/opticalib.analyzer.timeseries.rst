@@ -1,4 +1,4 @@
-opticalib.analyzer.timeseries
+﻿opticalib.analyzer.timeseries
 =============================
 
 .. automodule:: opticalib.analyzer.timeseries
@@ -8,13 +8,13 @@ opticalib.analyzer.timeseries
 
    .. autosummary::
    
-      averageFrames
+      average_frames
       noise_pushpull
       noise_strfunct
-      openAverage
-      runningDiff
-      runningMean
-      saveAverage
+      open_average
+      running_diff
+      running_mean
+      save_average
       structfunc
       timevec
    

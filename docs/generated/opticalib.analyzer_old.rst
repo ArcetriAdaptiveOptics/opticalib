@@ -8,8 +8,8 @@ opticalib.analyzer\_old
 
    .. autosummary::
    
-      frame2ottFrame
-      readTemperatures
-      readZernike
-      zernikePlot
+      frame2ott_frame
+      read_temperatures
+      read_zernike
+      zernike_plot
    
