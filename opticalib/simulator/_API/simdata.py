@@ -21,32 +21,27 @@ _DEFAULT_BASE_URL = (
 _SIMDATA_FILES: dict[str, dict[str, str]] = {
     "m4_data.h5": {
         "sha256": (
-            "9ec137128f32a637d9a894fe2a3cecdfa775675a3b44e982"
-            "51a0a8587e8184b0"
+            "9ec137128f32a637d9a894fe2a3cecdfa775675a3b44e982" "51a0a8587e8184b0"
         )
     },
     "dp_cmdmat.fits": {
         "sha256": (
-            "0b18e52ab70af9c44bc36f929ed3cdda23872a0b3d2268df"
-            "11fb42be0c59db88"
+            "0b18e52ab70af9c44bc36f929ed3cdda23872a0b3d2268df" "11fb42be0c59db88"
         )
     },
     "dp_coords.fits": {
         "sha256": (
-            "223e65bd07b4e9f8a18126eaf8b2faab2f672f677dc014334"
-            "67c67f2aed99931"
+            "223e65bd07b4e9f8a18126eaf8b2faab2f672f677dc014334" "67c67f2aed99931"
         )
     },
     "dp_ffwd.fits": {
         "sha256": (
-            "485c6b9dc03a3666e080e819328e004b53ebdb4822e5d7541"
-            "d75cbf3799319e6"
+            "485c6b9dc03a3666e080e819328e004b53ebdb4822e5d7541" "d75cbf3799319e6"
         )
     },
     "ptl_init.fits": {
         "sha256": (
-            "4e66c1da156221717ab979caf154a88cd2fe032b5e26a23ed"
-            "700aea7c09198e5"
+            "4e66c1da156221717ab979caf154a88cd2fe032b5e26a23ed" "700aea7c09198e5"
         )
     },
 }

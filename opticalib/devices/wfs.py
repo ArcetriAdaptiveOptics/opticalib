@@ -2,7 +2,7 @@ from . import _API as _api
 
 
 class Ingot(_api.BaseWavefrontSensor): ...
-    
+
 
 class ShackHartmann(_api.BaseWavefrontSensor): ...
 

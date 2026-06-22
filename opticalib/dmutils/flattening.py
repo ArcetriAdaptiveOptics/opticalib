@@ -836,4 +836,3 @@ class Flattening:
         filtered = self.filteredModes if self.filtered else False
         r = self.rebin
         return f"Flattening(tn={tn}, filtered={filtered}, rebin={r})"
-

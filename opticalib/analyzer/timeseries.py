@@ -393,7 +393,7 @@ def noise_strfunct(
         mean_rms_list.append(aa)
     mean_rms = _np.array(mean_rms_list)
     n_meas = rms_vector.shape[0] * 2 * tau_vector.shape[0]
-    return mean_rms#, n_meas
+    return mean_rms  # , n_meas
 
 
 def noise_pushpull(
@@ -461,10 +461,10 @@ def noise_pushpull(
             img = _ip.pushPullReductionAlgorithm(
                 cube[:, :, k : k + T].transpose(2, 0, 1), thetemplate
             )
-            cc,zmatrix = zf.fit(img, zern2remove)
-            surf = zf.makeSurface(zern2remove, img, coeffs=cc,mat = zmatrix)
-            
-            tt.append(_np.sqrt(_np.sum(cc[1:]**2)))
+            cc, zmatrix = zf.fit(img, zern2remove)
+            surf = zf.makeSurface(zern2remove, img, coeffs=cc, mat=zmatrix)
+
+            tt.append(_np.sqrt(_np.sum(cc[1:] ** 2)))
             rms.append((img - surf).std())
 
         resrms.append(_np.mean(rms))

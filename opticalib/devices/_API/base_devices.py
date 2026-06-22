@@ -91,7 +91,7 @@ class BaseCamera(ABC):
     def acquire_frames(self, nframes, *args):
         """Main function for acquiring frames from the camera"""
         raise NotImplementedError("Camera classes must implement this method!")
-    
+
     @abstractmethod
     def reconnect(self, *args):
         """Function for reconnecting to the camera device in case of disconnection.

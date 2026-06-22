@@ -484,6 +484,7 @@ def saveCube(
     # Copying the cmdMatrix and the ModesVector into the INTMAT Folder
     _copyFromIffToIM(name=_MATRIX_FILE, tn=tn)
     _copyFromIffToIM(name=_MODES_FILE, tn=tn)
+    _copyFromIffToIM(name=_AMP_FILE, tn=tn)
     print(
         f"Cube of shape {cube.shape} saved in '.../{'/'.join(cube_path.split('/')[-2:])}'"
     )
@@ -511,30 +512,42 @@ def stackCubes(tnlist: list[str], cube_names: _ot.Optional[list[str]] = None) ->
     new_tn = _ts()
     stacked_cube_fold = _os.path.join(_intMatFold, new_tn)
     _os.mkdir(stacked_cube_fold)
-    cube_parameters = _getCubeList(tnlist, cube_names)
-    flag = _checkStackedCubes(tnlist)["Flag"]["Cube type"]
-    # Stacking the cube and the matrices
+
+    # Get cube parameters and validation info
+    cubes, cmats, mvecs, avecs, rebin = _getCubeList(tnlist, cube_names)
+    cube_type = _checkStackedCubes(tnlist)["Flag"]["Cube type"]
+
     # Convert FitsMaskedArrayGpu to regular masked arrays for dstack
     cube_list = [
-        cube.asmarray() if hasattr(cube, "asmarray") else cube
-        for cube in cube_parameters[0]
+        cube.asmarray() if hasattr(cube, "asmarray") else cube for cube in cubes
     ]
+
+    # Stack all components
     stacked_cube = _np.ma.dstack(cube_list)
-    stacked_cmat = _np.hstack(cube_parameters[1])
-    stacked_mvec = _np.dstack(cube_parameters[2])
-    # Saving everything to a new file into a new tn
-    nchead = {}
-    nchead["FLAG"] = (flag, "stacking mode")
-    nchead["NSTACK"] = (len(tnlist), "number of stacked cubes")
-    for i, tn in enumerate(tnlist):
-        nchead[f"TN{i+1}"] = (tn, f"TN of stacked cube {i+1}")
-    nchead["REBIN"] = (cube_parameters[3], "common rebinning factor")
-    save_cube = _os.path.join(stacked_cube_fold, _CUBE_FILE)
-    save_cmat = _os.path.join(stacked_cube_fold, _MATRIX_FILE)
-    save_mvec = _os.path.join(stacked_cube_fold, _MODES_FILE)
-    _osu.save_fits(save_cube, stacked_cube, header=nchead)
-    _osu.save_fits(save_cmat, stacked_cmat)
-    _osu.save_fits(save_mvec, stacked_mvec)
+    stacked_cmat = _np.hstack(cmats)
+    stacked_mvec = _np.dstack(mvecs)
+    stacked_avec = _np.hstack(avecs)
+    # Build header with metadata
+    header = {
+        "FLAG": (cube_type, "stacking mode"),
+        "NSTACK": (len(tnlist), "number of stacked cubes"),
+        "REBIN": (rebin, "common rebinning factor"),
+    }
+    header.update(
+        {f"TN{i+1}": (tn, f"TN of stacked cube {i+1}") for i, tn in enumerate(tnlist)}
+    )
+
+    # Save stacked components
+    for filename, data in [
+        (_CUBE_FILE, stacked_cube),
+        (_MATRIX_FILE, stacked_cmat),
+        (_MODES_FILE, stacked_mvec),
+        (_AMP_FILE, stacked_avec),
+    ]:
+        save_path = _os.path.join(stacked_cube_fold, filename)
+        fits_header = header if filename == _CUBE_FILE else None
+        _osu.save_fits(save_path, data, header=fits_header)
+
     print(f"Stacked cube and matrices saved in {new_tn}")
     return new_tn
 
@@ -1096,7 +1109,9 @@ def _copyFromIffToIM(name: str, tn: str) -> None:
 
 def _getCubeList(
     tnlist: str, cubeNames: _ot.Optional[list[str]] = None
-) -> tuple[list[_ot.ImageData], list[_ot.MatrixLike], _ot.ArrayLike, int]:
+) -> tuple[
+    list[_ot.ImageData], list[_ot.MatrixLike], _ot.ArrayLike, list[_ot.ArrayLike], int
+]:
     """
     Retireves the cubes from each tn in the tnlist.
 
@@ -1120,6 +1135,7 @@ def _getCubeList(
     cubeList = []
     matrixList = []
     modesVectList = []
+    ampvecs = []
     rebins = []
     if cubeNames is None:
         cubeNames = [_CUBE_FILE] * len(tnlist)
@@ -1128,15 +1144,17 @@ def _getCubeList(
         cube_name = _os.path.join(fold, cname)
         matrix_name = _os.path.join(fold, _MATRIX_FILE)
         modesVec_name = _os.path.join(fold, _MODES_FILE)
+        ampvec_name = _os.path.join(fold, _AMP_FILE)
         cube = _osu.load_fits(cube_name)
         cubeList.append(cube)
         matrixList.append(_osu.load_fits(matrix_name))
         modesVectList.append(_osu.load_fits(modesVec_name))
+        ampvecs.append(_osu.load_fits(ampvec_name))
         rebins.append(int(cube.header.get("REBIN", 1)))
     if not all([rebin == rebins[0] for rebin in rebins]):
         raise ValueError("Cubes have different rebinning factors")
     rebin = rebins[0]
-    return cubeList, matrixList, modesVectList, rebin
+    return cubeList, matrixList, modesVectList, ampvecs, rebin
 
 
 def _getAcqPar(tn: str) -> dict[str, _ot.ArrayLike | bool | int]:

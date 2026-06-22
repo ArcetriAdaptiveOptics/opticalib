@@ -500,7 +500,7 @@ def set_configuration_file(config_path: str) -> None:
     - Reloading the opticalib.core.root module
     - Reloading the opticalib.core.read_config module
     - Updating all cached folder paths and configuration references
-    
+
     All globally cached references and folder objects are updated to point to
     the new configuration and data structure.
 
@@ -573,13 +573,14 @@ def set_configuration_file(config_path: str) -> None:
                 f"Failed to reload runtime module '{module_name}'"
             ) from exc
 
+
 def unset_configuration_file() -> None:
     """
     Reset the configuration file to the fallback configuration file in `~/.opticalib`.
     """
     default_config_path = _os.path.join(
         _fallback_bdp,
-        'SysConfig',
+        "SysConfig",
         "configuration.yaml",
     )
     set_configuration_file(default_config_path)

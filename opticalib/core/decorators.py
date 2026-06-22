@@ -138,7 +138,7 @@ def expand_list_arguments(
 
 def allow_reconnect(
     max_retries: int = 5,
-    error_instance: tuple[type[Exception],...] = (Exception,),
+    error_instance: tuple[type[Exception], ...] = (Exception,),
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """
     Decorator that automatically attempts to reconnect to a hardware which has
@@ -194,9 +194,7 @@ def allow_reconnect(
                             if hasattr(self_obj, "reconnect"):
                                 try:
                                     self_obj.reconnect()
-                                    time.sleep(
-                                        0.1 * attempt
-                                    )  # Backoff delay
+                                    time.sleep(0.1 * attempt)  # Backoff delay
                                 except Exception:
                                     pass
                     else:
@@ -254,7 +252,6 @@ def _build_call_arguments(
             kwargs.update(value)
 
     return args, kwargs
-
 
 
 __all__ = ["expand_list_arguments", "vmbpy_reconnect", "ReconnectionError"]
