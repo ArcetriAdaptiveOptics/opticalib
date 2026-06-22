@@ -20,7 +20,10 @@ ifm = dmutils.iff_module
 
 from matplotlib.pyplot import *
 
-ion()
+try:
+    ion()
+except Exception:
+    pass
 
 __all__ = [
     "os",

@@ -192,7 +192,7 @@ class TestAcquirePistonData:
         monkeypatch.setattr(folders, "IFFUNCTIONS_ROOT_FOLDER", iff_folder)
 
         template = [1, -1, 1]
-        tn = iff_module.acquire_piston_data(
+        tn = iff_module.piston_data_acquisition(
             mock_dm, mock_interferometer, template=template, nstep=10, stepamp=70e-9
         )
 
@@ -248,7 +248,7 @@ class TestAcquirePistonData:
         monkeypatch.setattr(folders, "IFFUNCTIONS_ROOT_FOLDER", iff_folder)
 
         template = [1, -1, 1]
-        tn = iff_module.acquire_piston_data(
+        tn = iff_module.piston_data_acquisition(
             mock_dm,
             mock_interferometer,
             template=template,
@@ -298,7 +298,7 @@ class TestAcquirePistonData:
         monkeypatch.setattr(folders, "IFFUNCTIONS_ROOT_FOLDER", iff_folder)
 
         template = [1, -1, 1]
-        tn = iff_module.acquire_piston_data(
+        tn = iff_module.piston_data_acquisition(
             mock_dm,
             mock_interferometer,
             template=template,

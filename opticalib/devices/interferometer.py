@@ -26,7 +26,7 @@ _confReader = _fn.ConfSettingReader4D
 _OPDIMG = _Folds.OPD_IMAGES_ROOT_FOLDER
 
 
-class _N4DInterferometer(_api.BaseWavefrontSensor):
+class _4DInterferometer(_api.BaseWavefrontSensor):
     """
     Class for the 4D Laser Interferometer.
     """
@@ -311,12 +311,12 @@ class _N4DInterferometer(_api.BaseWavefrontSensor):
         self._i4d.load_configuration(conffile)
         self._logger.info(f"Configuration file '{conffile}' loaded.")
 
-    def copy4_d_settings(
+    def copy_4d_settings(
         self,
         dest: str,
         src: str = None,
         copied_name: str = "CameraSettings.ini",
-        iscapture=True,
+        iscapture: bool = True,
     ) -> None:
         """
         Copies the interferometer settings file to the specified destination.
@@ -468,7 +468,7 @@ class _N4DInterferometer(_api.BaseWavefrontSensor):
         return f"{self._name}(ip={self.ip}, port={self.port})"
 
 
-class AccuFiz(_N4DInterferometer):
+class AccuFiz(_4DInterferometer):
     """
     Class for the AccuFiz Laser Interferometer.
     """
@@ -482,7 +482,7 @@ class AccuFiz(_N4DInterferometer):
         super().__init__(ip, port)
 
 
-class PhaseCam(_N4DInterferometer):
+class PhaseCam(_4DInterferometer):
     """
     Class for the 4D Twyman-Green PhaseCam Laser Interferometer.
     """
@@ -496,7 +496,7 @@ class PhaseCam(_N4DInterferometer):
         super().__init__(ip, port)
 
 
-class Processer4D(_N4DInterferometer):
+class Processer4D(_4DInterferometer):
     """
     This class is used to process data of 4D interferometers, without
     the need to connect to the actual hardware device.

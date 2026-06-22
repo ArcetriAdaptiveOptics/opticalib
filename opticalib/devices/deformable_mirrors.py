@@ -477,7 +477,7 @@ class DP(AdOpticaDm):
             raise _oe.BufferError(
                 "Missing `total_frames` value: either load a command history or provide the variable's value"
             )
-        triggered = _dmc("DM")["triggerMode"]
+        triggered = _rc.get_iff_config(key=None).get("triggerMode")
         if triggered is not False:
             thistfreq = triggered.get("frequency", 1.0)
         if segment == 0:
@@ -707,7 +707,7 @@ class AlpaoDm(_api.BaseAlpaoMirror, _api.base_devices.BaseDeformableMirror):
             Tracking number of the directory where the images are saved.
 
         """
-        delay: float = _dmc(key=None).get("sequentialDelay", 0.0)
+        delay: float = _rc.get_iff_config(key=None).get("sequentialDelay", 0.0)
 
         if self.cmdHistory is None:
             raise _oe.MatrixError("No Command History to run!")

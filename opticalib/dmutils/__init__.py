@@ -22,9 +22,9 @@ Contents:
 
 """
 
-from . import flattening, iff_module, iff_processing
+from . import flattening, iff_module, iff_processing, slaving, stitching
 from .flattening import Flattening
-from ..core.dataclass import FlatData
+from ..core.dataclass import FlatData, IffData
 from .iff_acquisition_preparation import IFFCapturePreparation
 
 from ._misc import *
@@ -32,10 +32,13 @@ from ._misc import *
 __all__ = [
     "Flattening",
     "FlatData",
+    "IffData",
     "IFFCapturePreparation",
     "iff_module",
     "iff_processing",
     "flattening",
+    "slaving",
+    "stitching",
     "make_modal_base",
     "get_buffer_mean_values",
 ]

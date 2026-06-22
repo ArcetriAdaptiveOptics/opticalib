@@ -32,12 +32,12 @@ from .core.root import (
 from .core import read_config
 from .core.fitsarray import fits_array
 from .devices import *
-from .devices.interferometer import _N4DInterferometer
+from .devices.interferometer import _4DInterferometer
 
-get_camera_settings = _N4DInterferometer.get_camera_settings
-get_frame_rate = _N4DInterferometer.get_frame_rate
+get_camera_settings = _4DInterferometer.get_camera_settings
+get_frame_rate = _4DInterferometer.get_frame_rate
 
-del _N4DInterferometer
+del _4DInterferometer
 
 from . import (
     analyzer,

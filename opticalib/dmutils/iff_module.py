@@ -102,7 +102,7 @@ def iff_data_acquisition(
     return tn
 
 
-def acquire_piston_data(
+def piston_data_acquisition(
     dm: _ot.DeformableMirrorDevice,
     interf: _ot.InterferometerDevice,
     segmentID: int = 0,
