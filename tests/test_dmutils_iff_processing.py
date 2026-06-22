@@ -12,7 +12,7 @@ from opticalib.ground import osutils
 
 
 class TestSaveCube:
-    """Test saveCube function."""
+    """Test save_cube function."""
 
     # TODO: Re-enable this test once the problem is solved:
     # AttributeError: '_CorruptedHDU' object has no attribute '_verify'. Did you mean: 'verify'?
@@ -38,9 +38,9 @@ class TestSaveCube:
     #         )
     #         return files
 
-    #     monkeypatch.setattr(osutils, "getFileList", fake_get_file_list)
+    #     monkeypatch.setattr(osutils, "get_file_list", fake_get_file_list)
 
-    #     cube = ifp.saveCube(tn)
+    #     cube = ifp.save_cube(tn)
 
     #     assert cube is not None
     #     assert isinstance(cube, ma.MaskedArray)
@@ -70,9 +70,9 @@ class TestSaveCube:
             )
             return files
 
-        monkeypatch.setattr(osutils, "getFileList", fake_get_file_list)
+        monkeypatch.setattr(osutils, "get_file_list", fake_get_file_list)
 
-        cube = ifp.saveCube(tn, rebin=2)
+        cube = ifp.save_cube(tn, rebin=2)
 
         assert cube is not None
         # Rebinning should reduce size
@@ -80,7 +80,7 @@ class TestSaveCube:
 
 
 class TestStackCubes:
-    """Test stackCubes function."""
+    """Test stack_cubes function."""
 
     def test_stack_cubes_basic(self, sample_int_matrix_folder, temp_dir, monkeypatch):
         """Test stacking cubes."""
@@ -119,12 +119,17 @@ class TestStackCubes:
 
         modes_vec2 = np.array([11, 12, 13, 14, 15, 16, 17, 18, 19, 20])
         osutils.save_fits(
-            os.path.join(tn2_folder, "modesVector.fits"), modes_vec2, overwrite=True
+            os.path.join(tn2_folder, "modes_vector.fits"), modes_vec2, overwrite=True
+        )
+        
+        amp_vec2 = np.array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
+        osutils.save_fits(
+            os.path.join(tn2_folder, "ampVector.fits"), amp_vec2, overwrite=True
         )
 
         tnlist = [tn1, tn2]
-        monkeypatch.setattr(ifp, "_checkStackedCubes", lambda tn_list: {'Flag':{'Cube type': 'sequential stack'}})
-        ifp.stackCubes(tnlist, cube_names=None)
+        monkeypatch.setattr(ifp, "_check_stacked_cubes", lambda tn_list: {'Flag':{'Cube type': 'sequential stack'}})
+        ifp.stack_cubes(tnlist, cube_names=None)
 
         # Verify stacked cube was created
         stacked_folders = [
@@ -136,7 +141,7 @@ class TestStackCubes:
 
 
 class TestFilterZernikeCube:
-    """Test filterZernikeCube function."""
+    """Test filter_zernike_cube function."""
 
     def test_filter_zernike_cube_basic(self, sample_int_matrix_folder):
         """Test filtering Zernike modes from cube."""
@@ -153,7 +158,7 @@ class TestFilterZernikeCube:
                 except:
                     pass
 
-        ffcube, new_tn = ifp.filterZernikeCube(tn, zern_modes=[1, 2, 3], save=True)
+        ffcube, new_tn = ifp.filter_zernike_cube(tn, zern_modes=[1, 2, 3], save=True)
 
         assert ffcube is not None
         assert isinstance(ffcube, ma.MaskedArray)
@@ -177,7 +182,7 @@ class TestFilterZernikeCube:
                 except:
                     pass
 
-        ffcube, new_tn = ifp.filterZernikeCube(tn, zern_modes=[1, 2, 3, 4], save=True)
+        ffcube, new_tn = ifp.filter_zernike_cube(tn, zern_modes=[1, 2, 3, 4], save=True)
 
         assert ffcube is not None
         assert new_tn is not None
@@ -197,7 +202,7 @@ class TestFilterZernikeCube:
                 except:
                     pass
 
-        ffcube, new_tn = ifp.filterZernikeCube(tn, zern_modes=[1, 2, 3], save=False)
+        ffcube, new_tn = ifp.filter_zernike_cube(tn, zern_modes=[1, 2, 3], save=False)
 
         assert ffcube is not None
         assert new_tn is not None
@@ -256,7 +261,7 @@ class TestAddModeToCube:
 
 
 class TestGetAcqPar:
-    """Test _getAcqPar function."""
+    """Test _get_acq_par function."""
 
     def test_get_acq_par(self, sample_iff_folder_structure, temp_dir, monkeypatch):
         """Test getting acquisition parameters."""
@@ -270,21 +275,21 @@ class TestGetAcqPar:
 
         tn, tn_folder = sample_iff_folder_structure
 
-        ret = ifp._getAcqPar(tn)
+        ret = ifp._get_acq_par(tn)
 
         assert ret["ampVector"] is not None
-        assert ret["modesVector"] is not None
+        assert ret["modes_vector"] is not None
         assert ret["template"] is not None
         assert ret["indexList"] is not None
-        assert ret["registrationActs"] is not None
+        assert ret["registration_acts"] is not None
         assert isinstance(ret["shuffle"], bool)
         assert isinstance(ret['n_repetitions'], int)
 
 
 class TestGetAcqInfo:
-    """Test _getAcqInfo function."""
+    """Test _get_acq_info function."""
 
-    @patch("opticalib.dmutils.iff_processing._rif.getIffConfig")
+    @patch("opticalib.dmutils.iff_processing._rif.get_iff_config")
     def test_get_acq_info(self, mock_iff_config, temp_dir, monkeypatch):
         """Test getting acquisition info."""
         from opticalib.core.root import folders
@@ -327,7 +332,7 @@ class TestGetAcqInfo:
         os.makedirs(config_folder, exist_ok=True)
         monkeypatch.setattr(folders, "CONFIGURATION_FOLDER", config_folder)
 
-        infoT, infoR, infoIF, infoDM = ifp._getAcqInfo()
+        infoT, infoR, infoIF, infoDM = ifp._get_acq_info()
 
         assert infoT is not None
         assert infoR is not None
@@ -336,11 +341,11 @@ class TestGetAcqInfo:
 
 
 class TestGetTriggerFrame:
-    """Test getTriggerFrame function."""
+    """Test get_trigger_frame function."""
 
-    @patch("opticalib.dmutils.iff_processing._osu.getFileList")
+    @patch("opticalib.dmutils.iff_processing._osu.get_file_list")
     @patch("opticalib.dmutils.iff_processing._osu.read_phasemap")
-    @patch("opticalib.dmutils.iff_processing._getAcqInfo")
+    @patch("opticalib.dmutils.iff_processing._get_acq_info")
     def test_get_trigger_frame_no_zeros(
         self, mock_get_info, mock_read_phasemap, mock_get_file_list
     ):
@@ -354,14 +359,14 @@ class TestGetTriggerFrame:
         )
         mock_get_file_list.return_value = ["file1.fits", "file2.fits"]
 
-        trig_frame = ifp.getTriggerFrame("test_tn")
+        trig_frame = ifp.get_trigger_frame("test_tn")
 
         assert trig_frame == 0
 
     @patch("opticalib.dmutils.iff_processing._zern.ZernikeFitter")
-    @patch("opticalib.dmutils.iff_processing._osu.getFileList")
+    @patch("opticalib.dmutils.iff_processing._osu.get_file_list")
     @patch("opticalib.dmutils.iff_processing._osu.read_phasemap")
-    @patch("opticalib.dmutils.iff_processing._getAcqInfo")
+    @patch("opticalib.dmutils.iff_processing._get_acq_info")
     def test_get_trigger_frame_with_trigger(
         self, mock_get_info, mock_read_phasemap, mock_get_file_list, mock_zernike
     ):
@@ -391,9 +396,9 @@ class TestGetTriggerFrame:
 
         # Mock Zernike fitter
         mock_fitter = MagicMock()
-        mock_fitter.removeZernike = Mock(side_effect=lambda img, modes: img)
+        mock_fitter.remove_zernike = Mock(side_effect=lambda img, modes: img)
         mock_zernike.return_value = mock_fitter
 
-        trig_frame = ifp.getTriggerFrame("test_tn", amplitude=0.1)
+        trig_frame = ifp.get_trigger_frame("test_tn", amplitude=0.1)
 
         assert trig_frame >= 0

@@ -68,7 +68,7 @@ class TestComputeReconstructor:
         cr = computerec.ComputeReconstructor(sample_cube)
         cr.run()
 
-        result = cr.getSVD()
+        result = cr.get_svd()
         assert result is not None
         assert isinstance(result, tuple)
         assert len(result) == 3
@@ -84,41 +84,41 @@ class TestComputeReconstructor:
     def test_compute_reconstructor_get_svd_before_run(self, sample_cube):
         """Test getSVD method before running."""
         cr = computerec.ComputeReconstructor(sample_cube)
-        result = cr.getSVD()
+        result = cr.get_svd()
         assert result is None
 
     def test_compute_reconstructor_load_shape_to_flat(self, sample_cube, sample_image):
-        """Test loadShape2Flat method."""
+        """Test load_shape2_flat method."""
         cr = computerec.ComputeReconstructor(sample_cube)
-        result = cr.loadShape2Flat(sample_image)
+        result = cr.load_shape2_flat(sample_image)
 
         assert result is cr  # Should return self
         assert cr._imgMask is not None
 
     def test_compute_reconstructor_load_interaction_cube(self, sample_cube):
-        """Test loadInteractionCube method with cube."""
+        """Test load_interaction_cube method with cube."""
         cr = computerec.ComputeReconstructor(sample_cube)
         new_cube = sample_cube.copy()
-        result = cr.loadInteractionCube(intCube=new_cube)
+        result = cr.load_interaction_cube(intCube=new_cube)
 
         assert result is cr  # Should return self
         assert cr._intMatCube is not None
 
     def test_compute_reconstructor_load_interaction_cube_error(self, sample_cube):
-        """Test loadInteractionCube method raises error with no arguments."""
+        """Test load_interaction_cube method raises error with no arguments."""
         cr = computerec.ComputeReconstructor(sample_cube)
 
         with pytest.raises(KeyError):
-            cr.loadInteractionCube()
+            cr.load_interaction_cube()
 
 
 class TestComputeReconstructorInternal:
     """Test internal methods of ComputeReconstructor."""
 
     def test_compute_int_mat(self, sample_cube):
-        """Test _computeIntMat method."""
+        """Test _compute_int_mat method."""
         cr = computerec.ComputeReconstructor(sample_cube)
-        out = cr._computeIntMat()
+        out = cr._compute_int_mat()
 
         assert out is not None
         assert isinstance(out, tuple)
@@ -128,20 +128,20 @@ class TestComputeReconstructorInternal:
         assert out[0].shape == (n_images, n_pixels)
 
     def test_set_analysis_mask(self, sample_cube):
-        """Test _setAnalysisMask method."""
+        """Test _set_analysis_mask method."""
         cr = computerec.ComputeReconstructor(sample_cube)
-        cr._setAnalysisMask()
+        cr._set_analysis_mask()
 
         assert cr._analysisMask is not None
         assert cr._analysisMask.shape == sample_cube.shape[:2]
         assert cr._analysisMask.dtype == bool
 
     def test_set_analysis_mask_with_img_mask(self, sample_cube):
-        """Test _setAnalysisMask with image mask."""
+        """Test _set_analysis_mask with image mask."""
         img_mask = np.zeros(sample_cube.shape[:2], dtype=bool)
         img_mask[:10, :10] = True
         cr = computerec.ComputeReconstructor(sample_cube, mask2intersect=img_mask)
-        cr._setAnalysisMask()
+        cr._set_analysis_mask()
 
         assert cr._analysisMask is not None
         # Analysis mask should combine cube and image masks
@@ -174,9 +174,9 @@ class TestComputeReconstructorInternal:
         assert mask is None
 
     def test_intersect_cube_mask(self, sample_cube):
-        """Test _intersectCubeMask method."""
+        """Test _intersect_cube_mask method."""
         cr = computerec.ComputeReconstructor(sample_cube)
-        cube_mask = cr._intersectCubeMask()
+        cube_mask = cr._intersect_cube_mask()
 
         assert cube_mask is not None
         assert cube_mask.shape == sample_cube.shape[:2]
@@ -194,7 +194,7 @@ class TestComputeReconstructorIntegration:
             np.zeros(sample_cube.shape[:2], dtype=np.float32),
             mask=cr._analysisMask.copy(),
         )
-        cr.loadShape2Flat(img)
+        cr.load_shape2_flat(img)
 
         rec = cr.run()
 
@@ -249,12 +249,12 @@ class TestComputeReconstructorIntegration:
         sample_image = ma.masked_array(img_data, mask=img_mask)
 
         # Reload shape
-        cr.loadShape2Flat(sample_image)
+        cr.load_shape2_flat(sample_image)
         assert cr._imgMask is not None
 
         # Reload cube
         new_cube = sample_cube.copy()
-        cr.loadInteractionCube(intCube=new_cube)
+        cr.load_interaction_cube(intCube=new_cube)
         assert cr._intMatCube is not None
 
         # Run again

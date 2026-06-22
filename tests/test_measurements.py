@@ -19,7 +19,7 @@ class _FakeInterferometer:
         mask = np.zeros((50, 50), dtype=bool)
         return ma.masked_array(data, mask=mask)
 
-    def acquireFullFrame(self, **kwargs):
+    def acquire_full_frame(self, **kwargs):
         """Return a fake full-frame image."""
         data = np.random.randn(50, 50).astype(np.float32)
         mask = np.zeros((50, 50), dtype=bool)

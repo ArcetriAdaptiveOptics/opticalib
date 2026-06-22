@@ -10,7 +10,7 @@ from opticalib.dmutils import iff_module
 
 
 class TestIffDataAcquisition:
-    """Test iffDataAcquisition function."""
+    """Test iff_data_acquisition function."""
 
     @patch("opticalib.dmutils.iff_module._ifa.IFFCapturePreparation")
     @patch("opticalib.dmutils.iff_module._osu.newtn")
@@ -33,11 +33,11 @@ class TestIffDataAcquisition:
         # Setup mocks
         mock_newtn.return_value = "20240101_120000"
         mock_prep = MagicMock()
-        mock_prep.createTimedCmdHistory.return_value = np.random.randn(100, 50)
-        mock_prep.getInfoToSave.return_value = {
+        mock_prep.create_timed_cmd_history.return_value = np.random.randn(100, 50)
+        mock_prep.get_info_to_save.return_value = {
             "timedCmdHistory": np.random.randn(100, 50),
             "cmdMatrix": np.random.randn(100, 10),
-            "modesVector": np.array([1, 2, 3]),
+            "modes_vector": np.array([1, 2, 3]),
             "regActs": np.array([1, 2]),
             "ampVector": np.array([0.1, 0.2, 0.3]),
             "indexList": np.array([0, 1, 2]),
@@ -52,13 +52,13 @@ class TestIffDataAcquisition:
         monkeypatch.setattr(folders, "IFFUNCTIONS_ROOT_FOLDER", iff_folder)
 
         # Run function
-        tn = iff_module.iffDataAcquisition(mock_dm, mock_interferometer)
+        tn = iff_module.iff_data_acquisition(mock_dm, mock_interferometer)
 
         # Verify
         assert tn == "20240101_120000"
-        mock_prep.createTimedCmdHistory.assert_called_once()
-        mock_dm.uploadCmdHistory.assert_called_once()
-        mock_dm.runCmdHistory.assert_called_once()
+        mock_prep.create_timed_cmd_history.assert_called_once()
+        mock_dm.upload_cmd_history.assert_called_once()
+        mock_dm.run_cmd_history.assert_called_once()
 
     @patch("opticalib.dmutils.iff_module._ifa.IFFCapturePreparation")
     @patch("opticalib.dmutils.iff_module._osu.newtn")
@@ -78,11 +78,11 @@ class TestIffDataAcquisition:
 
         mock_newtn.return_value = "20240101_120000"
         mock_prep = MagicMock()
-        mock_prep.createTimedCmdHistory.return_value = np.random.randn(100, 50)
-        mock_prep.getInfoToSave.return_value = {
+        mock_prep.create_timed_cmd_history.return_value = np.random.randn(100, 50)
+        mock_prep.get_info_to_save.return_value = {
             "timedCmdHistory": np.random.randn(100, 50),
             "cmdMatrix": np.random.randn(100, 5),
-            "modesVector": np.array([1, 2, 3, 4, 5]),
+            "modes_vector": np.array([1, 2, 3, 4, 5]),
             "regActs": np.array([]),
             "ampVector": np.array([0.1] * 5),
             "indexList": np.array([0, 1, 2, 3, 4]),
@@ -97,14 +97,14 @@ class TestIffDataAcquisition:
 
         modes = [1, 2, 3, 4, 5]
         amplitude = 0.1
-        tn = iff_module.iffDataAcquisition(
+        tn = iff_module.iff_data_acquisition(
             mock_dm, mock_interferometer, modesList=modes, amplitude=amplitude
         )
 
         assert tn == "20240101_120000"
         # Verify modes and amplitude were passed
-        mock_prep.createTimedCmdHistory.assert_called_once()
-        call_args = mock_prep.createTimedCmdHistory.call_args
+        mock_prep.create_timed_cmd_history.assert_called_once()
+        call_args = mock_prep.create_timed_cmd_history.call_args
         assert np.array_equal(call_args.kwargs['modesList'], modes) or call_args.kwargs['modesList'] == modes
 
     @patch("opticalib.dmutils.iff_module._ifa.IFFCapturePreparation")
@@ -125,33 +125,33 @@ class TestIffDataAcquisition:
 
         mock_newtn.return_value = "20240101_120000"
         mock_prep = MagicMock()
-        mock_prep.createTimedCmdHistory.return_value = np.random.randn(100, 50)
+        mock_prep.create_timed_cmd_history.return_value = np.random.randn(100, 50)
         info_dict = {
             "timedCmdHistory": np.random.randn(100, 50),
             "cmdMatrix": np.random.randn(100, 10),
-            "modesVector": np.array([1, 2, 3]),
+            "modes_vector": np.array([1, 2, 3]),
             "regActs": np.array([]),
             "ampVector": np.array([0.1, 0.2, 0.3]),
             "indexList": np.array([0, 1, 2]),
             "template": np.array([1, -1]),
             "shuffle": 1,
         }
-        mock_prep.getInfoToSave.return_value = info_dict
+        mock_prep.get_info_to_save.return_value = info_dict
         mock_iff_prep.return_value = mock_prep
 
         iff_folder = os.path.join(temp_dir, "IFFunctions")
         os.makedirs(iff_folder, exist_ok=True)
         monkeypatch.setattr(folders, "IFFUNCTIONS_ROOT_FOLDER", iff_folder)
 
-        tn = iff_module.iffDataAcquisition(mock_dm, mock_interferometer, shuffle=True)
+        tn = iff_module.iff_data_acquisition(mock_dm, mock_interferometer, shuffle=True)
 
         assert tn == "20240101_120000"
-        call_args = mock_prep.createTimedCmdHistory.call_args
+        call_args = mock_prep.create_timed_cmd_history.call_args
         assert call_args.kwargs.get('shuffle', False) is True
 
 
 class TestAcquirePistonData:
-    """Test acquirePistonData function."""
+    """Test acquire_piston_data function."""
 
     @patch("opticalib.dmutils.iff_module._ifa.IFFCapturePreparation")
     @patch("opticalib.dmutils.iff_module._osu.newtn")
@@ -174,11 +174,11 @@ class TestAcquirePistonData:
         mock_newtn.return_value = "20240101_120000"
         mock_prep = MagicMock()
         mock_prep.cmdMatHistory = np.random.randn(100, 50).astype(np.float32)
-        mock_prep.createTimedCmdHistory.return_value = np.random.randn(100, 50)
-        mock_prep.getInfoToSave.return_value = {
+        mock_prep.create_timed_cmd_history.return_value = np.random.randn(100, 50)
+        mock_prep.get_info_to_save.return_value = {
             "timedCmdHistory": np.random.randn(100, 50),
             "cmdMatrix": np.random.randn(100, 50),
-            "modesVector": np.arange(50),
+            "modes_vector": np.arange(50),
             "regActs": np.array([]),
             "ampVector": np.random.randn(50).astype(np.float32),
             "indexList": np.arange(50),
@@ -192,14 +192,14 @@ class TestAcquirePistonData:
         monkeypatch.setattr(folders, "IFFUNCTIONS_ROOT_FOLDER", iff_folder)
 
         template = [1, -1, 1]
-        tn = iff_module.acquirePistonData(
+        tn = iff_module.acquire_piston_data(
             mock_dm, mock_interferometer, template=template, nstep=10, stepamp=70e-9
         )
 
         assert tn == "20240101_120000"
-        mock_prep.createTimedCmdHistory.assert_called_once()
-        mock_dm.uploadCmdHistory.assert_called_once()
-        mock_dm.runCmdHistory.assert_called_once()
+        mock_prep.create_timed_cmd_history.assert_called_once()
+        mock_dm.upload_cmd_history.assert_called_once()
+        mock_dm.run_cmd_history.assert_called_once()
 
     @patch("opticalib.dmutils.iff_module._ifa.IFFCapturePreparation")
     @patch("opticalib.dmutils.iff_module._osu.newtn")
@@ -222,11 +222,11 @@ class TestAcquirePistonData:
         mock_newtn.return_value = "20240101_120000"
         mock_prep = MagicMock()
         mock_prep.cmdMatHistory = np.random.randn(100, 50).astype(np.float32)
-        mock_prep.createTimedCmdHistory.return_value = np.random.randn(100, 50)
-        mock_prep.getInfoToSave.return_value = {
+        mock_prep.create_timed_cmd_history.return_value = np.random.randn(100, 50)
+        mock_prep.get_info_to_save.return_value = {
             "timedCmdHistory": np.random.randn(100, 50),
             "cmdMatrix": np.random.randn(100, 50),
-            "modesVector": np.arange(50),
+            "modes_vector": np.arange(50),
             "regActs": np.array([]),
             "ampVector": np.random.randn(50).astype(np.float32),
             "indexList": np.arange(50),
@@ -248,7 +248,7 @@ class TestAcquirePistonData:
         monkeypatch.setattr(folders, "IFFUNCTIONS_ROOT_FOLDER", iff_folder)
 
         template = [1, -1, 1]
-        tn = iff_module.acquirePistonData(
+        tn = iff_module.acquire_piston_data(
             mock_dm,
             mock_interferometer,
             template=template,
@@ -280,11 +280,11 @@ class TestAcquirePistonData:
         mock_newtn.return_value = "20240101_120000"
         mock_prep = MagicMock()
         mock_prep.cmdMatHistory = np.random.randn(100, 50).astype(np.float32)
-        mock_prep.createTimedCmdHistory.return_value = np.random.randn(100, 50)
-        mock_prep.getInfoToSave.return_value = {
+        mock_prep.create_timed_cmd_history.return_value = np.random.randn(100, 50)
+        mock_prep.get_info_to_save.return_value = {
             "timedCmdHistory": np.random.randn(100, 50),
             "cmdMatrix": np.random.randn(100, 50),
-            "modesVector": np.arange(50),
+            "modes_vector": np.arange(50),
             "regActs": np.array([]),
             "ampVector": np.random.randn(50).astype(np.float32),
             "indexList": np.arange(50),
@@ -298,7 +298,7 @@ class TestAcquirePistonData:
         monkeypatch.setattr(folders, "IFFUNCTIONS_ROOT_FOLDER", iff_folder)
 
         template = [1, -1, 1]
-        tn = iff_module.acquirePistonData(
+        tn = iff_module.acquire_piston_data(
             mock_dm,
             mock_interferometer,
             template=template,
@@ -311,7 +311,7 @@ class TestAcquirePistonData:
 
 
 class TestSaveBufferData:
-    """Test saveBufferData function."""
+    """Test save_buffer_data function."""
 
     @patch("opticalib.dmutils.iff_module._osu.is_tn")
     @patch("opticalib.dmutils.iff_module._osu.save_h5")
@@ -332,7 +332,7 @@ class TestSaveBufferData:
         monkeypatch.setattr(folders, "IFFUNCTIONS_ROOT_FOLDER", iff_folder)
 
         tn = "20240101_120000"
-        iff_module.saveBufferData(mock_dm, tn)
+        iff_module.save_buffer_data(mock_dm, tn)
 
         # Verify save_h5 was called with correct path
         mock_save_h5.assert_called_once()
@@ -356,7 +356,7 @@ class TestSaveBufferData:
         filepath = temp_dir
         os.makedirs(temp_dir, exist_ok=True)
 
-        iff_module.saveBufferData(mock_dm, filepath)
+        iff_module.save_buffer_data(mock_dm, filepath)
 
         mock_save_h5.assert_called_once()
         call_args = mock_save_h5.call_args
@@ -373,7 +373,7 @@ class TestSaveBufferData:
         mock_dm.bufferData = {"data": np.random.randn(10)}
 
         with pytest.raises(_oe.BufferError):
-            iff_module.saveBufferData(mock_dm, "20240101_120000")
+            iff_module.save_buffer_data(mock_dm, "20240101_120000")
 
     @patch("opticalib.dmutils.iff_module._osu.is_tn")
     def test_save_buffer_data_invalid_path(self, mock_is_tn, mock_dm):
@@ -384,11 +384,11 @@ class TestSaveBufferData:
         mock_dm.bufferData = {"data": np.random.randn(10)}
 
         with pytest.raises(_oe.PathError):
-            iff_module.saveBufferData(mock_dm, "/nonexistent/path")
+            iff_module.save_buffer_data(mock_dm, "/nonexistent/path")
 
 
 class TestPrepareSteppingAmplitudes:
-    """Test _prepareSteppingAmplitudes function."""
+    """Test _prepare_stepping_amplitudes function."""
 
     def test_prepare_stepping_amplitudes_basic(self):
         """Test basic stepping amplitude preparation."""
@@ -396,7 +396,7 @@ class TestPrepareSteppingAmplitudes:
         nstep = 5
         stepamp = 70e-9
 
-        result = iff_module._prepareSteppingAmplitudes(template, nstep, stepamp)
+        result = iff_module._prepare_stepping_amplitudes(template, nstep, stepamp)
 
         assert isinstance(result, np.ndarray)
         assert len(result) > 0
@@ -409,7 +409,7 @@ class TestPrepareSteppingAmplitudes:
         nstep = 3
         stepamp = 70e-9
 
-        result = iff_module._prepareSteppingAmplitudes(
+        result = iff_module._prepare_stepping_amplitudes(
             template, nstep, stepamp, reverse=True
         )
 
@@ -424,7 +424,7 @@ class TestPrepareSteppingAmplitudes:
         stepamp = 70e-9
 
         with pytest.raises(ValueError, match="Template must return to starting point"):
-            iff_module._prepareSteppingAmplitudes(template, nstep, stepamp)
+            iff_module._prepare_stepping_amplitudes(template, nstep, stepamp)
 
     def test_prepare_stepping_amplitudes_custom_stepamp(self):
         """Test stepping amplitude preparation with custom step amplitude."""
@@ -432,7 +432,7 @@ class TestPrepareSteppingAmplitudes:
         nstep = 4
         stepamp = 50e-9
 
-        result = iff_module._prepareSteppingAmplitudes(template, nstep, stepamp)
+        result = iff_module._prepare_stepping_amplitudes(template, nstep, stepamp)
 
         assert isinstance(result, np.ndarray)
         # Check that max amplitude is approximately nstep * stepamp

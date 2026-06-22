@@ -11,7 +11,7 @@ _alpao_list = os.path.join(
 )
 
 
-def getAlpaoCoordsMask(
+def get_alpao_coords_mask(
     nacts: int, shape: tuple[int] = (512, 512)
 ) -> tuple[_t.ArrayLike, _t.MaskData]:
     """
@@ -77,7 +77,7 @@ def pixel_scale(nacts: int):
     return float(dm["pixel_scale"])
 
 
-def generateZernikeMatrix(modes: int | list[int], mask: _t.MaskData):
+def generate_zernike_matrix(modes: int | list[int], mask: _t.MaskData):
     """
     Generates a matrix of Zernike polynomials projected on a given mask.
 
@@ -102,15 +102,15 @@ def generateZernikeMatrix(modes: int | list[int], mask: _t.MaskData):
         zerns = modes
     nzerns = len(zerns)
     zfit = ZernikeFitter(mask)
-    ZM = np.zeros((valixpx, nzerns))
+    zm = np.zeros((valixpx, nzerns))
     for i in range(nzerns):
-        surf = zfit.makeSurface([zerns[i]])
+        surf = zfit.make_surface([zerns[i]])
         masked_data = surf[~mask]
-        ZM[:, i] = masked_data
-    return ZM
+        zm[:, i] = masked_data
+    return zm
 
 
-def getPetalmirrorMaskAndCoords(
+def get_petalmirror_mask_and_coords(
     shape: tuple[int, int], pupil_radius: int, central_segment_radius: int | None = None
 ) -> _t.MaskData:
     """
@@ -191,8 +191,8 @@ def getPetalmirrorMaskAndCoords(
 
 
 __all__ = [
-    "getAlpaoCoordsMask",
-    "getPetalmirrorMaskAndCoords",
+    "get_alpao_coords_mask",
+    "get_petalmirror_mask_and_coords",
     "pixel_scale",
-    "generateZernikeMatrix",
+    "generate_zernike_matrix",
 ]

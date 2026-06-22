@@ -57,6 +57,8 @@ DEVICES:
       # Folder containing the .acfg hardware config file (sets ACECFG env var)
       acfg_path: 
       diameter: 
+      slave_ids: []
+      border_ids: []
     PetalDM:
       ip0: 
       ip1: 
@@ -64,10 +66,12 @@ DEVICES:
       ip3: 
       ip4: 
       ip5: 
+      slave_ids: []
+      border_ids: []
 
   # The cameras section can be used to define any kind of scientific CCD 
   CAMERAS:
-    AVT_MANTA_5G: # example camera
+    GigaVision: # example camera
       id: DEV_000F314DE425
       ip: 
   
@@ -83,7 +87,7 @@ DEVICES:
 # which is usually a camera plus a tunable filter (to be defined in the DEVICES
 # section)
 PHASING:
-  camera: CAMERAS:AVT_MANTA_5G
+  camera: CAMERAS:GigaVision
   filter: MOTORS:TunableFilter
   expected_psfs: 6
   psfs_angles: [0, -60, 60, -120, 120, 180] # degrees, w.r.t. the horizontal axis of the camera
@@ -103,15 +107,11 @@ PHASING:
 # Here you can set the parameters for the influence functions
 # data acquisition and processing.
 INFLUENCE.FUNCTIONS:
-  DM:
-    nacts: 88
-    slaveIds: []
-    borderIds: []
-    timing: 1
-    delay: 0.0
-    triggeredMode: # if not using triggerMode, put false and comment next 2 lines (for Microgate DMs)
-      frequency: 5.
-      cmdDelay: 0.0
+  timing: 1
+  sequentialDelay: 0.0
+  triggeredMode: # if not using triggerMode, put false and comment next 2 lines (for Microgate DMs)
+    frequency: 5.
+    cmdDelay: 0.0
   TRIGGER:
     numberofzeros: 0
     modeid: []

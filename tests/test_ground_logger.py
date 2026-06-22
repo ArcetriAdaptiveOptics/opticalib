@@ -201,49 +201,49 @@ class TestLogFunction:
 
     def test_log_function_debug(self, caplog):
         """Test logging at DEBUG level."""
-        test_logger = logger.SystemLogger.getSystemLogger()
+        test_logger = logger.SystemLogger.get_system_logger()
         with caplog.at_level(logging.DEBUG):
             logger.log(test_logger, message="Debug message", level="DEBUG")
             assert "Debug message" in caplog.text
 
     def test_log_function_info(self, caplog):
         """Test logging at INFO level."""
-        test_logger = logger.SystemLogger.getSystemLogger()
+        test_logger = logger.SystemLogger.get_system_logger()
         with caplog.at_level(logging.INFO):
             logger.log(test_logger, message="Info message", level="INFO")
             assert "Info message" in caplog.text
 
     def test_log_function_warning(self, caplog):
         """Test logging at WARNING level."""
-        test_logger = logger.SystemLogger.getSystemLogger()
+        test_logger = logger.SystemLogger.get_system_logger()
         with caplog.at_level(logging.WARNING):
             logger.log(test_logger, message="Warning message", level="WARNING")
             assert "Warning message" in caplog.text
 
     def test_log_function_error(self, caplog):
         """Test logging at ERROR level."""
-        test_logger = logger.SystemLogger.getSystemLogger()
+        test_logger = logger.SystemLogger.get_system_logger()
         with caplog.at_level(logging.ERROR):
             logger.log(test_logger, message="Error message", level="ERROR")
             assert "Error message" in caplog.text
 
     def test_log_function_critical(self, caplog):
         """Test logging at CRITICAL level."""
-        test_logger = logger.SystemLogger.getSystemLogger()
+        test_logger = logger.SystemLogger.get_system_logger()
         with caplog.at_level(logging.CRITICAL):
             logger.log(test_logger, message="Critical message", level="CRITICAL")
             assert "Critical message" in caplog.text
 
     def test_log_function_lowercase(self, caplog):
         """Test logging with lowercase level."""
-        test_logger = logger.SystemLogger.getSystemLogger()
+        test_logger = logger.SystemLogger.get_system_logger()
         with caplog.at_level(logging.INFO):
             logger.log(test_logger, message="Info message", level="info")
             assert "Info message" in caplog.text
 
     def test_log_function_invalid_level(self, caplog):
         """Test logging with invalid level defaults to DEBUG."""
-        test_logger = logger.SystemLogger.getSystemLogger()
+        test_logger = logger.SystemLogger.get_system_logger()
         with caplog.at_level(logging.DEBUG):
             logger.log(test_logger, message="Invalid level message", level="INVALID")
             assert "Invalid level message" in caplog.text
@@ -251,14 +251,14 @@ class TestLogFunction:
 
     def test_log_function_default_level(self, caplog):
         """Test logging with default level (INFO)."""
-        test_logger = logger.SystemLogger.getSystemLogger()
+        test_logger = logger.SystemLogger.get_system_logger()
         with caplog.at_level(logging.INFO):
             logger.log(test_logger, message="Default level message")
             assert "Default level message" in caplog.text
 
     def test_log_function_with_class(self, caplog):
         """Test log function with class name."""
-        test_logger = logger.SystemLogger.getSystemLogger()
+        test_logger = logger.SystemLogger.get_system_logger()
 
         class TestClass:
             pass
@@ -275,14 +275,14 @@ class TestTxtLogger:
     def test_txt_logger_init(self, temp_dir):
         """Test txtLogger initialization."""
         log_file = os.path.join(temp_dir, "test.txt")
-        txt_log = logger.txtLogger(log_file)
+        txt_log = logger.TxtLogger(log_file)
 
         assert txt_log.file_path == log_file
 
     def test_txt_logger_log(self, temp_dir):
         """Test txtLogger log method."""
         log_file = os.path.join(temp_dir, "test.txt")
-        txt_log = logger.txtLogger(log_file)
+        txt_log = logger.TxtLogger(log_file)
 
         message = "Test log message"
         txt_log.log(message)
@@ -296,7 +296,7 @@ class TestTxtLogger:
     def test_txt_logger_multiple_logs(self, temp_dir):
         """Test txtLogger with multiple log entries."""
         log_file = os.path.join(temp_dir, "test.txt")
-        txt_log = logger.txtLogger(log_file)
+        txt_log = logger.TxtLogger(log_file)
 
         messages = ["Message 1", "Message 2", "Message 3"]
         for msg in messages:
@@ -312,7 +312,7 @@ class TestTxtLogger:
     def test_txt_logger_append(self, temp_dir):
         """Test that txtLogger appends to existing file."""
         log_file = os.path.join(temp_dir, "test.txt")
-        txt_log = logger.txtLogger(log_file)
+        txt_log = logger.TxtLogger(log_file)
 
         txt_log.log("First message")
         txt_log.log("Second message")

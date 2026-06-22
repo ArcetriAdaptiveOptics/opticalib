@@ -23,7 +23,7 @@ How to Use:
 
 from .__version__ import __version__
 
-from .ground.osutils import load_fits, save_fits, getFileList, read_phasemap
+from .ground.osutils import load_fits, save_fits, get_file_list, read_phasemap
 from .core.root import (
     folders,
     create_configuration_file,
@@ -32,12 +32,12 @@ from .core.root import (
 from .core import read_config
 from .core.fitsarray import fits_array
 from .devices import *
-from .devices.interferometer import _4DInterferometer
+from .devices.interferometer import _N4DInterferometer
 
-getCameraSettings = _4DInterferometer.getCameraSettings
-getFrameRate = _4DInterferometer.getFrameRate
+get_camera_settings = _N4DInterferometer.get_camera_settings
+get_frame_rate = _N4DInterferometer.get_frame_rate
 
-del _4DInterferometer
+del _N4DInterferometer
 
 from . import (
     analyzer,
@@ -60,12 +60,12 @@ __all__ = [
     "load_fits",
     "save_fits",
     "read_phasemap",
-    "getFileList",
+    "get_file_list",
     "folders",
     "create_configuration_file",
     "set_configuration_file",
     "read_config",
-    "getCameraSettings",
-    "getFrameRate",
+    "get_camera_settings",
+    "get_frame_rate",
     "fits_array",
 ]

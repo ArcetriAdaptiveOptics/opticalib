@@ -133,7 +133,7 @@ def create_data_folder(
     return out if len(out) > 1 else out[0]
 
 
-def findTracknum(tn: str, complete_path: bool = False) -> str | list[str]:
+def find_tracknum(tn: str, complete_path: bool = False) -> str | list[str]:
     """
     Search for the tracking number given in input within all the data path subfolders.
 
@@ -179,7 +179,7 @@ def findTracknum(tn: str, complete_path: bool = False) -> str | list[str]:
     return path_list
 
 
-def getFileList(
+def get_file_list(
     tn: _ot.Optional[str] = None,
     fold: _ot.Optional[str] = None,
     key: _ot.Optional[str] = None,
@@ -228,26 +228,26 @@ def getFileList(
 
         iffold = 'IFFunctions'
         tn = '20160516_114916'
-        getFileList(tn, fold=iffold)
+        get_file_list(tn, fold=iffold)
         ['.../OPTData/IFFunctions/20160516_114916/cmdMatrix.fits',
          '.../OPTData/IFFunctions/20160516_114916/mode_0000.fits',
          '.../OPTData/IFFunctions/20160516_114916/mode_0001.fits',
          '.../OPTData/IFFunctions/20160516_114916/mode_0002.fits',
          '.../OPTData/IFFunctions/20160516_114916/mode_0003.fits',
-         '.../OPTData/IFFunctions/20160516_114916/modesVector.fits']
+         '.../OPTData/IFFunctions/20160516_114916/modes_vector.fits']
 
     Let's suppose we want only the list of 'mode_000x.fits' files:
 
     .. code-block:: python
 
-        getFileList(tn, fold=iffold, key='mode_')
+        get_file_list(tn, fold=iffold, key='mode_')
         ['.../OPTData/IFFunctions/20160516_114916/mode_0000.fits',
          '.../OPTData/IFFunctions/20160516_114916/mode_0001.fits',
          '.../OPTData/IFFunctions/20160516_114916/mode_0002.fits',
          '.../OPTData/IFFunctions/20160516_114916/mode_0003.fits']
 
     Notice that, in this specific case, it was necessary to include the underscore
-    after 'mode' to exclude the 'modesVector.fits' file from the list.
+    after 'mode' to exclude the 'modes_vector.fits' file from the list.
     """
     if key is not None and not isinstance(key, str):
         raise TypeError("'key' argument must be a string")
@@ -261,7 +261,7 @@ def getFileList(
         paths = [fold]
     else:
         try:
-            found_paths = findTracknum(tn, complete_path=True)
+            found_paths = find_tracknum(tn, complete_path=True)
         except Exception as exc:
             raise FileNotFoundError(
                 f"Invalid Path: no data found for tn '{tn}'"
@@ -321,7 +321,7 @@ def getFileList(
     return file_list
 
 
-def tnRange(tn0: str, tn1: str, complete_paths: bool = False) -> list[str]:
+def tn_range(tn0: str, tn1: str, complete_paths: bool = False) -> list[str]:
     """
     Returns the list of tracking numbers between tn0 and tn1, within the same
     folder, if they both exist in it.
@@ -345,8 +345,8 @@ def tnRange(tn0: str, tn1: str, complete_paths: bool = False) -> list[str]:
     FileNotFoundError
         An exception is raised if the two tracking numbers are not found in the same folder
     """
-    tn0_fold = findTracknum(tn0)
-    tn1_fold = findTracknum(tn1)
+    tn0_fold = find_tracknum(tn0)
+    tn1_fold = find_tracknum(tn1)
     if isinstance(tn0_fold, str):
         tn0_fold = [tn0_fold]
     if isinstance(tn1_fold, str):
@@ -414,7 +414,7 @@ def get_kwargs(
     return default
 
 
-def loadCubeFromFilelist(
+def load_cube_from_filelist(
     tn_or_fl: str, fold: _ot.Optional[str] = None, key: _ot.Optional[str] = None
 ) -> _ot.CubeData:
     """
@@ -426,7 +426,7 @@ def loadCubeFromFilelist(
         Either the filelist of the data to be put into the cube, or the tracking
         number. In the second case, the filelist is obtained searching for the
         tracking number, for which the additional parameters `fold` and `key` can
-        be used (see the `getFileList` function).
+        be used (see the `get_file_list` function).
     fold : str, optional
         Folder in which searching for the tracking number.
     key : str, optional
@@ -437,24 +437,24 @@ def loadCubeFromFilelist(
     cube : CubeData
         Cube containing all the images loaded from the files.
     """
-    from ..analyzer import createCube
+    from ..analyzer import create_cube
 
     if is_tn(tn_or_fl):
         if fold is None:
             raise ValueError(
                 "When passing a tracking number, the 'fold' argument must be specified"
             )
-        path = findTracknum(tn_or_fl, complete_path=True)
+        path = find_tracknum(tn_or_fl, complete_path=True)
         if isinstance(path, str):
             path = [path]
         for p in path:
             if fold in p:
                 fold = p
                 break
-        fl = getFileList(fold=fold, key=key)
+        fl = get_file_list(fold=fold, key=key)
     else:
         fl = tn_or_fl
-    cube = createCube(fl)
+    cube = create_cube(fl)
     return cube
 
 
@@ -477,7 +477,7 @@ def read_phasemap(file_path: str) -> _ot.ImageData:
     if ext in ["fits", "4Ds"]:
         image = load_fits(file_path)
     elif ext in ["4D", "h5"]:
-        image = _InterferometerConverter.fromPhaseCam6110(file_path)
+        image = _InterferometerConverter.from_phase_cam6110(file_path)
     return image
 
 
@@ -1125,7 +1125,7 @@ class _InterferometerConverter:
     """
 
     @staticmethod
-    def fromPhaseCam4020(h5filename: str) -> _ot.ImageData:
+    def from_phase_cam4020(h5filename: str) -> _ot.ImageData:
         """
         Function for PhaseCam4020
 
@@ -1148,7 +1148,7 @@ class _InterferometerConverter:
         return ima
 
     @staticmethod
-    def fromPhaseCam6110(i4dfilename: str) -> _ot.ImageData:
+    def from_phase_cam6110(i4dfilename: str) -> _ot.ImageData:
         """
         Function for PhaseCam6110
 
@@ -1170,7 +1170,7 @@ class _InterferometerConverter:
         return image
 
     @staticmethod
-    def fromFakeInterf(filename: str) -> _ot.ImageData:
+    def from_fake_interf(filename: str) -> _ot.ImageData:
         """
         Function for fake interferometer
 
@@ -1188,7 +1188,7 @@ class _InterferometerConverter:
         return masked_ima
 
     @staticmethod
-    def fromI4DToSimplerData(i4dname: str, folder: str, h5name: str) -> str:
+    def from_i4_d_to_simpler_data(i4dname: str, folder: str, h5name: str) -> str:
         """
         Function for converting files from 4D 6110 files to H5 files
 

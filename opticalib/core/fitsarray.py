@@ -74,7 +74,7 @@ class FitsArray(_np.ndarray):
         _fits.writeto(filename, data, header=self.header, overwrite=overwrite)
 
     @classmethod
-    def fromFits(cls, filename: str) -> "FitsArray":
+    def from_fits(cls, filename: str) -> "FitsArray":
         from opticalib.ground.osutils import load_fits
 
         return load_fits(filename)
@@ -152,7 +152,7 @@ class FitsMaskedArray(_np.ma.MaskedArray):
         _fits.append(filename, self.mask.astype(_np.uint8))
 
     @classmethod
-    def fromFits(cls, filename: str) -> "FitsMaskedArray":
+    def from_fits(cls, filename: str) -> "FitsMaskedArray":
         from opticalib.ground.osutils import load_fits
 
         return load_fits(filename)
@@ -213,7 +213,7 @@ class FitsArrayGpu(_xp.ndarray):
         _fits.writeto(filename, data, header=self.header, overwrite=overwrite)
 
     @classmethod
-    def fromFits(cls, filename: str) -> "FitsArrayGpu":
+    def from_fits(cls, filename: str) -> "FitsArrayGpu":
         from opticalib.ground.osutils import load_fits
 
         return load_fits(filename)
@@ -247,7 +247,7 @@ class FitsMaskedArrayGpu(_xp.ma.masked_array):
         _fits.append(filename, data.mask.astype(_np.uint8))
 
     @classmethod
-    def fromFits(cls, filename: str) -> "FitsArrayGpu":
+    def from_fits(cls, filename: str) -> "FitsArrayGpu":
         from opticalib.ground.osutils import load_fits
 
         return load_fits(filename)

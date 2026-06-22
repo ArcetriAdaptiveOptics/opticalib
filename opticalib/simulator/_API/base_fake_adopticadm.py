@@ -13,7 +13,7 @@ from opticalib import typings as _t
 from opticalib.ground import geometry as geo
 from opticalib.ground import osutils as osu
 from opticalib.ground import roi
-from opticalib.core.read_config import getIffConfig as _dmc
+from opticalib.core.read_config import get_iff_config as _dmc
 from opticalib.ground.modal_decomposer import ZernikeFitter as _ZF
 from .simdata import get_simdata_file
 
@@ -33,24 +33,24 @@ class BaseFakeM4:
         self.is_segmented = True
         self.nSegments = 6
         self.nActsPerSegment = 892
-        self.nActs = self.nActsPerSegment * self.nSegments
+        self.n_acts = self.nActsPerSegment * self.nSegments
 
         ## -- INITIALIZATION -- ##
         self.cmdHistory = None
         self._shape = (
             np.ma.masked_array(self._mask * 0, mask=self._mask, dtype=float)
         ).flatten()
-        self._seg_masks = roi.roiGenerator(self._shape)
-        self._actPos = np.zeros(self.nActs)
+        self._seg_masks = roi.roi_generator(self._shape)
+        self._actPos = np.zeros(self.n_acts)
         self._zern = _ZF(self._mask)
 
     @property
-    def actCoord(self) -> _t.ArrayLike:
+    def act_coord(self) -> _t.ArrayLike:
         """Actuator coordinates in pixels."""
         return self._coords.copy()
 
     @property
-    def ZM(self):
+    def zm(self):
         """Zernike matrix for the DM."""
         if self._ZM is None:
             import warnings
@@ -59,20 +59,20 @@ class BaseFakeM4:
                 f"\nThe Zernike Modal Base is not available by default for {self._name} "
                 "since it is too heavy to be stored in the repo. You can generate it with:\n"
                 """                
-    from opticalib.simulator.factory_functions import generateZernikeMatrix
+    from opticalib.simulator.factory_functions import generate_zernike_matrix
     from opticalib.simulator import M4AU
     
     segs_to_simulate = 6 # change that at your will
     m4 = M4AU()
     ZM = []
     for mask in m4._seg_masks:
-        ZM.append(generateZernikeMatrix(m4.nActsPerSegment, mask))
+        ZM.append(generate_zernike_matrix(m4.nActsPerSegment, mask))
 """
             )
         return self._ZM
 
-    @ZM.setter
-    def ZM(self, value: list[_t.MatrixLike]):
+    @zm.setter
+    def zm(self, value: list[_t.MatrixLike]):
         self._ZM = value
 
     def _mirror_command(self, cmd: _t.ArrayLike, diff: bool, modal: bool):
@@ -92,9 +92,9 @@ class BaseFakeM4:
         np.array
             Processed shape based on the command.
         """
-        if not len(cmd) == self.nActs:
+        if not len(cmd) == self.n_acts:
             raise CommandError(
-                f"Command length {len(cmd)} does not match the number of actuators {self.nActs}."
+                f"Command length {len(cmd)} does not match the number of actuators {self.n_acts}."
             )
 
         nsag = self.nActsPerSegment
@@ -102,16 +102,16 @@ class BaseFakeM4:
         for seg in range(self.nSegments):
             idx = self._idx[seg]
 
-            if modal and self.ZM is not None:
-                mode_img = np.dot(self.ZM[seg], cmd[seg * nsag : (seg + 1) * nsag])
-                cmd_amp = np.dot(mode_img, self.RM[seg])
+            if modal and self.zm is not None:
+                mode_img = np.dot(self.zm[seg], cmd[seg * nsag : (seg + 1) * nsag])
+                cmd_amp = np.dot(mode_img, self.rm[seg])
             else:
                 cmd_amp = cmd[seg * nsag : (seg + 1) * nsag]
 
             if not diff:
                 cmd_amp = cmd_amp - self._actPos[seg * nsag : (seg + 1) * nsag]
 
-            self._shape[idx] += np.dot(cmd_amp, self.IM[seg])
+            self._shape[idx] += np.dot(cmd_amp, self.im[seg])
             self._actPos[seg * nsag : (seg + 1) * nsag] += cmd_amp
 
     def _load_m4_data(self):
@@ -133,11 +133,11 @@ class BaseFakeM4:
             ims.append(datadict[f"IM{sect}"])
 
         self._idx = idxs
-        self.IM = ims
+        self.im = ims
 
-        self.RM = []
-        for im in self.IM:
-            self.RM.append(xp.asnumpy(xp.linalg.pinv(xp.asarray(im))))
+        self.rm = []
+        for im in self.im:
+            self.rm.append(xp.asnumpy(xp.linalg.pinv(xp.asarray(im))))
 
     def _scale_coords(self, mask: _t.MaskData, coords: _t.ArrayLike) -> _t.ArrayLike:
         """
@@ -187,7 +187,7 @@ class BaseFakeM4:
         noisy = kwargs.get("noisy", False)
         img = self._shape.copy().reshape(self._mask.shape)
         if zernike is not None:
-            img = self._zern.removeZernike(img, zernike)
+            img = self._zern.remove_zernike(img, zernike)
         if not surf:
             Ilambda = 632.8e-9
             phi = np.random.uniform(-0.25 * np.pi, 0.25 * np.pi) if noisy else 0
@@ -207,32 +207,32 @@ class BaseFakeDp:
         self._name = "AdOpticaDP"
         self.mirrorModes = osu.load_fits(get_simdata_file("dp_cmdmat.fits"))
         self.ff = osu.load_fits(get_simdata_file("dp_ffwd.fits"))
-        self.nActs = self.mirrorModes.shape[0]
-        self._createDpMaskAndCoords()
+        self.n_acts = self.mirrorModes.shape[0]
+        self._create_dp_mask_and_coords()
         self.cmdHistory = None
         self._shape = np.ma.masked_array(self._mask * 0, mask=self._mask, dtype=float)
         self._idx0, self._idx1 = self._get_segments_idx()
         self._load_matrices(force_recompute=force_recompute)
         self._zern = _ZF(self._mask)
-        self._actPos = [np.zeros(self.nActs // 2), np.zeros(self.nActs // 2)]
-        self._ccalcurve = self._getCapsensCalibration()
-        self._biasCmd = self._getBiasCmd()
-        self.set_shape(np.zeros(self.nActs))  # initialize to flat + offset
-        self._slaveIds = dmc.get("slaveIds", [])
-        self._borderIds = dmc.get("borderIds", [])
+        self._actPos = [np.zeros(self.n_acts // 2), np.zeros(self.n_acts // 2)]
+        self._ccalcurve = self._get_capsens_calibration()
+        self._biasCmd = self._get_bias_cmd()
+        self.set_shape(np.zeros(self.n_acts))  # initialize to flat + offset
+        self._slaveIds = dmc.get("slave_ids", [])
+        self._borderIds = dmc.get("border_ids", [])
 
     @property
-    def slaveIds(self) -> list[int]:
+    def slave_ids(self) -> list[int]:
         """List of indices of the slaved actuators."""
         return self._slaveIds
 
     @property
-    def borderIds(self) -> list[int]:
+    def border_ids(self) -> list[int]:
         """List of indices of the border actuators."""
         return self._borderIds
 
     @property
-    def actCoord(self) -> _t.ArrayLike:
+    def act_coord(self) -> _t.ArrayLike:
         """Actuator coordinates in pixels."""
         return self._coords.copy()
 
@@ -263,7 +263,7 @@ class BaseFakeDp:
         noisy = kwargs.get("noisy", False)
         img = np.ma.masked_array(self._shape, mask=self._mask)
         if zernike is not None:
-            img = self._zern.removeZernike(img, zernike)
+            img = self._zern.remove_zernike(img, zernike)
         if not surf:
             Ilambda = 632.8e-9
             phi = np.random.uniform(-0.25 * np.pi, 0.25 * np.pi) if noisy else 0
@@ -307,19 +307,19 @@ class BaseFakeDp:
             Processed shape based on the command.
         """
         # cmd = self._applyCSCalibration(cmd)
-        cmd0 = cmd[: self.nActs // 2].copy()
-        cmd1 = cmd[self.nActs // 2 :].copy()
+        cmd0 = cmd[: self.n_acts // 2].copy()
+        cmd1 = cmd[self.n_acts // 2 :].copy()
         tomove = [0, 1]
         cmds = [cmd0, cmd1]
         idxs = [self._idx0, self._idx1]
         for s, cmx, idx in zip(tomove, cmds, idxs):
             if modal:
-                mode_img = np.dot(self.ZM[s], cmx)
-                cmx = np.dot(mode_img, self.RM[s])
+                mode_img = np.dot(self.zm[s], cmx)
+                cmx = np.dot(mode_img, self.rm[s])
             cmd_amp = cmx
             if not diff:
                 cmd_amp = cmx - self._actPos[s]
-            self._shape[idx] += np.dot(cmd_amp, self.IM[s])
+            self._shape[idx] += np.dot(cmd_amp, self.im[s])
             self._actPos[s] += cmd_amp
 
     def _load_matrices(self, force_recompute: bool = False):
@@ -327,16 +327,16 @@ class BaseFakeDp:
         Loads the required matrices for the deformable mirror's operations.
         """
         if (
-            not os.path.exists(fp.SIM_DATA_FILE(self._name, "IF") + ".fits")
+            not os.path.exists(fp.sim_data_file(self._name, "IF") + ".fits")
             or force_recompute
         ):
             print(
                 f"First time simulating {self._name}.\nGenerating influence functions..."
             )
-            self._simulateDP()
+            self._simulate_dp()
         else:
             print(f"Loaded influence functions.")
-            self._iffCube = osu.load_fits(fp.SIM_DATA_FILE(self._name, "IF"))
+            self._iffCube = osu.load_fits(fp.sim_data_file(self._name, "IF"))
         self._create_int_and_rec_matrices(force_recompute=force_recompute)
         self._create_zernike_matrix(force_recompute=force_recompute)
 
@@ -345,31 +345,31 @@ class BaseFakeDp:
         Create the Zernike matrix for the DM.
         """
         if (
-            not os.path.exists(fp.SIM_DATA_FILE(self._name, "ZM") + ".fits")
+            not os.path.exists(fp.sim_data_file(self._name, "ZM") + ".fits")
             or force_recompute
         ):
-            n_zern = self.nActs // 2
+            n_zern = self.n_acts // 2
             print("Computing Zernike matrix...")
-            from ..factory_functions import generateZernikeMatrix
+            from ..factory_functions import generate_zernike_matrix
 
             zms = []
             for mask in [self._ms0, self._ms1]:
-                zm = generateZernikeMatrix(n_zern, mask)
+                zm = generate_zernike_matrix(n_zern, mask)
                 zms.append(zm)
-            ZM = np.dstack(zms)
-            osu.save_fits(fp.SIM_DATA_FILE(self._name, "ZM"), ZM)
-            self.ZM = zms
+            zm = np.dstack(zms)
+            osu.save_fits(fp.sim_data_file(self._name, "ZM"), zm)
+            self.zm = zms
         else:
             print(f"Loaded Zernike matrix.")
-            zms = osu.load_fits(fp.SIM_DATA_FILE(self._name, "ZM"))
-            self.ZM = [zms[:, :, i] for i in range(zms.shape[-1])]
+            zms = osu.load_fits(fp.sim_data_file(self._name, "ZM"))
+            self.zm = [zms[:, :, i] for i in range(zms.shape[-1])]
 
     def _create_int_and_rec_matrices(self, force_recompute: bool = False):
         """
         Create the interaction matrices for the DM.
         """
-        imfile = fp.SIM_DATA_FILE(self._name, "IM") + ".fits"
-        rmfile = fp.SIM_DATA_FILE(self._name, "RM") + ".fits"
+        imfile = fp.sim_data_file(self._name, "IM") + ".fits"
+        rmfile = fp.sim_data_file(self._name, "RM") + ".fits"
         if not all([os.path.exists(imfile), os.path.exists(rmfile)]) or force_recompute:
             print("Computing interaction matrix...")
             ims = []
@@ -385,34 +385,34 @@ class BaseFakeDp:
                 ims.append(im)
                 rms.append(xp.asnumpy(xp.linalg.pinv(im)))
             im = xp.dstack(ims)
-            self.IM = [xp.asnumpy(ifm) for ifm in ims]
+            self.im = [xp.asnumpy(ifm) for ifm in ims]
             osu.save_fits(imfile, im)
             print("Computing reconstruction matrix...")
-            self.RM = [rm for rm in rms]
+            self.rm = [rm for rm in rms]
             osu.save_fits(rmfile, np.dstack(rms))
         else:
             print(f"Loaded interaction matrix.")
             ims = osu.load_fits(imfile)
-            self.IM = [ims[:, :, i] for i in range(ims.shape[-1])]
+            self.im = [ims[:, :, i] for i in range(ims.shape[-1])]
             print(f"Loaded reconstruction matrix.")
             rms = osu.load_fits(rmfile)
-            self.RM = [rms[:, :, i] for i in range(rms.shape[-1])]
+            self.rm = [rms[:, :, i] for i in range(rms.shape[-1])]
 
-    def _getCapsensCalibration(self):
+    def _get_capsens_calibration(self):
         """
         Loads the capacitive sensors calibration data.
         """
-        calcurve = np.random.uniform(0.9, 1.1, size=self.nActs)
+        calcurve = np.random.uniform(0.9, 1.1, size=self.n_acts)
         return calcurve
 
-    def _getBiasCmd(self):
+    def _get_bias_cmd(self):
         """
         Loads the bias command for the DP.
         """
-        biascmd = np.random.uniform(75e-9, 85e-9, size=self.nActs)
+        biascmd = np.random.uniform(75e-9, 85e-9, size=self.n_acts)
         return biascmd
 
-    def _applyCSCalibration(self, cmd: _t.ArrayLike):
+    def _apply_cs_calibration(self, cmd: _t.ArrayLike):
         """
         Applies the capacitive sensors calibration to the current command.
         """
@@ -421,18 +421,18 @@ class BaseFakeDp:
             ncmd += self._biasCmd
         return ncmd
 
-    def _simulateDP(self):
+    def _simulate_dp(self):
         """
         Simulates the influence function of the DP by TPS interpolation
         """
         # get Segment0 mask and coordinates (scaled)
-        s0x, s0y = self._coords[: self.nActs // 2, :].T  # segment 0 (upper)
+        s0x, s0y = self._coords[: self.n_acts // 2, :].T  # segment 0 (upper)
         # self._ms0 = dp_mask[: dp_mask.shape[0] // 2, :] # segment 0 mask
         s0y -= self._ms0.shape[0]
         s0acts = np.stack((s0x, s0y)).T
 
         # get Segment1 mask and coordinates
-        s1x, s1y = self._coords[self.nActs // 2 :, :].T  # segment 1 (lower)
+        s1x, s1y = self._coords[self.n_acts // 2 :, :].T  # segment 1 (lower)
         # self._ms1 = dp_mask[dp_mask.shape[0] // 2 :, :] # segment 1 mask
         s1acts = np.stack((s1x, s1y)).T
 
@@ -472,11 +472,11 @@ class BaseFakeDp:
             iffcubes.append(cube)
             # Save the cube to a FITS file.
         iffcubes = np.ma.stack(iffcubes, axis=3)
-        fits_file = fp.SIM_DATA_FILE(self._name, "IF")
+        fits_file = fp.sim_data_file(self._name, "IF")
         osu.save_fits(fits_file, iffcubes)
         self._iffCube = iffcubes
 
-    def _createDpMaskAndCoords(self) -> tuple[_t.MaskData, _t.ArrayLike]:
+    def _create_dp_mask_and_coords(self) -> tuple[_t.MaskData, _t.ArrayLike]:
         """
         Creates the mask and the actuator pixel coordinates for the DP
         """
@@ -528,10 +528,10 @@ class BaseFakeDp:
 
         # Reorganize actuator coordinates in shells
         final_coords = np.empty_like(dp_coords)
-        final_coords[: self.nActs // 2, :] = (
+        final_coords[: self.n_acts // 2, :] = (
             np.array([s0x, s0y]).T + 5
         )  # matching padding
-        final_coords[self.nActs // 2 :, :] = (
+        final_coords[self.n_acts // 2 :, :] = (
             np.array([s1x, s1y]).T + 5
         )  # matching padding
 

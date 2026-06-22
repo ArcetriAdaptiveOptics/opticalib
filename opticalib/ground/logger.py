@@ -50,7 +50,7 @@ class SystemLogger:
 
             The default is None.
         """
-        self.logger = SystemLogger.getSystemLogger()
+        self.logger = SystemLogger.get_system_logger()
         self.the_class = the_class
 
     def log(self, **kwargs: dict[str, str]) -> None:
@@ -131,7 +131,7 @@ class SystemLogger:
         self.log(message=message, level="CRITICAL")
 
     @staticmethod
-    def getSystemLogger() -> _l.Logger:
+    def get_system_logger() -> _l.Logger:
         """
         Get the root system logger.
 
@@ -279,7 +279,7 @@ def log(
         logger.warning(f"Invalid log level '{level}'. Defaulting to 'DEBUG'.")
 
 
-class txtLogger:
+class TxtLogger:
     """
     Simple logger class for writing log messages to a text file.
 

@@ -9,9 +9,9 @@ from .core.root import folders as _fn
 from .ground.logger import SystemLogger as _SL
 from .devices.cameras import GigaVision as _cam
 from .core.fitsarray import fits_array as _fits_array
-from .core.read_config import getDeviceConfig as _gdc, getPhasingConfig as _gpc
+from .core.read_config import get_section_config as _gsc
 
-_splconf = _gpc()
+_splconf = _gsc("PHASING")
 
 
 def _get_tunable_filter():
@@ -21,7 +21,7 @@ def _get_tunable_filter():
     from plico_motor import motor  # type: ignore
 
     devtype, device = _splconf["filter"].split(":")
-    ip, port = _gdc(devtype, device).values()
+    ip, port = _gsc("DEVICES", devtype)[device].values()
 
     return motor(ip, port, axis=0)
 
@@ -513,7 +513,7 @@ class SPL:
             angles = [angles] * n_psfs
 
         datapath = _os.path.join(_fn.SPL_DATA_ROOT_FOLDER, tn)
-        filelist = _osu.getFileList(fold=datapath, key="rawframe")
+        filelist = _osu.get_file_list(fold=datapath, key="rawframe")
         rawlist = [self._heal_bad_pixels(_osu.load_fits(x)) for x in filelist]
 
         ## FIRST CENTROID DETECTION, made on the sum of all the images
@@ -1016,7 +1016,7 @@ class SPL:
         """"""
         for p in range(n_psfs):
 
-            fl = _osu.getFileList(tn, fold=_fn.SPL_DATA_ROOT_FOLDER, key=f"rawpsf{p}")
+            fl = _osu.get_file_list(tn, fold=_fn.SPL_DATA_ROOT_FOLDER, key=f"rawpsf{p}")
             rpsfl = [self._heal_bad_pixels(_osu.load_fits(x)) for x in fl]
 
             sumimg = _np.ma.sum(_np.ma.dstack(rpsfl), axis=2)
@@ -1070,7 +1070,7 @@ class SPL:
             final_half_size = [final_half_size] * 2
 
         for i in range(n_psfs):
-            cube = _osu.loadCubeFromFilelist(
+            cube = _osu.load_cube_from_filelist(
                 tn, fold=_fn.SPL_DATA_ROOT_FOLDER, key=f"rot_psf{i}"
             )
 
@@ -1182,7 +1182,7 @@ class SPL:
             y_norm = y / area
             matrix[:, i] = y_norm
 
-            w = self._applySmoothing(y_norm, 4)
+            w = self._apply_smoothing(y_norm, 4)
             w = w[:sx]
             matrix_smooth[:, i] = w
 
@@ -1217,7 +1217,7 @@ class SPL:
         from tqdm import trange
 
         self._logger.debug(f"Template Comparison with data in {self._tnfringes}")
-        delta, lambda_synth = self._readDeltaAndLambdaFromFringesFolder()
+        delta, lambda_synth = self._read_delta_and_lambda_from_fringes_folder()
         idx = _np.isin(lambda_synth, lambda_vector)
 
         Qm = matrix - _np.mean(matrix)
@@ -1254,7 +1254,7 @@ class SPL:
         piston_smooth = delta[idp_smooth]
         return piston, piston_smooth
 
-    def _readDeltaAndLambdaFromFringesFolder(
+    def _read_delta_and_lambda_from_fringes_folder(
         self,
     ) -> tuple[_ot.ArrayLike, _ot.ArrayLike]:
         """
@@ -1278,7 +1278,7 @@ class SPL:
         return delta, lambda_synth_from_data
 
     # TODO: TO BE REMOVED
-    def _applySmoothing(self, a: _ot.ArrayLike, WSZ: int):
+    def _apply_smoothing(self, a: _ot.ArrayLike, WSZ: int):
         """'
 
         Parameters

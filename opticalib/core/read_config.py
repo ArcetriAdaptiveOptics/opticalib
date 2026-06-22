@@ -17,9 +17,13 @@ Author(s)
 - Runa Briguglio
 """
 
-import yaml
 import os as _os
+import re as _re
+from ast import literal_eval as _literal_eval
+
 import numpy as _np
+import yaml
+
 from .exceptions import DeviceNotFoundError
 from typing import Any as _Any
 
@@ -57,7 +61,38 @@ _modalBaseName = "modalbase"
 _items = [_nzeroName, _modeIdName, _modeAmpName, _templateName, _modalBaseName]
 
 
-def load_yaml_config(path: str = None):
+def _resolve_config_path(path: str | None = None) -> str:
+    """
+    Resolve the absolute path of a configuration file.
+
+    Parameters
+    ----------
+    path : str | None, optional
+        Input path that can be either a configuration file or a directory.
+        If ``None``, the main configuration file is used.
+
+    Returns
+    -------
+    str
+        Absolute path of the configuration file to read or write.
+    """
+    if path is None:
+        return _cfile
+
+    if path == _cfold:
+        return _os.path.join(_cfold, yaml_config_file)
+
+    if _os.path.isdir(path):
+        if _iffold in _os.path.abspath(path):
+            return _os.path.join(path, _iff_config_file)
+        return _os.path.join(path, yaml_config_file)
+
+    if _iffold in _os.path.abspath(path) and not path.endswith(_iff_config_file):
+        return _os.path.join(path, _iff_config_file)
+    return path
+
+
+def load(path: str | None = None) -> dict[str, _Any]:
     """
     Loads the YAML configuration file.
 
@@ -71,19 +106,13 @@ def load_yaml_config(path: str = None):
     config : dict
         The configuration dictionary.
     """
-    if path is None or path == _cfold:
-        fname = _os.path.join(_cfold, yaml_config_file)
-    else:
-        if _iffold in path and not _iff_config_file in path:
-            fname = _os.path.join(path, _iff_config_file)
-        else:
-            fname = path
+    fname = _resolve_config_path(path)
     with open(fname, "r") as f:
-        config = yaml.safe_load(f)
+        config = yaml.safe_load(f) or {}
     return config
 
 
-def dump_yaml_config(config: dict[str, _Any], path: str = None):
+def dump(config: dict[str, _Any], path: str | None = None) -> None:
     """
     Writes the configuration dictionary back to the YAML file.
 
@@ -94,18 +123,81 @@ def dump_yaml_config(config: dict[str, _Any], path: str = None):
     bpath : str, optional
         Base path of the file to write. Default points to the configuration root folder.
     """
-    if path is None or path == _cfold:
-        fname = _os.path.join(_cfold, yaml_config_file)
-    else:
-        if _iff_config_file not in path:
-            fname = _os.path.join(path, _iff_config_file)
-        else:
-            fname = path
+    fname = _resolve_config_path(path)
     with open(fname, "w") as f:
-        yaml.dump(config, f)
+        yaml.safe_dump(config, f, sort_keys=False)
 
 
-def getDeviceConfig(device_type: str, device_name: str | None = None):
+def load_yaml_config(path: str | None = None) -> dict[str, _Any]:
+    """
+    Backward-compatible wrapper for :func:`load`.
+    """
+    return load(path)
+
+
+def dump_yaml_config(config: dict[str, _Any], path: str | None = None) -> None:
+    """
+    Backward-compatible wrapper for :func:`dump`.
+    """
+    dump(config, path)
+
+
+def _get_section_config(
+    section: str,
+    sub_section: str | None = None,
+    path: str | None = None,
+) -> dict[str, _Any]:
+    """
+    Read a section (and optional subsection) from a configuration file.
+
+    Parameters
+    ----------
+    section : str
+        Top-level section name in the configuration file.
+    sub_section : str | None, optional
+        Nested section name under *section*.
+    path : str | None, optional
+        Configuration file or folder path.
+
+    Returns
+    -------
+    dict[str, Any]
+        Requested section configuration.
+    """
+    config = load(path)
+    if section not in config:
+        raise KeyError(f"Configuration section `{section}` not found in the YAML file")
+    if sub_section is None:
+        return config[section]
+    section_config = config[section]
+    if sub_section not in section_config:
+        raise KeyError(
+            f"Configuration subsection `{sub_section}` not found in section "
+            f"`{section}`."
+        )
+    return section_config[sub_section]
+
+
+def get_section_config(section: str, sub_section: str | None = None) -> dict[str, _Any]:
+    """
+    Read a section (and optional subsection) from ``configuration.yaml``.
+
+    Parameters
+    ----------
+    section : str
+        Top-level section name in the main configuration file.
+    sub_section : str | None, optional
+        Nested section name under *section*.
+
+    Returns
+    -------
+    dict[str, Any]
+        Requested section configuration.
+    """
+    return _get_section_config(section=section, sub_section=sub_section, path=_cfile)
+
+
+def get_device_config(device_type: str, device_name: str | None = None):
     """
     Retrieves the device configuration from the YAML configuration file.
 
@@ -122,7 +214,7 @@ def getDeviceConfig(device_type: str, device_name: str | None = None):
         The device configuration dictionary.
     """
     try:
-        config = (load_yaml_config(_cfile))["DEVICES"][device_type]
+        config = get_section_config("DEVICES", device_type)
         if device_name is not None:
             config = config[device_name]
     except KeyError:
@@ -132,7 +224,7 @@ def getDeviceConfig(device_type: str, device_name: str | None = None):
     return config
 
 
-def getPhasingConfig():
+def get_phasing_config():
     """
     Retrieves the phasing configuration from the YAML configuration file.
 
@@ -141,17 +233,19 @@ def getPhasingConfig():
     config : dict
         The phasing configuration dictionary.
     """
-    config = load_yaml_config(_cfile)
     try:
-        return config["PHASING"]
+        return get_section_config("PHASING")
     except KeyError:
         raise KeyError("Phasing configuration not found in the YAML file.")
 
 
-def getIffConfig(key: str, bpath: str = _cfold):
+def get_iff_config(key: str|None, bpath: str = _cfold):
     """
     Reads the configuration from the YAML file for the IFF acquisition.
-    The key passed is the block of information retrieved within the INFLUENCE.FUNCTIONS section.
+    The key passed is the block of information retrieved within the 
+    INFLUENCE.FUNCTIONS section.
+    
+    If ``key=None``, the function returns the entire INFLUENCE.FUNCTIONS section.
 
     Parameters
     ----------
@@ -173,17 +267,20 @@ def getIffConfig(key: str, bpath: str = _cfold):
             - template
             - modalBase
     """
-    config = load_yaml_config(bpath)
     # The nested block is under INFLUENCE.FUNCTIONS in the
     # full configuration file
     # but under INFLUENCE.FUNCTIONS/IFFUNC in the IFF copied
     # config file
     try:
-        cc = config["INFLUENCE.FUNCTIONS"][key]
+        cc = _get_section_config(
+            section="INFLUENCE.FUNCTIONS",
+            sub_section=key,
+            path=bpath,
+        )
     except KeyError:
-        cc = config[key]
+        cc = _get_section_config(section='INFLUENCE.FUNCTIONS', path=bpath)
 
-    if key == "DM":
+    if key is None:
         return cc
 
     nzeros = int(cc[_nzeroName])
@@ -201,7 +298,7 @@ def getIffConfig(key: str, bpath: str = _cfold):
     }
 
 
-def copyIffConfigFile(tn: str, old_path: str = _cfold):
+def copy_iff_config_file(tn: str, old_path: str = _cfold):
     """
     Copies the YAML configuration file to the new folder for record keeping of the
     configuration used on data acquisition.
@@ -218,15 +315,15 @@ def copyIffConfigFile(tn: str, old_path: str = _cfold):
     res : str
         Path where the file was copied.
     """
-    config = load_yaml_config(old_path)
+    config = _get_section_config(section="INFLUENCE.FUNCTIONS", path=old_path)
     nfname = _os.path.join(_iffold, tn, "iffConfig.yaml")
     with open(nfname, "w") as f:
-        yaml.dump(config["INFLUENCE.FUNCTIONS"], f)
+        yaml.safe_dump(config, f, sort_keys=False)
     print(f"IFF configuration copied to {nfname.rsplit('/' + yaml_config_file, 1)[0]}")
     return nfname
 
 
-def updateIffConfig(tn: str, item: str, value: _Any):
+def update_iff_config(tn: str, item: str, value: _Any):
     """
     Updates the YAML configuration file for the IFF acquisition.
     The item passed is within the INFLUENCE.FUNCTIONS/IFFUNC section.
@@ -243,7 +340,7 @@ def updateIffConfig(tn: str, item: str, value: _Any):
     """
     key = "IFFUNC"
     file = _os.path.join(_iffold, tn, _iff_config_file)
-    config = load_yaml_config(file)
+    config = load(file)
     if isinstance(value, (_np.ndarray, list)):
         vmax = _np.max(value)
         vmin = _np.min(value)
@@ -256,10 +353,10 @@ def updateIffConfig(tn: str, item: str, value: _Any):
             config[key][item] = f"[{','.join(str(v) for v in value)}]"
     else:
         config[key][item] = str(value)
-    dump_yaml_config(config, file)
+    dump(config, file)
 
 
-def updateConfigFile(key: str, item: str, value: _Any, bpath: str = _cfold):
+def update_config_file(key: str, item: str, value: _Any, bpath: str = _cfold):
     """
     Updates the YAML configuration file for the IFF acquisition.
     The key passed is within the INFLUENCE.FUNCTIONS section.
@@ -278,7 +375,7 @@ def updateConfigFile(key: str, item: str, value: _Any, bpath: str = _cfold):
     import warnings
 
     warnings.warn(
-        "updateConfigFile is deprecated. Use updateIffConfig instead.",
+        "update_config_file is deprecated. Use update_iff_config instead.",
         DeprecationWarning,
         stacklevel=2,
     )
@@ -286,7 +383,7 @@ def updateConfigFile(key: str, item: str, value: _Any, bpath: str = _cfold):
         fname = _os.path.join(bpath, _iff_config_file)
     else:
         fname = bpath
-    config = load_yaml_config(bpath)
+    config = load(bpath)
     if key not in config["INFLUENCE.FUNCTIONS"]:
         raise KeyError(f"Configuration section `{key}` not found in the YAML file")
     if item not in _items:
@@ -303,10 +400,10 @@ def updateConfigFile(key: str, item: str, value: _Any, bpath: str = _cfold):
             config["INFLUENCE.FUNCTIONS"][key][item] = str(value.tolist())
     else:
         config["INFLUENCE.FUNCTIONS"][key][item] = str(value)
-    dump_yaml_config(config, bpath)
+    dump(config, bpath)
 
 
-def getNActs(bpath: str = _cfold):
+def get_n_acts(bpath: str = _cfold):
     """
     Retrieves the number of actuators from the YAML configuration file.
 
@@ -320,13 +417,16 @@ def getNActs(bpath: str = _cfold):
     nacts : int
         Number of DM actuators.
     """
-    config = load_yaml_config(bpath)
-    dm_config = config["INFLUENCE.FUNCTIONS"]["DM"]
+    dm_config = _get_section_config(
+        section="INFLUENCE.FUNCTIONS",
+        sub_section="DM",
+        path=bpath,
+    )
     nacts = int(dm_config["nacts"])
     return nacts
 
 
-def getTiming(bpath: str = _cfold):
+def get_timing(bpath: str = _cfold):
     """
     Retrieves timing information from the YAML configuration file.
 
@@ -340,13 +440,16 @@ def getTiming(bpath: str = _cfold):
     timing : int
         Timing used for synchronization.
     """
-    config = load_yaml_config(bpath)
-    dm_config = config["INFLUENCE.FUNCTIONS"]["DM"]
+    dm_config = _get_section_config(
+        section="INFLUENCE.FUNCTIONS",
+        sub_section="DM",
+        path=bpath,
+    )
     timing = int(dm_config["timing"])
     return timing
 
 
-def getCmdDelay(bpath: str = _cfold):
+def get_cmd_delay(bpath: str = _cfold):
     """
     Retrieves the command delay from the YAML configuration file.
 
@@ -360,9 +463,19 @@ def getCmdDelay(bpath: str = _cfold):
     cmdDelay : float
         Command delay for the interferometer synchronization.
     """
-    config = load_yaml_config(bpath)
-    dm_config = config["INFLUENCE.FUNCTIONS"]["DM"]
-    cmdDelay = float(dm_config["sequentialDelay"])
+    dm_config = _get_section_config(
+        section="INFLUENCE.FUNCTIONS",
+        sub_section="DM",
+        path=bpath,
+    )
+    if "sequentialDelay" in dm_config:
+        cmdDelay = float(dm_config["sequentialDelay"])
+    elif "delay" in dm_config:
+        cmdDelay = float(dm_config["delay"])
+    elif "triggeredMode" in dm_config and "cmdDelay" in dm_config["triggeredMode"]:
+        cmdDelay = float(dm_config["triggeredMode"]["cmdDelay"])
+    else:
+        raise KeyError("Command delay not found in INFLUENCE.FUNCTIONS/DM.")
     return cmdDelay
 
 
@@ -384,12 +497,20 @@ def _parse_val(val: _Any):
         return _np.array(val)
     if isinstance(val, str):
         if val.startswith("np.arange"):
-            return eval(val, {"np": _np})
-        else:
-            try:
-                return eval(val)
-            except Exception:
-                return val
+            match = _re.fullmatch(
+                r"np\.arange\(\s*([^,]+)\s*,\s*([^,]+)\s*(?:,\s*([^)]+)\s*)?\)",
+                val,
+            )
+            if match is None:
+                raise ValueError(f"Malformed np.arange expression: {val}")
+            start = _literal_eval(match.group(1))
+            stop = _literal_eval(match.group(2))
+            step = _literal_eval(match.group(3)) if match.group(3) is not None else 1
+            return _np.arange(start, stop, step)
+        try:
+            return _literal_eval(val)
+        except (ValueError, SyntaxError):
+            return val
     else:
         if isinstance(val, float):
             val = float(val)
@@ -400,7 +521,7 @@ def _parse_val(val: _Any):
     return val
 
 
-def getCamerasConfig(device_name: str = None):
+def get_cameras_config(device_name: str = None):
     """
     Reads the cameras settings in the configuration file.
 
@@ -409,7 +530,7 @@ def getCamerasConfig(device_name: str = None):
     config : dict
         The defined cameras parameters.
     """
-    config = (load_yaml_config(_cfile))["DEVICES"]["CAMERAS"]
+    config = get_section_config("DEVICES", "CAMERAS")
     if device_name is not None:
         try:
             config = config[device_name]
@@ -418,7 +539,7 @@ def getCamerasConfig(device_name: str = None):
     return config
 
 
-def getDmConfig(device_name: str) -> dict[str, _Any]:
+def get_dm_config(device_name: str) -> dict[str, _Any]:
     """
     Retrieves the DM address from the YAML configuration file.
 
@@ -433,15 +554,13 @@ def getDmConfig(device_name: str) -> dict[str, _Any]:
         DM dictionary containing the defined requested device in the configuration file.
     """
     try:
-        config = (load_yaml_config(_cfile))["DEVICES"]["DEFORMABLE.MIRRORS"][
-            device_name
-        ]
+        config = get_section_config("DEVICES", "DEFORMABLE.MIRRORS")[device_name]
     except KeyError:
         raise DeviceNotFoundError(device_name)
     return config
 
 
-def getInterfConfig(device_name: str):
+def get_interf_config(device_name: str):
     """
     Retrieves the wavefront sensor address from the YAML configuration file.
 
@@ -453,13 +572,13 @@ def getInterfConfig(device_name: str):
         Wavefront sensor port.
     """
     try:
-        config = (load_yaml_config(_cfile))["DEVICES"]["INTERFEROMETERS"][device_name]
+        config = get_section_config("DEVICES", "INTERFEROMETERS")[device_name]
     except KeyError:
         raise DeviceNotFoundError(device_name)
     return config
 
 
-def getAlignmentConfig():
+def get_alignment_config():
     """
     Reads the alignment settings in the configuration file.
 
@@ -468,10 +587,10 @@ def getAlignmentConfig():
     config : class
         The alignment configuration as a class, for backwards compatibility.
     """
-    config = (load_yaml_config(_cfile))["SYSTEM.ALIGNMENT"]
+    config = get_section_config("SYSTEM.ALIGNMENT")
     config["slices"] = [slice(item["start"], item["stop"]) for item in config["slices"]]
 
-    class alignmentConfig:
+    class AlignmentConfig:
         def __init__(self, config):
             self._conf = config
 
@@ -483,10 +602,10 @@ def getAlignmentConfig():
                     f"'{self.__class__.__name__}' object has no attribute '{name}'"
                 )
 
-    return alignmentConfig(config)
+    return AlignmentConfig(config)
 
 
-def getStitchingConfig():
+def get_stitching_config():
     """
     Reads the stitching settings in the configuration file.
 
@@ -495,5 +614,5 @@ def getStitchingConfig():
     config : dict
         The defined stitching parameters.
     """
-    config = (load_yaml_config(_cfile))["STITCHING"]
+    config = get_section_config("STITCHING")
     return config

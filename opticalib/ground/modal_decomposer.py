@@ -40,13 +40,13 @@ Example usage of the ZernikeFitter class:
     print(f"Fitted Zernike coefficients: {coefficients}")
 
     # Remove tip-tilt (modes 2 and 3) from the wavefront
-    corrected_wavefront = fitter.removeZernike(wavefront, zernike_index_vector=[2, 3])
+    corrected_wavefront = fitter.remove_zernike(wavefront, zernike_index_vector=[2, 3])
 
     # Generate a pure Zernike surface (e.g., coma, mode 7)
-    coma_surface = fitter.makeSurface(modes_indices=[7])
+    coma_surface = fitter.make_surface(modes_indices=[7])
 
     # Fit modes on multiple ROIs and get global average
-    roi_coefficients = fitter.fitOnRoi(wavefront, modes2fit=[1, 2, 3], mode='global')
+    roi_coefficients = fitter.fit_on_roi(wavefront, modes2fit=[1, 2, 3], mode='global')
     print(f"ROI-averaged coefficients: {roi_coefficients}")
 """
 
@@ -72,9 +72,9 @@ class _ModeFitter(ABC):
 
     Parameters
     ----------
-    fit_mask : ImageData or CircularMask or np.ndarray, optional
-        Mask to be used for fitting. Can be an ImageData, CircularMask, or ndarray.
-        If None, a default CircularMask will be created.
+    fit_mask : ImageData or circular_mask or np.ndarray, optional
+        Mask to be used for fitting. Can be an ImageData, circular_mask, or ndarray.
+        If None, a default circular_mask will be created.
     """
 
     def __init__(
@@ -87,16 +87,16 @@ class _ModeFitter(ABC):
 
         Parameters
         ----------
-        fit_mask : ImageData | CircularMask | MaskData, optional
+        fit_mask : ImageData | circular_mask | MaskData, optional
             Mask to be used for fitting. Can be:
-            - ImageData : A masked array from which a CircularMask is estimated.
-            - CircularMask : A pre-defined CircularMask object.
+            - ImageData : A masked array from which a circular_mask is estimated.
+            - circular_mask : A pre-defined circular_mask object.
             - MaskData : A boolean mask array.
         method : str, optional
-            Method used by the `CircularMask.fromMaskedArray` function. Default is 'COG'
+            Method used by the `circular_mask.fromMaskedArray` function. Default is 'COG'
         """
         if fit_mask is not None:
-            self.setFitMask(fit_mask=fit_mask, method=method)
+            self.set_fit_mask(fit_mask=fit_mask, method=method)
         else:
             self._fit_mask = None
             self.auxmask = None
@@ -144,7 +144,7 @@ class _ModeFitter(ABC):
         )
 
     @property
-    def fitMask(self) -> _t.ImageData:
+    def fit_mask(self) -> _t.ImageData:
         """
         Get the current fitting mask.
 
@@ -155,7 +155,7 @@ class _ModeFitter(ABC):
         """
         return self.auxmask
 
-    def setFitMask(
+    def set_fit_mask(
         self, fit_mask: _t.ImageData | _CircularMask | _t.MaskData, method: str = "COG"
     ) -> None:
         """
@@ -163,13 +163,13 @@ class _ModeFitter(ABC):
 
         Parameters
         ----------
-        fit_mask : ImageData | CircularMask | MaskData, optional
+        fit_mask : ImageData | circular_mask | MaskData, optional
             Mask to be used for fitting. Can be:
-            - ImageData : A masked array from which a CircularMask is estimated.
-            - CircularMask : A pre-defined CircularMask object.
+            - ImageData : A masked array from which a circular_mask is estimated.
+            - circular_mask : A pre-defined circular_mask object.
             - MaskData : A boolean mask array.
         method : str, optional
-            Method used by the `CircularMask.fromMaskedArray` function. Default is 'COG'.
+            Method used by the `circular_mask.fromMaskedArray` function. Default is 'COG'.
         """
         import warnings
 
@@ -230,7 +230,7 @@ class _ModeFitter(ABC):
             coeffs = _xp.linalg.lstsq(A, B, rcond=None)[0]
             return _xp.asnumpy(coeffs), _xp.asnumpy(mat)
 
-    def fitOnRoi(
+    def fit_on_roi(
         self,
         image: _t.ImageData,
         modes2fit: _t.Optional[list[int]] = None,
@@ -263,7 +263,7 @@ class _ModeFitter(ABC):
         """
         if mode not in ["global", "local"]:
             raise ValueError("mode must be 'global' or 'local'")
-        roiimg = _roi.roiGenerator(_xp.asmarray(image))
+        roiimg = _roi.roi_generator(_xp.asmarray(image))
         nroi = len(roiimg)
         self._logger.info(f"Fitting modes {modes2fit} on image's ROIs with mode {mode}")
         self._logger.info(f"Found {nroi} ROIs to fit")
@@ -276,7 +276,7 @@ class _ModeFitter(ABC):
             coeff = coeff.mean(axis=0)
         return coeff
 
-    def makeSurface(
+    def make_surface(
         self,
         modes_indices: list[int],
         image: _t.ImageData = None,
@@ -347,7 +347,7 @@ class _ModeFitter(ABC):
         elif image is not None:
 
             # Handle the ROIs case
-            roiimg = _roi.roiGenerator(_xp.asmarray(image))
+            roiimg = _roi.roi_generator(_xp.asmarray(image))
             nroi = len(roiimg)
 
             image = self._put_on_gpu(image)
@@ -380,7 +380,7 @@ class _ModeFitter(ABC):
                     surfs = []
                     for r in roiimg:
                         img2fit = _xp.ma.masked_array(image.data, mask=r)
-                        surf = self.makeSurface(modes_indices, img2fit)
+                        surf = self.make_surface(modes_indices, img2fit)
                         surfs.append(surf)
                     surface = _xp.ma.empty_like(image)
                     surface.mask = image.mask.copy()
@@ -390,7 +390,7 @@ class _ModeFitter(ABC):
                 # GLOBAL
                 elif mode == "global":
                     if coeffs is None:
-                        coeffs = self.fitOnRoi(
+                        coeffs = self.fit_on_roi(
                             image, modes2fit=modes_indices, mode="global"
                         )
                     surface = _xp.ma.zeros_like(image)
@@ -465,7 +465,7 @@ class _ModeFitter(ABC):
 
         return surface
 
-    def filterModes(
+    def filter_modes(
         self, image: _t.ImageData, mode_index_vector: list[int], **make_surface_kwargs
     ) -> _t.ImageData:
         """
@@ -478,7 +478,7 @@ class _ModeFitter(ABC):
         zernike_index_vector : list[int], optional
             List of mode indices to be removed.
         make_surface_kwargs : dict
-            Additional keyword arguments to be passed to the `makeSurface` method.
+            Additional keyword arguments to be passed to the `make_surface` method.
             mode : str
                 If more than one ROI is found in the fitting mask, this parameter
                 controls how the modes are computed:
@@ -500,7 +500,7 @@ class _ModeFitter(ABC):
             Filtered image.
         """
         self._logger.info(f"Removing modes {mode_index_vector} from image")
-        surf = self.makeSurface(mode_index_vector, image, **make_surface_kwargs)
+        surf = self.make_surface(mode_index_vector, image, **make_surface_kwargs)
         self._logger.info("Subtraction...")
         return _np.ma.masked_array((image - surf).data, mask=image.mask)
 
@@ -562,7 +562,7 @@ class _ModeFitter(ABC):
         try:
             self._logger.info("Temporarily setting a new fitting mask")
             if prev_fit_mask is None:
-                self.setFitMask(fit_mask)
+                self.set_fit_mask(fit_mask)
             yield
         finally:
             self._logger.info("Restoring previous fitting mask")
@@ -609,11 +609,11 @@ class _ModeFitter(ABC):
 
     def _create_fit_mask_from_img(self, image: _t.ImageData) -> _CircularMask:
         """
-        Create a default CircularMask for fitting.
+        Create a default circular_mask for fitting.
 
         Returns
         -------
-        fit_mask : CircularMask
+        fit_mask : circular_mask
             Default fitting mask.
         """
         self._logger.info("Creating fitting mask from image")
@@ -631,7 +631,7 @@ class _ModeFitter(ABC):
                     "Input image must be a numpy masked array or convertible to one."
                 ) from e
 
-        # Create the CircularMask from the masked image using ARTE
+        # Create the circular_mask from the masked image using ARTE
         cmask = _CircularMask(image.shape)
         cmask._mask = image.mask
         mgen = self._create_modes_generator(cmask)
@@ -701,9 +701,9 @@ class ZernikeFitter(_ModeFitter):
 
     Parameters
     ----------
-    fit_mask : ImageData or CircularMask or np.ndarray, optional
-        Mask to be used for fitting. Can be an ImageData, CircularMask, or ndarray.
-        If None, a default CircularMask will be created.
+    fit_mask : ImageData or circular_mask or np.ndarray, optional
+        Mask to be used for fitting. Can be an ImageData, circular_mask, or ndarray.
+        If None, a default circular_mask will be created.
     """
 
     def __init__(self, fit_mask: _t.Optional[_t.ImageData] = None, method: str = "COG"):
@@ -711,7 +711,7 @@ class ZernikeFitter(_ModeFitter):
         super().__init__(fit_mask)
         self._logger = _SL(__class__)
 
-    def removeZernike(
+    def remove_zernike(
         self,
         image: _t.ImageData,
         zernike_index_vector: list[int] = None,
@@ -741,13 +741,13 @@ class ZernikeFitter(_ModeFitter):
         """
         if zernike_index_vector is None:
             zernike_index_vector = [1, 2, 3]
-        return self.filterModes(
+        return self.filter_modes(
             image=image, mode_index_vector=zernike_index_vector, mode=mode
         )
 
     def _create_modes_generator(self, mask: _CircularMask) -> _CircularMask:
         """
-        Create a default CircularMask for fitting.
+        Create a default circular_mask for fitting.
 
         Returns
         -------
@@ -780,9 +780,9 @@ class KLFitter(_ModeFitter):
 
     Parameters
     ----------
-    fit_mask : ImageData or CircularMask or np.ndarray, optional
-        Mask to be used for fitting. Can be an ImageData, CircularMask, or ndarray.
-        If None, a default CircularMask will be created.
+    fit_mask : ImageData or circular_mask or np.ndarray, optional
+        Mask to be used for fitting. Can be an ImageData, circular_mask, or ndarray.
+        If None, a default circular_mask will be created.
     """
 
     def __init__(
@@ -798,7 +798,7 @@ class KLFitter(_ModeFitter):
 
     def _create_modes_generator(self, mask: _CircularMask) -> _CircularMask:
         """
-        Create a default CircularMask for fitting.
+        Create a default circular_mask for fitting.
 
         Returns
         -------
@@ -840,9 +840,9 @@ class RBFitter(_ModeFitter):
 
     Parameters
     ----------
-    fit_mask : ImageData or CircularMask or np.ndarray, optional
-        Mask to be used for fitting. Can be an ImageData, CircularMask, or ndarray.
-        If None, a default CircularMask will be created.
+    fit_mask : ImageData or circular_mask or np.ndarray, optional
+        Mask to be used for fitting. Can be an ImageData, circular_mask, or ndarray.
+        If None, a default circular_mask will be created.
     """
 
     def __init__(
@@ -862,7 +862,7 @@ class RBFitter(_ModeFitter):
 
     def _create_modes_generator(self, mask: _CircularMask) -> _CircularMask:
         """
-        Create a default CircularMask for fitting.
+        Create a default circular_mask for fitting.
 
         Returns
         -------

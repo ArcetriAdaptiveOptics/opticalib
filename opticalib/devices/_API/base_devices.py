@@ -40,20 +40,20 @@ class BaseDeformableMirror(ABC):
         raise NotImplementedError("Subclasses must implement get_shape method")
 
     @abstractmethod
-    def uploadCmdHistory(self, tcmdhist):
+    def upload_cmd_history(self, tcmdhist):
         """
         Abstract method to upload the command history to the deformable mirror.
         Must be implemented by subclasses.
         """
-        raise NotImplementedError("Subclasses must implement uploadCmdHistory method")
+        raise NotImplementedError("Subclasses must implement upload_cmd_history method")
 
     @abstractmethod
-    def runCmdHistory(self, interf, differential, save):
+    def run_cmd_history(self, interf, differential, save):
         """
         Abstract method to run the command history on the deformable mirror.
         Must be implemented by subclasses.
         """
-        raise NotImplementedError("Subclasses must implement runCmdHistory method")
+        raise NotImplementedError("Subclasses must implement run_cmd_history method")
 
     def _get_slaving_method(self, slave: bool | str) -> _ot.Optional[str]:
         """
@@ -65,8 +65,8 @@ class BaseDeformableMirror(ABC):
         if not slave:
             return None
 
-        slave_ids = getattr(self, "slaveIds", [])
-        border_ids = getattr(self, "borderIds", [])
+        slave_ids = getattr(self, "slave_ids", [])
+        border_ids = getattr(self, "border_ids", [])
         s, b = len(slave_ids), len(border_ids)
         if not (s or b):
             _logger.warning(

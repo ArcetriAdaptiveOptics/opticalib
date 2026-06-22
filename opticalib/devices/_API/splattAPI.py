@@ -11,7 +11,7 @@ class SPLATTEngine:
         """The Constructor"""
         ip, port = self._get_address(ip, port)
         self._eng = Pyro4.Proxy(f"PYRO:matlab_engine@{ip}:{port}")
-        self.nActs = int(self._eng.read("sys_data.mirrNAct"))
+        self.n_acts = int(self._eng.read("sys_data.mirrNAct"))
         self.actCoords = np.array(self._eng.read("mirrorData.coordAct"))
         self.mirrorModes = np.array(self._eng.read("sys_data.ff_v"))
         try:
@@ -33,18 +33,18 @@ class SPLATTEngine:
     def get_position_command(self):  # relative to flatPos
         posCmdBits = np.array(self._eng.read("aoRead('sabu16_position',1:19)"))
         posCmd = posCmdBits * self._bits2meters
-        posCmd = np.reshape(posCmd, self.nActs)
+        posCmd = np.reshape(posCmd, self.n_acts)
         posCmd -= self.flatPos
         return posCmd
 
     def get_position(self):
         pos = np.array(self._eng.read("lattGetPos()"))
-        pos = np.reshape(pos, self.nActs)
+        pos = np.reshape(pos, self.n_acts)
         return pos
 
     def get_force(self):
         force = np.array(self._eng.read("lattGetForce()"))
-        force = np.reshape(force, self.nActs)
+        force = np.reshape(force, self.n_acts)
         return force
 
     def set_position(self, cmd):
@@ -72,9 +72,9 @@ class SPLATTEngine:
             )
         buf_tn = self._eng.read("buf_tn")
         mean_pos = np.array(self._eng.read("mean(pos,2)")) * self._bits2meters
-        mean_pos = np.reshape(mean_pos, self.nActs)
+        mean_pos = np.reshape(mean_pos, self.n_acts)
         mean_cur = np.array(self._eng.read("mean(cur,2)"))
-        mean_cur = np.reshape(mean_cur, self.nActs)
+        mean_cur = np.reshape(mean_cur, self.n_acts)
         return mean_pos, mean_cur, buf_tn
 
     def plot_splatt_vec(self, values, min_val: float = None, max_val: float = None):
@@ -87,7 +87,7 @@ class SPLATTEngine:
         markerSize = 800
         x = self.actCoords[:, 0]
         y = self.actCoords[:, 1]
-        indices = np.arange(self.nActs) + 1
+        indices = np.arange(self.n_acts) + 1
         plt.figure()
         plt.scatter(
             x, y, c=values, vmin=min_val, vmax=max_val, s=markerSize, edgecolor="k"
@@ -95,7 +95,7 @@ class SPLATTEngine:
         plt.colorbar()
         plt.xlim([min(x) - margin, max(x) + margin])
         plt.ylim([min(y) - margin, max(y) + margin])
-        for i in range(self.nActs):
+        for i in range(self.n_acts):
             plt.text(x[i] * 2 / 3, y[i] + margin * 2 / 3, str(indices[i]))
         plt.text(x[15], y[15] * 1.3, "G")
 
@@ -145,21 +145,21 @@ class SPLATTEngine:
 
         return state
 
-    def saveFlatTN(self, tn: str = None):
+    def save_flat_tn(self, tn: str = None):
         if tn is None:
             tn = self._eng.read("lattSaveFlat()")
         else:
             tn = self._eng.read(f"lattSaveFlat({tn})")
         return tn
 
-    def updateFlatTN(self, tn: str = None):
+    def update_flat_tn(self, tn: str = None):
         if tn is not None:
             self._eng.send(f"lattLoadFlat('{tn}')")
         self.flatPos = self.read_flat_data()
 
     def read_flat_data(self):
         flatPos = np.array(self._eng.read("sys_data.flatPos")) * self._bits2meters
-        flatPos = np.reshape(flatPos, self.nActs)
+        flatPos = np.reshape(flatPos, self.n_acts)
         return flatPos
 
     def _set_shell(self):
@@ -171,10 +171,10 @@ class SPLATTEngine:
             print("Shell set variable is True, overwrite it if you wish to set again")
 
     def _get_address(self, ip, port):
-        from opticalib.core.read_config import getDmConfig
+        from opticalib.core.read_config import get_section_config
 
         try:
-            config = getDmConfig("Splatt")
+            config = get_section_config("DEVICES", "DEFORMABLE.MIRRORS")["Splatt"]
             rip, rport = config.get("ip"), config.get("port")
             if (ip, port) == (None, None):
                 ip, port = (rip, rport)

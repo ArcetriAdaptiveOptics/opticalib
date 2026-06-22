@@ -118,85 +118,85 @@ class TestConfSettingReader4D:
         assert reader.path_section == "Paths"
 
     def test_get_frame_rate(self, temp_dir):
-        """Test getFrameRate method."""
+        """Test get_frame_rate method."""
         settings_file = os.path.join(temp_dir, "4DSettings.ini")
         with open(settings_file, "w") as f:
             f.write("[ACA2440]\n")
             f.write("FrameRate = 30.0\n")
 
         reader = root.ConfSettingReader4D(settings_file)
-        frame_rate = reader.getFrameRate()
+        frame_rate = reader.get_frame_rate()
         assert frame_rate == 30.0
         assert isinstance(frame_rate, float)
 
     def test_get_image_width_in_pixels(self, temp_dir):
-        """Test getImageWidhtInPixels method."""
+        """Test get_image_widht_in_pixels method."""
         settings_file = os.path.join(temp_dir, "4DSettings.ini")
         with open(settings_file, "w") as f:
             f.write("[ACA2440]\n")
             f.write("ImageWidthInPixels = 2000\n")
 
         reader = root.ConfSettingReader4D(settings_file)
-        width = reader.getImageWidhtInPixels()
+        width = reader.get_image_widht_in_pixels()
         assert width == 2000
         assert isinstance(width, int)
 
     def test_get_image_height_in_pixels(self, temp_dir):
-        """Test getImageHeightInPixels method."""
+        """Test get_image_height_in_pixels method."""
         settings_file = os.path.join(temp_dir, "4DSettings.ini")
         with open(settings_file, "w") as f:
             f.write("[ACA2440]\n")
             f.write("ImageHeightInPixels = 2000\n")
 
         reader = root.ConfSettingReader4D(settings_file)
-        height = reader.getImageHeightInPixels()
+        height = reader.get_image_height_in_pixels()
         assert height == 2000
         assert isinstance(height, int)
 
     def test_get_offset_x(self, temp_dir):
-        """Test getOffsetX method."""
+        """Test get_offset_x method."""
         settings_file = os.path.join(temp_dir, "4DSettings.ini")
         with open(settings_file, "w") as f:
             f.write("[ACA2440]\n")
             f.write("OffsetX = 10\n")
 
         reader = root.ConfSettingReader4D(settings_file)
-        offset_x = reader.getOffsetX()
+        offset_x = reader.get_offset_x()
         assert offset_x == 10
         assert isinstance(offset_x, int)
 
     def test_get_offset_y(self, temp_dir):
-        """Test getOffsetY method."""
+        """Test get_offset_y method."""
         settings_file = os.path.join(temp_dir, "4DSettings.ini")
         with open(settings_file, "w") as f:
             f.write("[ACA2440]\n")
             f.write("OffsetY = 20\n")
 
         reader = root.ConfSettingReader4D(settings_file)
-        offset_y = reader.getOffsetY()
+        offset_y = reader.get_offset_y()
         assert offset_y == 20
         assert isinstance(offset_y, int)
 
     def test_get_pixel_format(self, temp_dir):
-        """Test getPixelFormat method."""
+        """Test get_pixel_format method."""
         settings_file = os.path.join(temp_dir, "4DSettings.ini")
         with open(settings_file, "w") as f:
             f.write("[ACA2440]\n")
             f.write("PixelFormat = Mono8\n")
 
         reader = root.ConfSettingReader4D(settings_file)
-        pixel_format = reader.getPixelFormat()
+        pixel_format = reader.get_pixel_format()
         assert pixel_format == "Mono8"
 
     def test_get_user_setting_file_path(self, temp_dir):
-        """Test getUserSettingFilePath method."""
+        """Test get_user_setting_file_path method."""
         settings_file = os.path.join(temp_dir, "4DSettings.ini")
         with open(settings_file, "w") as f:
             f.write("[Paths]\n")
             f.write("UserSettingsFilePath = /path/to/settings\n")
 
         reader = root.ConfSettingReader4D(settings_file)
-        path = reader.getUserSettingFilePath()
+        path = reader.get_user_setting_file_path()
         assert path == "/path/to/settings"
 
 
@@ -205,14 +205,14 @@ class TestFolds:
 
     def test_folds_initialization(self):
         """Test that _folds class can be initialized."""
-        folds = root._folds()
+        folds = root._Folds()
         assert hasattr(folds, "BASE_DATA_PATH")
         assert hasattr(folds, "CONFIGURATION_FILE")
         assert hasattr(folds, "OPT_DATA_ROOT_FOLDER")
 
     def test_folds_print_all(self, capsys):
         """Test print_all property."""
-        folds = root._folds()
+        folds = root._Folds()
         # Access the property (it's a property that prints)
         _ = folds.print_all
         captured = capsys.readouterr()
@@ -221,7 +221,7 @@ class TestFolds:
 
     def test_folds_update_interf_paths(self):
         """Test _update_interf_paths method."""
-        folds = root._folds()
+        folds = root._Folds()
         # This method updates global variables, so we just test it doesn't crash
         folds._update_interf_paths()
         # Verify attributes are set
@@ -229,7 +229,7 @@ class TestFolds:
 
 
 class TestUpdateInterfPaths:
-    """Test _updateInterfPaths function."""
+    """Test _update_interf_paths function."""
 
     def test_update_interf_paths(self):
         """Test updating interferometer paths."""
@@ -242,7 +242,7 @@ class TestUpdateInterfPaths:
             "capture": "/path/to/capture",
         }
 
-        root._updateInterfPaths(paths)
+        root._update_interf_paths(paths)
 
         # Check that global variables were set
         assert root.SETTINGS_CONF_FILE == paths["settings"]

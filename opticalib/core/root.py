@@ -68,7 +68,7 @@ def create_folder_tree(BASE_DATA_PATH: str) -> None:
         _create_folder(p)
 
 
-def _updateInterfPaths(paths: dict[str, str]) -> None:
+def _update_interf_paths(paths: dict[str, str]) -> None:
     """
     Update the path of the configuration file and the folders.
 
@@ -177,7 +177,7 @@ SPL_DATA_ROOT_FOLDER: str = _os.path.join(OPT_DATA_ROOT_FOLDER, "SPL")
 SPL_FRINGES_ROOT_FOLDER: str = _os.path.join(SPL_DATA_ROOT_FOLDER, "Fringes")
 
 
-def SIMULATED_DM_PATH(dmname: str, nacts: int = None) -> str:
+def simulated_dm_path(dmname: str, nacts: int = None) -> str:
     """
     Get the path to the simulated deformable mirror data.
 
@@ -202,7 +202,7 @@ def SIMULATED_DM_PATH(dmname: str, nacts: int = None) -> str:
     return dm_path
 
 
-def SIM_DATA_FILE(dmname: str, filename: str, nacts: int = None) -> str:
+def sim_data_file(dmname: str, filename: str, nacts: int = None) -> str:
     """
     Get the path to a specific simulated deformable mirror data file.
 
@@ -235,7 +235,7 @@ def SIM_DATA_FILE(dmname: str, filename: str, nacts: int = None) -> str:
             filename = f"zern_matrix"
         case _:
             raise ValueError(f"Invalid filename: {filename}")
-    dm_path = SIMULATED_DM_PATH(dmname, nacts)
+    dm_path = simulated_dm_path(dmname, nacts)
     file_path = _os.path.join(dm_path, filename)
     return file_path
 
@@ -254,7 +254,7 @@ CAPTURE_FOLDER_NAME_LOCAL_PC: str = None
 ###############################################################################
 # CLASSES DEFINITIONS: THE FOLDER TREE WRAPPER AND THE 4D CONFIGURATION READER
 ###############################################################################
-class _folds:
+class _Folds:
     """Wrapper class for the folder tree of the package"""
 
     def __init__(self):
@@ -275,8 +275,8 @@ class _folds:
         self.ALIGN_RESULTS_ROOT_FOLDER = ALIGN_RESULTS_ROOT_FOLDER
         self.SPL_DATA_ROOT_FOLDER = SPL_DATA_ROOT_FOLDER
         self.SPL_FRINGES_ROOT_FOLDER = SPL_FRINGES_ROOT_FOLDER
-        self.SIMULATED_DM_PATH = SIMULATED_DM_PATH
-        self.SIM_DATA_FILE = SIM_DATA_FILE
+        self.simulated_dm_path = simulated_dm_path
+        self.sim_data_file = sim_data_file
 
         self.SETTINGS_CONF_FILE = SETTINGS_CONF_FILE
         self.COPIED_SETTINGS_CONF_FILE = COPIED_SETTINGS_CONF_FILE
@@ -326,7 +326,7 @@ class _folds:
                     _os.makedirs(v)
 
 
-folders = _folds()
+folders = _Folds()
 
 
 class ConfSettingReader4D:
@@ -335,25 +335,25 @@ class ConfSettingReader4D:
 
     Methods
     -------
-    getFrameRate() :
+    get_frame_rate() :
         Gets the camera frame rate in Hz.
 
     getImageWidthInPixels() :
         Get the width of the frame in pixel units.
 
-    getImageHeightInPixels() :
+    get_image_height_in_pixels() :
         Get the height of the frame in pixel units.
 
-    getOffsetX() :
+    get_offset_x() :
         Get the frame offset in x-axis.
 
-    getOffsetY() :
+    get_offset_y() :
         Get the frame offset in y-axis.
 
-    getPixelFormat() :
+    get_pixel_format() :
         Get the format of the pixels.
 
-    getUserSettingFilePath() :
+    get_user_setting_file_path() :
         Get the path of the configuration file.
 
     How to Use it
@@ -362,16 +362,16 @@ class ConfSettingReader4D:
     object
 
     >>> cr = ConfSettingReader(file_path)
-    >>> cr.getImageWidhtInPixels()
+    >>> cr.get_image_widht_in_pixels()
     2000
-    >>> cr.getImageHeightInPixels()
+    >>> cr.get_image_height_in_pixels()
     2000
 
     Notes
     -----
     Note that there is no need to directly use this module, as the settings information
     retrievement is handled by m4.urils.osutils, with its functions
-    ''getConf4DSettingsPath'' and ''getCameraSettings''.
+    ''getConf4DSettingsPath'' and ''get_camera_settings''.
     """
 
     def __init__(self, file_path: str):
@@ -381,7 +381,7 @@ class ConfSettingReader4D:
         self.path_section = "Paths"
 
     # CAMERA
-    def getFrameRate(self):
+    def get_frame_rate(self):
         """
         Returns the acquisition frame rate of the interferometer in Hz
 
@@ -393,7 +393,7 @@ class ConfSettingReader4D:
         frame_rate = self.config.get(self.camera_section, "FrameRate")
         return float(frame_rate)
 
-    def getImageWidhtInPixels(self):
+    def get_image_widht_in_pixels(self):
         """
         Returns the image widht in pixel scale
 
@@ -407,7 +407,7 @@ class ConfSettingReader4D:
         )
         return int(image_width_in_pixels)
 
-    def getImageHeightInPixels(self):
+    def get_image_height_in_pixels(self):
         """
         Returns the image height in pixel scale
 
@@ -421,7 +421,7 @@ class ConfSettingReader4D:
         )
         return int(image_height_in_pixels)
 
-    def getOffsetX(self):
+    def get_offset_x(self):
         """
         Returns the camera offset, in pixels, along the x-axis.
 
@@ -433,7 +433,7 @@ class ConfSettingReader4D:
         offset_x = self.config.get(self.camera_section, "OffsetX")
         return int(offset_x)
 
-    def getOffsetY(self):
+    def get_offset_y(self):
         """
         Returns the camera offset, in pixels, along the y-axis.
 
@@ -445,7 +445,7 @@ class ConfSettingReader4D:
         offset_y = self.config.get(self.camera_section, "OffsetY")
         return int(offset_y)
 
-    def getPixelFormat(self):
+    def get_pixel_format(self):
         """
         Returns the format of the pixel.
 
@@ -458,7 +458,7 @@ class ConfSettingReader4D:
         return pixel_format
 
     # PATH
-    def getUserSettingFilePath(self):
+    def get_user_setting_file_path(self):
         """
         Returns the complete filepath of the settings configuration file.
 

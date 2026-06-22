@@ -19,7 +19,7 @@ class FlatData:
     tn: str
 
     def __post_init__(self):
-        filelist = _osu.getFileList(self.tn, _fn.FLAT_ROOT_FOLDER)
+        filelist = _osu.get_file_list(self.tn, _fn.FLAT_ROOT_FOLDER)
 
         attr_map = {
             "flatPosition": "_cmd",
@@ -27,10 +27,10 @@ class FlatData:
             "imgstart": "_imgstart",
             "imgflat": "_imgflat",
             "modes2flat": "_modes2flat",
-            "cavityOffset": "_cavityOffset",
+            "cavity_offset": "_cavityOffset",
             "flatCommand": "_flatCommand",
-            "BiasCommand": "_biasCommand",
-            "BiasForces": "_biasForces",
+            "bias_command": "_biasCommand",
+            "bias_forces": "_biasForces",
             "flatTotalForces": "_flatTotalForces",
         }
 
@@ -133,12 +133,12 @@ class IffData:
     tn: str
 
     def __post_init__(self):
-        filelist = _osu.getFileList(self.tn, _fn.IFFUNCTIONS_ROOT_FOLDER)
+        filelist = _osu.get_file_list(self.tn, _fn.IFFUNCTIONS_ROOT_FOLDER)
 
         attr_map = {
             "ampVector": "_amplitude",
             "cmdMatrix": "_cmd_matrix",
-            "modesVector": "_modes_vector",
+            "modes_vector": "_modes_vector",
             "regActs": "_reg_acts",
             "template": "_template",
             "timedCmdHistory": "_timed_cmd_history",
@@ -153,7 +153,7 @@ class IffData:
 
         del filelist
 
-        self._modesfl = _osu.getFileList(
+        self._modesfl = _osu.get_file_list(
             self.tn, _fn.IFFUNCTIONS_ROOT_FOLDER, key="mode_"
         )
         self._modes = [None] * len(self._modesfl)

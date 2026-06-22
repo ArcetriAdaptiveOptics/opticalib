@@ -9,11 +9,11 @@ from opticalib.ground import roi
 
 
 class TestRoiGenerator:
-    """Test roiGenerator function."""
+    """Test roi_generator function."""
 
     def test_roi_generator_basic(self, sample_image):
-        """Test roiGenerator with basic image."""
-        roi_list = roi.roiGenerator(sample_image)
+        """Test roi_generator with basic image."""
+        roi_list = roi.roi_generator(sample_image)
 
         assert isinstance(roi_list, list)
         # Should return at least one ROI if image has valid pixels
@@ -24,16 +24,16 @@ class TestRoiGenerator:
                 assert isinstance(r, np.ndarray)
 
     def test_roi_generator_fully_masked(self):
-        """Test roiGenerator with fully masked image."""
+        """Test roi_generator with fully masked image."""
         data = np.random.randn(100, 100)
         mask = np.ones((100, 100), dtype=bool)
         masked_img = ma.masked_array(data, mask=mask)
 
-        roi_list = roi.roiGenerator(masked_img)
+        roi_list = roi.roi_generator(masked_img)
         assert len(roi_list) == 0
 
     def test_roi_generator_multiple_rois(self):
-        """Test roiGenerator with multiple disconnected regions."""
+        """Test roi_generator with multiple disconnected regions."""
         data = np.random.randn(100, 100)
         mask = np.ones((100, 100), dtype=bool)
         # Create two disconnected regions
@@ -41,7 +41,7 @@ class TestRoiGenerator:
         mask[70:80, 70:80] = False
         masked_img = ma.masked_array(data, mask=mask)
 
-        roi_list = roi.roiGenerator(masked_img)
+        roi_list = roi.roi_generator(masked_img)
         assert len(roi_list) >= 2
 
     def test_roi_generator_small_rois_filtered(self):
@@ -52,17 +52,17 @@ class TestRoiGenerator:
         mask[45:50, 45:50] = False  # 5x5 = 25 pixels
         masked_img = ma.masked_array(data, mask=mask)
 
-        roi_list = roi.roiGenerator(masked_img)
+        roi_list = roi.roi_generator(masked_img)
         # Small ROI should be filtered out
         assert len(roi_list) == 0
 
 
 class TestImgCut:
-    """Test imgCut function."""
+    """Test img_cut function."""
 
     def test_img_cut_basic(self, sample_image):
-        """Test imgCut with basic image."""
-        cut_img = roi.imgCut(sample_image)
+        """Test img_cut with basic image."""
+        cut_img = roi.img_cut(sample_image)
 
         assert isinstance(cut_img, ma.MaskedArray)
         # Cut image should be smaller or equal to original
@@ -70,46 +70,46 @@ class TestImgCut:
         assert cut_img.shape[1] <= sample_image.shape[1]
 
     def test_img_cut_fully_masked(self):
-        """Test imgCut with fully masked image."""
+        """Test img_cut with fully masked image."""
         data = np.random.randn(100, 100)
         mask = np.ones((100, 100), dtype=bool)
         masked_img = ma.masked_array(data, mask=mask)
 
-        cut_img = roi.imgCut(masked_img)
+        cut_img = roi.img_cut(masked_img)
         # Should return original image if no finite pixels
         assert cut_img.shape == masked_img.shape
 
     def test_img_cut_centered_region(self):
-        """Test imgCut with centered valid region."""
+        """Test img_cut with centered valid region."""
         data = np.random.randn(100, 100)
         mask = np.ones((100, 100), dtype=bool)
         # Create a centered valid region
         mask[40:60, 40:60] = False
         masked_img = ma.masked_array(data, mask=mask)
 
-        cut_img = roi.imgCut(masked_img)
+        cut_img = roi.img_cut(masked_img)
         # Should cut to approximately 20x20 region
         assert cut_img.shape[0] <= 25  # Allow some margin
         assert cut_img.shape[1] <= 25
 
     def test_img_cut_no_nan(self):
-        """Test imgCut with image containing no NaN values."""
+        """Test img_cut with image containing no NaN values."""
         data = np.random.randn(100, 100)
         mask = np.zeros((100, 100), dtype=bool)
         masked_img = ma.masked_array(data, mask=mask)
 
-        cut_img = roi.imgCut(masked_img)
+        cut_img = roi.img_cut(masked_img)
         # Should return full image or slightly trimmed
         assert cut_img.shape[0] >= 90
         assert cut_img.shape[1] >= 90
 
 
 class TestCubeMasterMask:
-    """Test cubeMasterMask function."""
+    """Test cube_master_mask function."""
 
     def test_cube_master_mask_basic(self, sample_cube):
-        """Test cubeMasterMask with basic cube."""
-        master_mask = roi.cubeMasterMask(sample_cube)
+        """Test cube_master_mask with basic cube."""
+        master_mask = roi.cube_master_mask(sample_cube)
 
         assert master_mask.shape == sample_cube.shape[:2]
         assert isinstance(master_mask, np.ndarray)
@@ -130,13 +130,13 @@ class TestCubeMasterMask:
 
         cube = ma.masked_array(data, mask=np.stack(masks, axis=2))
 
-        master_mask = roi.cubeMasterMask(cube)
+        master_mask = roi.cube_master_mask(cube)
         # Master mask should include all masked regions
         assert np.all(master_mask[:10, :10])  # All frames mask this
         assert np.all(master_mask[:15, :15])  # At least one frame masks this
 
     def test_cube_master_mask_single_frame(self):
-        """Test cubeMasterMask with single frame cube."""
+        """Test cube_master_mask with single frame cube."""
         data = np.random.randn(50, 50, 1).astype(np.float32)
         mask = np.zeros((50, 50), dtype=bool)
         mask[:10, :10] = True
@@ -144,7 +144,7 @@ class TestCubeMasterMask:
             data, mask=np.broadcast_to(mask[..., np.newaxis], data.shape)
         )
 
-        master_mask = roi.cubeMasterMask(cube)
+        master_mask = roi.cube_master_mask(cube)
         np.testing.assert_array_equal(master_mask, mask)
 
 

@@ -6,7 +6,7 @@ from .. import typings as _ot
 from ..core.decorators import ReconnectionError as _re
 from ..core.decorators import allow_reconnect as _ar
 from ..ground.logger import SystemLogger as _sl
-from ..core.read_config import getCamerasConfig as _gcc
+from ..core.read_config import get_cameras_config as _gcc
 from ._API import BaseCamera
 
 
@@ -312,7 +312,7 @@ class GigaVision(BaseCamera):
         if len(frames) == 1:
             frames = frames[0]
         else:
-            from ..analyzer import createCube as _cC
+            from ..analyzer import create_cube as _cC
 
             frames = _cC(frames)
 

@@ -38,7 +38,7 @@ def map_stitching(
     _zfit = ZernikeFitter(MM)
     M = len(zern2fit)
     p = xp.asarray(
-        xp.asnumpy([_zfit.makeSurface(i) for i in [[1], [1, 2], [1, 2, 3]]]), dtype=f32
+        xp.asnumpy([_zfit.make_surface(i) for i in [[1], [1, 2], [1, 2, 3]]]), dtype=f32
     )
     Qo = xp.tile(p, (M, 1, 1))
     v_order = xp.reshape(
@@ -131,7 +131,7 @@ def map_stitching(
         )
     print(f"Removing zernike modes {zern2fit}...", end="\r", flush=False)
     ZZ = xp.ma.mean(zzc, axis=0)
-    ZZ = _zfit.removeZernike(ZZ, zern2fit)
+    ZZ = _zfit.remove_zernike(ZZ, zern2fit)
     return ZZ
 
 

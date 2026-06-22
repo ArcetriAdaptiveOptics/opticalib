@@ -56,14 +56,22 @@ class ComputeReconstructor:
         self._intMat = None
 
         # Initialization w/ IM computation
-        self.loadInteractionCube(intCube=interaction_matrix_cube, tn=tn)
-        self._setAnalysisMask()
+        self.load_interaction_cube(intCube=interaction_matrix_cube, tn=tn)
+        self._set_analysis_mask()
 
         self._intMat_U = None
         self._intMat_S = None
         self._intMat_Vt = None
         self._threshold = None
         self._filtered_sv = None
+    
+    @property
+    def IM(self):
+        return self._intMat
+    
+    @property
+    def RM(self):
+        return self._recMat
 
     def run(
         self, sv_threshold: _ot.Optional[int | float] = None, interactive: bool = False
@@ -96,14 +104,14 @@ class ComputeReconstructor:
             print_report=False,
         ):  # as ctx:
             self._logger.info("Reconstructor Computation:")
-            IM, U, S, Vt = self._computeIntMat()
+            im, U, S, Vt = self._compute_int_mat()
             print("Computing Recontruction matrix...")
             if interactive:
                 self._threshold = self.make_interactive_plot(self._intMat_S)
             else:
 
                 if sv_threshold is None:
-                    return _xp.asnumpy(_xp.linalg.pinv(IM))
+                    return _xp.asnumpy(_xp.linalg.pinv(im))
 
                 elif isinstance(sv_threshold, int):
                     self._threshold = {
@@ -127,12 +135,12 @@ class ComputeReconstructor:
             self._logger.info("Computing Reconstructor Matrix: Vt.T @ S_inv @ U.T")
             rec = _xp.asnumpy(Vt.T @ _xp.diag(sv_inv_threshold) @ U.T)
 
-            del IM, U, S, Vt
+            del im, U, S, Vt
             gc.collect()
 
         return rec
 
-    def getSVD(
+    def get_svd(
         self,
     ) -> _ot.Optional[tuple[_ot.MatrixLike, _ot.ArrayLike, _ot.MatrixLike]]:
         """
@@ -154,7 +162,7 @@ class ComputeReconstructor:
         print("SVD has not been computed yet. Run the 'run' method first.")
         return None
 
-    def loadShape2Flat(self, img: _ot.ImageData) -> "ComputeReconstructor":
+    def load_shape2_flat(self, img: _ot.ImageData) -> "ComputeReconstructor":
         """
         Function intended as a reloader for the image mask to intersect, in order
         to create a new recontructor matrix.
@@ -168,7 +176,7 @@ class ComputeReconstructor:
         self._imgMask = self._shape2flat.mask
         return self
 
-    def loadInteractionCube(
+    def load_interaction_cube(
         self, intCube: _ot.Optional[_ot.MatrixLike] = None, tn: str = None
     ) -> "ComputeReconstructor":
         """
@@ -194,10 +202,10 @@ class ComputeReconstructor:
             self._intMatCube = _osu.read_phasemap(cube_path)
         else:
             raise KeyError("No cube or tracking number was provided.")
-        self._setAnalysisMask()
+        self._set_analysis_mask()
         return self
 
-    def _computeIntMat(
+    def _compute_int_mat(
         self,
     ) -> tuple[_ot.MatrixLike, _ot.MatrixLike, _ot.ArrayLike, _ot.MatrixLike]:
         """
@@ -219,7 +227,7 @@ class ComputeReconstructor:
             print("Computing Interaction Matrix...", end="\n")
 
             try:
-                self._setAnalysisMask()
+                self._set_analysis_mask()
                 self._intMat = _np.array(
                     [
                         (self._intMatCube[:, :, i].data)[self._analysisMask == 0]
@@ -227,8 +235,8 @@ class ComputeReconstructor:
                     ]
                 )
                 self._logger.info("SVD of Interaction Matrix")
-                IM = _xp.asarray(self._intMat, dtype=_xp.float)
-                U, S, Vt = _xp.linalg.svd(IM, full_matrices=False)
+                im = _xp.asarray(self._intMat, dtype=_xp.float)
+                U, S, Vt = _xp.linalg.svd(im, full_matrices=False)
                 self._intMat_U, self._intMat_S, self._intMat_Vt = [
                     _xp.asnumpy(x) for x in (U, S, Vt)
                 ]
@@ -237,7 +245,7 @@ class ComputeReconstructor:
                     f"Computed interaction matrix of shape {self._intMat.shape}"
                 )
 
-                return IM, U, S, Vt
+                return im, U, S, Vt
 
             except Exception as e:
                 self._logger.error(
@@ -250,25 +258,25 @@ class ComputeReconstructor:
             for x in (self._intMat, self._intMat_U, self._intMat_S, self._intMat_Vt)
         )
 
-    def _setAnalysisMask(self) -> _ot.MaskData:
+    def _set_analysis_mask(self) -> _ot.MaskData:
         """
         Sets the analysis mask as the mask resulting from the 'logical_or' between
         the cube mask and the image to flatten mask.
         """
         # Handling for the instancing of the class with the cube, but without the image to flatten mask.
         if self._cubeMask is None:
-            self._cubeMask = self._intersectCubeMask()
+            self._cubeMask = self._intersect_cube_mask()
 
         try:
             if self._imgMask is None:
-                analysisMask = self._cubeMask
+                analysis_mask = self._cubeMask
             else:
-                analysisMask = _np.logical_or(self._cubeMask, self._imgMask)
+                analysis_mask = _np.logical_or(self._cubeMask, self._imgMask)
 
         except Exception as e:
             raise e
 
-        self._analysisMask = analysisMask
+        self._analysisMask = analysis_mask
 
     def _mask2intersect(
         self, img_or_mask: _ot.Optional[_ot.MatrixLike | _ot.ImageData] = None
@@ -295,7 +303,7 @@ class ComputeReconstructor:
             mask = None
         return mask
 
-    def _intersectCubeMask(self) -> _ot.MatrixLike:
+    def _intersect_cube_mask(self) -> _ot.MatrixLike:
         """
         Creates the cube's mask by intersecating the masks of each frame.
 

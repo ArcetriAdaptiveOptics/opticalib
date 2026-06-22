@@ -29,10 +29,10 @@ class PupilCalibrator:
         self._tn = tn
         self._iffCube: _ot.CubeData | None = None
         self.IFM: _ot.MatrixLike | None = None
-        self._loadIFMatrix()
+        self._load_if_matrix()
 
     @property
-    def dmCoords(self) -> _ot.MatrixLike:
+    def dm_coords(self) -> _ot.MatrixLike:
         """
         Returns the actuator coordinates of the DM.
         """
@@ -47,13 +47,13 @@ class PupilCalibrator:
         #
         ...
 
-    def _getTranformationMatrix(self) -> _ot.MatrixLike: ...
+    def _get_tranformation_matrix(self) -> _ot.MatrixLike: ...
 
-    def _getCurrentActCoords(self) -> _ot.MatrixLike: ...
+    def _get_current_act_coords(self) -> _ot.MatrixLike: ...
 
-    def _getCalibrationActCoords(self): ...
+    def _get_calibration_act_coords(self): ...
 
-    def maskTransform(self, mask: _ot.ImageData, geometry) -> _ot.ImageData:
+    def mask_transform(self, mask: _ot.ImageData, geometry) -> _ot.ImageData:
         """
         Transforms the given mask to the given geometry
 
@@ -71,7 +71,7 @@ class PupilCalibrator:
         """
         ...
 
-    def remapIff(self, mask: _ot.ImageData, geometry) -> _ot.MatrixLike:
+    def remap_iff(self, mask: _ot.ImageData, geometry) -> _ot.MatrixLike:
         """
         Fits the IFFs to the given mask and geometry
 
@@ -89,7 +89,7 @@ class PupilCalibrator:
         """
         IFM = self.IFM.copy()
 
-    def fitShape2Command(
+    def fit_shape2_command(
         self,
         target_shape: _ot.ImageData,
         mask: _ot.ImageData,
@@ -119,7 +119,7 @@ class PupilCalibrator:
         raw_cmd = remapped_IFF @ masked_shape
         return raw_cmd
 
-    def slaveCoords(
+    def slave_coords(
         self, raw_cmd: _ot.ArrayLike, slave_ids: list[int], slaving_method: str = "zero"
     ) -> _ot.ArrayLike:
         """
@@ -173,7 +173,7 @@ class PupilCalibrator:
                 )
         return cmd
 
-    def _loadIFMatrix(self) -> None:
+    def _load_if_matrix(self) -> None:
         """
         Loads the calibration Cube (IffCube) and computes the interaction matrix (IFM).
         """

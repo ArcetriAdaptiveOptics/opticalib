@@ -19,7 +19,7 @@ from skimage import measure as _meas
 from opticalib import typings as _ot
 
 
-def roiGenerator(
+def roi_generator(
     img: _ot.ImageData, island_pixel_threshold: int = 100
 ) -> list[_ot.ImageData]:
     """
@@ -51,7 +51,7 @@ def roiGenerator(
     return roiList
 
 
-def countRois(img: _ot.ImageData, island_pixel_threshold: int = 100) -> int:
+def count_rois(img: _ot.ImageData, island_pixel_threshold: int = 100) -> int:
     """
     Counts the number of distinct regions of interest (ROIs) in a masked image.
 
@@ -81,7 +81,7 @@ def countRois(img: _ot.ImageData, island_pixel_threshold: int = 100) -> int:
     return n_rois
 
 
-def imgCut(img: _ot.ImageData):
+def img_cut(img: _ot.ImageData):
     """
     Cuts the image to the bounding box of the finite (non-NaN) pixels in the masked image.
 
@@ -106,7 +106,7 @@ def imgCut(img: _ot.ImageData):
     return cutImg
 
 
-def cubeMasterMask(cube: _ot.CubeData, apply: bool = False) -> _ot.ImageData:
+def cube_master_mask(cube: _ot.CubeData, apply: bool = False) -> _ot.ImageData:
     """
     Generates a master mask for a cube by combining the masks of all individual frames.
 
@@ -205,4 +205,4 @@ def remap_on_new_mask(
     return remasked_data
 
 
-__all__ = ["roiGenerator", "countRois", "imgCut", "cubeMasterMask", "remap_on_new_mask"]
+__all__ = ["roi_generator", "count_rois", "img_cut", "cube_master_mask", "remap_on_new_mask"]

@@ -7,7 +7,7 @@ from opticalib import folders as _fn
 from opticalib.ground import osutils as _osu
 from . import iff_module as _iff, iff_processing as _ifp
 from opticalib import typings as _ot
-from opticalib.core.read_config import getStitchingConfig as _gsc
+from opticalib.core.read_config import get_section_config as _gsc
 from ._stitching_algorithm import map_stitching as _map_stitching
 from skimage.draw import disk as _disk
 
@@ -22,10 +22,10 @@ class StitchAnalysis:
 
     def __init__(self, tn: _ot.Optional[str] = None):
         """The Initiation"""
-        self.constants = _gsc()
+        self.constants = _gsc("STITCHING")
         self.tn = tn
 
-    def processTns(self, tnvec: tuple[str, tuple[float, float] | list[float]]) -> str:
+    def process_tns(self, tnvec: tuple[str, tuple[float, float] | list[float]]) -> str:
         """
         Process the IFF obtained during the acquisition, and produces the modes and cubes
         for each position, and produces a cube for each IFF in different positions.
@@ -53,18 +53,18 @@ class StitchAnalysis:
             full_coord_header.update(header)
             captured_output = _io.StringIO()
             with _clib.redirect_stdout(captured_output):
-                _ifp.saveCube(tn=tn, cube_header=header)
-        amat = _osu.getFileList(tnvec[0][0], fold="IntMatrices", key="cmdMat")
+                _ifp.save_cube(tn=tn, cube_header=header)
+        amat = _osu.get_file_list(tnvec[0][0], fold="IntMatrices", key="cmdMat")
         _cp(amat, _os.path.join(dir, _ifp.cmdMatFile))
-        for i in range(self.dm.nActs):
+        for i in range(self.dm.n_acts):
             modevec = []
             for k, (tn, _) in enumerate(tnvec):
                 print(
-                    f"Processing Mode {i+1}/{self.dm.nActs} : {k/len(tnvec)*100}",
+                    f"Processing Mode {i+1}/{self.dm.n_acts} : {k/len(tnvec)*100}",
                     end="\r",
                     flush=True,
                 )
-                fl = _osu.getFileList(tn, fold="IFFunctions", key="mode_")
+                fl = _osu.get_file_list(tn, fold="IFFunctions", key="mode_")
                 img = _osu.load_fits(fl[i])
                 modevec.append(img)
             modevec = _np.ma.dstack(modevec)
@@ -75,7 +75,7 @@ class StitchAnalysis:
             )
         return newtn
 
-    def stitchAllIffCubes(
+    def stitch_all_iff_cubes(
         self, tn: str = None, **stitchargs: dict[str, _ot.Any]
     ) -> _ot.CubeData:
         """
@@ -119,15 +119,15 @@ class StitchAnalysis:
         dir = _os.path.join(_fn.INTMAT_ROOT_FOLDER, newtn)
         if not _os.path.exists(dir):
             _os.mkdir(dir)
-        cubelist = _osu.getFileList(tn, fold="INTMatrices", key="mode_")
-        cmdmat = _osu.getFileList(tn, fold="INTMatrices", key="cmdMat")
+        cubelist = _osu.get_file_list(tn, fold="INTMatrices", key="mode_")
+        cmdmat = _osu.get_file_list(tn, fold="INTMatrices", key="cmdMat")
         _cp(cmdmat, _os.path.join(dir, _ifp.cmdMatFile))
         stitch_list = []
         for m, cube in enumerate(cubelist):
             print(f"Mode {m}", flush=True)
             cube, header = _osu.load_fits(cube, True)
             stitch_list.append(
-                self.stitchSingleIffCube(cube=cube, header=header, **stitchargs)
+                self.stitch_single_iff_cube(cube=cube, header=header, **stitchargs)
             )
         rebin = header.get("REBIN", 1)
         stitched = _np.ma.dstack(stitch_list)
@@ -149,7 +149,7 @@ class StitchAnalysis:
         _osu.save_fits(_os.path.join(dir, "IMCube.fits"), stitched, header=header)
         return newtn
 
-    def stitchSingleIffCube(
+    def stitch_single_iff_cube(
         self,
         cube: _ot.CubeData,
         header: dict[str, _ot.Any] | _ot.Header,
@@ -186,7 +186,7 @@ class StitchAnalysis:
             The stitched image
         """
         cube = self._check_cube_dimension(cube)
-        coords = self.retrieveCubeCoords(n_positions=cube.shape[0], header=header)
+        coords = self.retrieve_cube_coords(n_positions=cube.shape[0], header=header)
         step = _np.abs(coords[0, 0] - coords[1, 0])
         coords = self._transform_coord(coords, deg=deg)
         ocube = cube.copy()
@@ -214,14 +214,14 @@ class StitchAnalysis:
             del ocoords
             gc.collect()
         if remask:
-            cube, coords = self.remaskCube(remask, cube, coords, mask_threshold)
+            cube, coords = self.remask_cube(remask, cube, coords, mask_threshold)
         if average is not None:
             pass
         fm, iv = self._prepare_masks_and_images(cube, coords)
         stitched = _map_stitching(iv, fm, [1, 2, 3], iv.shape[0])
         return stitched
 
-    def stitchSingleScansionCube(
+    def stitch_single_scansion_cube(
         self,
         tn: str,
         deg: float = None,
@@ -247,10 +247,10 @@ class StitchAnalysis:
         """
         if deg is None:
             deg = self.constants["alpha"]
-        cube, header = self.getCubeAndHeader(
+        cube, header = self.get_cube_and_header(
             _os.path.join(_fn.OPD_IMAGES_ROOT_FOLDER, tn, "cube.fits")
         )
-        coords = self.retrieveCubeCoords(n_positions=cube.shape[0], header=header)
+        coords = self.retrieve_cube_coords(n_positions=cube.shape[0], header=header)
         coords = self._transform_coord(coords, deg=deg)
         if average is not None:
             pass
@@ -258,7 +258,7 @@ class StitchAnalysis:
         stitched = _map_stitching(iv, fm, [1, 2, 3], mp_chunk_size=chunk_size)
         return stitched
 
-    def remaskCube(
+    def remask_cube(
         self,
         mask_radius: float,
         cube: _ot.CubeData,
@@ -308,7 +308,7 @@ class StitchAnalysis:
         new_cube = _np.transpose(new_cube, (2, 0, 1))
         return new_cube, _np.array(new_coords)
 
-    def retrieveCubeCoords(
+    def retrieve_cube_coords(
         self, n_positions: int, header: dict[str, _ot.Any] | _ot.Header
     ) -> _ot.ArrayLike:
         """
@@ -331,7 +331,7 @@ class StitchAnalysis:
             coords.append((header[f"X{ii}"], header[f"Z{ii}"]))
         return _np.array(coords)
 
-    def getCubeAndHeader(
+    def get_cube_and_header(
         self, filepath: str
     ) -> tuple[_ot.CubeData, dict[str, _ot.Any]]:
         """
@@ -352,7 +352,7 @@ class StitchAnalysis:
         cube = self._check_cube_dimension(cube)
         return cube, cube.header
 
-    def reloadConstants(self) -> None:
+    def reload_constants(self) -> None:
         """Reload the constants from the configuration file"""
         self.constants = _gsc()
         print("Constants reloaded")
@@ -493,7 +493,7 @@ class StitchAcquire:
         self._lastCommandedCoords = [-999, -999]
         self.cvec = None
 
-    def getAxisPosition(self) -> dict[str, float]:
+    def get_axis_position(self) -> dict[str, float]:
         """
         Get the current position of the motor's axis.
 
@@ -510,7 +510,7 @@ class StitchAcquire:
         self.axis_pos = positions
         return positions
 
-    def setAxisPosition(self, coord: list[float]):
+    def set_axis_position(self, coord: list[float]):
         """
         Set the position of the motor's axis to the specified coordinates.
 
@@ -531,7 +531,7 @@ class StitchAcquire:
         self._lastCommandedCoords = coord
         print(f"Reached position [{x},{z}]")
 
-    def getCoordinatesVector(
+    def get_coordinates_vector(
         self, nstep: int, step_in_mm: tuple[int, int] = (3, 3), live_pos: bool = False
     ) -> list[tuple[float, float]]:
         """
@@ -557,7 +557,7 @@ class StitchAcquire:
         xstep, ystep = step_in_mm
         coord = []
         if live_pos:
-            curr_pos = self.getAxisPosition()
+            curr_pos = self.get_axis_position()
             start_pos = [int(curr_pos["x"]), int(curr_pos["z"])]
         else:
             start_pos = self.constants["starting_coords"]
@@ -573,7 +573,7 @@ class StitchAcquire:
             coord.extend(row)
         return coord
 
-    def acquireSingleScan(
+    def acquire_single_scan(
         self, coord_vec: list[float], nframes: int = 1, homing: bool = True
     ) -> str:
         """
@@ -612,7 +612,7 @@ class StitchAcquire:
             )
             co = _io.StringIO()
             with _clib.redirect_stdout(co):
-                self.setAxisPosition(xz)
+                self.set_axis_position(xz)
             imglist.append(self.interf.acquire_map(nframes=nframes))
         cube = _np.ma.dstack(imglist)
         _osu.save_fits(_os.path.join(ddir, "cube.fits"), cube, header=header)
@@ -620,7 +620,7 @@ class StitchAcquire:
             self.axis.homing()
         return tn
 
-    def acquireSubApertureIFF(
+    def acquire_sub_aperture_iff(
         self, coord_vec: list[float]
     ) -> list[tuple[str, tuple[float, float]]]:
         """
@@ -638,8 +638,8 @@ class StitchAcquire:
         """
         tnvec = []
         for _, xz in enumerate(coord_vec):
-            self.setAxisPosition(xz)
-            tn = _iff.iffDataAcquisition(self.dm, self.interf)
+            self.set_axis_position(xz)
+            tn = _iff.iff_data_acquisition(self.dm, self.interf)
             tnvec.append([tn, xz])
         self.axis.homing()
         return tnvec

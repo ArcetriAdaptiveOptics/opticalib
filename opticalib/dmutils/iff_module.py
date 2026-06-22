@@ -18,7 +18,7 @@ from opticalib.ground import osutils as _osu
 from opticalib import typings as _ot
 
 
-def iffDataAcquisition(
+def iff_data_acquisition(
     dm: _ot.DeformableMirrorDevice,
     interf: _ot.InterferometerDevice,
     modesList: _ot.Optional[_ot.ArrayLike] = None,
@@ -65,7 +65,7 @@ def iffDataAcquisition(
         The tracking number of the dataset acquired, saved in the OPDImages folder
     """
     ifc = _ifa.IFFCapturePreparation(dm)
-    tch = ifc.createTimedCmdHistory(
+    tch = ifc.create_timed_cmd_history(
         modesList=modesList,
         modesAmp=amplitude,
         template=template,
@@ -73,15 +73,15 @@ def iffDataAcquisition(
         modalBase=modalbase,
         n_repetitions=n_repetitions,
     )
-    info = ifc.getInfoToSave()
-    tn, _ = _prepareData2Save(info)
-    _rif.copyIffConfigFile(tn)
+    info = ifc.get_info_to_save()
+    tn, _ = _prepare_data2_save(info)
+    _rif.copy_iff_config_file(tn)
     for param, value in zip(
         ["modeid", "modeamp", "template"], [modesList, amplitude, template]
     ):
         if value is not None:
-            _rif.updateIffConfig(tn, param, value)
-    dm.uploadCmdHistory(tch)
+            _rif.update_iff_config(tn, param, value)
+    dm.upload_cmd_history(tch)
     if read_buffer is not False:
         try:
             if not hasattr(dm, "read_buffer"):
@@ -93,16 +93,16 @@ def iffDataAcquisition(
             else:
                 rb_kwargs = {}
             with dm.read_buffer(**rb_kwargs):
-                dm.runCmdHistory(interf, save=tn)
-            saveBufferData(dm, tn)
+                dm.run_cmd_history(interf, save=tn)
+            save_buffer_data(dm, tn)
         except _oe.BufferError as be:
             print(be)
     else:
-        _ = dm.runCmdHistory(interf, save=tn)
+        _ = dm.run_cmd_history(interf, save=tn)
     return tn
 
 
-def acquirePistonData(
+def acquire_piston_data(
     dm: _ot.DeformableMirrorDevice,
     interf: _ot.InterferometerDevice,
     segmentID: int = 0,
@@ -151,8 +151,8 @@ def acquirePistonData(
         The tracking number of the dataset acquired, saved in the OPDImages folder
     """
     ifc = _ifa.IFFCapturePreparation(dm)
-    amps = _prepareSteppingAmplitudes(template, nstep, stepamp, reverse)
-    cmdmat = _np.full((dm.nActs, len(amps)), 1.0)
+    amps = _prepare_stepping_amplitudes(template, nstep, stepamp, reverse)
+    cmdmat = _np.full((dm.n_acts, len(amps)), 1.0)
 
     # check if dm is segmented
     try:
@@ -177,25 +177,25 @@ def acquirePistonData(
 
     modeslist = _np.arange(len(ampvec))
 
-    tch = ifc.createTimedCmdHistory(cmdmat, modeslist, ampvec, template, shuffle=False)
-    info = ifc.getInfoToSave()
+    tch = ifc.create_timed_cmd_history(cmdmat, modeslist, ampvec, template, shuffle=False)
+    info = ifc.get_info_to_save()
 
     # Hacking the standard IFF procedure
     info["ampVector"] = _np.asarray(ampvec)
     info["template"] = _np.asarray(template)
-    info["cmdMatrix"] = _np.full((dm.nActs, len(amps)), 1.0)
-    info["modesVector"] = modeslist
+    info["cmdMatrix"] = _np.full((dm.n_acts, len(amps)), 1.0)
+    info["modes_vector"] = modeslist
     info["indexList"] = modeslist
     info["shuffle"] = 0
-    tn, _ = _prepareData2Save(info)
+    tn, _ = _prepare_data2_save(info)
 
-    _rif.copyIffConfigFile(tn)
+    _rif.copy_iff_config_file(tn)
     for param, value in zip(
         ["modeid", "modeamp", "template"], [modeslist, ampvec, template]
     ):
         if value is not None:
-            _rif.updateIffConfig(tn, param, value)
-    dm.uploadCmdHistory(tch)
+            _rif.update_iff_config(tn, param, value)
+    dm.upload_cmd_history(tch)
     if read_buffer is not False:
         try:
             if not hasattr(dm, "read_buffer"):
@@ -207,16 +207,16 @@ def acquirePistonData(
             else:
                 rb_kwargs = {}
             with dm.read_buffer(**rb_kwargs):
-                dm.runCmdHistory(interf, save=tn, differential=differential)
-            saveBufferData(dm, tn)
+                dm.run_cmd_history(interf, save=tn, differential=differential)
+            save_buffer_data(dm, tn)
         except _oe.BufferError as be:
             print(be)
     else:
-        _ = dm.runCmdHistory(interf, save=tn, differential=differential)
+        _ = dm.run_cmd_history(interf, save=tn, differential=differential)
     return tn
 
 
-def saveBufferData(dm: _ot.DeformableMirrorDevice, tn_or_fp: str):
+def save_buffer_data(dm: _ot.DeformableMirrorDevice, tn_or_fp: str):
     """
     Saves the buffer data from the deformable mirror device into a FITS file.
 
@@ -241,7 +241,7 @@ def saveBufferData(dm: _ot.DeformableMirrorDevice, tn_or_fp: str):
     _osu.save_h5(bdata, iffpath, overwrite=True)
 
 
-def _prepareData2Save(info: dict[str, _ot.Any]) -> tuple[str, str]:
+def _prepare_data2_save(info: dict[str, _ot.Any]) -> tuple[str, str]:
     """
     Manages the creation of the folder to save the IFF data and saves
     the info dictionary in it, which comprehends:
@@ -285,7 +285,7 @@ def _prepareData2Save(info: dict[str, _ot.Any]) -> tuple[str, str]:
     return tn, iffpath
 
 
-def _prepareSteppingAmplitudes(
+def _prepare_stepping_amplitudes(
     template: list[int], nstep: int, stepamp: float = 70e-9, reverse: bool = False
 ) -> _ot.ArrayLike:
     """

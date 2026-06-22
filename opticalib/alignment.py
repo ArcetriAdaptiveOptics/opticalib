@@ -83,12 +83,12 @@ local amplitude measured on each of the segment.
 import os as _os
 import numpy as _np
 from .core.root import folders as _fn
-from .core.read_config import getAlignmentConfig as _gac
+from .core.read_config import get_alignment_config as _gac
 from .ground import logger as _logger, roi as roigen
 from .ground.modal_decomposer import ZernikeFitter as _zfitter
 from .ground import osutils as _osu
 from . import typings as _ot
-from .analyzer import pushPullReductionAlgorithm as _ppr
+from .analyzer import push_pull_reduction_algorithm as _ppr
 
 _sc = _gac()
 _np.set_printoptions(precision=2, suppress=False)
@@ -152,10 +152,10 @@ class Alignment:
         self.mdev = mechanical_devices
         self.ccd = acquisition_devices
         self.cmdMat = _osu.load_fits(
-            _os.path.join(_fn.CONTROL_MATRIX_FOLDER, _sc.commandMatrix)
+            _os.path.join(_fn.CONTROL_MATRIX_FOLDER, _sc.command_matrix)
         )
         self._calibtn = calibtn
-        self.intMat = self.__loadIntMat(calibtn)
+        self.intMat = self.__load_int_mat(calibtn)
         self.recMat = None
         self._cmdAmp = None
         self._surface = (
@@ -183,7 +183,7 @@ class Alignment:
         self._template = _sc.push_pull_template
         self._correct_cavity = True
         self._dataPath = _fn.ALIGNMENT_ROOT_FOLDER
-        self._txt = _logger.txtLogger(
+        self._txt = _logger.TxtLogger(
             _os.path.join(_fn.LOGGING_ROOT_FOLDER, "Record.txt")
         )
         self._logger = _logger.SystemLogger(__class__)
@@ -258,7 +258,7 @@ class Alignment:
         if save:
             files: list[str] = ["AlignmentDeltaCmd.fits"]
             for dev in self._devName:
-                files.append(f"{dev}DeltaCmd.fits")
+                files.append(f"{dev}delta_cmd.fits")
             commands = [f_cmd] + self._extract_cmds_to_apply(f_cmd)
             header = {}
             header["CALIBTN"] = self._calibtn if self._calibtn is not None else "None"
@@ -379,7 +379,7 @@ class Alignment:
         """
         self._logger.info(f"Loading calibration from tracking number '{tn}'")
         self._calibtn = tn
-        self.intMat = self.__loadIntMat(tn)
+        self.intMat = self.__load_int_mat(tn)
         print(f"Calibration loaded from '{tn}'")
 
     def _images_production(
@@ -462,7 +462,7 @@ class Alignment:
             else:
                 if self._correct_cavity is True:
                     img -= 2 * self._surface
-                coeff = self._zfit.fitOnRoi(img, self._zvec2fit, "global")
+                coeff = self._zfit.fit_on_roi(img, self._zvec2fit, "global")
             coefflist.append(coeff[self._zvec2use])
         if len(coefflist) == 1:
             coefflist = _np.array([c for c in coefflist[0]])
@@ -581,7 +581,7 @@ class Alignment:
             imglist.append(img)
         return imglist
 
-    def __loadIntMat(self, calibtn: str | None) -> _ot.MatrixLike:
+    def __load_int_mat(self, calibtn: str | None) -> _ot.MatrixLike:
         """
         Loads the interaction matrix from a FITS file based on the provided tracking number.
 

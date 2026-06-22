@@ -16,7 +16,7 @@ class TestIFFCapturePreparation:
         """Test IFFCapturePreparation initialization."""
         prep = ifa.IFFCapturePreparation(mock_dm)
 
-        assert prep._NActs == mock_dm.nActs
+        assert prep._NActs == mock_dm.n_acts
         assert prep.mirrorModes is not None
         assert prep._modalBase is not None
 
@@ -27,9 +27,9 @@ class TestIFFCapturePreparation:
         with pytest.raises(DeviceError):
             ifa.IFFCapturePreparation(invalid_dm)
 
-    @patch("opticalib.dmutils.iff_acquisition_preparation._getAcqInfo")
-    @patch("opticalib.dmutils.iff_acquisition_preparation._rif.getTiming")
-    @patch("opticalib.dmutils.iff_acquisition_preparation._rif.getIffConfig")
+    @patch("opticalib.dmutils.iff_acquisition_preparation._get_acq_info")
+    @patch("opticalib.dmutils.iff_acquisition_preparation._rif.get_timing")
+    @patch("opticalib.dmutils.iff_acquisition_preparation._rif.get_iff_config")
     def test_create_timed_cmd_history_basic(
         self,
         mock_get_iff_config,
@@ -136,15 +136,15 @@ class TestIFFCapturePreparation:
         mock_get_iff_config.side_effect = fake_get_iff_config
 
         prep = ifa.IFFCapturePreparation(mock_dm)
-        tch = prep.createTimedCmdHistory()
+        tch = prep.create_timed_cmd_history()
 
         assert tch is not None
         assert isinstance(tch, np.ndarray)
         assert prep.timedCmdHistory is not None
 
-    @patch("opticalib.dmutils.iff_acquisition_preparation._getAcqInfo")
-    @patch("opticalib.dmutils.iff_acquisition_preparation._rif.getTiming")
-    @patch("opticalib.dmutils.iff_acquisition_preparation._rif.getIffConfig")
+    @patch("opticalib.dmutils.iff_acquisition_preparation._get_acq_info")
+    @patch("opticalib.dmutils.iff_acquisition_preparation._rif.get_timing")
+    @patch("opticalib.dmutils.iff_acquisition_preparation._rif.get_iff_config")
     def test_create_timed_cmd_history_with_modes(
         self,
         mock_get_iff_config,
@@ -252,14 +252,14 @@ class TestIFFCapturePreparation:
 
         prep = ifa.IFFCapturePreparation(mock_dm)
         modes = [1, 2, 3, 4, 5]
-        tch = prep.createTimedCmdHistory(modesList=modes)
+        tch = prep.create_timed_cmd_history(modesList=modes)
 
         assert tch is not None
         assert prep._modesList is not None
 
-    @patch("opticalib.dmutils.iff_acquisition_preparation._getAcqInfo")
-    @patch("opticalib.dmutils.iff_acquisition_preparation._rif.getTiming")
-    @patch("opticalib.dmutils.iff_acquisition_preparation._rif.getIffConfig")
+    @patch("opticalib.dmutils.iff_acquisition_preparation._get_acq_info")
+    @patch("opticalib.dmutils.iff_acquisition_preparation._rif.get_timing")
+    @patch("opticalib.dmutils.iff_acquisition_preparation._rif.get_iff_config")
     def test_create_timed_cmd_history_with_shuffle(
         self,
         mock_get_iff_config,
@@ -366,15 +366,15 @@ class TestIFFCapturePreparation:
         mock_get_iff_config.side_effect = fake_get_iff_config
 
         prep = ifa.IFFCapturePreparation(mock_dm)
-        modes = np.arange(mock_dm.nActs)
-        tch = prep.createTimedCmdHistory(modesList=modes, shuffle=True)
+        modes = np.arange(mock_dm.n_acts)
+        tch = prep.create_timed_cmd_history(modesList=modes, shuffle=True)
 
         assert tch is not None
         assert prep._shuffle == 1
 
-    @patch("opticalib.dmutils.iff_acquisition_preparation._getAcqInfo")
-    @patch("opticalib.dmutils.iff_acquisition_preparation._rif.getTiming")
-    @patch("opticalib.dmutils.iff_acquisition_preparation._rif.getIffConfig")
+    @patch("opticalib.dmutils.iff_acquisition_preparation._get_acq_info")
+    @patch("opticalib.dmutils.iff_acquisition_preparation._rif.get_timing")
+    @patch("opticalib.dmutils.iff_acquisition_preparation._rif.get_iff_config")
     def test_get_info_to_save(
         self,
         mock_get_iff_config,
@@ -481,18 +481,18 @@ class TestIFFCapturePreparation:
         mock_get_iff_config.side_effect = fake_get_iff_config
 
         prep = ifa.IFFCapturePreparation(mock_dm)
-        prep.createTimedCmdHistory()
-        info = prep.getInfoToSave()
+        prep.create_timed_cmd_history()
+        info = prep.get_info_to_save()
 
         assert isinstance(info, dict)
         assert "timedCmdHistory" in info
         assert "cmdMatrix" in info
-        assert "modesVector" in info
+        assert "modes_vector" in info
         assert "template" in info
         assert "shuffle" in info
 
-    @patch("opticalib.dmutils.iff_acquisition_preparation._getAcqInfo")
-    @patch("opticalib.dmutils.iff_acquisition_preparation._rif.getIffConfig")
+    @patch("opticalib.dmutils.iff_acquisition_preparation._get_acq_info")
+    @patch("opticalib.dmutils.iff_acquisition_preparation._rif.get_iff_config")
     def test_create_cmd_matrix_history(
         self, mock_get_iff_config, mock_get_info, mock_dm, temp_dir, monkeypatch
     ):
@@ -592,14 +592,14 @@ class TestIFFCapturePreparation:
         mock_get_iff_config.side_effect = fake_get_iff_config
 
         prep = ifa.IFFCapturePreparation(mock_dm)
-        cmd_hist = prep.createCmdMatrixHistory()
+        cmd_hist = prep.create_cmd_matrix_history()
 
         assert cmd_hist is not None
         assert isinstance(cmd_hist, np.ndarray)
         assert prep.cmdMatHistory is not None
 
-    @patch("opticalib.dmutils.iff_acquisition_preparation._rif.getIffConfig")
-    @patch("opticalib.dmutils.iff_acquisition_preparation._getAcqInfo")
+    @patch("opticalib.dmutils.iff_acquisition_preparation._rif.get_iff_config")
+    @patch("opticalib.dmutils.iff_acquisition_preparation._get_acq_info")
     def test_create_aux_cmd_history(self, mock_get_info, mock_get_iff_config, mock_dm):
         """Test creating auxiliary command history."""
         mock_get_info.return_value = (
@@ -652,7 +652,7 @@ class TestIFFCapturePreparation:
         mock_get_iff_config.side_effect = fake_get_iff_config
 
         prep = ifa.IFFCapturePreparation(mock_dm)
-        aux_hist = prep.createAuxCmdHistory()
+        aux_hist = prep.create_aux_cmd_history()
 
         assert (
             aux_hist is not None or prep.auxCmdHistory is None
@@ -661,20 +661,20 @@ class TestIFFCapturePreparation:
     def test_create_zonal_mat(self, mock_dm):
         """Test creating zonal matrix."""
         prep = ifa.IFFCapturePreparation(mock_dm)
-        zonal = prep._createZonalMat()
+        zonal = prep._create_zonal_mat()
 
         assert zonal is not None
-        assert zonal.shape == (mock_dm.nActs, mock_dm.nActs)
+        assert zonal.shape == (mock_dm.n_acts, mock_dm.n_acts)
         # Zonal should be identity matrix
-        np.testing.assert_array_equal(zonal, np.eye(mock_dm.nActs))
+        np.testing.assert_array_equal(zonal, np.eye(mock_dm.n_acts))
 
     def test_create_hadamard_mat(self, mock_dm):
         """Test creating Hadamard matrix."""
         prep = ifa.IFFCapturePreparation(mock_dm)
-        hadamard = prep._createHadamardMat()
+        hadamard = prep._create_hadamard_mat()
 
         assert hadamard is not None
-        assert hadamard.shape[0] == mock_dm.nActs
+        assert hadamard.shape[0] == mock_dm.n_acts
 
     @patch("opticalib.dmutils.iff_acquisition_preparation._osu.load_fits")
     def test_create_user_mat(self, mock_load_fits, mock_dm, temp_dir, monkeypatch):
@@ -697,7 +697,7 @@ class TestIFFCapturePreparation:
         mock_load_fits.return_value = test_modal
 
         prep = ifa.IFFCapturePreparation(mock_dm)
-        user_mat = prep._createUserMat("test_modal.fits")
+        user_mat = prep._create_user_mat("test_modal.fits")
 
         assert user_mat is not None
         assert user_mat.shape == (100, 50)
@@ -705,7 +705,7 @@ class TestIFFCapturePreparation:
     def test_update_modal_base_mirror(self, mock_dm):
         """Test updating modal base to mirror."""
         prep = ifa.IFFCapturePreparation(mock_dm)
-        prep._updateModalBase("mirror")
+        prep._update_modal_base("mirror")
 
         assert prep.modalBaseId == "mirror"
         np.testing.assert_array_equal(prep._modalBase, mock_dm.mirrorModes)
@@ -713,24 +713,24 @@ class TestIFFCapturePreparation:
     def test_update_modal_base_zonal(self, mock_dm):
         """Test updating modal base to zonal."""
         prep = ifa.IFFCapturePreparation(mock_dm)
-        prep._updateModalBase("zonal")
+        prep._update_modal_base("zonal")
 
         assert prep.modalBaseId == "zonal"
-        assert prep._modalBase.shape == (mock_dm.nActs, mock_dm.nActs)
+        assert prep._modalBase.shape == (mock_dm.n_acts, mock_dm.n_acts)
 
     def test_update_modal_base_hadamard(self, mock_dm):
         """Test updating modal base to Hadamard."""
         prep = ifa.IFFCapturePreparation(mock_dm)
-        prep._updateModalBase("hadamard")
+        prep._update_modal_base("hadamard")
 
         assert prep.modalBaseId == "hadamard"
-        assert prep._modalBase.shape[0] == mock_dm.nActs
+        assert prep._modalBase.shape[0] == mock_dm.n_acts
 
-    @patch("opticalib.dmutils.iff_acquisition_preparation._getAcqInfo")
+    @patch("opticalib.dmutils.iff_acquisition_preparation._get_acq_info")
     def test_create_cmd_matrix_history_invalid_n_repetitions(
         self, mock_get_info, mock_dm
     ):
-        """Test that createCmdMatrixHistory raises ValueError for invalid n_repetitions."""
+        """Test that create_cmd_matrix_history raises ValueError for invalid n_repetitions."""
         mock_get_info.return_value = (
             None,
             None,
@@ -747,13 +747,13 @@ class TestIFFCapturePreparation:
 
         # Test n_repetitions = 0
         with pytest.raises(ValueError, match="n_repetitions must be >= 1"):
-            prep.createCmdMatrixHistory(modesList=np.arange(5), n_repetitions=0)
+            prep.create_cmd_matrix_history(modesList=np.arange(5), n_repetitions=0)
 
         # Test n_repetitions = -1
         with pytest.raises(ValueError, match="n_repetitions must be >= 1"):
-            prep.createCmdMatrixHistory(modesList=np.arange(5), n_repetitions=-1)
+            prep.create_cmd_matrix_history(modesList=np.arange(5), n_repetitions=-1)
 
         # Test n_repetitions = -10
         with pytest.raises(ValueError, match="n_repetitions must be >= 1"):
-            prep.createCmdMatrixHistory(modesList=np.arange(5), n_repetitions=-10)
+            prep.create_cmd_matrix_history(modesList=np.arange(5), n_repetitions=-10)
 

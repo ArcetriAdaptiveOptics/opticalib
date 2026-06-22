@@ -17,12 +17,12 @@ time series data.
 
 Functions:
 - frame: Retrieve a single frame from a list or cube.
-- averageFrames: Average multiple frames to create an averaged image.
-- saveAverage: Save the averaged image to a file.
-- openAverage: Load an averaged image from a file.
-- runningDiff: Compute the running difference between frames with optional zernike removal.
+- average_frames: Average multiple frames to create an averaged image.
+- save_average: Save the averaged image to a file.
+- open_average: Load an averaged image from a file.
+- running_diff: Compute the running difference between frames with optional zernike removal.
 - timevec: Generate a time vector for a set of frames based on their timestamps.
-- runningMean: Calculate the running mean of a 1D array.
+- running_mean: Calculate the running mean of a 1D array.
 - structfunc: Compute the structure function for a given time series.
 
 
@@ -74,9 +74,9 @@ def average_frames(
     s = slice(first, last) if last != -1 else slice(first, None)
 
     if osu.is_tn(tn_or_fl):
-        fl = osu.getFileList(tn_or_fl, fold=_OPDSER.split("/")[-1], key="20")
+        fl = osu.get_file_list(tn_or_fl, fold=_OPDSER.split("/")[-1], key="20")
         fl = fl[s] if file_selector is None else fl[file_selector]
-        imcube = _ip.createCube(fl)
+        imcube = _ip.create_cube(fl)
     elif _ot.isinstance_(tn_or_fl, "CubeData"):
         imcube = (
             tn_or_fl[:, :, s]
@@ -91,7 +91,7 @@ def average_frames(
             if file_selector is None
             else [tn_or_fl[i] for i in file_selector]
         )
-        imcube = _ip.createCube(fl)
+        imcube = _ip.create_cube(fl)
 
     if thresh is False:
         aveimg = _np.ma.mean(imcube, axis=2)
@@ -125,7 +125,7 @@ def save_average(
     """
     Saves an averaged frame, in the same folder as the original frames. If no
     averaged image is passed as argument, it will create a new average for the
-    specified tracking number, and additional arguments, the same as ''averageFrames''
+    specified tracking number, and additional arguments, the same as ''average_frames''
     can be specified.
 
     Parameters
@@ -138,7 +138,7 @@ def save_average(
         from data found in the tracking number folder. Additional arguments can
         be passed on
     **kwargs : additional optional arguments
-        The same arguments as `averageFrames`, to specify the averaging method.
+        The same arguments as `average_frames`, to specify the averaging method.
         - first : int, optional
             Index number of the first file to consider. If None, the first file in
             the list is considered.
@@ -161,7 +161,7 @@ def save_average(
             last = kwargs.get("last", None)
             fsel = kwargs.get("file_selector", None)
             thresh = kwargs.get("tresh", False)
-            average_img = averageFrames(
+            average_img = average_frames(
                 tn, first=first, last=last, file_selector=fsel, thresh=thresh
             )
     osu.save_fits(fname, average_img, overwrite=overwrite)
@@ -237,7 +237,7 @@ def running_diff(
     zfit = ZernikeFitter()
     if isinstance(tn_or_fl, str):
         if osu.is_tn(tn_or_fl):
-            llist = osu.getFileList(tn_or_fl)
+            llist = osu.get_file_list(tn_or_fl)
         else:
             raise ValueError("Invalid tracking number")
     else:
@@ -253,7 +253,7 @@ def running_diff(
         if remove_zernikes:
             old_stdout = _sys.stdout
             _sys.stdout = _sIO()
-            diff = zfit.removeZernike(diff)
+            diff = zfit.remove_zernike(diff)
             _sys.stdout = old_stdout
         diff_vec.append(diff)
         svec[i] = diff.std()
@@ -275,15 +275,15 @@ def timevec(tn: str) -> _ot.ArrayLike:
         Array of time values for each frame.
 
     """
-    fold = osu.findTracknum(tn)
+    fold = osu.find_tracknum(tn)
     if "OPDImages" in fold:
-        flist = osu.getFileList(tn)
+        flist = osu.get_file_list(tn)
         nfile = len(flist)
         tspace = 1.0 / 28.57  # TODO: hardcoded!!
         timevector = range(nfile) * tspace
     elif "OPDSeries" in fold:
         # Assuming files named as 'YYYYMMDD_HHMMSS.fits'
-        flist = osu.getFileList(tn, key="20")
+        flist = osu.get_file_list(tn, key="20")
         timevector = []
         for f in flist:
             tni = (f.split("/")[-1]).replace(".fits", "")
@@ -369,9 +369,9 @@ def noise_strfunct(
     """
     zf = _md.ZernikeFitter()
 
-    fold = osu.findTracknum(tn)
-    fl = osu.getFileList(tn, key=("20" if fold == "OPDSeries" else ".4D"))
-    cube = osu.loadCubeFromFilelist(fl)
+    fold = osu.find_tracknum(tn)
+    fl = osu.get_file_list(tn, key=("20" if fold == "OPDSeries" else ".4D"))
+    cube = osu.load_cube_from_filelist(fl)
     i_max = int(
         (len(fl) - tau_vector[tau_vector.shape[0] - 1])
         / (tau_vector[tau_vector.shape[0] - 1] * 2)
@@ -385,7 +385,7 @@ def noise_strfunct(
         for i in range(i_max):
             k = i * dist * 2
             image_diff = cube[:, :, k] - cube[:, :, k + dist]
-            image_ttr = zf.removeZernike(image_diff, zernike_vector)
+            image_ttr = zf.remove_zernike(image_diff, zernike_vector)
             rms = image_ttr.std()
             rms_list.append(rms)
         rms_vector = _np.array(rms_list)
@@ -429,8 +429,8 @@ def noise_pushpull(
     zf = _md.ZernikeFitter()
 
     if isinstance(tn_or_fl, str):
-        fold = osu.findTracknum(tn_or_fl)
-        cube = osu.loadCubeFromFilelist(
+        fold = osu.find_tracknum(tn_or_fl)
+        cube = osu.load_cube_from_filelist(
             tn_or_fl, fold=fold, key=("20" if fold == "OPDSeries" else "4D")
         )
     elif _ot.isinstance_(tn_or_fl, "CubeData"):
@@ -438,7 +438,7 @@ def noise_pushpull(
     elif isinstance(tn_or_fl, list) and all(
         _ot.isinstance_(item, "ImageData") or isinstance(item, str) for item in tn_or_fl
     ):
-        cube = _ip.createCube(tn_or_fl)
+        cube = _ip.create_cube(tn_or_fl)
     else:
         raise ValueError(
             "Invalid input type for tn_or_fl. Must be a string,"
@@ -458,11 +458,11 @@ def noise_pushpull(
         rms = []
         tt = []
         for k in range(0, nframes2use, T):
-            img = _ip.pushPullReductionAlgorithm(
+            img = _ip.push_pull_reduction_algorithm(
                 cube[:, :, k : k + T].transpose(2, 0, 1), thetemplate
             )
             cc, zmatrix = zf.fit(img, zern2remove)
-            surf = zf.makeSurface(zern2remove, img, coeffs=cc, mat=zmatrix)
+            surf = zf.make_surface(zern2remove, img, coeffs=cc, mat=zmatrix)
 
             tt.append(_np.sqrt(_np.sum(cc[1:] ** 2)))
             rms.append((img - surf).std())

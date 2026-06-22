@@ -15,7 +15,7 @@ from opticalib.ground import osutils as _osu
 from opticalib.core import read_config as _rif
 from opticalib.core.fitsarray import fits_array as _fa
 from opticalib import typings as _ot
-from .iff_processing import _getAcqInfo
+from .iff_processing import _get_acq_info
 
 
 class IFFCapturePreparation:
@@ -34,7 +34,7 @@ class IFFCapturePreparation:
 
     Methods
     -------
-    createTimedCmdHistory
+    create_timed_cmd_history
 
         Creates the final timed command matrix history. Takes 4 positional optional
         arguments, which will be read from a configuration file if not passed
@@ -42,22 +42,22 @@ class IFFCapturePreparation:
     createCmdMatrixhistory
 
         Takes the modal base loaded into the class (which can be updated using
-        the sub-method _updateModalBase) and returns the wanted command matrix
+        the sub-method _update_modal_base) and returns the wanted command matrix
         with the dedired modes and amplitudes, which can be either passed on as
         arguments or read automatically from a configuration file.
 
         >>> # As example, wanting to update the modal base using a zonal one
-        >>> ifa._updateModalBase('zonal')
+        >>> ifa._update_modal_base('zonal')
         'Using zonal modes'
 
-    createAuxCmdHistory
+    create_aux_cmd_history
 
         Creates the auxiliary command matrix to attach to the command matrix
         history. This auxiliary matrix comprehends the trigger padding and the
         registration padding schemes. the parameters on how to create these
         schemes is written in a configuration file.
 
-    getInfoToSave
+    get_info_to_save
 
         A function that returns a dictionary containing all the useful information
         to save, such as the command matrix used, the used mode list, the indexing
@@ -75,7 +75,7 @@ class IFFCapturePreparation:
 
         self._dm = dm
         self.mirrorModes = dm.mirrorModes
-        self._NActs = dm.nActs
+        self._NActs = dm.n_acts
 
         # IFF info
         self.modalBaseId = None
@@ -95,7 +95,7 @@ class IFFCapturePreparation:
         self.triggPadCmdHist = None
         self.regPadCmdHist = None
 
-    def getInfoToSave(self) -> dict[str, _ot.Any]:
+    def get_info_to_save(self) -> dict[str, _ot.Any]:
         """
         Return the data to save as fits files, arranged in a dictionary
 
@@ -107,7 +107,7 @@ class IFFCapturePreparation:
         info = {
             "timedCmdHistory": self.timedCmdHistory,
             "cmdMatrix": self._cmdMatrix,
-            "modesVector": self._modesList,
+            "modes_vector": self._modesList,
             "regActs": self._regActs,
             "ampVector": self._modesAmp,
             "indexList": self._indexingList,
@@ -116,7 +116,7 @@ class IFFCapturePreparation:
         }
         return info
 
-    def createTimedCmdHistory(
+    def create_timed_cmd_history(
         self,
         cmdMat: _ot.Optional[_ot.MatrixLike] = None,
         triggerMat: _ot.Optional[_ot.MatrixLike] = None,
@@ -168,7 +168,7 @@ class IFFCapturePreparation:
         """
         # Provide manually the cmdMatrixHistory
         if cmdMat is not None:
-            _, _, infoIF = _getAcqInfo()
+            _, _, infoIF = _get_acq_info()
             trailing_zeros = _np.zeros((cmdMat.shape[0], infoIF["paddingZeros"]))
             self._cmdMatrix = cmdMat
             cmdMat = _np.hstack((cmdMat, trailing_zeros))
@@ -180,7 +180,7 @@ class IFFCapturePreparation:
             self._indexingList = _np.arange(0, len(modesList), 1)
             self._n_repetitions = n_repetitions
         else:
-            self.createCmdMatrixHistory(
+            self.create_cmd_matrix_history(
                 modesList, modesAmp, template, modalBase, shuffle, n_repetitions
             )
 
@@ -191,7 +191,7 @@ class IFFCapturePreparation:
 
         # Create the auxiliary command history if needed
         if self.auxCmdHistory is None:
-            self.createAuxCmdHistory()
+            self.create_aux_cmd_history()
 
         if self.auxCmdHistory is not None:
             cmdHistory = _np.hstack((self.auxCmdHistory, self.cmdMatHistory))
@@ -199,12 +199,12 @@ class IFFCapturePreparation:
             cmdHistory = self.cmdMatHistory
             self._regActs = _np.array([])
 
-        timing = _rif.getTiming()
+        timing = _rif.get_timing()
         timedCmdHist = _np.repeat(cmdHistory, timing, axis=1)
         self.timedCmdHistory = timedCmdHist
         return timedCmdHist
 
-    def createCmdMatrixHistory(
+    def create_cmd_matrix_history(
         self,
         modesList: _ot.Optional[_ot.ArrayLike] = None,
         modesAmp: _ot.Optional[float | _ot.ArrayLike] = None,
@@ -243,7 +243,7 @@ class IFFCapturePreparation:
             Command matrix history to be applied, with the correct push-pull
             application, following the desired template.
         """
-        _, _, infoIF, _ = _getAcqInfo()
+        _, _, infoIF, _ = _get_acq_info()
         modesList = _np.asarray(
             modesList if modesList is not None else infoIF.get("modes"), dtype=int
         )
@@ -256,7 +256,7 @@ class IFFCapturePreparation:
         if n_repetitions < 1:
             raise ValueError(f"n_repetitions must be >= 1, got {n_repetitions}")
 
-        self._createCmdMatrix(modesList, modalBase)
+        self._create_cmd_matrix(modesList, modalBase)
         A, M = self._cmdMatrix.shape
         n_push_pull = len(template)
 
@@ -323,7 +323,7 @@ class IFFCapturePreparation:
         self.cmdMatHistory = cmdMatHist.copy()
         return cmdMatHist
 
-    def createAuxCmdHistory(self) -> _ot.Optional[_ot.MatrixLike]:
+    def create_aux_cmd_history(self) -> _ot.Optional[_ot.MatrixLike]:
         """
         Creates the initial part of the final command history matrix that will
         be passed to M4. This includes the Trigger Frame, the first frame to
@@ -337,8 +337,8 @@ class IFFCapturePreparation:
             and the registration pattern. This matrix is used to create the
             final command history to be passed to the DM.
         """
-        self._createTriggerPadding() if self.triggPadCmdHist is None else None
-        self._createRegistrationPattern() if self.regPadCmdHist is None else None
+        self._create_trigger_padding() if self.triggPadCmdHist is None else None
+        self._create_registration_pattern() if self.regPadCmdHist is None else None
         # if self.triggPadCmdHist is not None and self.regPadCmdHist is not None:
         #     aux_cmdHistory = _np.hstack((self.triggPadCmdHist, self.regPadCmdHist))
         # elif self.triggPadCmdHist is not None:
@@ -354,18 +354,18 @@ class IFFCapturePreparation:
         self.auxCmdHistory = aux_cmdHistory
         return aux_cmdHistory
 
-    def _createRegistrationPattern(self) -> None:
+    def _create_registration_pattern(self) -> None:
         """
         Creates the registration pattern to apply after the triggering and before
         the commands to apply for the IFF acquisition. The information about number
         of zeros, mode(s) and amplitude are read from the 'iffconfig.ini' file.
         """
-        infoR = _rif.getIffConfig("REGISTRATION")
+        infoR = _rif.get_iff_config("REGISTRATION")
         if len(infoR["modes"]) == 0:
             self._regActs = infoR["modes"]
             return
         self._regActs = infoR["modes"]
-        self._updateModalBase(infoR["modalBase"])
+        self._update_modal_base(infoR["modalBase"])
         zeroScheme = _np.zeros((self._NActs, infoR["zeros"]))
         regScheme = _np.zeros(
             (self._NActs, len(infoR["template"]) * len(infoR["modes"]))
@@ -380,31 +380,31 @@ class IFFCapturePreparation:
         regHist = _np.hstack((zeroScheme, regScheme))
         self.regPadCmdHist = regHist.copy()
 
-    def _createTriggerPadding(self) -> None:
+    def _create_trigger_padding(self) -> None:
         """
         Function that creates the trigger padding scheme to apply before the
         registration padding scheme. The information about number of zeros,
         mode(s) and amplitude are read from the 'iffconfig.ini' file.
         """
-        infoT = _rif.getIffConfig("TRIGGER")
+        infoT = _rif.get_iff_config("TRIGGER")
         if len(infoT["modes"]) == 0:
             return
-        self._updateModalBase(infoT["modalBase"])
+        self._update_modal_base(infoT["modalBase"])
         zeroScheme = _np.zeros((self._NActs, infoT["zeros"]))
         trigMode = self._modalBase[:, infoT["modes"]] * infoT["amplitude"]
         triggHist = _np.hstack((zeroScheme, trigMode))
         self.triggPadCmdHist = triggHist.copy()
 
-    def _createCmdMatrix(self, mlist: int | _ot.ArrayLike, mbase: str = None) -> None:
+    def _create_cmd_matrix(self, mlist: int | _ot.ArrayLike, mbase: str = None) -> None:
         """
         Cuts the modal base according the given modes list
         """
-        infoIF = _rif.getIffConfig("IFFUNC")
+        infoIF = _rif.get_iff_config("IFFUNC")
         modalbase = mbase or infoIF["modalBase"]
-        self._updateModalBase(modalbase)
+        self._update_modal_base(modalbase)
         self._cmdMatrix = self._modalBase[:, mlist]
 
-    def _updateModalBase(self, mbasename: _ot.Optional[str] = None) -> None:
+    def _update_modal_base(self, mbasename: _ot.Optional[str] = None) -> None:
         """
         Updates the used modal base
 
@@ -421,18 +421,18 @@ class IFFCapturePreparation:
             self._modalBase = self.mirrorModes
         elif mbasename == "zonal":
             self.modalBaseId = mbasename
-            self._modalBase = self._createZonalMat()
+            self._modalBase = self._create_zonal_mat()
         elif mbasename == "hadamard":
             self.modalBaseId = mbasename
-            self._modalBase = self._createHadamardMat()
+            self._modalBase = self._create_hadamard_mat()
         elif mbasename == "mirror":
             self.modalBaseId = mbasename
             self._modalBase = self.mirrorModes
         else:
             self.modalBaseId = mbasename
-            self._modalBase = self._createUserMat(mbasename)
+            self._modalBase = self._create_user_mat(mbasename)
 
-    def _createUserMat(self, name: str = None) -> _ot.MatrixLike:
+    def _create_user_mat(self, name: str = None) -> _ot.MatrixLike:
         """
         Create a user-defined modal base, given the name of the file.
         The file must be a .fits file, and it must be in the
@@ -462,7 +462,7 @@ class IFFCapturePreparation:
         print(f"Loaded user-defined modal base: `{name}`")
         return cmdBase
 
-    def _createZonalMat(self) -> _ot.MatrixLike:
+    def _create_zonal_mat(self) -> _ot.MatrixLike:
         """
         Create the zonal matrix to use as modal base, with size (nacts, nacts).
 
@@ -475,7 +475,7 @@ class IFFCapturePreparation:
         cmdBase = _np.eye(self._NActs)
         return cmdBase
 
-    def _createHadamardMat(self) -> _ot.MatrixLike:
+    def _create_hadamard_mat(self) -> _ot.MatrixLike:
         """
         Create the hadamard matrix to use as modal base, with size
         (nacts, nacts), removed of piston mode.

@@ -25,8 +25,8 @@ from .ground import modal_decomposer as zern
 _OPDSER = _foldname.OPD_SERIES_ROOT_FOLDER
 
 
-# TODO: TO REMOVE -> equal to `intoFullFrame`
-def frame2ottFrame(
+# TODO: TO REMOVE -> equal to `into_full_frame`
+def frame2ott_frame(
     img: _ot.ImageData, croppar: list[int], flipOffset: bool = True
 ) -> _ot.ImageData:
     """
@@ -64,7 +64,7 @@ def frame2ottFrame(
 
 
 # TODO
-def readTemperatures(tn: str):
+def read_temperatures(tn: str):
     """
     Reads temperature data from a FITS file associated with a tracking number.
 
@@ -79,14 +79,14 @@ def readTemperatures(tn: str):
         Array of temperature values for each frame.
 
     """
-    fold = osu.findTracknum(tn, complete_path=True)
+    fold = osu.find_tracknum(tn, complete_path=True)
     fname = _os.path.join(fold, "temperature.fits")
     temperatures = osu.load_fits(fname)
     return temperatures
 
 
 # TODO
-def readZernike(tn: str):
+def read_zernike(tn: str):
     """
     Reads Zernike coefficients from a FITS file associated with a tracking number.
 
@@ -100,14 +100,14 @@ def readZernike(tn: str):
     zernikes : _ot.ArrayLike
         Array of Zernike coefficients for each frame.
     """
-    fold = osu.findTracknum(tn, complete_path=True)
+    fold = osu.find_tracknum(tn, complete_path=True)
     fname = _os.path.join(fold, "zernike.fits")
     zernikes = osu.load_fits(fname)
     return zernikes
 
 
 # TODO
-def zernikePlot(
+def zernike_plot(
     mylist: _ot.CubeData | list[_ot.ImageData], zmodes: _ot.ArrayLike = None
 ) -> _ot.ArrayLike:
     """
@@ -129,7 +129,7 @@ def zernikePlot(
     if zmodes is None:
         zmodes = _np.array(range(1, 11))
     if isinstance(mylist, list):
-        imgcube = createCube(mylist)  # type: ignore
+        imgcube = create_cube(mylist)  # type: ignore
     elif isinstance(mylist, _np.ma.MaskedArray):
         imgcube = mylist
     zlist = []

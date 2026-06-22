@@ -8,12 +8,12 @@ from opticalib.simulator import factory_functions as ff
 
 
 class TestGetAlpaoCoordsMask:
-    """Test getAlpaoCoordsMask function."""
+    """Test get_alpao_coords_mask function."""
 
     @pytest.mark.parametrize("nacts", [88, 97, 277])
     def test_returns_coords_and_mask(self, nacts):
-        """Test that getAlpaoCoordsMask returns coordinates and mask."""
-        coords, mask = ff.getAlpaoCoordsMask(nacts)
+        """Test that get_alpao_coords_mask returns coordinates and mask."""
+        coords, mask = ff.get_alpao_coords_mask(nacts)
 
         assert isinstance(coords, np.ndarray)
         assert isinstance(mask, np.ndarray)
@@ -21,14 +21,14 @@ class TestGetAlpaoCoordsMask:
     @pytest.mark.parametrize("nacts", [88, 97, 277])
     def test_coords_shape(self, nacts):
         """Test that coordinates have shape (2, nacts)."""
-        coords, mask = ff.getAlpaoCoordsMask(nacts)
+        coords, mask = ff.get_alpao_coords_mask(nacts)
 
         assert coords.shape == (2, nacts)
 
     @pytest.mark.parametrize("nacts", [88, 97, 277])
     def test_mask_shape_default(self, nacts):
         """Test that mask has the default shape (512, 512)."""
-        coords, mask = ff.getAlpaoCoordsMask(nacts)
+        coords, mask = ff.get_alpao_coords_mask(nacts)
 
         assert mask.shape == (512, 512)
 
@@ -36,19 +36,19 @@ class TestGetAlpaoCoordsMask:
         """Test that custom shape is respected."""
         nacts = 88
         shape = (256, 256)
-        coords, mask = ff.getAlpaoCoordsMask(nacts, shape=shape)
+        coords, mask = ff.get_alpao_coords_mask(nacts, shape=shape)
 
         assert mask.shape == shape
 
     def test_mask_is_boolean(self):
         """Test that mask is boolean."""
-        coords, mask = ff.getAlpaoCoordsMask(88)
+        coords, mask = ff.get_alpao_coords_mask(88)
 
         assert mask.dtype == bool
 
     def test_mask_has_valid_pupil(self):
         """Test that mask has a valid pupil region (not all True)."""
-        coords, mask = ff.getAlpaoCoordsMask(88)
+        coords, mask = ff.get_alpao_coords_mask(88)
 
         # There should be some False (valid) pixels in the mask
         assert np.any(~mask)
@@ -57,7 +57,7 @@ class TestGetAlpaoCoordsMask:
         """Test that actuator coordinates are within the image bounds."""
         nacts = 88
         shape = (512, 512)
-        coords, mask = ff.getAlpaoCoordsMask(nacts, shape=shape)
+        coords, mask = ff.get_alpao_coords_mask(nacts, shape=shape)
 
         # Coordinates should be integer-valued and within bounds
         assert np.all(coords[0] >= 0)
@@ -98,7 +98,7 @@ class TestgetPetalmirrorMaskAndCoords:
         """Test basic creation of petal mirror mask."""
         shape = (200, 200)
         pupil_radius = 80
-        mask, coords = ff.getPetalmirrorMaskAndCoords(shape, pupil_radius)
+        mask, coords = ff.get_petalmirror_mask_and_coords(shape, pupil_radius)
 
         assert mask.shape == shape
         assert mask.dtype == bool
@@ -112,7 +112,7 @@ class TestgetPetalmirrorMaskAndCoords:
         shape = (200, 200)
         pupil_radius = 80
         central_radius = 15
-        mask, coords = ff.getPetalmirrorMaskAndCoords(shape, pupil_radius, central_radius)
+        mask, coords = ff.get_petalmirror_mask_and_coords(shape, pupil_radius, central_radius)
 
         assert mask.shape == shape
         assert coords.shape[1] == 2
@@ -121,6 +121,6 @@ class TestgetPetalmirrorMaskAndCoords:
     def test_different_shapes(self):
         """Test petal mask with different image shapes."""
         for shape in [(150, 150), (200, 200), (300, 300)]:
-            mask, _ = ff.getPetalmirrorMaskAndCoords(shape, pupil_radius=60)
+            mask, _ = ff.get_petalmirror_mask_and_coords(shape, pupil_radius=60)
             assert mask.shape == shape
             assert mask.dtype == bool

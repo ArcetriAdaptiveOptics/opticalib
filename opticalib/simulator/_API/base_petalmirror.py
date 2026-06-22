@@ -4,7 +4,7 @@ import numpy as _np
 from ... import typings as _ot
 from .. import factory_functions as ff
 from ...core import root as _root
-from ...ground.roi import roiGenerator
+from ...ground.roi import roi_generator
 from ...ground import osutils as osu
 from ._rbf_gpu import RBFInterpolator
 from .simdata import get_simdata_file
@@ -25,16 +25,16 @@ class BaseFakePTL:
         self._name = "FakePetalDM"
         self._outer_radius = outer_radius
         self._inner_radius = inner_radius or _np.ceil(0.26666667 * outer_radius)
-        self._mask, self._coords = ff.getPetalmirrorMaskAndCoords(
+        self._mask, self._coords = ff.get_petalmirror_mask_and_coords(
             shape,
             outer_radius,
             inner_radius,
         )
-        self._rois = roiGenerator(_np.ma.masked_array(self._mask * 0, mask=self._mask))
+        self._rois = roi_generator(_np.ma.masked_array(self._mask * 0, mask=self._mask))
         _ = self._rois.pop(3)
         self._idxs = self._get_segs_idxs()
-        self.nActs = self._coords.shape[0]
-        self._actPos = _np.zeros(self.nActs)
+        self.n_acts = self._coords.shape[0]
+        self._actPos = _np.zeros(self.n_acts)
         self._get_matrices(force_recompute)
         self._unit_calibration()
         self._shape = _np.ma.masked_array(
@@ -77,7 +77,7 @@ class BaseFakePTL:
         noisy = kwargs.get("noisy", False)
         img = _np.ma.masked_array(self._shape, mask=self._mask)
         if zernike is not None:
-            img = self._zern.removeZernike(img, zernike)
+            img = self._zern.remove_zernike(img, zernike)
         if not surf:
             Ilambda = 632.8e-9
             phi = _np.random.uniform(-0.25 * _np.pi, 0.25 * _np.pi) if noisy else 0
@@ -107,7 +107,7 @@ class BaseFakePTL:
             if not diff:
                 cmd_amp -= self._actPos[jj * 3 : (jj + 1) * 3]
 
-            self._shape[idx] += _np.dot(cmd_amp, self.IM[jj])
+            self._shape[idx] += _np.dot(cmd_amp, self.im[jj])
             self._actPos[jj * 3 : (jj + 1) * 3] += cmd_amp
 
     def _get_matrices(self, force_recompute: bool = False):
@@ -115,7 +115,7 @@ class BaseFakePTL:
         Loads the required matrices for the deformable mirror's operations.
         """
         if (
-            not os.path.exists(_root.SIM_DATA_FILE(self._name, "IF") + ".fits")
+            not os.path.exists(_root.sim_data_file(self._name, "IF") + ".fits")
             or force_recompute
         ):
             print(
@@ -124,9 +124,9 @@ class BaseFakePTL:
             self._simulate_iff()
         else:
             print(f"Loaded influence functions.")
-            self._iffCube = osu.load_fits(_root.SIM_DATA_FILE(self._name, "IF"))
-        self._get_IM_RM(force_recompute)
-        self._get_ZM(force_recompute)
+            self._iffCube = osu.load_fits(_root.sim_data_file(self._name, "IF"))
+        self._get_im_rm(force_recompute)
+        self._get_zm(force_recompute)
 
     def _simulate_iff(self):
         """ """
@@ -170,15 +170,15 @@ class BaseFakePTL:
             iff_cubes.append(cube)
 
         iff_cubes = _np.ma.stack(iff_cubes, axis=3)
-        fits_file = _root.SIM_DATA_FILE(self._name, "IF")
+        fits_file = _root.sim_data_file(self._name, "IF")
         osu.save_fits(fits_file, iff_cubes)
         self._iffCube = iff_cubes
 
-    def _get_IM_RM(self, force_recompute: bool = False):
+    def _get_im_rm(self, force_recompute: bool = False):
         """ """
 
-        imfile = _root.SIM_DATA_FILE(self._name, "IM") + ".h5"
-        rmfile = _root.SIM_DATA_FILE(self._name, "RM") + ".h5"
+        imfile = _root.sim_data_file(self._name, "IM") + ".h5"
+        rmfile = _root.sim_data_file(self._name, "RM") + ".h5"
         if not all([os.path.exists(imfile), os.path.exists(rmfile)]) or force_recompute:
             print("Computing interaction matrix...")
             ims = []
@@ -193,44 +193,44 @@ class BaseFakePTL:
                 )
                 ims.append(im)
                 rms.append(xp.asnumpy(xp.linalg.pinv(im)))
-            self.IM = [xp.asnumpy(ifm) for ifm in ims]
-            osu.save_h5({f"s{i}": self.IM[i] for i in range(6)}, imfile)
+            self.im = [xp.asnumpy(ifm) for ifm in ims]
+            osu.save_h5({f"s{i}": self.im[i] for i in range(6)}, imfile)
             print("Computing reconstruction matrix...")
-            self.RM = [rm for rm in rms]
-            osu.save_h5({f"s{i}": self.RM[i] for i in range(6)}, rmfile)
+            self.rm = [rm for rm in rms]
+            osu.save_h5({f"s{i}": self.rm[i] for i in range(6)}, rmfile)
         else:
             print(f"Loaded interaction matrix.")
             ims = osu.load_h5(imfile)
-            self.IM = [ims[f"s{i}"] for i in range(6)]
+            self.im = [ims[f"s{i}"] for i in range(6)]
             print(f"Loaded reconstruction matrix.")
             rms = osu.load_h5(rmfile)
-            self.RM = [rms[f"s{i}"] for i in range(6)]
+            self.rm = [rms[f"s{i}"] for i in range(6)]
 
-    def _get_ZM(self, force_recompute: bool = False):
+    def _get_zm(self, force_recompute: bool = False):
         """
         Create the Zernike matrix for the DM.
         """
         if (
-            not os.path.exists(_root.SIM_DATA_FILE(self._name, "ZM") + ".h5")
+            not os.path.exists(_root.sim_data_file(self._name, "ZM") + ".h5")
             or force_recompute
         ):
             n_zern = 3
             print("Computing Zernike matrix...")
-            from ..factory_functions import generateZernikeMatrix
+            from ..factory_functions import generate_zernike_matrix
 
             zms = []
             for mask in self._rois:
-                zm = generateZernikeMatrix(n_zern, mask)
+                zm = generate_zernike_matrix(n_zern, mask)
                 zms.append(zm)
             osu.save_h5(
                 {f"s{i}": zms[i] for i in range(6)},
-                _root.SIM_DATA_FILE(self._name, "ZM") + ".h5",
+                _root.sim_data_file(self._name, "ZM") + ".h5",
             )
-            self.ZM = zms
+            self.zm = zms
         else:
             print(f"Loaded Zernike matrix.")
-            zms = osu.load_h5(_root.SIM_DATA_FILE(self._name, "ZM"))
-            self.ZM = [zms[f"s{i}"] for i in range(6)]
+            zms = osu.load_h5(_root.sim_data_file(self._name, "ZM"))
+            self.zm = [zms[f"s{i}"] for i in range(6)]
 
     def _get_segs_idxs(self):
         """
@@ -248,10 +248,10 @@ class BaseFakePTL:
         """
         from ...ground.modal_decomposer import ZernikeFitter
 
-        cr = roiGenerator(self._shape)[3]
+        cr = roi_generator(self._shape)[3]
         zf = ZernikeFitter(cr)
 
-        cs = zf.makeSurface(
+        cs = zf.make_surface(
             [1, 2, 3, 4],
             image=_np.ma.masked_array(self._shape, mask=cr),
             coeffs=_np.array([6e-6, 0.5e-6, 0.5e-6, 0.1e-6]),
@@ -262,7 +262,7 @@ class BaseFakePTL:
         self._shape[cr == 0] += cs[cr == 0]
         self._mirror_command(cmd, diff=False)
 
-    def _2modes(self, act_cmd: _ot.ArrayLike) -> _ot.ArrayLike:
+    def _n2modes(self, act_cmd: _ot.ArrayLike) -> _ot.ArrayLike:
         """
         Convert an actuator command to a modal command.
 

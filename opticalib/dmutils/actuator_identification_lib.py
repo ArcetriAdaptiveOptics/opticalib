@@ -6,13 +6,13 @@ from opticalib.ground import geometry as _geo
 center_act = 313
 
 
-def findFrameCoord(imglist, actlist, actcoord):
+def find_frame_coord(imglist, actlist, actcoord):
     """
     returns the position of given actuators from a list of frames
     """
     pos = []
     for i in imglist:
-        pos.append(findActuator(i))
+        pos.append(find_actuator(i))
     pos = (_np.array(pos)).T
 
     frameCenter = marker_general_remap(
@@ -23,7 +23,7 @@ def findFrameCoord(imglist, actlist, actcoord):
     return frameCenter
 
 
-def findActuator(image: _ot.ImageData) -> _np.ndarray:
+def find_actuator(image: _ot.ImageData) -> _np.ndarray:
     """
     Finds the coordinates of an actuator, given the image with the Influence
     Function masked around the actuators.
@@ -38,12 +38,12 @@ def findActuator(image: _ot.ImageData) -> _np.ndarray:
     pos: np.ndarray
         Coordinates of the actuator
     """
-    imgw = extractPeak(image, radius=50)
+    imgw = extract_peak(image, radius=50)
     pos = centroid_2dg(imgw)
     return pos
 
 
-def extractPeak(img: _ot.ImageData, radius: int) -> _ot.ImageData:
+def extract_peak(img: _ot.ImageData, radius: int) -> _ot.ImageData:
     """
     Extract a circular area around the peak in the image
 

@@ -4,7 +4,7 @@ from .. import typings as _ot
 
 
 def make_modal_base(
-    RM: _ot.MatrixLike,
+    rm: _ot.MatrixLike,
     modes: int | list[int],
     mask: _ot.MaskData,
     basis: str = "zernike",
@@ -58,11 +58,11 @@ def make_modal_base(
     nmodes = len(modes_list)
     mat = _np.zeros((nmodes, validpix))
     for i in range(nmodes):
-        surf = fit.makeSurface([modes_list[i]])
+        surf = fit.make_surface([modes_list[i]])
         masked_data = surf[~mask]
         mat[i, :] = masked_data
 
-    MB = (mat @ RM).T
+    MB = (mat @ rm).T
     return MB
 
 
@@ -78,9 +78,9 @@ def get_buffer_mean_values(
     Parameters
     ----------
     position : np.ndarray
-        Position values array (nActs, nSamples)
+        Position values array (n_acts, nSamples)
     position_error : np.ndarray
-        Position error values array (nActs, nSamples)
+        Position error values array (n_acts, nSamples)
     k : int, optional
         Number of samples to wait before averaging each command. Defaults to 12
     min_cmd : float, optional
@@ -89,19 +89,19 @@ def get_buffer_mean_values(
     Returns
     -------
     posMeans : np.ndarray
-        Mean position values for each command buffer [nActuators, nCommands]
+        Mean position values for each command buffer [n_actuators, nCommands]
     cmdIds : np.ndarray
-        Indices of samples corresponding to each command [nActuators, nCommands*cmdLen]
+        Indices of samples corresponding to each command [n_actuators, nCommands*cmdLen]
     """
     # Detect command jumps
     command = position + position_error
     delta_command = command[:, 1:] - command[:, :-1]
     delta_bool = abs(delta_command) > min_cmd  # 1 nm command threshold
 
-    nActs, nSteps = _np.shape(command)
+    n_acts, nSteps = _np.shape(command)
     cmd_ids = []
 
-    for i in range(nActs):
+    for i in range(n_acts):
         ids = _np.arange(nSteps)
         ids = ids[1:][delta_bool[i, :]]
         filt_ids = []
@@ -118,14 +118,14 @@ def get_buffer_mean_values(
     startIds = cmd_ids.copy()
     nCmds = _np.shape(startIds)[1]
 
-    cmdIds = _np.tile(_np.arange(minCmdLen), (nActs, nCmds))
-    cmdIds += _np.repeat(startIds, (minCmdLen,)).reshape([nActs, -1])
-    posMeans = _np.zeros((nActs, nCmds))
+    cmdIds = _np.tile(_np.arange(minCmdLen), (n_acts, nCmds))
+    cmdIds += _np.repeat(startIds, (minCmdLen,)).reshape([n_acts, -1])
+    posMeans = _np.zeros((n_acts, nCmds))
 
     chunk_size = 10  # 10 acts at a time
-    posMeans = _np.zeros((nActs, nCmds))
-    for i in range(0, nActs, chunk_size):
-        end_i = min(i + chunk_size, nActs)
+    posMeans = _np.zeros((n_acts, nCmds))
+    for i in range(0, n_acts, chunk_size):
+        end_i = min(i + chunk_size, n_acts)
         cmd_indices = cmdIds[i:end_i].reshape(-1, nCmds, minCmdLen)[:, :, k:]
         act_idx = _np.arange(end_i - i)[:, None, None]
         posMeans[i:end_i] = _np.mean(position[i:end_i][act_idx, cmd_indices], axis=2)

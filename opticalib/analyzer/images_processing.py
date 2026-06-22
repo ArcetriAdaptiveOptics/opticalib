@@ -78,9 +78,9 @@ def image_tilt_detrend(
         Detrended image.
     """
     if isinstance(active_roi, int):
-        from ..ground.roi import roiGenerator
+        from ..ground.roi import roi_generator
 
-        active_roi = roiGenerator(img)[active_roi]
+        active_roi = roi_generator(img)[active_roi]
 
     elif not _ot.isinstance_(active_roi, "MaskData"):
         raise TypeError("active_roi must be either an int or a MaskData")
@@ -90,10 +90,10 @@ def image_tilt_detrend(
     r2r_image = img.copy()
     r2r_image.mask[active_roi == 0] = True
 
-    coeffs = zf.fitOnRoi(r2r_image, [1, 2, 3], mode="global")
+    coeffs = zf.fit_on_roi(r2r_image, [1, 2, 3], mode="global")
     _, matrix = zf.fit(img, [1, 2, 3])
 
-    s2r = zf.makeSurface(
+    s2r = zf.make_surface(
         modes_indices=[1, 2, 3],
         image=img,
         coeffs=coeffs,
@@ -202,7 +202,7 @@ def unwrap_piston(
     return reconstructed_piston
 
 
-def pushPullReductionAlgorithm(
+def push_pull_reduction_algorithm(
     imagelist: list[_ot.ImageData] | _ot.CubeData,
     template: _ot.ArrayLike,
     normalization: _ot.Optional[float | int] = None,
@@ -254,7 +254,7 @@ def pushPullReductionAlgorithm(
     return image
 
 
-def createCube(fl_or_il: list[str], register: bool = False) -> _ot.CubeData:
+def create_cube(fl_or_il: list[str], register: bool = False) -> _ot.CubeData:
     """
     Creates a cube of images from an images file list
 
@@ -314,7 +314,7 @@ def createCube(fl_or_il: list[str], register: bool = False) -> _ot.CubeData:
     return cube
 
 
-def removeZernikeFromCube(
+def remove_zernike_from_cube(
     cube: _ot.CubeData, zmodes: _ot.ArrayLike = None, mode="global"
 ) -> _ot.CubeData:
     """
@@ -357,13 +357,13 @@ def removeZernikeFromCube(
     ):
         old_stdout = _sys.stdout
         _sys.stdout = _sIO()
-        zfit.removeZernike(cube[:, :, i], zmodes, mode=mode)
+        zfit.remove_zernike(cube[:, :, i], zmodes, mode=mode)
         _sys.stdout = old_stdout
-        newCube[:, :, i] = zfit.removeZernike(cube[:, :, i], zmodes, mode=mode)
+        newCube[:, :, i] = zfit.remove_zernike(cube[:, :, i], zmodes, mode=mode)
     return newCube
 
 
-def modeRebinner(
+def mode_rebinner(
     img: _ot.ImageData,
     rebin: int,
     method: str = "averaging",
@@ -407,7 +407,7 @@ def modeRebinner(
     """
     shape = img.shape
     new_shape = (shape[0] // rebin, shape[1] // rebin)
-    newImg = rebin2DArray(
+    newImg = rebin2_d_array(
         img,
         new_shape,
         method=method,
@@ -419,7 +419,7 @@ def modeRebinner(
     return newImg
 
 
-def cubeRebinner(
+def cube_rebinner(
     cube: _ot.CubeData,
     rebin: int,
     axis: int = -1,
@@ -474,7 +474,7 @@ def cubeRebinner(
     newCube = []
     for i in range(moved_cube.shape[-1]):
         newCube.append(
-            modeRebinner(
+            mode_rebinner(
                 moved_cube[:, :, i],
                 rebin,
                 method=method,
@@ -611,9 +611,9 @@ def compute_psd(
         Amplitude spectrum.
 
     """
-    from opticalib.ground.roi import imgCut
+    from opticalib.ground.roi import img_cut
 
-    img = imgCut(imgin) if crop else imgin.copy()
+    img = img_cut(imgin) if crop else imgin.copy()
     sx = (_np.shape(img))[0]
     if nbins is None:
         nbins = sx // 2
@@ -789,7 +789,7 @@ def _interpolate_2d(
     return _np.ma.masked_array(out_data, mask=out_mask)
 
 
-def rebin2DArray(
+def rebin2_d_array(
     a: _ot.ArrayLike,
     new_shape: tuple[int, int],
     method: str = "mean",
@@ -869,12 +869,12 @@ __all__ = [
     "unwrap_piston",
     "unwrap_image",
     "image_tilt_detrend",
-    "pushPullReductionAlgorithm",
-    "createCube",
-    "removeZernikeFromCube",
-    "rebin2DArray",
-    "modeRebinner",
-    "cubeRebinner",
+    "push_pull_reduction_algorithm",
+    "create_cube",
+    "remove_zernike_from_cube",
+    "rebin2_d_array",
+    "mode_rebinner",
+    "cube_rebinner",
     "comp_filtered_image",
     "compute_psd",
     "integrate_psd",

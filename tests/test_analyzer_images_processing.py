@@ -133,19 +133,19 @@ class TestPistonUnwrap:
 
 
 class TestCreateCube:
-    """Tests for the createCube function."""
+    """Tests for the create_cube function."""
 
     def test_from_image_list(self):
         """Test creating a cube from a list of ImageData."""
         imgs = [_make_image((8, 8)) for _ in range(4)]
-        cube = ip.createCube(imgs)
+        cube = ip.create_cube(imgs)
 
         assert cube.shape == (8, 8, 4)
 
     def test_cube_values_match_input(self):
         """Test that cube frames match the input images."""
         imgs = [_make_image((5, 5)) for _ in range(3)]
-        cube = ip.createCube(imgs)
+        cube = ip.create_cube(imgs)
 
         for i, img in enumerate(imgs):
             np.testing.assert_array_equal(cube[:, :, i].data, img.data)
@@ -153,25 +153,25 @@ class TestCreateCube:
     def test_non_list_input_raises(self):
         """Test that a non-list input raises TypeError."""
         with pytest.raises(TypeError, match="filelist must be a list"):
-            ip.createCube(np.random.randn(5, 5))
+            ip.create_cube(np.random.randn(5, 5))
 
     def test_single_image_cube(self):
         """Test creating a cube from a single-element list."""
         img = _make_image((6, 6))
-        cube = ip.createCube([img])
+        cube = ip.create_cube([img])
 
         assert cube.ndim == 3
         assert cube.shape[2] == 1
 
 
 class TestPushPullReductionAlgorithm:
-    """Tests for the pushPullReductionAlgorithm function."""
+    """Tests for the push_pull_reduction_algorithm function."""
 
     def test_basic_two_image_template(self):
         """Test the algorithm with the simplest [1, -1] template."""
         img = _make_image((20, 20))
         template = np.array([1, -1])
-        result = ip.pushPullReductionAlgorithm([img, -img], template)
+        result = ip.push_pull_reduction_algorithm([img, -img], template)
 
         assert result.shape == img.shape
 
@@ -179,7 +179,7 @@ class TestPushPullReductionAlgorithm:
         """Test with a [1, -1, 1] push-pull-push template."""
         img = _make_image((20, 20))
         template = np.array([1, -1, 1])
-        result = ip.pushPullReductionAlgorithm([img, -img, img], template)
+        result = ip.push_pull_reduction_algorithm([img, -img, img], template)
 
         assert result.shape == img.shape
 
@@ -187,7 +187,7 @@ class TestPushPullReductionAlgorithm:
         """Test that the output is a masked array."""
         img = _make_image((20, 20))
         template = np.array([1, -1])
-        result = ip.pushPullReductionAlgorithm([img, -img], template)
+        result = ip.push_pull_reduction_algorithm([img, -img], template)
 
         assert isinstance(result, np.ma.MaskedArray)
 
@@ -195,7 +195,7 @@ class TestPushPullReductionAlgorithm:
         """Test with a custom normalization factor."""
         img = _make_image((20, 20))
         template = np.array([1, -1])
-        result = ip.pushPullReductionAlgorithm([img, -img], template, normalization=2.0)
+        result = ip.push_pull_reduction_algorithm([img, -img], template, normalization=2.0)
 
         assert result.shape == img.shape
 
@@ -210,7 +210,7 @@ class TestPushPullReductionAlgorithm:
         img1 = fits_array(ma.masked_array(data, mask=mask1))
         img2 = fits_array(ma.masked_array(data, mask=mask2))
         template = np.array([1, -1])
-        result = ip.pushPullReductionAlgorithm([img1, img2], template)
+        result = ip.push_pull_reduction_algorithm([img1, img2], template)
 
         # The combined mask should cover both masked rows/cols
         assert result.mask[0, 0]
@@ -219,33 +219,33 @@ class TestPushPullReductionAlgorithm:
 
 
 class TestModeRebinner:
-    """Tests for the modeRebinner function."""
+    """Tests for the mode_rebinner function."""
 
     def test_downsampling_by_2(self):
         """Test downsampling an image by factor 2."""
         img = _make_image((100, 100))
-        result = ip.modeRebinner(img, 2)
+        result = ip.mode_rebinner(img, 2)
 
         assert result.shape == (50, 50)
 
     def test_downsampling_by_4(self):
         """Test downsampling an image by factor 4."""
         img = _make_image((80, 80))
-        result = ip.modeRebinner(img, 4)
+        result = ip.mode_rebinner(img, 4)
 
         assert result.shape == (20, 20)
 
     def test_rebin_1_is_identity(self):
         """Test that rebinning by 1 returns an identical image."""
         img = _make_image((20, 20))
-        result = ip.modeRebinner(img, 1)
+        result = ip.mode_rebinner(img, 1)
 
         assert result.shape == img.shape
 
     def test_output_is_masked_array(self):
         """Test that the output is a masked array."""
         img = _make_image((40, 40))
-        result = ip.modeRebinner(img, 2)
+        result = ip.mode_rebinner(img, 2)
 
         assert isinstance(result, np.ma.MaskedArray)
 
@@ -253,7 +253,7 @@ class TestModeRebinner:
     def test_various_methods(self, method):
         """Test different rebinning methods."""
         img = _make_image((40, 40))
-        result = ip.modeRebinner(img, 2, method=method)
+        result = ip.mode_rebinner(img, 2, method=method)
 
         assert result.shape == (20, 20)
 
@@ -261,16 +261,16 @@ class TestModeRebinner:
         """Test that an unsupported method raises ValueError."""
         img = _make_image((40, 40))
         with pytest.raises(ValueError, match="Unsupported rebin method"):
-            ip.modeRebinner(img, 2, method="invalid_method")
+            ip.mode_rebinner(img, 2, method="invalid_method")
 
 
 class TestCubeRebinner:
-    """Tests for the cubeRebinner function."""
+    """Tests for the cube_rebinner function."""
 
     def test_downsample_cube_by_2(self):
         """Test downsampling a cube by factor 2."""
         cube = _make_cube((100, 100, 4))
-        result = ip.cubeRebinner(cube, 2)
+        result = ip.cube_rebinner(cube, 2)
 
         assert result.shape == (50, 50, 4)
 
@@ -278,25 +278,25 @@ class TestCubeRebinner:
         """Test that the number of frames in the cube is preserved."""
         n_frames = 6
         cube = _make_cube((60, 60, n_frames))
-        result = ip.cubeRebinner(cube, 2)
+        result = ip.cube_rebinner(cube, 2)
 
         assert result.shape[2] == n_frames
 
     def test_axis_parameter(self):
         """Test rebinning when frames are stored on a custom axis."""
         cube = fits_array(ma.masked_array(np.random.randn(4, 80, 80)))
-        result = ip.cubeRebinner(cube, 2, axis=0)
+        result = ip.cube_rebinner(cube, 2, axis=0)
 
         assert result.shape == (4, 40, 40)
 
 
 class TestRebin2DArray:
-    """Tests for the rebin2DArray function."""
+    """Tests for the rebin2_d_array function."""
 
     def test_downsampling(self):
         """Test basic downsampling."""
         arr = ma.masked_array(np.ones((100, 100)), mask=np.zeros((100, 100), dtype=bool))
-        result = ip.rebin2DArray(arr, (50, 50))
+        result = ip.rebin2_d_array(arr, (50, 50))
 
         assert result.shape == (50, 50)
 
@@ -306,7 +306,7 @@ class TestRebin2DArray:
         arr = ma.masked_array(
             np.full((40, 40), val), mask=np.zeros((40, 40), dtype=bool)
         )
-        result = ip.rebin2DArray(arr, (20, 20), method="mean")
+        result = ip.rebin2_d_array(arr, (20, 20), method="mean")
 
         np.testing.assert_allclose(result.data[~result.mask], val, rtol=1e-6)
 
@@ -314,24 +314,24 @@ class TestRebin2DArray:
         """Test that a non-2D input raises ValueError."""
         arr = np.ones((4, 4, 4))
         with pytest.raises(ValueError, match="2-dimensional"):
-            ip.rebin2DArray(arr, (2, 2))
+            ip.rebin2_d_array(arr, (2, 2))
 
     def test_invalid_new_shape_raises(self):
         """Test that non-integer new_shape raises ValueError."""
         arr = ma.masked_array(np.ones((10, 10)), mask=np.zeros((10, 10), dtype=bool))
         with pytest.raises(ValueError, match="new_shape must be"):
-            ip.rebin2DArray(arr, "bad_shape")
+            ip.rebin2_d_array(arr, "bad_shape")
 
     def test_zero_new_shape_raises(self):
         """Test that zero new_shape raises ValueError."""
         arr = ma.masked_array(np.ones((10, 10)), mask=np.zeros((10, 10), dtype=bool))
         with pytest.raises(ValueError, match="positive"):
-            ip.rebin2DArray(arr, (0, 5))
+            ip.rebin2_d_array(arr, (0, 5))
 
     def test_same_shape_returns_copy(self):
         """Test that same shape returns a copy without modification."""
         arr = ma.masked_array(np.ones((10, 10)), mask=np.zeros((10, 10), dtype=bool))
-        result = ip.rebin2DArray(arr, (10, 10))
+        result = ip.rebin2_d_array(arr, (10, 10))
 
         assert result.shape == (10, 10)
 
@@ -339,7 +339,7 @@ class TestRebin2DArray:
         """Test that an invalid method name raises ValueError."""
         arr = ma.masked_array(np.ones((10, 10)), mask=np.zeros((10, 10), dtype=bool))
         with pytest.raises(ValueError, match="Unsupported rebin method"):
-            ip.rebin2DArray(arr, (5, 5), method="invalid")
+            ip.rebin2_d_array(arr, (5, 5), method="invalid")
 
 
 class TestCompFilteredImage:

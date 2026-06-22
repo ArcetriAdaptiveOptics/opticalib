@@ -1,5 +1,5 @@
 import numpy as _np
-from opticalib.core.read_config import getDmConfig
+from opticalib.core.read_config import get_section_config
 from opticalib.core.exceptions import CommandError
 from opticalib import typings as _t
 
@@ -20,9 +20,9 @@ class BaseAlpaoMirror:
     ----------
     serial_number : str or None
         Hardware serial number of the DM (e.g. ``"BAXXX"``).  May be
-        ``None`` when *nActs* is given and the serial number is stored
+        ``None`` when *n_acts* is given and the serial number is stored
         in the configuration file.
-    nActs : int, str or None
+    n_acts : int, str or None
         Number of actuators.  Used to look up the DM configuration
         when *serial_number* is ``None``.
 
@@ -36,7 +36,7 @@ class BaseAlpaoMirror:
     def __init__(
         self,
         serial_number: str | None,
-        nActs: int | str | None,
+        n_acts: int | str | None,
     ) -> None:
         """
         Initialise the mirror, connecting to the SDK and loading the
@@ -45,9 +45,9 @@ class BaseAlpaoMirror:
         Parameters
         ----------
         serial_number : str or None
-            Hardware serial number.  ``None`` if *nActs* is provided
+            Hardware serial number.  ``None`` if *n_acts* is provided
             and the serial number will be read from the config file.
-        nActs : int, str or None
+        n_acts : int, str or None
             Number of actuators.  ``None`` if *serial_number* is
             provided directly.
 
@@ -69,12 +69,14 @@ class BaseAlpaoMirror:
             "dm468": [8, 12, 16, 18, 20, 20, 22, 22, 24],
             "dm820": [10, 14, 18, 20, 22, 24, 26, 28, 28, 30, 30, 32],
         }
-        self._init_sdk(serial_number, nActs)
-        self.nActs = int(self._sdk_dm.Get("NbOfActuator"))
-        self._last_cmd: _t.ArrayLike = _np.zeros(self.nActs)
-        self._name = f"Alpao{self.nActs}"
-        self.actCoord = self._initActCoord()
-        self.diameter = getDmConfig(self._name).get("diameter", None)
+        self._init_sdk(serial_number, n_acts)
+        self.n_acts = int(self._sdk_dm.Get("NbOfActuator"))
+        self._last_cmd: _t.ArrayLike = _np.zeros(self.n_acts)
+        self._name = f"Alpao{self.n_acts}"
+        self.act_coord = self._init_act_coord()
+        self.diameter = get_section_config("DEVICES", "DEFORMABLE.MIRRORS")[
+            self._name
+        ].get("diameter", None)
         self.mirrorModes = None
         self.cmdHistory = None
         self.refAct = None
@@ -93,7 +95,7 @@ class BaseAlpaoMirror:
         Returns
         -------
         numpy.ndarray
-            Array of length ``nActs`` with the
+            Array of length ``n_acts`` with the
             last commanded positions (zeros before the first command).
         """
         return self._last_cmd.copy()
@@ -105,7 +107,7 @@ class BaseAlpaoMirror:
         Parameters
         ----------
         cmd : array_like
-            Command vector of length ``nActs``.
+            Command vector of length ``n_acts``.
             Values must be in the range ``[-1, 1]`` (normalised units).
 
         Raises
@@ -115,10 +117,10 @@ class BaseAlpaoMirror:
             actuators.
         """
         cmd = _np.asarray(cmd, dtype=float)
-        if cmd.size != self.nActs:
+        if cmd.size != self.n_acts:
             raise CommandError(
                 f"Command length {cmd.size} does not match the number "
-                f"of actuators ({self.nActs})."
+                f"of actuators ({self.n_acts})."
             )
         self._sdk_dm.Send(cmd)
         self._last_cmd = cmd.copy()
@@ -152,11 +154,11 @@ class BaseAlpaoMirror:
     # ------------------------------------------------------------------
 
     @property
-    def nActuators(self) -> int:
+    def n_actuators(self) -> int:
         """Number of actuators on the DM."""
-        return self.nActs
+        return self.n_acts
 
-    def setReferenceActuator(self, refAct: int) -> None:
+    def set_reference_actuator(self, refAct: int) -> None:
         """
         Set the reference actuator index for calibration purposes.
 
@@ -168,13 +170,13 @@ class BaseAlpaoMirror:
         Raises
         ------
         ValueError
-            If *refAct* is outside the valid range ``[0, nActs)``.
+            If *refAct* is outside the valid range ``[0, n_acts)``.
         """
-        if refAct < 0 or refAct >= self.nActs:
+        if refAct < 0 or refAct >= self.n_acts:
             raise ValueError(f"Reference actuator {refAct} is out of range.")
         self.refAct = refAct
 
-    def _checkCmdIntegrity(self, cmd: _t.ArrayLike, amp_threshold: float = 0.9) -> None:
+    def _check_cmd_integrity(self, cmd: _t.ArrayLike, amp_threshold: float = 0.9) -> None:
         """
         Validate a command vector before sending it to the hardware.
 
@@ -209,20 +211,20 @@ class BaseAlpaoMirror:
     # Private initialisation helpers
     # ------------------------------------------------------------------
 
-    def _initActCoord(self) -> _t.ArrayLike:
+    def _init_act_coord(self) -> _t.ArrayLike:
         """
         Build the 2-D actuator coordinate array from the DM layout table.
 
         Returns
         -------
         numpy.ndarray or None
-            Array of shape ``(2, nActs)`` with ``(x, y)`` pixel
+            Array of shape ``(2, n_acts)`` with ``(x, y)`` pixel
             coordinates, or an empty array if the model is unknown.
         """
         try:
-            nacts_row_sequence = self._dmCoords[f"dm{self.nActs}"]
+            nacts_row_sequence = self._dmCoords[f"dm{self.n_acts}"]
         except KeyError:
-            self.actCoord = _np.array([], dtype=int)
+            self.act_coord = _np.array([], dtype=int)
             return
         n_dim = nacts_row_sequence[-1]
         upper_rows = nacts_row_sequence[:-1]
@@ -241,8 +243,8 @@ class BaseAlpaoMirror:
                 )
             )
             cy = _np.concatenate((cy, _np.full(rows_number_of_acts[i], i)))
-        self.actCoord = _np.array([cx, cy])
-        return self.actCoord
+        self.act_coord = _np.array([cx, cy])
+        return self.act_coord
 
     def _init_sdk(
         self,
@@ -294,7 +296,7 @@ class BaseAlpaoMirror:
         config: dict = {}
         if nacts is not None:
             name = f"Alpao{int(nacts)}"
-            config = getDmConfig(name)
+            config = get_section_config("DEVICES", "DEFORMABLE.MIRRORS")[name]
             serial_number = config.get("serialNumber", serial_number)
 
         self.serial_number = serial_number

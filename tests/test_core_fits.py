@@ -83,7 +83,7 @@ class TestFitsArray:
         np.testing.assert_array_equal(recorded["data"], arr.astype(np.float32))
 
     def test_fromfits_uses_load_fits(self, monkeypatch):
-        """Test that fromFits properly handles load_fits return value."""
+        """Test that from_fits properly handles load_fits return value."""
         fake_fits_array = FitsArray(
             np.arange(4, dtype=float).reshape(2, 2), header=_sample_header()
         )
@@ -94,7 +94,7 @@ class TestFitsArray:
 
         monkeypatch.setattr("opticalib.ground.osutils.load_fits", fake_load)
 
-        restored = FitsArray.fromFits("plain.fits")
+        restored = FitsArray.from_fits("plain.fits")
         np.testing.assert_array_equal(restored, np.arange(4).reshape(2, 2))
         assert_dicts(restored.header, _sample_header())
 
@@ -173,7 +173,7 @@ class TestFitsMaskedArray:
         )
 
     def test_fromfits_uses_load_fits(self, monkeypatch):
-        """Test that fromFits properly handles masked array from load_fits."""
+        """Test that from_fits properly handles masked array from load_fits."""
         fake_fits_masked = FitsMaskedArray(
             ma.masked_array([[5, 6], [7, 8]], mask=[[0, 1], [1, 0]]),
             header=_sample_header(),
@@ -185,7 +185,7 @@ class TestFitsMaskedArray:
 
         monkeypatch.setattr("opticalib.ground.osutils.load_fits", fake_load)
 
-        restored = FitsMaskedArray.fromFits("file.fits")
+        restored = FitsMaskedArray.from_fits("file.fits")
         np.testing.assert_array_equal(restored.data, [[5, 6], [7, 8]])
         np.testing.assert_array_equal(restored.mask, [[0, 1], [1, 0]])
         assert_dicts(restored.header, _sample_header())

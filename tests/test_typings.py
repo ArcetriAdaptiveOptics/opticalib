@@ -134,7 +134,7 @@ class TestInstanceCheck:
 
         class FakeDM:
             @property
-            def nActs(self):
+            def n_acts(self):
                 return 100
 
             def set_shape(self, cmd, differential=False):
@@ -143,10 +143,10 @@ class TestInstanceCheck:
             def get_shape(self):
                 return np.zeros(100)
 
-            def uploadCmdHistory(self, cmdhist):
+            def upload_cmd_history(self, cmdhist):
                 pass
 
-            def runCmdHistory(
+            def run_cmd_history(
                 self, interf=None, delay=0, save=None, differential=False
             ):
                 return "tn"
@@ -199,7 +199,7 @@ class TestIsinstance:
             def acquire_map(self, nframes=1, delay=0, rebin=1):
                 return None
 
-            def acquireFullFrame(self, **kwargs):
+            def acquire_full_frame(self, **kwargs):
                 return None
 
             def capture(self, numberOfFrames=1, folder_name=None):
@@ -216,7 +216,7 @@ class TestIsinstance:
 
         class FakeDM:
             @property
-            def nActs(self):
+            def n_acts(self):
                 return 100
 
             def set_shape(self, cmd, differential=False):
@@ -225,10 +225,10 @@ class TestIsinstance:
             def get_shape(self):
                 return np.zeros(100)
 
-            def uploadCmdHistory(self, cmdhist):
+            def upload_cmd_history(self, cmdhist):
                 pass
 
-            def runCmdHistory(
+            def run_cmd_history(
                 self, interf=None, delay=0, save=None, differential=False
             ):
                 return "tn"

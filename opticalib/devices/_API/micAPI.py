@@ -12,7 +12,7 @@ except ImportError:
 mirrorModesFile = "ff_v_matrix.fits"
 ffFile = "ff_matrix.fits"
 actCoordFile = "ActuatorsCoordinates.fits"
-nActFile = "nActuators.dat"
+nActFile = "n_actuators.dat"
 
 
 class BaseAdOpticaDm:
@@ -31,14 +31,14 @@ class BaseAdOpticaDm:
         self.ffm = (self._aoClient.aoSystem.sysConf.gen.FFWDSvdMatrix)[0]  #
         self.ff = self._aoClient.aoSystem.sysConf.gen.FFWDMatrix
         self._biasCmd = self._aoClient.aoSystem.sysConf.gen.biasVectors[0]
-        self.nActs = self._initNActuators()
-        self.mirrorModes = self._initMirrorModes()
-        self.actCoord = self._initActCoord()
-        self.workingActs = self._initWorkingActs()
+        self.n_acts = self._init_n_actuators()
+        self.mirrorModes = self._init_mirror_modes()
+        self.act_coord = self._init_act_coord()
+        self.workingActs = self._init_working_acts()
         self._aoClient._connect()
-        self._enumerateDevices()
+        self._enumerate_devices()
 
-    def getCounter(self):
+    def get_counter(self):
         """
         Function which returns the current shape of the mirror.
 
@@ -62,8 +62,8 @@ class BaseAdOpticaDm:
             Current force applied to the mirror actuators.
 
         """
-        # micLibrary.getForce()
-        force = self._aoClient.getForce()
+        # micLibrary.get_force()
+        force = self._aoClient.get_force()
         return force
 
     def plot_acts(self, amp: ot.Optional[ot.ArrayLike] = None, **kwargs):
@@ -77,10 +77,10 @@ class BaseAdOpticaDm:
         **kwargs: dict
             Additional keyword arguments for plotting.
         """
-        xA = self.actCoord[0:111, 0]
-        yA = self.actCoord[0:111, 1]
-        xB = self.actCoord[111:, 0]
-        yB = self.actCoord[111:, 1]
+        xA = self.act_coord[0:111, 0]
+        yA = self.act_coord[0:111, 1]
+        xB = self.act_coord[111:, 0]
+        yB = self.act_coord[111:, 1]
         import matplotlib.pyplot as plt
 
         plt.figure()
@@ -104,7 +104,7 @@ class BaseAdOpticaDm:
         plt.colorbar()
         plt.show()
 
-    def _initNActuators(self) -> int:
+    def _init_n_actuators(self) -> int:
         """
         Function which reads the number of actuators of the DM from a configuration
         file.
@@ -116,7 +116,7 @@ class BaseAdOpticaDm:
         """
         return self._aoClient.aoSystem.sysConf.gen.M2CMatrix.shape[-1]
 
-    def _initMirrorModes(self):
+    def _init_mirror_modes(self):
         """
         Function which initialize the mirror modes by reading from a fits file.
 
@@ -125,7 +125,7 @@ class BaseAdOpticaDm:
         mirrorModes: numpy.ndarray
             Mirror Modes Matrix.
         """
-        cmdMat = np.zeros((self.nActs, 222))
+        cmdMat = np.zeros((self.n_acts, 222))
         mirrorModes = np.array(
             self._aoClient.aoSystem.sysConf.gen.FFWDSvdMatrix[0]
         )  # (2,111,111)
@@ -139,7 +139,7 @@ class BaseAdOpticaDm:
         cmdMat[111:222, 111:222] = shell2
         return cmdMat
 
-    def _initWorkingActs(self):
+    def _init_working_acts(self):
         """
         Function which initialize the working actuators by reading
         a list from a fits file.
@@ -155,10 +155,10 @@ class BaseAdOpticaDm:
         #     with pyfits.open(fname) as hdu:
         #         workingActs = hdu[0].data
         # else:
-        #     workingActs = np.eye(self.nActs)
+        #     workingActs = np.eye(self.n_acts)
         # return workingActs
 
-    def _initActCoord(self):
+    def _init_act_coord(self):
         """
         Reading the actuators coordinate from file
         """
@@ -168,7 +168,7 @@ class BaseAdOpticaDm:
         coords = load_fits(filepath)
         return coords
 
-    def _enumerateDevices(self):
+    def _enumerate_devices(self):
         """
         Function which enumerates the connected devices.
         """

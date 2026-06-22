@@ -4,7 +4,7 @@ import numpy as np
 from ... import typings as _t
 from ..factory_functions import *
 from ...core import root as _root
-from ...core.read_config import getIffConfig as _dmc
+from ...core.read_config import get_iff_config as _dmc
 from abc import ABC, abstractmethod
 from opticalib.ground import osutils as osu
 from ._rbf_gpu import RBFInterpolator
@@ -15,31 +15,31 @@ class BaseFakeAlpao(ABC):
     Base class for deformable mirrors.
     """
 
-    def __init__(self, nActs: int, force_recompute: bool = False):
+    def __init__(self, n_acts: int, force_recompute: bool = False):
         """
         Initializes the base deformable mirror with the number of actuators.
         """
-        self._name = f"AlpaoDM{nActs}"
+        self._name = f"AlpaoDM{n_acts}"
         self.mirrorModes = None
-        self.nActs = nActs
-        self._pxScale = pixel_scale(self.nActs)
-        self.actCoords, self._mask = getAlpaoCoordsMask(self.nActs)
-        self._scaledActCoords = self._scaleActCoords()
+        self.n_acts = n_acts
+        self._pxScale = pixel_scale(self.n_acts)
+        self.actCoords, self._mask = get_alpao_coords_mask(self.n_acts)
+        self._scaledActCoords = self._scale_act_coords()
         self._iffCube = None
-        self.IM = None
-        self.ZM = None
-        self.RM = None
+        self.im = None
+        self.zm = None
+        self.rm = None
         self._load_matrices()
         dmc = _dmc("DM")
-        self._slaveIds = dmc.get("slaveIds", [])
-        self._borderIds = dmc.get("borderIds", [])
+        self._slaveIds = dmc.get("slave_ids", [])
+        self._borderIds = dmc.get("border_ids", [])
 
     @property
-    def slaveIds(self):
+    def slave_ids(self):
         return self._slaveIds
 
     @property
-    def borderIds(self):
+    def border_ids(self):
         return self._borderIds
 
     @abstractmethod
@@ -75,7 +75,7 @@ class BaseFakeAlpao(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def uploadCmdHistory(self, timed_command_history: _t.MatrixLike):
+    def upload_cmd_history(self, timed_command_history: _t.MatrixLike):
         """
         Uploads a history of commands to the DM.
 
@@ -87,7 +87,7 @@ class BaseFakeAlpao(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def runCmdHistory(self):
+    def run_cmd_history(self):
         """
         Executes the uploaded command history on the DM.
         """
@@ -98,17 +98,17 @@ class BaseFakeAlpao(ABC):
         Loads the required matrices for the deformable mirror's operations.
         """
         if (
-            not os.path.exists(_root.SIM_DATA_FILE(self._name, "IF") + ".fits")
+            not os.path.exists(_root.sim_data_file(self._name, "IF") + ".fits")
             or force_recompute
         ):
             print(
-                f"First time simulating DM {self.nActs}. Generating influence functions..."
+                f"First time simulating DM {self.n_acts}. Generating influence functions..."
             )
             self._simulate_iff()
         else:
             print(f"Loaded influence functions.")
             self._iffCube = np.ma.masked_array(
-                osu.load_fits(_root.SIM_DATA_FILE(self._name, "IF"))
+                osu.load_fits(_root.sim_data_file(self._name, "IF"))
             )
         self._create_int_and_rec_matrices(force_recompute=force_recompute)
         self._create_zernike_matrix(force_recompute=force_recompute)
@@ -118,16 +118,16 @@ class BaseFakeAlpao(ABC):
         Create the Zernike matrix for the DM.
         """
         if (
-            not os.path.exists(_root.SIM_DATA_FILE(self._name, "ZM") + ".fits")
+            not os.path.exists(_root.sim_data_file(self._name, "ZM") + ".fits")
             or force_recompute
         ):
-            n_zern = self.nActs
+            n_zern = self.n_acts
             print("Computing Zernike matrix...")
-            self.ZM = xp.asnumpy(generateZernikeMatrix(n_zern, self._mask))
-            osu.save_fits(_root.SIM_DATA_FILE(self._name, "ZM"), self.ZM)
+            self.zm = xp.asnumpy(generate_zernike_matrix(n_zern, self._mask))
+            osu.save_fits(_root.sim_data_file(self._name, "ZM"), self.zm)
         else:
             print(f"Loaded Zernike matrix.")
-            self.ZM = osu.load_fits(_root.SIM_DATA_FILE(self._name, "ZM"))
+            self.zm = osu.load_fits(_root.sim_data_file(self._name, "ZM"))
 
     def _create_int_and_rec_matrices(self, force_recompute: bool = False):
         """
@@ -136,8 +136,8 @@ class BaseFakeAlpao(ABC):
         if (
             not all(
                 [
-                    os.path.exists(_root.SIM_DATA_FILE(self._name, "IM") + ".fits"),
-                    os.path.exists(_root.SIM_DATA_FILE(self._name, "RM") + ".fits"),
+                    os.path.exists(_root.sim_data_file(self._name, "IM") + ".fits"),
+                    os.path.exists(_root.sim_data_file(self._name, "RM") + ".fits"),
                 ]
             )
             or force_recompute
@@ -149,16 +149,16 @@ class BaseFakeAlpao(ABC):
                     for i in range(self._iffCube.shape[2])
                 ]
             )
-            self.IM = xp.asnumpy(im)
+            self.im = xp.asnumpy(im)
             print("Computing reconstruction matrix...")
-            self.RM = xp.asnumpy(xp.linalg.pinv(im))
-            osu.save_fits(_root.SIM_DATA_FILE(self._name, "IM"), self.IM)
-            osu.save_fits(_root.SIM_DATA_FILE(self._name, "RM"), self.RM)
+            self.rm = xp.asnumpy(xp.linalg.pinv(im))
+            osu.save_fits(_root.sim_data_file(self._name, "IM"), self.im)
+            osu.save_fits(_root.sim_data_file(self._name, "RM"), self.rm)
         else:
             print(f"Loaded interaction matrix.")
-            self.IM = osu.load_fits(_root.SIM_DATA_FILE(self._name, "IM"))
+            self.im = osu.load_fits(_root.sim_data_file(self._name, "IM"))
             print(f"Loaded reconstruction matrix.")
-            self.RM = osu.load_fits(_root.SIM_DATA_FILE(self._name, "RM"))
+            self.rm = osu.load_fits(_root.sim_data_file(self._name, "RM"))
 
     def _simulate_iff(self):
         """
@@ -173,7 +173,7 @@ class BaseFakeAlpao(ABC):
         Returns
         -------
         np.ma.MaskedArray
-            A masked cube of influence functions with shape (height, width, nActs).
+            A masked cube of influence functions with shape (height, width, n_acts).
         """
         # Get the number of actuators from the coordinates array.
         n_acts = self.actCoords.shape[1]
@@ -182,7 +182,7 @@ class BaseFakeAlpao(ABC):
         pix_coords = np.zeros((max_x * max_y, 2))
         pix_coords[:, 0] = np.repeat(np.arange(max_x), max_y)
         pix_coords[:, 1] = np.tile(np.arange(max_y), max_x)
-        act_pix_coords = self._scaleActCoords()
+        act_pix_coords = self._scale_act_coords()
         # Create Empty cube for IFF
         img_cube = np.zeros((max_x, max_y, n_acts))
 
@@ -208,18 +208,18 @@ class BaseFakeAlpao(ABC):
         cube_mask = np.tile(self._mask, n_acts).reshape(img_cube.shape, order="F")
         cube = np.ma.masked_array(img_cube, mask=cube_mask)
         # Save the cube to a FITS file.
-        fits_file = _root.SIM_DATA_FILE(self._name, "IF")
+        fits_file = _root.sim_data_file(self._name, "IF")
         osu.save_fits(fits_file, cube)
         self._iffCube = cube
 
-    def _scaleActCoords(self):
+    def _scale_act_coords(self):
         """
         Scales the actuator coordinates to the mirror's pixel scale.
         """
         max_x, max_y = self._mask.shape
         if not self.actCoords.shape[1] == 2:
             act_coords = self.actCoords.T  # shape: (n_acts, 2)
-        act_pix_coords = np.zeros((self.nActs, 2), dtype=int)
+        act_pix_coords = np.zeros((self.n_acts, 2), dtype=int)
         act_pix_coords[:, 0] = (
             act_coords[:, 1] / np.max(act_coords[:, 1]) * max_x
         ).astype(int)

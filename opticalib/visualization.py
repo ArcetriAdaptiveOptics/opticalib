@@ -206,9 +206,9 @@ def myimshow(
         The image object returned by imshow.
     """
     if cut:
-        from opticalib.ground.roi import imgCut
+        from opticalib.ground.roi import img_cut
 
-        image = imgCut(image)
+        image = img_cut(image)
 
     title = kwargs.pop("title", "Image")
     xlabel = kwargs.pop("xlabel", "X [px]")

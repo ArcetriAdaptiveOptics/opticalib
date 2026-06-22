@@ -119,13 +119,13 @@ from unittest.mock import MagicMock, Mock
 def mock_dm():
     """Create a mock deformable mirror device."""
     dm = MagicMock()
-    dm.nActs = 100
+    dm.n_acts = 100
     dm.nSegments = 2
     dm.nActsPerSegment = 50
     dm.mirrorModes = np.random.randn(100, 100).astype(np.float32)
     dm.name = "TestDM"
-    dm.uploadCmdHistory = Mock()
-    dm.runCmdHistory = Mock()
+    dm.upload_cmd_history = Mock()
+    dm.run_cmd_history = Mock()
     dm.get_shape = Mock(return_value=np.zeros(100))
     dm.set_shape = Mock()
     return dm
@@ -197,7 +197,7 @@ def sample_iff_folder_structure(temp_dir, monkeypatch):
     # Create dummy files
     files_to_create = {
         "ampVector.fits": np.array([0.1, 0.2, 0.3]),
-        "modesVector.fits": np.array([1, 2, 3]),
+        "modes_vector.fits": np.array([1, 2, 3]),
         "template.fits": np.array([1, -1, 1, -1]),
         "indexList.fits": np.array([0, 1, 2]),
         "regActs.fits": np.array([1, 2]),
@@ -211,7 +211,7 @@ def sample_iff_folder_structure(temp_dir, monkeypatch):
             with open(os.path.join(tn_folder, fname), "w") as f:
                 f.write(str(data))
 
-    # Create mode_ files for saveCube tests
+    # Create mode_ files for save_cube tests
     for i in range(3):
         mode_data = np.random.randn(50, 50).astype(np.float32)
         mode_mask = np.zeros((50, 50), dtype=bool)
@@ -260,7 +260,13 @@ def sample_int_matrix_folder(temp_dir, monkeypatch, sample_int_cube):
     # Create modes vector
     modes_vec = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
     osutils.save_fits(
-        os.path.join(tn_folder, "modesVector.fits"), modes_vec, overwrite=True
+        os.path.join(tn_folder, "modes_vector.fits"), modes_vec, overwrite=True
+    )
+    
+    # Create amplitude vector
+    amp_vec = np.array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
+    osutils.save_fits(
+        os.path.join(tn_folder, "ampVector.fits"), amp_vec, overwrite=True
     )
 
     return tn, tn_folder

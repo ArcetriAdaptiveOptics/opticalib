@@ -29,7 +29,7 @@ def compute_slave_cmd(
     ----------
     dm : opticalib.DeformableMirror
         Deformable mirror object with slaved actuators. Must have the properties:
-        - slaveIds : List of indices of the slaved actuators.
+        - slave_ids : List of indices of the slaved actuators.
         - ff : Feed-Forward matrix of the deformable mirror.
     cmd : opticalib.ArrayLike
         Command vector for master actuators.
@@ -110,9 +110,9 @@ def compute_slaved_command_matrix(
     return _xp.asnumpy(nCMDMAT.T)
 
 
-def compute_slaved_IM(
+def compute_slaved_im(
     dm: _ot.DeformableMirrorDevice,
-    IM: _ot.MatrixLike,
+    im: _ot.MatrixLike,
     method: str = None,
 ) -> _ot.MatrixLike:
     """
@@ -146,7 +146,7 @@ def compute_slaved_IM(
             f"Feed-Forward matrix not available in {dm.__class__.__name__}."
         )
 
-    im = _xp.asarray(IM)
+    im = _xp.asarray(im)
     _, _, vt = _xp.linalg.svd(ffwd)
     zim = vt.T @ im  # zonal interaction matrix
 
@@ -212,8 +212,8 @@ def compute_slaved_mat(
     return _xp.asnumpy(nM)
 
 
-def project_IM_into_zonal_IM(
-    IM: _ot.MatrixLike,
+def project_im_into_zonal_im(
+    im: _ot.MatrixLike,
     FFWD: _ot.MatrixLike,
 ) -> _ot.MatrixLike:
     """
@@ -232,7 +232,7 @@ def project_IM_into_zonal_IM(
     ZIM : MatrixLike
         Zonal interaction matrix.
     """
-    im, ff = _xp.asarray(IM), _xp.asarray(FFWD)
+    im, ff = _xp.asarray(im), _xp.asarray(FFWD)
     _, _, vt = _xp.linalg.svd(ff)
     ZIM = vt.T @ im
     return _xp.asnumpy(ZIM)
@@ -258,25 +258,25 @@ def _get_act_roles(
     mid : ndarray
         Indices of the master actuators.
     """
-    sid = _np.array(sorted(dm.slaveIds), dtype=int)  # slave ids
-    bid = getattr(dm, "borderIds", None)
+    sid = _np.array(sorted(dm.slave_ids), dtype=int)  # slave ids
+    bid = getattr(dm, "border_ids", None)
 
     if bid is None:
         mid = _np.array(
-            [_i for _i in range(dm.nActs) if _i not in sid], dtype=int
+            [_i for _i in range(dm.n_acts) if _i not in sid], dtype=int
         )  # master ids
         bid = mid.copy()  # border ids
     else:
         bid = _np.array(sorted(bid), dtype=int)  # border ids
         mid = _np.array(  # Master ids
-            [_i for _i in range(dm.nActs) if _i not in sid and _i not in bid], dtype=int
+            [_i for _i in range(dm.n_acts) if _i not in sid and _i not in bid], dtype=int
         )
 
     return sid, bid, mid
 
 
 def _zero_force_slaving(
-    slaveIds: _ot.ArrayLike,
+    slave_ids: _ot.ArrayLike,
     masterIds: _ot.ArrayLike,
     ffwd: _ot.MatrixLike,
     cmd: _ot.ArrayLike,
@@ -298,7 +298,7 @@ def _zero_force_slaving(
 
     Parameters
     ----------
-    slaveIds : ArrayLike
+    slave_ids : ArrayLike
         Indices of the slave actuators.
     masterIds : ArrayLike
         Indices of the master actuators.
@@ -318,20 +318,20 @@ def _zero_force_slaving(
     """
     cmd = _xp.asarray(cmd)
 
-    K = _get_decomposed_ffwd(slaveIds, masterIds, ffwd, method="zero-force")
+    K = _get_decomposed_ffwd(slave_ids, masterIds, ffwd, method="zero-force")
     Kss = K["ss"]
     Ksm = K["sm"]
 
     # slave 2 master matrix
     Q = -_xp.linalg.pinv(Kss) @ Ksm
 
-    cmd[slaveIds] = Q @ cmd[masterIds]
+    cmd[slave_ids] = Q @ cmd[masterIds]
     return _xp.asnumpy(cmd)
 
 
 def _minimum_rms_slaving(
-    slaveIds: _ot.ArrayLike,
-    borderIds: _ot.ArrayLike,
+    slave_ids: _ot.ArrayLike,
+    border_ids: _ot.ArrayLike,
     masterIds: _ot.ArrayLike,
     ffwd: _ot.MatrixLike,
     cmd: _ot.ArrayLike,
@@ -363,9 +363,9 @@ def _minimum_rms_slaving(
 
     Parameters
     ----------
-    slaveIds : ArrayLike
+    slave_ids : ArrayLike
         Indices of the slave actuators.
-    borderIds : ArrayLike
+    border_ids : ArrayLike
         Indices of the border actuators.
     masterIds : ArrayLike
         Indices of the master actuators.
@@ -384,31 +384,31 @@ def _minimum_rms_slaving(
     Method from <a href="https://arxiv.org/abs/2101.04801"> Riccardi,A.; 2021 (arXiv:2101.04801)</a>
     """
     cmd = _xp.asarray(cmd)
-    K = _get_decomposed_ffwd(slaveIds, masterIds, ffwd, borderIds, method="minimum-rms")
+    K = _get_decomposed_ffwd(slave_ids, masterIds, ffwd, border_ids, method="minimum-rms")
 
     Q0 = -_xp.linalg.pinv(K["bs"].T @ K["bs"] + K["ss"].T @ K["ss"])
 
     ci = (K["bs"].T @ K["bi"] + K["ss"].T @ K["si"]) @ cmd[masterIds]
-    cb = (K["bs"].T @ K["bb"] + K["ss"].T @ K["sb"]) @ cmd[borderIds]
+    cb = (K["bs"].T @ K["bb"] + K["ss"].T @ K["sb"]) @ cmd[border_ids]
 
-    if len(borderIds) == len(masterIds):
-        if all(borderIds == masterIds):
+    if len(border_ids) == len(masterIds):
+        if all(border_ids == masterIds):
             n = 2
         else:
             n = 1
     else:
         n = 1
 
-    cmd[slaveIds] = Q0 @ (ci + cb) / n
+    cmd[slave_ids] = Q0 @ (ci + cb) / n
     return _xp.asnumpy(cmd)
 
 
 def _get_slaving_matrix(
     method: str,
     FF: _ot.MatrixLike,
-    slaveIds: _ot.ArrayLike,
+    slave_ids: _ot.ArrayLike,
     masterIds: _ot.ArrayLike,
-    borderIds: _ot.ArrayLike,
+    border_ids: _ot.ArrayLike,
 ) -> _ot.MatrixLike:
     """
     Computes the slave-to-master matrix according to the specified method.
@@ -421,11 +421,11 @@ def _get_slaving_matrix(
         - 'minimum-rms' : minimum-RMS-force slaving.
     FF : MatrixLike
         Feed-Forward matrix of the deformable mirror.
-    slaveIds : ArrayLike
+    slave_ids : ArrayLike
         Indices of the slave actuators.
     masterIds : ArrayLike
         Indices of the master actuators.
-    borderIds : ArrayLike, optional
+    border_ids : ArrayLike, optional
         Indices of the border actuators. Required for minimum-RMS-force slaving.
 
     Returns
@@ -433,7 +433,7 @@ def _get_slaving_matrix(
     Q : MatrixLike
         Slave-to-master matrix.
     """
-    K = _get_decomposed_ffwd(slaveIds, masterIds, FF, borderIds, method=method)
+    K = _get_decomposed_ffwd(slave_ids, masterIds, FF, border_ids, method=method)
 
     if method == "zero-force":
         Kss = K["ss"]
@@ -451,10 +451,10 @@ def _get_slaving_matrix(
 
 
 def _get_decomposed_ffwd(
-    slaveIds: _ot.ArrayLike,
+    slave_ids: _ot.ArrayLike,
     masterIds: _ot.ArrayLike,
     ffwd: _ot.MatrixLike,
-    borderIds: _ot.ArrayLike = None,
+    border_ids: _ot.ArrayLike = None,
     method: str = "zero-force",
 ) -> dict[str, _ot.MatrixLike]:
     """
@@ -463,13 +463,13 @@ def _get_decomposed_ffwd(
 
     Parameters
     ----------
-    slaveIds : ArrayLike
+    slave_ids : ArrayLike
         Indices of the slave actuators.
     masterIds : ArrayLike
         Indices of the master actuators.
     ffwd : MatrixLike
         Feed-Forward matrix of the deformable mirror.
-    borderIds : ArrayLike, optional
+    border_ids : ArrayLike, optional
         Indices of the border actuators.
     method : str, optional
         Method to compute the master-to-slave matrix. Options are:
@@ -488,21 +488,21 @@ def _get_decomposed_ffwd(
     if method == "zero-force":
         nK = {
             "mm": K[_xp.ix_(masterIds, masterIds)],
-            "ms": K[_xp.ix_(masterIds, slaveIds)],
-            "sm": K[_xp.ix_(slaveIds, masterIds)],
-            "ss": K[_xp.ix_(slaveIds, slaveIds)],
+            "ms": K[_xp.ix_(masterIds, slave_ids)],
+            "sm": K[_xp.ix_(slave_ids, masterIds)],
+            "ss": K[_xp.ix_(slave_ids, slave_ids)],
         }
     elif method == "minimum-rms":
         nK = {
             "ii": K[_xp.ix_(masterIds, masterIds)],
-            "ib": K[_xp.ix_(masterIds, borderIds)],
-            "is": K[_xp.ix_(masterIds, slaveIds)],
-            "bi": K[_xp.ix_(borderIds, masterIds)],
-            "bb": K[_xp.ix_(borderIds, borderIds)],
-            "bs": K[_xp.ix_(borderIds, slaveIds)],
-            "si": K[_xp.ix_(slaveIds, masterIds)],
-            "sb": K[_xp.ix_(slaveIds, borderIds)],
-            "ss": K[_xp.ix_(slaveIds, slaveIds)],
+            "ib": K[_xp.ix_(masterIds, border_ids)],
+            "is": K[_xp.ix_(masterIds, slave_ids)],
+            "bi": K[_xp.ix_(border_ids, masterIds)],
+            "bb": K[_xp.ix_(border_ids, border_ids)],
+            "bs": K[_xp.ix_(border_ids, slave_ids)],
+            "si": K[_xp.ix_(slave_ids, masterIds)],
+            "sb": K[_xp.ix_(slave_ids, border_ids)],
+            "ss": K[_xp.ix_(slave_ids, slave_ids)],
         }
 
     return nK

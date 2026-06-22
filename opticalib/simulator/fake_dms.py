@@ -22,9 +22,9 @@ def _apply_slaving(
     if isinstance(slave, str):
         method = slave
     elif slave:
-        if len(dm.slaveIds) == 0:
+        if len(dm.slave_ids) == 0:
             return cmd
-        method = "zero-force" if len(dm.borderIds) == 0 else "minimum-rms"
+        method = "zero-force" if len(dm.border_ids) == 0 else "minimum-rms"
     else:
         return cmd
     return _compute_slave_cmd(dm, cmd, method=method)
@@ -55,7 +55,7 @@ class PetalMirror(BaseFakePTL):
         self.mirrorModes = None
 
     @property
-    def slaveIds(self) -> _t.ArrayLike:
+    def slave_ids(self) -> _t.ArrayLike:
         """
         Returns the list of slave actuator IDs for the deformable mirror.
 
@@ -67,7 +67,7 @@ class PetalMirror(BaseFakePTL):
         return self._slaveIds
 
     @property
-    def borderIds(self) -> _t.ArrayLike:
+    def border_ids(self) -> _t.ArrayLike:
         """
         Returns the list of border actuator IDs for the deformable mirror.
 
@@ -79,7 +79,7 @@ class PetalMirror(BaseFakePTL):
         return self._borderIds
 
     @property
-    def actCoord(self) -> _t.ArrayLike:
+    def act_coord(self) -> _t.ArrayLike:
         """Actuator coordinates in pixels."""
         return self._coords.copy()
 
@@ -118,19 +118,19 @@ class PetalMirror(BaseFakePTL):
         np.array
             Current amplitudes commanded to the dm's actuators.
         """
-        return self._2modes(self._actPos.copy()) / np.tile(self._unit_calib, 6)
+        return self._n2modes(self._actPos.copy()) / np.tile(self._unit_calib, 6)
 
-    def uploadCmdHistory(self, cmdhist: _t.MatrixLike):
+    def upload_cmd_history(self, cmdhist: _t.MatrixLike):
         """
         Upload the command history to the deformable mirror memory.
-        Ready to run the `runCmdHistory` method.
+        Ready to run the `run_cmd_history` method.
         """
         self._logger.info(
             f"Uploading command history of shape {cmdhist.shape} to {self._name}"
         )
         self.cmdHistory = cmdhist
 
-    def runCmdHistory(
+    def run_cmd_history(
         self,
         interf: _t.InterferometerDevice = None,
         save: str = None,
@@ -207,31 +207,31 @@ class PetalMirror(BaseFakePTL):
         if cmd is None:
             cmd = self._actPos.copy()
         plt.figure(figsize=(7, 6))
-        size = (120 * 97) / self.nActs
+        size = (120 * 97) / self.n_acts
         plt.scatter(self._coords[:, 0], self._coords[:, 1], c=cmd, s=size)
         plt.xlabel(r"$x$ $[px]$")
         plt.ylabel(r"$y$ $[px]$")
-        plt.title(f"DM {self.nActs} Actuator's Coordinates")
+        plt.title(f"DM {self.n_acts} Actuator's Coordinates")
         plt.colorbar()
         plt.show()
 
 
 class AlpaoDm(BaseFakeAlpao):
 
-    def __init__(self, nActs: int, force_recompute: bool = False):
+    def __init__(self, n_acts: int, force_recompute: bool = False):
         self._logger = _SL(__class__)
-        super(AlpaoDm, self).__init__(nActs, force_recompute=force_recompute)
+        super(AlpaoDm, self).__init__(n_acts, force_recompute=force_recompute)
         self.cmdHistory = None
         self._shape = np.ma.masked_array(self._mask * 0, mask=self._mask, dtype=float)
         self._idx = np.where(self._mask == 0)
-        self._actPos = np.zeros(self.nActs)
+        self._actPos = np.zeros(self.n_acts)
         self._live = False
         self._produce_random_shape()
         self._zern = _ZF(self._mask)
         self.is_segmented = False
 
     @property
-    def slaveIds(self) -> _t.ArrayLike:
+    def slave_ids(self) -> _t.ArrayLike:
         """
         Returns the list of slave actuator IDs for the deformable mirror.
 
@@ -243,7 +243,7 @@ class AlpaoDm(BaseFakeAlpao):
         return self._slaveIds
 
     @property
-    def borderIds(self) -> _t.ArrayLike:
+    def border_ids(self) -> _t.ArrayLike:
         """
         Returns the list of border actuator IDs for the deformable mirror.
 
@@ -292,17 +292,17 @@ class AlpaoDm(BaseFakeAlpao):
         """
         return self._actPos.copy()
 
-    def uploadCmdHistory(self, cmdhist: _t.MatrixLike):
+    def upload_cmd_history(self, cmdhist: _t.MatrixLike):
         """
         Upload the command history to the deformable mirror memory.
-        Ready to run the `runCmdHistory` method.
+        Ready to run the `run_cmd_history` method.
         """
         self._logger.info(
             f"Uploading command history of shape {cmdhist.shape} to {self._name}"
         )
         self.cmdHistory = cmdhist
 
-    def runCmdHistory(
+    def run_cmd_history(
         self,
         interf: _t.InterferometerDevice = None,
         save: str = None,
@@ -339,7 +339,7 @@ class AlpaoDm(BaseFakeAlpao):
                 f"Running command history of shape {self.cmdHistory.shape}"
             )
             if all([interf is not None, interf._live is True, interf._surf is False]):
-                interf.toggleSurfaceView()
+                interf.toggle_surface_view()
             tn = osu.newtn() if save is None else save
             print(f"{tn} - {self.cmdHistory.shape[-1]} images to go.")
             datafold = os.path.join(fp.OPD_IMAGES_ROOT_FOLDER, tn)
@@ -396,12 +396,12 @@ class AlpaoDm(BaseFakeAlpao):
             self._scaledActCoords[:, 0],
             self._scaledActCoords[:, 1],
             c=cmd,
-            s=scatter_kwargs.pop("s", (120 * 97) / self.nActs),
+            s=scatter_kwargs.pop("s", (120 * 97) / self.n_acts),
             **scatter_kwargs,
         )
         plt.xlabel(r"$x$ $[px]$")
         plt.ylabel(r"$y$ $[px]$")
-        plt.title(f"DM {self.nActs} Actuator's Coordinates")
+        plt.title(f"DM {self.n_acts} Actuator's Coordinates")
         plt.colorbar()
         plt.show()
 
@@ -424,12 +424,12 @@ class AlpaoDm(BaseFakeAlpao):
             Processed shape based on the command.
         """
         if modal:
-            mode_img = np.dot(self.ZM, cmd)
-            cmd = np.dot(mode_img, self.RM)
+            mode_img = np.dot(self.zm, cmd)
+            cmd = np.dot(mode_img, self.rm)
         cmd_amp = cmd
         if not diff:
             cmd_amp = cmd - self._actPos
-        self._shape[self._idx] += np.dot(cmd_amp, self.IM)
+        self._shape[self._idx] += np.dot(cmd_amp, self.im)
         self._actPos += cmd_amp
 
     def _wavefront(self, **kwargs: dict[str, _t.Any]) -> np.array:
@@ -459,7 +459,7 @@ class AlpaoDm(BaseFakeAlpao):
         noisy = kwargs.get("noisy", False)
         img = np.ma.masked_array(self._shape, mask=self._mask)
         if zernike is not None:
-            img = self._zern.removeZernike(img, zernike)
+            img = self._zern.remove_zernike(img, zernike)
         if not surf:
             Ilambda = 632.8e-9
             phi = np.random.uniform(-0.25 * np.pi, 0.25 * np.pi) if noisy else 0
@@ -482,14 +482,14 @@ class AlpaoDm(BaseFakeAlpao):
         try:
             self._logger.info(f"Loading base shape for {self._name} from file")
             shape = osu.load_fits(
-                os.path.join(fp.SIMULATED_DM_PATH(self._name), f"baseShape.fits")
+                os.path.join(fp.simulated_dm_path(self._name), f"baseShape.fits")
             )
             self._shape = np.ma.masked_array(shape)
         except FileNotFoundError:
             self._logger.info(
                 f"No base shape file found for {self._name}, generating random shape"
             )
-            mat = np.eye(self.nActs)
+            mat = np.eye(self.n_acts)
             tx = mat[0]
             ty = mat[1]
             f = mat[3]
@@ -502,13 +502,13 @@ class AlpaoDm(BaseFakeAlpao):
             self.set_shape(cmd, modal=True)
             self._logger.info(f"Saving generated base shape for {self._name} to file")
             osu.save_fits(
-                os.path.join(fp.SIMULATED_DM_PATH(self._name), f"baseShape.fits"),
+                os.path.join(fp.simulated_dm_path(self._name), f"baseShape.fits"),
                 self._shape,
             )
-            self._actPos = np.zeros(self.nActs)
+            self._actPos = np.zeros(self.n_acts)
 
     def __repr__(self) -> str:
-        return f"{__class__.__name__}(nActs={self.nActs})"
+        return f"{__class__.__name__}(n_acts={self.n_acts})"
 
 
 class DP(BaseFakeDp):
@@ -521,9 +521,9 @@ class DP(BaseFakeDp):
         Applies the given command to the deformable mirror.
     get_shape()
         Returns the current amplitudes commanded to the dm's actuators.
-    uploadCmdHistory(cmdhist)
+    upload_cmd_history(cmdhist)
         Upload the command history to the deformable mirror memory.
-    runCmdHistory(interf=None, save=None, rebin=1, modal=False, differential=True, delay=0)
+    run_cmd_history(interf=None, save=None, rebin=1, modal=False, differential=True, delay=0)
         Runs the command history on the deformable mirror.
     visualize_shape(cmd=None)
         Visualizes the command amplitudes on the mirror's actuators.
@@ -578,17 +578,17 @@ class DP(BaseFakeDp):
         cmd = np.concatenate((self._actPos[0], self._actPos[1]))
         return cmd
 
-    def uploadCmdHistory(self, cmdhist: _t.MatrixLike):
+    def upload_cmd_history(self, cmdhist: _t.MatrixLike):
         """
         Upload the command history to the deformable mirror memory.
-        Ready to run the `runCmdHistory` method.
+        Ready to run the `run_cmd_history` method.
         """
         self._logger.info(
             f"Uploading command history of shape {cmdhist.shape} to {self._name}"
         )
         self.cmdHistory = cmdhist
 
-    def runCmdHistory(
+    def run_cmd_history(
         self,
         interf: _t.InterferometerDevice = None,
         save: str = None,
@@ -660,10 +660,10 @@ class DP(BaseFakeDp):
         np.array
             Processed shape based on the command.
         """
-        size = kwargs.pop("s", (120 * 97) / self.nActs)
+        size = kwargs.pop("s", (120 * 97) / self.n_acts)
         import matplotlib.pyplot as plt
 
-        coords = self.actCoord
+        coords = self.act_coord
         plt.figure(figsize=(13, 6))
 
         if cmd is None:
@@ -680,11 +680,11 @@ class DP(BaseFakeDp):
                     fontsize=7,
                     color="black",
                 )
-        size = (120 * 97) / self.nActs
+        size = (120 * 97) / self.n_acts
         plt.scatter(coords[:, 0], coords[:, 1], c=cmd, s=size, **kwargs)
         plt.xlabel(r"$x$ $[px]$")
         plt.ylabel(r"$y$ $[px]$")
-        plt.title(f"{self._name} {self.nActs} Actuator's Coordinates")
+        plt.title(f"{self._name} {self.n_acts} Actuator's Coordinates")
         plt.colorbar()
         plt.show()
 
@@ -753,10 +753,10 @@ class M4AU(BaseFakeM4):
         np.array
             Processed shape based on the command.
         """
-        size = kwargs.pop("s", (120 * 97) / self.nActs)
+        size = kwargs.pop("s", (120 * 97) / self.n_acts)
         import matplotlib.pyplot as plt
 
-        coords = self.actCoord
+        coords = self.act_coord
         plt.figure(figsize=(13, 6))
 
         if cmd is None:
@@ -773,25 +773,25 @@ class M4AU(BaseFakeM4):
                     fontsize=7,
                     color="black",
                 )
-        size = (120 * 97) / self.nActs
+        size = (120 * 97) / self.n_acts
         plt.scatter(coords[:, 0], coords[:, 1], c=cmd, s=size, **kwargs)
         plt.xlabel(r"$x$ $[px]$")
         plt.ylabel(r"$y$ $[px]$")
-        plt.title(f"{self._name} {self.nActs} Actuator's Coordinates")
+        plt.title(f"{self._name} {self.n_acts} Actuator's Coordinates")
         plt.colorbar()
         plt.show()
 
-    def uploadCmdHistory(self, cmdhist: _t.MatrixLike):
+    def upload_cmd_history(self, cmdhist: _t.MatrixLike):
         """
         Upload the command history to the deformable mirror memory.
-        Ready to run the `runCmdHistory` method.
+        Ready to run the `run_cmd_history` method.
         """
         self._logger.info(
             f"Uploading command history of shape {cmdhist.shape} to {self._name}"
         )
         self.cmdHistory = cmdhist
 
-    def runCmdHistory(
+    def run_cmd_history(
         self,
         interf: _t.InterferometerDevice = None,
         save: str = None,
