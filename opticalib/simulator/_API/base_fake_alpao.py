@@ -4,7 +4,7 @@ import numpy as np
 from ...core import _types as _t
 from ..factory import *
 from ...core import root as _root
-from ...core.config import get_iff_config as _dmc
+from ...core import config as _rc
 from abc import ABC, abstractmethod
 from opticalib.ground import osutils as osu
 from ._rbf_gpu import RBFInterpolator
@@ -30,9 +30,13 @@ class BaseFakeAlpao(ABC):
         self.zm = None
         self.rm = None
         self._load_matrices()
-        dmc = _dmc("DM")
-        self._slaveIds = dmc.get("slave_ids", [])
-        self._borderIds = dmc.get("border_ids", [])
+        try:
+            dmc = _rc.get_device_config("DEFORMABLE.MIRRORS", self._name)
+            self._slaveIds = dmc.get("slave_ids", [])
+            self._borderIds = dmc.get("border_ids", [])
+        except Exception:
+            self._slaveIds = []
+            self._borderIds = []
 
     @property
     def slave_ids(self):

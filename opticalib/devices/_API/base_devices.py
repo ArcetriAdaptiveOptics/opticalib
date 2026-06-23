@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from opticalib import typings as _ot
+from opticalib.core import _types as _ot
 from opticalib.ground import logger as _logger
 from opticalib.dmutils.slaving import compute_slave_cmd
 

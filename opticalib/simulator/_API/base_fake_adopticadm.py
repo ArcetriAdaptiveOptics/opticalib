@@ -8,12 +8,12 @@ import numpy as np
 from ._rbf_gpu import RBFInterpolator
 
 # from scipy.interpolate import Rbf
-from opticalib import folders as fp
+from opticalib.core.root import folders as fp
 from opticalib.core import _types as _t
 from opticalib.ground import geometry as geo
 from opticalib.ground import osutils as osu
 from opticalib.ground import roi
-from opticalib.core.config import get_iff_config as _dmc
+from opticalib.core import config as _rc
 from opticalib.ground.modal_decomposer import ZernikeFitter as _ZF
 from .simdata import get_simdata_file
 
@@ -203,7 +203,6 @@ class BaseFakeDp:
 
     def __init__(self, force_recompute: bool = False):
         """The constuctor"""
-        dmc = _dmc("DM")
         self._name = "AdOpticaDP"
         self.mirrorModes = osu.load_fits(get_simdata_file("dp_cmdmat.fits"))
         self.ff = osu.load_fits(get_simdata_file("dp_ffwd.fits"))
@@ -218,8 +217,13 @@ class BaseFakeDp:
         self._ccalcurve = self._get_capsens_calibration()
         self._biasCmd = self._get_bias_cmd()
         self.set_shape(np.zeros(self.n_acts))  # initialize to flat + offset
-        self._slaveIds = dmc.get("slave_ids", [])
-        self._borderIds = dmc.get("border_ids", [])
+        try:
+            dmc = _rc.get_device_config("DEFORMABLE.MIRRORS", self._name)
+            self._slaveIds = dmc.get("slave_ids", [])
+            self._borderIds = dmc.get("border_ids", [])
+        except Exception:
+            self._slaveIds = []
+            self._borderIds = []
 
     @property
     def slave_ids(self) -> list[int]:

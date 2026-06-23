@@ -6,7 +6,7 @@ import pytest
 import numpy as np
 import numpy.ma as ma
 from opticalib.core.fitsarray import fits_array
-from opticalib.analyzer import images_processing as ip
+from opticalib.analyzer import image_processing as ip
 
 
 def _make_image(shape=(10, 10), circular=False):

@@ -1,7 +1,7 @@
 import os
 import numpy as np
-from opticalib import folders as fn
-from opticalib import typings as ot
+from opticalib.core.root import folders as fn
+from opticalib.core import _types as ot
 
 try:
     from Microgate.adopt.AOClient import AO_CLIENT  # type: ignore

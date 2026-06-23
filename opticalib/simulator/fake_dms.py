@@ -7,7 +7,7 @@ from opticalib.core import _types as _t
 from ._API import *
 from matplotlib import pyplot as plt
 from opticalib.ground import osutils as osu
-from opticalib import folders as fp
+from opticalib.core.root import folders as fp
 from opticalib.ground.logger import SystemLogger as _SL
 from opticalib.ground.modal_decomposer import ZernikeFitter as _ZF
 from opticalib.dmutils.slaving import compute_slave_cmd as _compute_slave_cmd

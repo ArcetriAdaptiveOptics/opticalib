@@ -4,7 +4,7 @@ Tests for opticalib.simulator.factory_functions module.
 
 import pytest
 import numpy as np
-from opticalib.simulator import factory_functions as ff
+from opticalib.simulator import factory as ff
 
 
 class TestGetAlpaoCoordsMask:
