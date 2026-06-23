@@ -196,12 +196,12 @@ def sample_iff_folder_structure(temp_dir, monkeypatch):
 
     # Create dummy files
     files_to_create = {
-        "ampVector.fits": np.array([0.1, 0.2, 0.3]),
-        "modes_vector.fits": np.array([1, 2, 3]),
-        "template.fits": np.array([1, -1, 1, -1]),
-        "indexList.fits": np.array([0, 1, 2]),
-        "regActs.fits": np.array([1, 2]),
-        "cmdMatrix.fits": np.random.randn(100, 3).astype(np.float32),
+        ifp._AMP_FILE: np.array([0.1, 0.2, 0.3]),
+        ifp._MODES_FILE: np.array([1, 2, 3]),
+        ifp._TEMPLATE_FILE: np.array([1, -1, 1, -1]),
+        ifp._INDEXLIST_FILE: np.array([0, 1, 2]),
+        ifp._REGACTS_FILE: np.array([1, 2]),
+        ifp._MATRIX_FILE: np.random.randn(100, 3).astype(np.float32),
     }
 
     for fname, data in files_to_create.items():
@@ -254,19 +254,19 @@ def sample_int_matrix_folder(temp_dir, monkeypatch, sample_int_cube):
     # Create command matrix
     cmd_mat = np.random.randn(100, 10).astype(np.float32)
     osutils.save_fits(
-        os.path.join(tn_folder, "cmdMatrix.fits"), cmd_mat, overwrite=True
+        os.path.join(tn_folder, ifp._MATRIX_FILE), cmd_mat, overwrite=True
     )
 
     # Create modes vector
     modes_vec = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
     osutils.save_fits(
-        os.path.join(tn_folder, "modes_vector.fits"), modes_vec, overwrite=True
+        os.path.join(tn_folder, ifp._MODES_FILE), modes_vec, overwrite=True
     )
     
     # Create amplitude vector
     amp_vec = np.array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
     osutils.save_fits(
-        os.path.join(tn_folder, "ampVector.fits"), amp_vec, overwrite=True
+        os.path.join(tn_folder, ifp._AMP_FILE), amp_vec, overwrite=True
     )
 
     return tn, tn_folder

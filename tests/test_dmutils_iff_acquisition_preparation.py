@@ -27,475 +27,71 @@ class TestIFFCapturePreparation:
         with pytest.raises(DeviceError):
             ifa.IFFCapturePreparation(invalid_dm)
 
-    @patch("opticalib.dmutils.iff_preparation._get_acq_info")
-    @patch("opticalib.dmutils.iff_preparation._rif.get_timing")
-    @patch("opticalib.dmutils.iff_preparation._rif.get_iff_config")
-    def test_create_timed_cmd_history_basic(
-        self,
-        mock_get_iff_config,
-        mock_get_timing,
-        mock_get_info,
-        mock_dm,
-        temp_dir,
-        monkeypatch,
-    ):
-        """Test creating timed command history."""
-        from opticalib.core.root import folders
-        import os
-        import yaml
-
-        # Create config file
-        config_folder = os.path.join(temp_dir, "SysConfig")
-        os.makedirs(config_folder, exist_ok=True)
-        monkeypatch.setattr(folders, "CONFIGURATION_FOLDER", config_folder)
-
-        config_file = os.path.join(config_folder, "configuration.yaml")
-        config_data = {
-            "INFLUENCE.FUNCTIONS": {
-                "TRIGGER": {
-                    "zeros": 0,
-                    "modes": [10],
-                    "amplitude": 0.1,
-                    "template": [1],
-                    "modalBase": "mirror",
-                },
-                "REGISTRATION": {
-                    "zeros": 0,
-                    "modes": [1, 2, 3],
-                    "amplitude": 0.1,
-                    "template": [1, -1],
-                    "modalBase": "zonal",
-                },
-                "IFFUNC": {
-                    "zeros": 0,
-                    "modes": list(range(100)),
-                    "amplitude": 0.1,
-                    "template": [1, -1],
-                    "modalBase": "hadamard",
-                    "paddingZeros": 2,
-                },
-                "timing": 10, 'triggerMode': False, 'delay': 0
-            }
-        }
-        with open(config_file, "w") as f:
-            yaml.dump(config_data, f)
-
-        mock_get_timing.return_value = 10
-        mock_get_info.return_value = (
-            {
-                "TRIGGER": {
-                    "zeros": 0,
-                    "modes": [10],
-                    "amplitude": 0.1,
-                    "template": [1],
-                    "modalBase": "mirror",
-                },
-                "REGISTRATION": {
-                    "zeros": 0,
-                    "modes": [1, 2, 3],
-                    "amplitude": 0.1,
-                    "template": [1, -1],
-                    "modalBase": "zonal",
-                },
-                "IFFUNC": {
-                    "zeros": 0,
-                    "modes": list(range(100)),
-                    "amplitude": 0.1,
-                    "template": [1, -1],
-                    "modalBase": "hadamard",
-                    "paddingZeros": 2,
-                },
-                "timing": 10, 'triggerMode': False, 'delay': 0
-            }
-        )
-        config_map = {
+    def _iff_config(self):
+        return {
+            "timing": 2,
             "TRIGGER": {
-                "zeros": 0,
-                "modes": [10],
+                "trailing_zeros": 1,
+                "modes_list": [10],
                 "amplitude": 0.1,
                 "template": [1],
-                "modalBase": "mirror",
+                "modal_base": "mirror",
             },
             "REGISTRATION": {
-                "zeros": 0,
-                "modes": [1, 2, 3],
+                "trailing_zeros": 0,
+                "modes_list": [1, 2],
                 "amplitude": 0.1,
                 "template": [1, -1],
-                "modalBase": "zonal",
+                "modal_base": "zonal",
             },
             "IFFUNC": {
-                "zeros": 0,
-                "modes": list(range(100)),
+                "trailing_zeros": 0,
+                "padding_zeros": 2,
+                "modes_list": np.arange(20),
                 "amplitude": 0.1,
                 "template": [1, -1],
-                "modalBase": "hadamard",
-                "paddingZeros": 2,
+                "shuffle": False,
+                "n_repetitions": 1,
+                "modal_base": "hadamard",
             },
         }
 
-        def fake_get_iff_config(section):
-            return config_map[section].copy()
-
-        mock_get_iff_config.side_effect = fake_get_iff_config
-
+    @patch("opticalib.dmutils.iff_preparation._rif.get_iff_config")
+    def test_create_timed_cmd_history_basic(self, mock_get_iff_config, mock_dm):
+        """Test creating timed command history."""
+        mock_get_iff_config.return_value = self._iff_config()
         prep = ifa.IFFCapturePreparation(mock_dm)
         tch = prep.create_timed_cmd_history()
-
         assert tch is not None
         assert isinstance(tch, np.ndarray)
         assert prep.timedCmdHistory is not None
 
-    @patch("opticalib.dmutils.iff_preparation._get_acq_info")
-    @patch("opticalib.dmutils.iff_preparation._rif.get_timing")
     @patch("opticalib.dmutils.iff_preparation._rif.get_iff_config")
-    def test_create_timed_cmd_history_with_modes(
-        self,
-        mock_get_iff_config,
-        mock_get_timing,
-        mock_get_info,
-        mock_dm,
-        temp_dir,
-        monkeypatch,
-    ):
+    def test_create_timed_cmd_history_with_modes(self, mock_get_iff_config, mock_dm):
         """Test creating timed command history with custom modes."""
-        from opticalib.core.root import folders
-        import os
-        import yaml
-
-        # Create config file
-        config_folder = os.path.join(temp_dir, "SysConfig")
-        os.makedirs(config_folder, exist_ok=True)
-        monkeypatch.setattr(folders, "CONFIGURATION_FOLDER", config_folder)
-
-        config_file = os.path.join(config_folder, "configuration.yaml")
-        config_data = {
-            "INFLUENCE.FUNCTIONS": {
-                "TRIGGER": {
-                    "zeros": 0,
-                    "modes": [10],
-                    "amplitude": 0.1,
-                    "template": [1],
-                    "modalBase": "mirror",
-                },
-                "REGISTRATION": {
-                    "zeros": 0,
-                    "modes": [1, 2, 3],
-                    "amplitude": 0.1,
-                    "template": [1, -1],
-                    "modalBase": "zonal",
-                },
-                "IFFUNC": {
-                    "zeros": 0,
-                    "modes": list(range(100)),
-                    "amplitude": 0.1,
-                    "template": [1, -1],
-                    "modalBase": "hadamard",
-                    "paddingZeros": 2,
-                },
-                "timing": 10, 'triggerMode': False, 'delay': 0
-            }
-        }
-        with open(config_file, "w") as f:
-            yaml.dump(config_data, f)
-
-        mock_get_timing.return_value = 10
-        mock_get_info.return_value = (
-            {
-                "TRIGGER": {
-                    "zeros": 0,
-                    "modes": [10],
-                    "amplitude": 0.1,
-                    "template": [1],
-                    "modalBase": "mirror",
-                },
-                "REGISTRATION": {
-                    "zeros": 0,
-                    "modes": [1, 2, 3],
-                    "amplitude": 0.1,
-                    "template": [1, -1],
-                    "modalBase": "zonal",
-                },
-                "IFFUNC": {
-                    "zeros": 0,
-                    "modes": list(range(100)),
-                    "amplitude": 0.1,
-                    "template": [1, -1],
-                    "modalBase": "hadamard",
-                    "paddingZeros": 2,
-                },
-                "timing": 10, 'triggerMode': False, 'delay': 0
-            }
-        )
-        config_map = {
-            "TRIGGER": {
-                "zeros": 0,
-                "modes": [10],
-                "amplitude": 0.1,
-                "template": [1],
-                "modalBase": "mirror",
-            },
-            "REGISTRATION": {
-                "zeros": 0,
-                "modes": [1, 2, 3],
-                "amplitude": 0.1,
-                "template": [1, -1],
-                "modalBase": "zonal",
-            },
-            "IFFUNC": {
-                "zeros": 0,
-                "modes": list(range(100)),
-                "amplitude": 0.1,
-                "template": [1, -1],
-                "modalBase": "hadamard",
-                "paddingZeros": 2,
-            },
-        }
-
-        def fake_get_iff_config(section):
-            return config_map[section].copy()
-
-        mock_get_iff_config.side_effect = fake_get_iff_config
-
+        mock_get_iff_config.return_value = self._iff_config()
         prep = ifa.IFFCapturePreparation(mock_dm)
-        modes = [1, 2, 3, 4, 5]
-        tch = prep.create_timed_cmd_history(modesList=modes)
-
+        tch = prep.create_timed_cmd_history(modesList=[1, 2, 3, 4, 5])
         assert tch is not None
         assert prep._modesList is not None
 
-    @patch("opticalib.dmutils.iff_preparation._get_acq_info")
-    @patch("opticalib.dmutils.iff_preparation._rif.get_timing")
     @patch("opticalib.dmutils.iff_preparation._rif.get_iff_config")
-    def test_create_timed_cmd_history_with_shuffle(
-        self,
-        mock_get_iff_config,
-        mock_get_timing,
-        mock_get_info,
-        mock_dm,
-        temp_dir,
-        monkeypatch,
-    ):
+    def test_create_timed_cmd_history_with_shuffle(self, mock_get_iff_config, mock_dm):
         """Test creating timed command history with shuffle."""
-        from opticalib.core.root import folders
-        import os
-        import yaml
-
-        # Create config file
-        config_folder = os.path.join(temp_dir, "SysConfig")
-        os.makedirs(config_folder, exist_ok=True)
-        monkeypatch.setattr(folders, "CONFIGURATION_FOLDER", config_folder)
-
-        config_file = os.path.join(config_folder, "configuration.yaml")
-        config_data = {
-            "INFLUENCE.FUNCTIONS": {
-                "TRIGGER": {
-                    "zeros": 0,
-                    "modes": [10],
-                    "amplitude": 0.1,
-                    "template": [1],
-                    "modalBase": "mirror",
-                },
-                "REGISTRATION": {
-                    "zeros": 0,
-                    "modes": [1, 2, 3],
-                    "amplitude": 0.1,
-                    "template": [1, -1],
-                    "modalBase": "zonal",
-                },
-                "IFFUNC": {
-                    "zeros": 0,
-                    "modes": list(range(100)),
-                    "amplitude": 0.1,
-                    "template": [1, -1],
-                    "modalBase": "hadamard",
-                    "paddingZeros": 2,
-                },
-                "timing": 10, 'triggerMode': False, 'delay': 0
-            }
-        }
-        with open(config_file, "w") as f:
-            yaml.dump(config_data, f)
-
-        mock_get_timing.return_value = 10
-        mock_get_info.return_value = (
-            {
-                "TRIGGER": {
-                    "zeros": 0,
-                    "modes": [10],
-                    "amplitude": 0.1,
-                    "template": [1],
-                    "modalBase": "mirror",
-                },
-                "REGISTRATION": {
-                    "zeros": 0,
-                    "modes": [1, 2, 3],
-                    "amplitude": 0.1,
-                    "template": [1, -1],
-                    "modalBase": "zonal",
-                },
-                "IFFUNC": {
-                    "zeros": 0,
-                    "modes": list(range(100)),
-                    "amplitude": 0.1,
-                    "template": [1, -1],
-                    "modalBase": "hadamard",
-                    "paddingZeros": 2,
-                },
-                "timing": 10, 'triggerMode': False, 'delay': 0
-            }
-        )
-        config_map = {
-            "TRIGGER": {
-                "zeros": 0,
-                "modes": [10],
-                "amplitude": 0.1,
-                "template": [1],
-                "modalBase": "mirror",
-            },
-            "REGISTRATION": {
-                "zeros": 0,
-                "modes": [1, 2, 3],
-                "amplitude": 0.1,
-                "template": [1, -1],
-                "modalBase": "zonal",
-            },
-            "IFFUNC": {
-                "zeros": 0,
-                "modes": list(range(100)),
-                "amplitude": 0.1,
-                "template": [1, -1],
-                "modalBase": "hadamard",
-                "paddingZeros": 2,
-            },
-        }
-
-        def fake_get_iff_config(section):
-            return config_map[section].copy()
-
-        mock_get_iff_config.side_effect = fake_get_iff_config
-
+        mock_get_iff_config.return_value = self._iff_config()
         prep = ifa.IFFCapturePreparation(mock_dm)
         modes = np.arange(mock_dm.n_acts)
         tch = prep.create_timed_cmd_history(modesList=modes, shuffle=True)
-
         assert tch is not None
-        assert prep._shuffle == 1
+        assert prep._shuffle is True
 
-    @patch("opticalib.dmutils.iff_preparation._get_acq_info")
-    @patch("opticalib.dmutils.iff_preparation._rif.get_timing")
     @patch("opticalib.dmutils.iff_preparation._rif.get_iff_config")
-    def test_get_info_to_save(
-        self,
-        mock_get_iff_config,
-        mock_get_timing,
-        mock_get_info,
-        mock_dm,
-        temp_dir,
-        monkeypatch,
-    ):
+    def test_get_info_to_save(self, mock_get_iff_config, mock_dm):
         """Test getting info to save."""
-        from opticalib.core.root import folders
-        import os
-        import yaml
-
-        # Create config file
-        config_folder = os.path.join(temp_dir, "SysConfig")
-        os.makedirs(config_folder, exist_ok=True)
-        monkeypatch.setattr(folders, "CONFIGURATION_FOLDER", config_folder)
-
-        config_file = os.path.join(config_folder, "configuration.yaml")
-        config_data = {
-            "INFLUENCE.FUNCTIONS": {
-                "TRIGGER": {
-                    "zeros": 0,
-                    "modes": [10],
-                    "amplitude": 0.1,
-                    "template": [1],
-                    "modalBase": "mirror",
-                },
-                "REGISTRATION": {
-                    "zeros": 0,
-                    "modes": [1, 2, 3],
-                    "amplitude": 0.1,
-                    "template": [1, -1],
-                    "modalBase": "zonal",
-                },
-                "IFFUNC": {
-                    "zeros": 0,
-                    "modes": list(range(100)),
-                    "amplitude": 0.1,
-                    "template": [1, -1],
-                    "modalBase": "hadamard",
-                    "paddingZeros": 2,
-                },
-                "timing": 10, 'triggerMode': False, 'delay': 0
-            }
-        }
-        with open(config_file, "w") as f:
-            yaml.dump(config_data, f)
-
-        mock_get_timing.return_value = 10
-        mock_get_info.return_value = (
-            {
-                "TRIGGER": {
-                    "zeros": 0,
-                    "modes": [10],
-                    "amplitude": 0.1,
-                    "template": [1],
-                    "modalBase": "mirror",
-                },
-                "REGISTRATION": {
-                    "zeros": 0,
-                    "modes": [1, 2, 3],
-                    "amplitude": 0.1,
-                    "template": [1, -1],
-                    "modalBase": "zonal",
-                },
-                "IFFUNC": {
-                    "zeros": 0,
-                    "modes": list(range(100)),
-                    "amplitude": 0.1,
-                    "template": [1, -1],
-                    "modalBase": "hadamard",
-                    "paddingZeros": 2,
-                },
-                "timing": 10, 'triggerMode': False, 'delay': 0
-            }
-        )
-        config_map = {
-            "TRIGGER": {
-                "zeros": 0,
-                "modes": [10],
-                "amplitude": 0.1,
-                "template": [1],
-                "modalBase": "mirror",
-            },
-            "REGISTRATION": {
-                "zeros": 0,
-                "modes": [1, 2, 3],
-                "amplitude": 0.1,
-                "template": [1, -1],
-                "modalBase": "zonal",
-            },
-            "IFFUNC": {
-                "zeros": 0,
-                "modes": list(range(100)),
-                "amplitude": 0.1,
-                "template": [1, -1],
-                "modalBase": "hadamard",
-                "paddingZeros": 2,
-            },
-        }
-
-        def fake_get_iff_config(section):
-            return config_map[section].copy()
-
-        mock_get_iff_config.side_effect = fake_get_iff_config
-
+        mock_get_iff_config.return_value = self._iff_config()
         prep = ifa.IFFCapturePreparation(mock_dm)
         prep.create_timed_cmd_history()
         info = prep.get_info_to_save()
-
         assert isinstance(info, dict)
         assert "timed_cmd_history" in info
         assert "cmd_matrix" in info
@@ -503,183 +99,23 @@ class TestIFFCapturePreparation:
         assert "template" in info
         assert "shuffle" in info
 
-    @patch("opticalib.dmutils.iff_preparation._get_acq_info")
     @patch("opticalib.dmutils.iff_preparation._rif.get_iff_config")
-    def test_create_cmd_matrix_history(
-        self, mock_get_iff_config, mock_get_info, mock_dm, temp_dir, monkeypatch
-    ):
+    def test_create_cmd_matrix_history(self, mock_get_iff_config, mock_dm):
         """Test creating command matrix history."""
-        from opticalib.core.root import folders
-        import os
-        import yaml
-
-        # Create config file
-        config_folder = os.path.join(temp_dir, "SysConfig")
-        os.makedirs(config_folder, exist_ok=True)
-        monkeypatch.setattr(folders, "CONFIGURATION_FOLDER", config_folder)
-
-        config_file = os.path.join(config_folder, "configuration.yaml")
-        config_data = {
-            "INFLUENCE.FUNCTIONS": {
-                "TRIGGER": {
-                    "zeros": 0,
-                    "modes": [10],
-                    "amplitude": 0.1,
-                    "template": [1],
-                    "modalBase": "mirror",
-                },
-                "REGISTRATION": {
-                    "zeros": 0,
-                    "modes": [1, 2, 3],
-                    "amplitude": 0.1,
-                    "template": [1, -1],
-                    "modalBase": "zonal",
-                },
-                "IFFUNC": {
-                    "zeros": 0,
-                    "modes": list(range(100)),
-                    "amplitude": 0.1,
-                    "template": [1, -1],
-                    "modalBase": "hadamard",
-                    "paddingZeros": 2,
-                },
-                "timing": 10, 'triggerMode': False, 'delay': 0
-            }
-        }
-        with open(config_file, "w") as f:
-            yaml.dump(config_data, f)
-
-        mock_get_info.return_value = (
-            {
-                "TRIGGER": {
-                    "zeros": 0,
-                    "modes": [10],
-                    "amplitude": 0.1,
-                    "template": [1],
-                    "modalBase": "mirror",
-                },
-                "REGISTRATION": {
-                    "zeros": 0,
-                    "modes": [1, 2, 3],
-                    "amplitude": 0.1,
-                    "template": [1, -1],
-                    "modalBase": "zonal",
-                },
-                "IFFUNC": {
-                    "zeros": 0,
-                    "modes": list(range(100)),
-                    "amplitude": 0.1,
-                    "template": [1, -1],
-                    "modalBase": "hadamard",
-                    "paddingZeros": 2,
-                },
-                "timing": 10, 'triggerMode': False, 'delay': 0
-            }
-        )
-        config_map = {
-            "TRIGGER": {
-                "zeros": 0,
-                "modes": [10],
-                "amplitude": 0.1,
-                "template": [1],
-                "modalBase": "mirror",
-            },
-            "REGISTRATION": {
-                "zeros": 0,
-                "modes": [1, 2, 3],
-                "amplitude": 0.1,
-                "template": [1, -1],
-                "modalBase": "zonal",
-            },
-            "IFFUNC": {
-                "zeros": 0,
-                "modes": list(range(100)),
-                "amplitude": 0.1,
-                "template": [1, -1],
-                "modalBase": "hadamard",
-                "paddingZeros": 2,
-            },
-        }
-
-        def fake_get_iff_config(section):
-            return config_map[section].copy()
-
-        mock_get_iff_config.side_effect = fake_get_iff_config
-
+        mock_get_iff_config.return_value = self._iff_config()
         prep = ifa.IFFCapturePreparation(mock_dm)
         cmd_hist = prep.create_cmd_matrix_history()
-
         assert cmd_hist is not None
         assert isinstance(cmd_hist, np.ndarray)
         assert prep.cmdMatHistory is not None
 
     @patch("opticalib.dmutils.iff_preparation._rif.get_iff_config")
-    @patch("opticalib.dmutils.iff_preparation._get_acq_info")
-    def test_create_aux_cmd_history(self, mock_get_info, mock_get_iff_config, mock_dm):
+    def test_create_aux_cmd_history(self, mock_get_iff_config, mock_dm):
         """Test creating auxiliary command history."""
-        mock_get_info.return_value = (
-            {
-                "TRIGGER": {
-                    "zeros": 0,
-                    "modes": [10],
-                    "amplitude": 0.1,
-                    "template": [1],
-                    "modalBase": "mirror",
-                },
-                "REGISTRATION": {
-                    "zeros": 0,
-                    "modes": [1, 2, 3],
-                    "amplitude": 0.1,
-                    "template": [1, -1],
-                    "modalBase": "zonal",
-                },
-                "IFFUNC": {
-                    "zeros": 0,
-                    "modes": list(range(100)),
-                    "amplitude": 0.1,
-                    "template": [1, -1],
-                    "modalBase": "hadamard",
-                    "paddingZeros": 2,
-                },
-                "timing": 10, 'triggerMode': False, 'delay': 0
-            }
-        )
-        config_map = {
-            "TRIGGER": {
-                "modes": [10],
-                "amplitude": 0.1,
-                "zeros": 0,
-                "template": [1],
-                "modalBase": "mirror",
-            },
-            "REGISTRATION": {
-                "modes": [1, 2, 3],
-                "amplitude": 0.1,
-                "template": [1, -1],
-                "zeros": 0,
-                "modalBase": "zonal",
-            },
-            "IFFUNC": {
-                "modes": list(range(100)),
-                "amplitude": 0.1,
-                "template": [1, -1],
-                "zeros": 0,
-                "modalBase": "hadamard",
-                "paddingZeros": 2,
-            },
-        }
-
-        def fake_get_iff_config(section):
-            return config_map[section].copy()
-
-        mock_get_iff_config.side_effect = fake_get_iff_config
-
+        mock_get_iff_config.return_value = self._iff_config()
         prep = ifa.IFFCapturePreparation(mock_dm)
         aux_hist = prep.create_aux_cmd_history()
-
-        assert (
-            aux_hist is not None or prep.auxCmdHistory is None
-        )  # May be None if no trigger/reg
+        assert aux_hist is not None
 
     def test_create_zonal_mat(self, mock_dm):
         """Test creating zonal matrix."""
@@ -749,38 +185,12 @@ class TestIFFCapturePreparation:
         assert prep.modalBaseId == "hadamard"
         assert prep._modalBase.shape[0] == mock_dm.n_acts
 
-    @patch("opticalib.dmutils.iff_preparation._get_acq_info")
+    @patch("opticalib.dmutils.iff_preparation._rif.get_iff_config")
     def test_create_cmd_matrix_history_invalid_n_repetitions(
-        self, mock_get_info, mock_dm
+        self, mock_get_iff_config, mock_dm
     ):
         """Test that create_cmd_matrix_history raises ValueError for invalid n_repetitions."""
-        mock_get_info.return_value = (
-            {
-                "TRIGGER": {
-                    "zeros": 0,
-                    "modes": [10],
-                    "amplitude": 0.1,
-                    "template": [1],
-                    "modalBase": "mirror",
-                },
-                "REGISTRATION": {
-                    "zeros": 0,
-                    "modes": [1, 2, 3],
-                    "amplitude": 0.1,
-                    "template": [1, -1],
-                    "modalBase": "zonal",
-                },
-                "IFFUNC": {
-                    "zeros": 0,
-                    "modes": list(range(100)),
-                    "amplitude": 0.1,
-                    "template": [1, -1],
-                    "modalBase": "hadamard",
-                    "paddingZeros": 2,
-                },
-                "timing": 10, 'triggerMode': False, 'delay': 0
-            }
-        )
+        mock_get_iff_config.return_value = self._iff_config()
 
         prep = ifa.IFFCapturePreparation(mock_dm)
 
@@ -795,4 +205,3 @@ class TestIFFCapturePreparation:
         # Test n_repetitions = -10
         with pytest.raises(ValueError, match="n_repetitions must be >= 1"):
             prep.create_cmd_matrix_history(modesList=np.arange(5), n_repetitions=-10)
-

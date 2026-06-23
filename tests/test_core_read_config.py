@@ -128,11 +128,11 @@ class TestGetIffConfig:
         config_data = {
             "INFLUENCE.FUNCTIONS": {
                 "IFFUNC": {
-                    "numberofzeros": 2,
-                    "modeid": [1, 2, 3],
-                    "modeamp": [0.1, 0.2, 0.3],
+                    "trailing_zeros": 2,
+                    "modes_list": [1, 2, 3],
+                    "amplitude": [0.1, 0.2, 0.3],
                     "template": [[1, 2], [3, 4]],
-                    "modalbase": "test_base",
+                    "modal_base": "test_base",
                 }
             }
         }
@@ -142,13 +142,11 @@ class TestGetIffConfig:
         monkeypatch.setattr(read_config, "_cfold", temp_dir)
         config = read_config.get_iff_config("IFFUNC", bpath=temp_dir)
 
-        assert config["zeros"] == 2
-        assert isinstance(config["modes"], np.ndarray)
+        assert config["trailing_zeros"] == 2
+        assert isinstance(config["modes_list"], np.ndarray)
         assert isinstance(config["amplitude"], np.ndarray)
         assert isinstance(config["template"], np.ndarray)
-        assert config["modalBase"] == "test_base"
-        assert "paddingZeros" in config
-        assert config["paddingZeros"] == 0  # Default value when not in config
+        assert config["modal_base"] == "test_base"
 
 
 class TestGetDmConfig:

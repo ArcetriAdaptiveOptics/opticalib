@@ -114,17 +114,17 @@ class TestStackCubes:
 
         cmd_mat2 = np.random.randn(100, 10).astype(np.float32)
         osutils.save_fits(
-            os.path.join(tn2_folder, "cmdMatrix.fits"), cmd_mat2, overwrite=True
+            os.path.join(tn2_folder, ifp._MATRIX_FILE), cmd_mat2, overwrite=True
         )
 
         modes_vec2 = np.array([11, 12, 13, 14, 15, 16, 17, 18, 19, 20])
         osutils.save_fits(
-            os.path.join(tn2_folder, "modes_vector.fits"), modes_vec2, overwrite=True
+            os.path.join(tn2_folder, ifp._MODES_FILE), modes_vec2, overwrite=True
         )
         
         amp_vec2 = np.array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
         osutils.save_fits(
-            os.path.join(tn2_folder, "ampVector.fits"), amp_vec2, overwrite=True
+            os.path.join(tn2_folder, ifp._AMP_FILE), amp_vec2, overwrite=True
         )
 
         tnlist = [tn1, tn2]
@@ -277,13 +277,13 @@ class TestGetAcqPar:
 
         ret = ifp._get_acq_par(tn)
 
-        assert ret["ampVector"] is not None
-        assert ret["modes_vector"] is not None
-        assert ret["template"] is not None
-        assert ret["indexList"] is not None
-        assert ret["registration_acts"] is not None
-        assert isinstance(ret["shuffle"], bool)
-        assert isinstance(ret['n_repetitions'], int)
+        assert ret["FILES"]["amplitude"] is not None
+        assert ret["FILES"]["modes_list"] is not None
+        assert ret["FILES"]["template"] is not None
+        assert ret["FILES"]["index_list"] is not None
+        assert ret["FILES"]["registration_modes"] is not None
+        assert isinstance(ret["FILES"]["shuffle"], bool)
+        assert isinstance(ret["FILES"]["n_repetitions"], int)
 
 
 class TestGetAcqInfo:
@@ -350,7 +350,7 @@ class TestGetTriggerFrame:
         """Test getting trigger frame with no zeros."""
         # Mock setup
         mock_get_info.return_value = {
-            "TRIGGER": {"zeros": 0, "modes": [], "amplitude": 0.1},
+            "TRIGGER": {"trailing_zeros": 0, "modes_list": [], "amplitude": 0.1},
             "REGISTRATION": {},
             "IFFUNC": {},
             "delay": 0,
@@ -373,7 +373,7 @@ class TestGetTriggerFrame:
 
         # Mock setup
         mock_get_info.return_value = {
-            "TRIGGER": {"zeros": 2, "modes": [1], "amplitude": 0.1},
+            "TRIGGER": {"trailing_zeros": 2, "modes_list": [1], "amplitude": 0.1},
             "REGISTRATION": {},
             "IFFUNC": {},
             "delay": 0,
