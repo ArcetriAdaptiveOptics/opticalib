@@ -42,7 +42,6 @@ class GigaVision(BaseCamera):
         self._cam_config = _gcc(device_name=self._name)
         self._logger = _sl(__class__)
         self._base_timeout = 2000  # milliseconds
-        self._exptime = None
 
         # retrieve device ID or IP
         try:
@@ -92,6 +91,8 @@ class GigaVision(BaseCamera):
             raise RuntimeError(
                 f"Could not connect to camera {self._name} with ID {self.cam_id}."
             ) from e
+
+        self._exptime = self.get_exptime()
 
     def reconnect(self, max_attempts: int = 2) -> None:
         """
