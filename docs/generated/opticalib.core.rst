@@ -10,9 +10,9 @@ opticalib.core
    :toctree:
    :recursive:
 
-   dataclass
+   config
+   data_classes
    decorators
    exceptions
    fitsarray
-   read_config
    root

@@ -65,6 +65,17 @@ autodoc_mock_imports = [
     "m4",
     # thin-plate-spline library used by pupil_calibration
     "tps",
+    # optional/host-specific runtime dependencies
+    "xupy",
+    "cupy",
+    "PyQt5",
+    "qtconsole",
+    "vmbpy",
+    "pipython",
+    "Pyro4",
+    "arte",
+    "plico_motor",
+    "Microgate",
 ]
 
 # Intersphinx mappings for cross-references

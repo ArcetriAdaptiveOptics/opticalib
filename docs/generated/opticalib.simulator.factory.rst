@@ -1,7 +1,7 @@
-﻿opticalib.simulator.factory\_functions
-======================================
+opticalib.simulator.factory
+===========================
 
-.. automodule:: opticalib.simulator.factory_functions
+.. automodule:: opticalib.simulator.factory
 
    
    .. rubric:: Functions

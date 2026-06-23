@@ -1,7 +1,7 @@
-﻿opticalib.analyzer.images\_processing
-=====================================
+opticalib.analyzer.image\_processing
+====================================
 
-.. automodule:: opticalib.analyzer.images_processing
+.. automodule:: opticalib.analyzer.image_processing
 
    
    .. rubric:: Functions

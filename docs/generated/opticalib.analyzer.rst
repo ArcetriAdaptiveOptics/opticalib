@@ -10,6 +10,6 @@ opticalib.analyzer
    :toctree:
    :recursive:
 
-   images_processing
+   image_processing
    signals
    timeseries

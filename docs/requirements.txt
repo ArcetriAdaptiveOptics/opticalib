@@ -1,7 +1,18 @@
-sphinx>=7.0
+sphinx>=8.0
 furo>=2024.1.29
-myst-parser>=2.0.0
+myst-parser>=4.0.0
 sphinx-autodoc-typehints>=2.1.0
 
-# Include project dependencies so autodoc imports succeed
--r ../requirements.txt
+# Runtime deps needed by autodoc-imported modules in RTD builds.
+# Keep this list RTD-safe: avoid hardware/vendor-specific dependencies.
+numpy>=1.26
+scipy>=1.11
+matplotlib>=3.8
+astropy>=6.0
+h5py>=3.10
+scikit-image>=0.22
+scikit-learn>=1.4
+photutils>=1.11
+ruamel.yaml>=0.18
+PyYAML>=6.0
+tqdm>=4.66

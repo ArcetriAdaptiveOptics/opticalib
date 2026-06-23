@@ -1,4 +1,4 @@
-﻿opticalib.simulator.fake\_dms
+opticalib.simulator.fake\_dms
 =============================
 
 .. automodule:: opticalib.simulator.fake_dms

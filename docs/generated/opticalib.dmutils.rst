@@ -10,11 +10,8 @@ opticalib.dmutils
    :toctree:
    :recursive:
 
-   actuator_identification_lib
    flattening
-   iff_acquisition_preparation
-   iff_module
+   iff_preparation
    iff_processing
-   pupil_calibration
    slaving
    stitching

@@ -1,7 +1,7 @@
-opticalib.dmutils.iff\_module
-=============================
+opticalib.procedures.iff
+========================
 
-.. automodule:: opticalib.dmutils.iff_module
+.. automodule:: opticalib.procedures.iff
 
    
    .. rubric:: Functions

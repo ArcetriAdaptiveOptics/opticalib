@@ -1,4 +1,4 @@
-﻿opticalib.analyzer.timeseries
+opticalib.analyzer.timeseries
 =============================
 
 .. automodule:: opticalib.analyzer.timeseries

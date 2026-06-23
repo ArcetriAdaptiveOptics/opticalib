@@ -1,7 +1,7 @@
-opticalib.core.read\_config
-===========================
+opticalib.core.config
+=====================
 
-.. automodule:: opticalib.core.read_config
+.. automodule:: opticalib.core.config
 
    
    .. rubric:: Functions
