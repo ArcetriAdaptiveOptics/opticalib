@@ -1,4 +1,4 @@
-﻿opticalib.dmutils
+opticalib.dmutils
 =================
 
 .. automodule:: opticalib.dmutils
@@ -11,10 +11,10 @@
    :recursive:
 
    actuator_identification_lib
-   dm_analysis
    flattening
    iff_acquisition_preparation
    iff_module
    iff_processing
    pupil_calibration
    slaving
+   stitching

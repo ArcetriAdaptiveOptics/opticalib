@@ -1,4 +1,4 @@
-﻿opticalib.ground.roi
+opticalib.ground.roi
 ====================
 
 .. automodule:: opticalib.ground.roi
@@ -8,9 +8,9 @@
 
    .. autosummary::
    
-      countRois
-      cubeMasterMask
-      imgCut
+      count_rois
+      cube_master_mask
+      img_cut
       remap_on_new_mask
-      roiGenerator
+      roi_generator
    

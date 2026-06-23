@@ -8,9 +8,9 @@ opticalib.dmutils.actuator\_identification\_lib
 
    .. autosummary::
    
-      extractPeak
-      findActuator
-      findFrameCoord
+      extract_peak
+      find_actuator
+      find_frame_coord
       fit_trasformation_parameter
       marker_general_remap
    

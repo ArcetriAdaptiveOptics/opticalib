@@ -8,9 +8,8 @@
 
    .. autosummary::
    
-      generateZernikeMatrix
-      getActuatorGeometry
-      getAlpaoCoordsMask
-      getPetalmirrorMask
+      generate_zernike_matrix
+      get_alpao_coords_mask
+      get_petalmirror_mask_and_coords
       pixel_scale
    
