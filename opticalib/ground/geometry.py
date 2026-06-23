@@ -17,12 +17,14 @@ def draw_circular_pupil(
     ----------
     image_shape: tuple of ints
         The shape of the image (height, width).
-    center: tuple of floats
-        The (x, y) coordinates of the circle's center.
     radius: float
         The radius of the circle.
-    masked: bool
-        If True, flips the logic, and sets the circular area to True.
+    center: tuple of floats, optional
+        The (x, y) coordinates of the circle's center. If None, the center of 
+        the image is used.
+    masked: bool, optional
+        If True, flips the logic, and sets the circular area to True. Default 
+        is False.
 
     Returns
     -------

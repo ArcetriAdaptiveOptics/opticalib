@@ -12,10 +12,10 @@ Author(s):
 import os as _os
 import numpy as _np
 from opticalib.core.root import folders as _fn
-from opticalib.core import read_config as _rif, exceptions as _oe
-from . import iff_acquisition_preparation as _ifa
+from opticalib.core import config as _rif, exceptions as _oe
+from ..dmutils import iff_preparation as _ifa
 from opticalib.ground import osutils as _osu
-from opticalib import typings as _ot
+from opticalib.core import _types as _ot
 
 
 def iff_data_acquisition(

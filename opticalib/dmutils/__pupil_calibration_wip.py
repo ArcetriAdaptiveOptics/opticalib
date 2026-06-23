@@ -11,7 +11,7 @@ Description
 
 import numpy as _np
 from os.path import join as _j
-from opticalib import typings as _ot
+from opticalib.core import _types as _ot
 from opticalib.ground import osutils as _osu
 from scipy.interpolate import griddata as _gd
 from opticalib.core.root import folders as _fn
@@ -180,7 +180,7 @@ class PupilCalibrator:
         self._iffCube = _osu.load_fits(
             _j(_fn.INTMAT_ROOT_FOLDER, self._tn, "IMCube.fits")
         )
-        from opticalib.ground.computerec import ComputeReconstructor
+        from opticalib.ground.reconstructor import ComputeReconstructor
 
         rec = ComputeReconstructor(self._iffCube)
         self.IFM = rec._intMat.copy()

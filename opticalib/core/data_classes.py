@@ -4,7 +4,7 @@ Dataclasses used across opticalib.
 
 import os as _os
 from dataclasses import dataclass as _dc
-from opticalib import typings as _ot
+from opticalib.core import _types as _ot
 from opticalib.ground import osutils as _osu
 from opticalib.core.root import folders as _fn
 from collections import OrderedDict as _OrderedDict

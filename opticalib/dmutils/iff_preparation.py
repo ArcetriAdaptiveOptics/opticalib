@@ -12,9 +12,9 @@ Author(s):
 import os as _os
 import numpy as _np
 from opticalib.ground import osutils as _osu
-from opticalib.core import read_config as _rif
+from opticalib.core import config as _rif
 from opticalib.core.fitsarray import fits_array as _fa
-from opticalib import typings as _ot
+from opticalib.core import _types as _ot
 from .iff_processing import _get_acq_info
 
 

@@ -12,7 +12,7 @@ import numpy as _np
 import xupy as _xp
 from . import osutils as _osu
 import matplotlib.pyplot as _plt
-from opticalib import typings as _ot
+from opticalib.core import _types as _ot
 from .logger import SystemLogger as _SL
 from opticalib.core.root import folders as _fn
 import gc
