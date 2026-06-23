@@ -1,11 +1,11 @@
 """
-Tests for opticalib.ground.computerec module.
+Tests for opticalib.ground.reconstructor module.
 """
 
 import pytest
 import numpy as np
 import numpy.ma as ma
-from opticalib.ground import computerec
+from opticalib.ground import reconstructor as computerec
 
 
 class TestComputeReconstructor:

@@ -1,5 +1,5 @@
 import numpy as _np
-from opticalib.core.read_config import get_section_config
+from opticalib.core.config import get_section_config
 from opticalib.core.exceptions import CommandError
 from opticalib import typings as _t
 

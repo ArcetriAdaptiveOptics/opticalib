@@ -1,11 +1,11 @@
 """
-Tests for opticalib.dmutils.iff_acquisition_preparation module.
+Tests for opticalib.dmutils.iff_preparation module.
 """
 
 import pytest
 import numpy as np
 from unittest.mock import Mock, patch, MagicMock
-from opticalib.dmutils import iff_acquisition_preparation as ifa
+from opticalib.dmutils import iff_preparation as ifa
 from opticalib.core.exceptions import DeviceError
 
 
@@ -27,9 +27,9 @@ class TestIFFCapturePreparation:
         with pytest.raises(DeviceError):
             ifa.IFFCapturePreparation(invalid_dm)
 
-    @patch("opticalib.dmutils.iff_acquisition_preparation._get_acq_info")
-    @patch("opticalib.dmutils.iff_acquisition_preparation._rif.get_timing")
-    @patch("opticalib.dmutils.iff_acquisition_preparation._rif.get_iff_config")
+    @patch("opticalib.dmutils.iff_preparation._get_acq_info")
+    @patch("opticalib.dmutils.iff_preparation._rif.get_timing")
+    @patch("opticalib.dmutils.iff_preparation._rif.get_iff_config")
     def test_create_timed_cmd_history_basic(
         self,
         mock_get_iff_config,
@@ -142,9 +142,9 @@ class TestIFFCapturePreparation:
         assert isinstance(tch, np.ndarray)
         assert prep.timedCmdHistory is not None
 
-    @patch("opticalib.dmutils.iff_acquisition_preparation._get_acq_info")
-    @patch("opticalib.dmutils.iff_acquisition_preparation._rif.get_timing")
-    @patch("opticalib.dmutils.iff_acquisition_preparation._rif.get_iff_config")
+    @patch("opticalib.dmutils.iff_preparation._get_acq_info")
+    @patch("opticalib.dmutils.iff_preparation._rif.get_timing")
+    @patch("opticalib.dmutils.iff_preparation._rif.get_iff_config")
     def test_create_timed_cmd_history_with_modes(
         self,
         mock_get_iff_config,
@@ -257,9 +257,9 @@ class TestIFFCapturePreparation:
         assert tch is not None
         assert prep._modesList is not None
 
-    @patch("opticalib.dmutils.iff_acquisition_preparation._get_acq_info")
-    @patch("opticalib.dmutils.iff_acquisition_preparation._rif.get_timing")
-    @patch("opticalib.dmutils.iff_acquisition_preparation._rif.get_iff_config")
+    @patch("opticalib.dmutils.iff_preparation._get_acq_info")
+    @patch("opticalib.dmutils.iff_preparation._rif.get_timing")
+    @patch("opticalib.dmutils.iff_preparation._rif.get_iff_config")
     def test_create_timed_cmd_history_with_shuffle(
         self,
         mock_get_iff_config,
@@ -372,9 +372,9 @@ class TestIFFCapturePreparation:
         assert tch is not None
         assert prep._shuffle == 1
 
-    @patch("opticalib.dmutils.iff_acquisition_preparation._get_acq_info")
-    @patch("opticalib.dmutils.iff_acquisition_preparation._rif.get_timing")
-    @patch("opticalib.dmutils.iff_acquisition_preparation._rif.get_iff_config")
+    @patch("opticalib.dmutils.iff_preparation._get_acq_info")
+    @patch("opticalib.dmutils.iff_preparation._rif.get_timing")
+    @patch("opticalib.dmutils.iff_preparation._rif.get_iff_config")
     def test_get_info_to_save(
         self,
         mock_get_iff_config,
@@ -491,8 +491,8 @@ class TestIFFCapturePreparation:
         assert "template" in info
         assert "shuffle" in info
 
-    @patch("opticalib.dmutils.iff_acquisition_preparation._get_acq_info")
-    @patch("opticalib.dmutils.iff_acquisition_preparation._rif.get_iff_config")
+    @patch("opticalib.dmutils.iff_preparation._get_acq_info")
+    @patch("opticalib.dmutils.iff_preparation._rif.get_iff_config")
     def test_create_cmd_matrix_history(
         self, mock_get_iff_config, mock_get_info, mock_dm, temp_dir, monkeypatch
     ):
@@ -598,8 +598,8 @@ class TestIFFCapturePreparation:
         assert isinstance(cmd_hist, np.ndarray)
         assert prep.cmdMatHistory is not None
 
-    @patch("opticalib.dmutils.iff_acquisition_preparation._rif.get_iff_config")
-    @patch("opticalib.dmutils.iff_acquisition_preparation._get_acq_info")
+    @patch("opticalib.dmutils.iff_preparation._rif.get_iff_config")
+    @patch("opticalib.dmutils.iff_preparation._get_acq_info")
     def test_create_aux_cmd_history(self, mock_get_info, mock_get_iff_config, mock_dm):
         """Test creating auxiliary command history."""
         mock_get_info.return_value = (
@@ -676,7 +676,7 @@ class TestIFFCapturePreparation:
         assert hadamard is not None
         assert hadamard.shape[0] == mock_dm.n_acts
 
-    @patch("opticalib.dmutils.iff_acquisition_preparation._osu.load_fits")
+    @patch("opticalib.dmutils.iff_preparation._osu.load_fits")
     def test_create_user_mat(self, mock_load_fits, mock_dm, temp_dir, monkeypatch):
         """Test creating user-defined modal base."""
         from opticalib.core.root import MODALBASE_ROOT_FOLDER
@@ -726,7 +726,7 @@ class TestIFFCapturePreparation:
         assert prep.modalBaseId == "hadamard"
         assert prep._modalBase.shape[0] == mock_dm.n_acts
 
-    @patch("opticalib.dmutils.iff_acquisition_preparation._get_acq_info")
+    @patch("opticalib.dmutils.iff_preparation._get_acq_info")
     def test_create_cmd_matrix_history_invalid_n_repetitions(
         self, mock_get_info, mock_dm
     ):

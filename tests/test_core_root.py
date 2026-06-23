@@ -291,7 +291,7 @@ class TestSetConfigurationFile:
         symbols at import time. This test verifies those references remain
         synchronized after configuration switching.
         """
-        import opticalib.dmutils.iff_module as iff_module
+        import opticalib.procedures.iff as iff_module
         import opticalib.devices.deformable_mirrors as deformable_mirrors
 
         original_config = opticalib.folders.CONFIGURATION_FILE

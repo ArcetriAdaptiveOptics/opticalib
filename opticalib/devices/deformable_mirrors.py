@@ -20,7 +20,7 @@ from . import _API as _api
 from opticalib import typings as _ot
 from opticalib.core import exceptions as _oe
 from contextlib import contextmanager as _contextmanager
-from opticalib.core import read_config as _rc
+from opticalib.core import config as _rc
 from opticalib.core.root import OPD_IMAGES_ROOT_FOLDER as _opdi
 from opticalib.ground.osutils import (
     newtn as _ts,

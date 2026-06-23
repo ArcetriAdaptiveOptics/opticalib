@@ -47,10 +47,10 @@ from opticalib import typings as _ot
 from . import iff_processing as _ifp
 from opticalib.ground import osutils as _osu
 from opticalib.core.root import folders as _fn
-from opticalib.ground import computerec as _crec
+from opticalib.ground import reconstructor as _crec
 from ..ground.logger import SystemLogger as _SL
 from ..analyzer.images_processing import mode_rebinner as _rebin
-from opticalib.core.dataclass import FlatData
+from opticalib.core.data_classes import FlatData
 
 
 class Flattening:

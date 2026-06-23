@@ -27,7 +27,7 @@ class IFFCapturePreparation:
     -------------------------
     Import the module and initialize the class with a deformable mirror object
 
-    >>> from opticalib.dmutils.iff_acquisition_preparation import IFFCapturePreparation
+    >>> from opticalib.dmutils.iff_preparation import IFFCapturePreparation
     >>> from opticalib.devices import AlpaoDm
     >>> dm = AlpaoDm(88)
     >>> ifa = IFFCapturePreparation(dm)

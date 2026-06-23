@@ -13,7 +13,7 @@ from opticalib import typings as _t
 from opticalib.ground import geometry as geo
 from opticalib.ground import osutils as osu
 from opticalib.ground import roi
-from opticalib.core.read_config import get_iff_config as _dmc
+from opticalib.core.config import get_iff_config as _dmc
 from opticalib.ground.modal_decomposer import ZernikeFitter as _ZF
 from .simdata import get_simdata_file
 

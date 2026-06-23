@@ -4,7 +4,7 @@ import numpy as np
 from ... import typings as _t
 from ..factory_functions import *
 from ...core import root as _root
-from ...core.read_config import get_iff_config as _dmc
+from ...core.config import get_iff_config as _dmc
 from abc import ABC, abstractmethod
 from opticalib.ground import osutils as osu
 from ._rbf_gpu import RBFInterpolator

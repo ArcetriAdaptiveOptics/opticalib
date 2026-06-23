@@ -2,7 +2,7 @@ import os
 import numpy as np
 import xupy as xp
 from opticalib import typings as _t
-from opticalib.core.read_config import load_yaml_config as cl
+from opticalib.core.config import load_yaml_config as cl
 from opticalib.ground.modal_decomposer import ZernikeFitter
 from opticalib.ground import geometry as geo
 

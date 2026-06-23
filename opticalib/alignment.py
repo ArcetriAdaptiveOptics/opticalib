@@ -83,7 +83,7 @@ local amplitude measured on each of the segment.
 import os as _os
 import numpy as _np
 from .core.root import folders as _fn
-from .core.read_config import get_alignment_config as _gac
+from .core.config import get_alignment_config as _gac
 from .ground import logger as _logger, roi as roigen
 from .ground.modal_decomposer import ZernikeFitter as _zfitter
 from .ground import osutils as _osu

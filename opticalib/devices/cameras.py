@@ -6,7 +6,7 @@ from .. import typings as _ot
 from ..core.decorators import ReconnectionError as _re
 from ..core.decorators import allow_reconnect as _ar
 from ..ground.logger import SystemLogger as _sl
-from ..core.read_config import get_cameras_config as _gcc
+from ..core.config import get_cameras_config as _gcc
 from ._API import BaseCamera
 
 

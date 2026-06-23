@@ -9,7 +9,7 @@ from .core.root import folders as _fn
 from .ground.logger import SystemLogger as _SL
 from .devices.cameras import GigaVision as _cam
 from .core.fitsarray import fits_array as _fits_array
-from .core.read_config import get_section_config as _gsc
+from .core.config import get_section_config as _gsc
 
 _splconf = _gsc("PHASING")
 

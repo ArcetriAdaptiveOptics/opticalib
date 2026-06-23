@@ -2,7 +2,7 @@ import numpy as np
 from opticalib import typings as _ot
 from pipython import GCSDevice, GCSError
 from pipython.pidevice.interfaces.pisocket import PISocket
-from opticalib.core import read_config as _rc
+from opticalib.core import config as _rc
 from opticalib.core.exceptions import CommandError
 
 

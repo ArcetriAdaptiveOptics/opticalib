@@ -17,7 +17,7 @@ matrix computation, and device management.
 
 Contents
 --------
-- computerec.py : module for computing and using the reconstructor from a DM
+- reconstructor.py : module for computing and using the reconstructor from a DM
     calibration. Used in `dmutils.flattening`
 - osutils.py : module with various OS utilities, like reading/writing FITS
     files and interferometer maps.
@@ -27,4 +27,4 @@ Contents
 - zernike.py : module for Zernike polynomials computation and fitting on images.
 """
 
-from . import roi, modal_decomposer, geometry, osutils, computerec
+from . import roi, modal_decomposer, geometry, osutils, reconstructor

@@ -34,7 +34,7 @@ from numpy.typing import ArrayLike, DTypeLike
 from astropy.io.fits import Header
 
 if TYPE_CHECKING:
-    from .ground.computerec import ComputeReconstructor
+    from .ground.reconstructor import ComputeReconstructor
 
 Reconstructor: TypeAlias = Union["ComputeReconstructor", None]
 

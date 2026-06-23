@@ -29,7 +29,7 @@ from .core.root import (
     create_configuration_file,
     set_configuration_file,
 )
-from .core import read_config
+from .core import config as read_config
 from .core.fitsarray import fits_array
 from .devices import *
 from .devices.interferometer import _4DInterferometer

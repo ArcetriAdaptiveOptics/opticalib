@@ -1,5 +1,5 @@
 """
-Tests for opticalib.core.read_config module.
+Tests for opticalib.core.config module.
 """
 
 import pytest
@@ -9,7 +9,7 @@ import shutil
 import yaml
 import numpy as np
 from opticalib.core.exceptions import DeviceNotFoundError
-from opticalib.core import read_config
+from opticalib.core import config as read_config
 
 
 class TestLoadYamlConfig:
@@ -29,7 +29,7 @@ class TestLoadYamlConfig:
         # Mock the configuration folder
         monkeypatch.setattr(read_config, "_cfold", temp_dir)
         # Also need to update the module-level variable
-        import opticalib.core.read_config as rc_module
+        import opticalib.core.config as rc_module
 
         monkeypatch.setattr(rc_module, "_cfold", temp_dir)
         config = read_config.load_yaml_config(path=temp_dir)

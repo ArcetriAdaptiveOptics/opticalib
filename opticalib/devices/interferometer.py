@@ -36,7 +36,7 @@ class _4DInterferometer(_api.BaseWavefrontSensor):
         global _Folds
 
         if (ip and port) is None:
-            from opticalib.core.read_config import get_section_config
+            from opticalib.core.config import get_section_config
 
             config = get_section_config("DEVICES", "INTERFEROMETERS")[self._name]
             ip = config["ip"]

@@ -1,21 +1,21 @@
 """
-Tests for opticalib.dmutils.iff_module module.
+Tests for opticalib.procedures.iff module.
 """
 
 import pytest
 import os
 import numpy as np
 from unittest.mock import Mock, patch, MagicMock
-from opticalib.dmutils import iff_module
+from opticalib.procedures import iff as iff_module
 
 
 class TestIffDataAcquisition:
     """Test iff_data_acquisition function."""
 
-    @patch("opticalib.dmutils.iff_module._ifa.IFFCapturePreparation")
-    @patch("opticalib.dmutils.iff_module._osu.newtn")
-    @patch("opticalib.dmutils.iff_module._rif")
-    @patch("opticalib.dmutils.iff_module._osu.save_fits")
+    @patch("opticalib.procedures.iff._ifa.IFFCapturePreparation")
+    @patch("opticalib.procedures.iff._osu.newtn")
+    @patch("opticalib.procedures.iff._rif")
+    @patch("opticalib.procedures.iff._osu.save_fits")
     def test_iff_data_acquisition_basic(
         self,
         mock_save_fits,
@@ -60,9 +60,9 @@ class TestIffDataAcquisition:
         mock_dm.upload_cmd_history.assert_called_once()
         mock_dm.run_cmd_history.assert_called_once()
 
-    @patch("opticalib.dmutils.iff_module._ifa.IFFCapturePreparation")
-    @patch("opticalib.dmutils.iff_module._osu.newtn")
-    @patch("opticalib.dmutils.iff_module._rif")
+    @patch("opticalib.procedures.iff._ifa.IFFCapturePreparation")
+    @patch("opticalib.procedures.iff._osu.newtn")
+    @patch("opticalib.procedures.iff._rif")
     def test_iff_data_acquisition_with_modes(
         self,
         mock_read_config,
@@ -107,9 +107,9 @@ class TestIffDataAcquisition:
         call_args = mock_prep.create_timed_cmd_history.call_args
         assert np.array_equal(call_args.kwargs['modesList'], modes) or call_args.kwargs['modesList'] == modes
 
-    @patch("opticalib.dmutils.iff_module._ifa.IFFCapturePreparation")
-    @patch("opticalib.dmutils.iff_module._osu.newtn")
-    @patch("opticalib.dmutils.iff_module._rif")
+    @patch("opticalib.procedures.iff._ifa.IFFCapturePreparation")
+    @patch("opticalib.procedures.iff._osu.newtn")
+    @patch("opticalib.procedures.iff._rif")
     def test_iff_data_acquisition_with_shuffle(
         self,
         mock_read_config,
@@ -153,10 +153,10 @@ class TestIffDataAcquisition:
 class TestAcquirePistonData:
     """Test acquire_piston_data function."""
 
-    @patch("opticalib.dmutils.iff_module._ifa.IFFCapturePreparation")
-    @patch("opticalib.dmutils.iff_module._osu.newtn")
-    @patch("opticalib.dmutils.iff_module._rif")
-    @patch("opticalib.dmutils.iff_module._osu.save_fits")
+    @patch("opticalib.procedures.iff._ifa.IFFCapturePreparation")
+    @patch("opticalib.procedures.iff._osu.newtn")
+    @patch("opticalib.procedures.iff._rif")
+    @patch("opticalib.procedures.iff._osu.save_fits")
     def test_acquire_piston_data_basic(
         self,
         mock_save_fits,
@@ -201,10 +201,10 @@ class TestAcquirePistonData:
         mock_dm.upload_cmd_history.assert_called_once()
         mock_dm.run_cmd_history.assert_called_once()
 
-    @patch("opticalib.dmutils.iff_module._ifa.IFFCapturePreparation")
-    @patch("opticalib.dmutils.iff_module._osu.newtn")
-    @patch("opticalib.dmutils.iff_module._rif")
-    @patch("opticalib.dmutils.iff_module._osu.save_fits")
+    @patch("opticalib.procedures.iff._ifa.IFFCapturePreparation")
+    @patch("opticalib.procedures.iff._osu.newtn")
+    @patch("opticalib.procedures.iff._rif")
+    @patch("opticalib.procedures.iff._osu.save_fits")
     def test_acquire_piston_data_with_buffer(
         self,
         mock_save_fits,
@@ -261,9 +261,9 @@ class TestAcquirePistonData:
         mock_dm.read_buffer.assert_called_once()
         mock_save_fits.assert_called()
 
-    @patch("opticalib.dmutils.iff_module._ifa.IFFCapturePreparation")
-    @patch("opticalib.dmutils.iff_module._osu.newtn")
-    @patch("opticalib.dmutils.iff_module._rif")
+    @patch("opticalib.procedures.iff._ifa.IFFCapturePreparation")
+    @patch("opticalib.procedures.iff._osu.newtn")
+    @patch("opticalib.procedures.iff._rif")
     def test_acquire_piston_data_reverse(
         self,
         mock_read_config,
@@ -313,8 +313,8 @@ class TestAcquirePistonData:
 class TestSaveBufferData:
     """Test save_buffer_data function."""
 
-    @patch("opticalib.dmutils.iff_module._osu.is_tn")
-    @patch("opticalib.dmutils.iff_module._osu.save_h5")
+    @patch("opticalib.procedures.iff._osu.is_tn")
+    @patch("opticalib.procedures.iff._osu.save_h5")
     def test_save_buffer_data_with_tn(
         self, mock_save_h5, mock_is_tn, mock_dm, temp_dir, monkeypatch
     ):
@@ -340,8 +340,8 @@ class TestSaveBufferData:
         assert tn in call_args[0][1]  # Check path contains tn
         assert call_args[0][0] == mock_dm.bufferData  # Check data
 
-    @patch("opticalib.dmutils.iff_module._osu.is_tn")
-    @patch("opticalib.dmutils.iff_module._osu.save_h5")
+    @patch("opticalib.procedures.iff._osu.is_tn")
+    @patch("opticalib.procedures.iff._osu.save_h5")
     def test_save_buffer_data_with_path(
         self, mock_save_h5, mock_is_tn, mock_dm, temp_dir
     ):
@@ -375,7 +375,7 @@ class TestSaveBufferData:
         with pytest.raises(_oe.BufferError):
             iff_module.save_buffer_data(mock_dm, "20240101_120000")
 
-    @patch("opticalib.dmutils.iff_module._osu.is_tn")
+    @patch("opticalib.procedures.iff._osu.is_tn")
     def test_save_buffer_data_invalid_path(self, mock_is_tn, mock_dm):
         """Test that PathError is raised for invalid path."""
         from opticalib.core import exceptions as _oe

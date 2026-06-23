@@ -171,7 +171,7 @@ class SPLATTEngine:
             print("Shell set variable is True, overwrite it if you wish to set again")
 
     def _get_address(self, ip, port):
-        from opticalib.core.read_config import get_section_config
+        from opticalib.core.config import get_section_config
 
         try:
             config = get_section_config("DEVICES", "DEFORMABLE.MIRRORS")["Splatt"]

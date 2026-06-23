@@ -498,7 +498,7 @@ def set_configuration_file(config_path: str) -> None:
     This function updates the configuration by:
     - Modifying the AOCONF environment variable
     - Reloading the opticalib.core.root module
-    - Reloading the opticalib.core.read_config module
+    - Reloading the opticalib.core.config module
     - Updating all cached folder paths and configuration references
 
     All globally cached references and folder objects are updated to point to
@@ -526,9 +526,9 @@ def set_configuration_file(config_path: str) -> None:
     if root_module is None:
         root_module = importlib.import_module("opticalib.core.root")
 
-    read_config_module = sys.modules.get("opticalib.core.read_config")
+    read_config_module = sys.modules.get("opticalib.core.config")
     if read_config_module is None:
-        read_config_module = importlib.import_module("opticalib.core.read_config")
+        read_config_module = importlib.import_module("opticalib.core.config")
 
     opticalib_module = sys.modules.get("opticalib")
     if opticalib_module is None:
