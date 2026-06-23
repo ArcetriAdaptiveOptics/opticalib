@@ -123,8 +123,7 @@ def process(
     if not info["modes_vector"].dtype.type is _np.int_:
         info["modes_vector"] = info["modes_vector"].astype(int)
 
-    for k, dic in zip(["TRIGGER", "REGISTRATION", "IFFUNC", "DM"], _get_acq_info(tn)):
-        info.update({k: dic})
+    info.update(_get_acq_info(tn))
 
     new_fold = _os.path.join(_intMatFold, tn)
     if not _os.path.exists(new_fold):
@@ -221,8 +220,7 @@ def piston_process(
     if not info["modes_vector"].dtype.type is _np.int_:
         info["modes_vector"] = info["modes_vector"].astype(int)
 
-    for k, dic in zip(["TRIGGER", "REGISTRATION", "IFFUNC", "DM"], _get_acq_info(tn)):
-        info.update({k: dic})
+    info.update(_get_acq_info(tn))
 
     fold = _os.path.join(_ifFold, tn)
     if not _os.path.exists(fold):
@@ -779,7 +777,7 @@ def registration_redux(tn: str, fileMat: list[str]) -> list[_ot.ImageData]:
     """
     from opticalib.analyzer import push_pull_reduction_algorithm
 
-    _, infoR, _, _ = _get_acq_info(tn)
+    infoR = _get_acq_info(tn)['REGISTRATION']
     template = infoR["template"]
     if _np.array_equal(fileMat, _np.array([])) and len(infoR["modesid"]) == 0:
         print("No registration data found")
@@ -854,7 +852,7 @@ def get_trigger_frame(
         file.
     """
     zfit = _zern.ZernikeFitter()
-    infoT, _, _, _ = _get_acq_info(tn)
+    infoT = _get_acq_info(tn)['TRIGGER']
     if amplitude is not None:
         infoT["amplitude"] = amplitude
     fileList = _osu.get_file_list(tn, fold="OPDImages")
@@ -1205,9 +1203,7 @@ def _get_acq_par(tn: str) -> dict[str, _ot.ArrayLike | bool | int]:
 
 def _get_acq_info(
     tn: _ot.Optional[str] = None,
-) -> tuple[
-    dict[str, _ot.Any], dict[str, _ot.Any], dict[str, _ot.Any], dict[str, _ot.Any]
-]:
+) -> dict[str, _ot.Any]:
     """
     Returns the information read from the iffConfig.ini file.
 
@@ -1219,21 +1215,12 @@ def _get_acq_info(
 
     Returns
     -------
-    infoT : dict
-        Information read about the TRIGGER options.
-    infoR : dict
-        Information read about the REGISTRATION options.
-    infoIF : dict
-        Information read about the IFFUNC option.
-    infoDM : dict
-        Information read about the DM options.
+    info : dict
+        Information read from the iffConfig.ini file.
     """
     path = _os.path.join(_ifFold, tn) if tn is not None else _fn.CONFIGURATION_FOLDER
-    infoT = _rif.get_iff_config("TRIGGER", bpath=path)
-    infoR = _rif.get_iff_config("REGISTRATION", bpath=path)
-    infoIF = _rif.get_iff_config("IFFUNC", bpath=path)
-    infoDM = _rif.get_iff_config("DM", bpath=path)
-    return infoT, infoR, infoIF, infoDM
+    info = _rif.get_iff_config(None, path=path)
+    return info
 
 
 def _check_stacked_cubes(tnlist: str) -> dict[str, _ot.Any]:

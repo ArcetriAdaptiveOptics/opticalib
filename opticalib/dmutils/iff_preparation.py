@@ -168,7 +168,7 @@ class IFFCapturePreparation:
         """
         # Provide manually the cmdMatrixHistory
         if cmdMat is not None:
-            _, _, infoIF = _get_acq_info()
+            infoIF = _get_acq_info()['IFFUNC']
             trailing_zeros = _np.zeros((cmdMat.shape[0], infoIF["paddingZeros"]))
             self._cmdMatrix = cmdMat
             cmdMat = _np.hstack((cmdMat, trailing_zeros))
@@ -243,7 +243,7 @@ class IFFCapturePreparation:
             Command matrix history to be applied, with the correct push-pull
             application, following the desired template.
         """
-        _, _, infoIF, _ = _get_acq_info()
+        infoIF = _get_acq_info()['IFFUNC']
         modesList = _np.asarray(
             modesList if modesList is not None else infoIF.get("modes"), dtype=int
         )

@@ -54,26 +54,27 @@ class TestIFFCapturePreparation:
             "INFLUENCE.FUNCTIONS": {
                 "TRIGGER": {
                     "zeros": 0,
-                    "modes": [],
+                    "modes": [10],
                     "amplitude": 0.1,
                     "template": [1],
                     "modalBase": "mirror",
                 },
                 "REGISTRATION": {
                     "zeros": 0,
-                    "modes": [],
+                    "modes": [1, 2, 3],
                     "amplitude": 0.1,
                     "template": [1, -1],
-                    "modalBase": "mirror",
+                    "modalBase": "zonal",
                 },
                 "IFFUNC": {
                     "zeros": 0,
                     "modes": list(range(100)),
                     "amplitude": 0.1,
                     "template": [1, -1],
-                    "modalBase": "mirror",
+                    "modalBase": "hadamard",
+                    "paddingZeros": 2,
                 },
-                "DM": {"nacts": 100, "timing": 10},
+                "timing": 10, 'triggerMode': False, 'delay': 0
             }
         }
         with open(config_file, "w") as f:
@@ -82,51 +83,53 @@ class TestIFFCapturePreparation:
         mock_get_timing.return_value = 10
         mock_get_info.return_value = (
             {
-                "zeros": 0,
-                "modes": [],
-                "amplitude": 0.1,
-                "template": [1],
-                "modalBase": "mirror",
-            },
-            {
-                "zeros": 0,
-                "modes": [],
-                "amplitude": 0.1,
-                "template": [1, -1],
-                "modalBase": "mirror",
-            },
-            {
-                "zeros": 0,
-                "modes": list(range(100)),
-                "amplitude": 0.1,
-                "template": [1, -1],
-                "modalBase": "mirror",
-                "paddingZeros": 0,
-            },
-            {"nacts": 100, "timing": 10},
+                "TRIGGER": {
+                    "zeros": 0,
+                    "modes": [10],
+                    "amplitude": 0.1,
+                    "template": [1],
+                    "modalBase": "mirror",
+                },
+                "REGISTRATION": {
+                    "zeros": 0,
+                    "modes": [1, 2, 3],
+                    "amplitude": 0.1,
+                    "template": [1, -1],
+                    "modalBase": "zonal",
+                },
+                "IFFUNC": {
+                    "zeros": 0,
+                    "modes": list(range(100)),
+                    "amplitude": 0.1,
+                    "template": [1, -1],
+                    "modalBase": "hadamard",
+                    "paddingZeros": 2,
+                },
+                "timing": 10, 'triggerMode': False, 'delay': 0
+            }
         )
         config_map = {
             "TRIGGER": {
                 "zeros": 0,
-                "modes": [],
+                "modes": [10],
                 "amplitude": 0.1,
                 "template": [1],
                 "modalBase": "mirror",
             },
             "REGISTRATION": {
                 "zeros": 0,
-                "modes": [],
+                "modes": [1, 2, 3],
                 "amplitude": 0.1,
                 "template": [1, -1],
-                "modalBase": "mirror",
+                "modalBase": "zonal",
             },
             "IFFUNC": {
                 "zeros": 0,
                 "modes": list(range(100)),
                 "amplitude": 0.1,
                 "template": [1, -1],
-                "modalBase": "mirror",
-                "paddingZeros": 0,
+                "modalBase": "hadamard",
+                "paddingZeros": 2,
             },
         }
 
@@ -169,26 +172,27 @@ class TestIFFCapturePreparation:
             "INFLUENCE.FUNCTIONS": {
                 "TRIGGER": {
                     "zeros": 0,
-                    "modes": [],
+                    "modes": [10],
                     "amplitude": 0.1,
                     "template": [1],
                     "modalBase": "mirror",
                 },
                 "REGISTRATION": {
                     "zeros": 0,
-                    "modes": [],
-                    "amplitude": 0.1,
-                    "template": [1, -1],
-                    "modalBase": "mirror",
-                },
-                "IFFUNC": {
-                    "zeros": 0,
                     "modes": [1, 2, 3],
                     "amplitude": 0.1,
                     "template": [1, -1],
-                    "modalBase": "mirror",
+                    "modalBase": "zonal",
                 },
-                "DM": {"nacts": 100, "timing": 10},
+                "IFFUNC": {
+                    "zeros": 0,
+                    "modes": list(range(100)),
+                    "amplitude": 0.1,
+                    "template": [1, -1],
+                    "modalBase": "hadamard",
+                    "paddingZeros": 2,
+                },
+                "timing": 10, 'triggerMode': False, 'delay': 0
             }
         }
         with open(config_file, "w") as f:
@@ -197,51 +201,53 @@ class TestIFFCapturePreparation:
         mock_get_timing.return_value = 10
         mock_get_info.return_value = (
             {
-                "zeros": 0,
-                "modes": [],
-                "amplitude": 0.1,
-                "template": [1],
-                "modalBase": "mirror",
-            },
-            {
-                "zeros": 0,
-                "modes": [],
-                "amplitude": 0.1,
-                "template": [1, -1],
-                "modalBase": "mirror",
-            },
-            {
-                "zeros": 0,
-                "modes": [1, 2, 3],
-                "amplitude": 0.1,
-                "template": [1, -1],
-                "modalBase": "mirror",
-                "paddingZeros": 0,
-            },
-            {"nacts": 100, "timing": 10},
+                "TRIGGER": {
+                    "zeros": 0,
+                    "modes": [10],
+                    "amplitude": 0.1,
+                    "template": [1],
+                    "modalBase": "mirror",
+                },
+                "REGISTRATION": {
+                    "zeros": 0,
+                    "modes": [1, 2, 3],
+                    "amplitude": 0.1,
+                    "template": [1, -1],
+                    "modalBase": "zonal",
+                },
+                "IFFUNC": {
+                    "zeros": 0,
+                    "modes": list(range(100)),
+                    "amplitude": 0.1,
+                    "template": [1, -1],
+                    "modalBase": "hadamard",
+                    "paddingZeros": 2,
+                },
+                "timing": 10, 'triggerMode': False, 'delay': 0
+            }
         )
         config_map = {
             "TRIGGER": {
                 "zeros": 0,
-                "modes": [],
+                "modes": [10],
                 "amplitude": 0.1,
                 "template": [1],
                 "modalBase": "mirror",
             },
             "REGISTRATION": {
                 "zeros": 0,
-                "modes": [],
-                "amplitude": 0.1,
-                "template": [1, -1],
-                "modalBase": "mirror",
-            },
-            "IFFUNC": {
-                "zeros": 0,
                 "modes": [1, 2, 3],
                 "amplitude": 0.1,
                 "template": [1, -1],
-                "modalBase": "mirror",
-                "paddingZeros": 0,
+                "modalBase": "zonal",
+            },
+            "IFFUNC": {
+                "zeros": 0,
+                "modes": list(range(100)),
+                "amplitude": 0.1,
+                "template": [1, -1],
+                "modalBase": "hadamard",
+                "paddingZeros": 2,
             },
         }
 
@@ -284,26 +290,27 @@ class TestIFFCapturePreparation:
             "INFLUENCE.FUNCTIONS": {
                 "TRIGGER": {
                     "zeros": 0,
-                    "modes": [],
+                    "modes": [10],
                     "amplitude": 0.1,
                     "template": [1],
                     "modalBase": "mirror",
                 },
                 "REGISTRATION": {
                     "zeros": 0,
-                    "modes": [],
-                    "amplitude": 0.1,
-                    "template": [1, -1],
-                    "modalBase": "mirror",
-                },
-                "IFFUNC": {
-                    "zeros": 0,
                     "modes": [1, 2, 3],
                     "amplitude": 0.1,
                     "template": [1, -1],
-                    "modalBase": "mirror",
+                    "modalBase": "zonal",
                 },
-                "DM": {"nacts": 100, "timing": 10},
+                "IFFUNC": {
+                    "zeros": 0,
+                    "modes": list(range(100)),
+                    "amplitude": 0.1,
+                    "template": [1, -1],
+                    "modalBase": "hadamard",
+                    "paddingZeros": 2,
+                },
+                "timing": 10, 'triggerMode': False, 'delay': 0
             }
         }
         with open(config_file, "w") as f:
@@ -312,51 +319,53 @@ class TestIFFCapturePreparation:
         mock_get_timing.return_value = 10
         mock_get_info.return_value = (
             {
-                "zeros": 0,
-                "modes": [],
-                "amplitude": 0.1,
-                "template": [1],
-                "modalBase": "mirror",
-            },
-            {
-                "zeros": 0,
-                "modes": [],
-                "amplitude": 0.1,
-                "template": [1, -1],
-                "modalBase": "mirror",
-            },
-            {
-                "zeros": 0,
-                "modes": [1, 2, 3],
-                "amplitude": 0.1,
-                "template": [1, -1],
-                "modalBase": "mirror",
-                "paddingZeros": 0,
-            },
-            {"nacts": 100, "timing": 10},
+                "TRIGGER": {
+                    "zeros": 0,
+                    "modes": [10],
+                    "amplitude": 0.1,
+                    "template": [1],
+                    "modalBase": "mirror",
+                },
+                "REGISTRATION": {
+                    "zeros": 0,
+                    "modes": [1, 2, 3],
+                    "amplitude": 0.1,
+                    "template": [1, -1],
+                    "modalBase": "zonal",
+                },
+                "IFFUNC": {
+                    "zeros": 0,
+                    "modes": list(range(100)),
+                    "amplitude": 0.1,
+                    "template": [1, -1],
+                    "modalBase": "hadamard",
+                    "paddingZeros": 2,
+                },
+                "timing": 10, 'triggerMode': False, 'delay': 0
+            }
         )
         config_map = {
             "TRIGGER": {
                 "zeros": 0,
-                "modes": [],
+                "modes": [10],
                 "amplitude": 0.1,
                 "template": [1],
                 "modalBase": "mirror",
             },
             "REGISTRATION": {
                 "zeros": 0,
-                "modes": [],
-                "amplitude": 0.1,
-                "template": [1, -1],
-                "modalBase": "mirror",
-            },
-            "IFFUNC": {
-                "zeros": 0,
                 "modes": [1, 2, 3],
                 "amplitude": 0.1,
                 "template": [1, -1],
-                "modalBase": "mirror",
-                "paddingZeros": 0,
+                "modalBase": "zonal",
+            },
+            "IFFUNC": {
+                "zeros": 0,
+                "modes": list(range(100)),
+                "amplitude": 0.1,
+                "template": [1, -1],
+                "modalBase": "hadamard",
+                "paddingZeros": 2,
             },
         }
 
@@ -399,26 +408,27 @@ class TestIFFCapturePreparation:
             "INFLUENCE.FUNCTIONS": {
                 "TRIGGER": {
                     "zeros": 0,
-                    "modes": [],
+                    "modes": [10],
                     "amplitude": 0.1,
                     "template": [1],
                     "modalBase": "mirror",
                 },
                 "REGISTRATION": {
                     "zeros": 0,
-                    "modes": [],
-                    "amplitude": 0.1,
-                    "template": [1, -1],
-                    "modalBase": "mirror",
-                },
-                "IFFUNC": {
-                    "zeros": 0,
                     "modes": [1, 2, 3],
                     "amplitude": 0.1,
                     "template": [1, -1],
-                    "modalBase": "mirror",
+                    "modalBase": "zonal",
                 },
-                "DM": {"nacts": 100, "timing": 10},
+                "IFFUNC": {
+                    "zeros": 0,
+                    "modes": list(range(100)),
+                    "amplitude": 0.1,
+                    "template": [1, -1],
+                    "modalBase": "hadamard",
+                    "paddingZeros": 2,
+                },
+                "timing": 10, 'triggerMode': False, 'delay': 0
             }
         }
         with open(config_file, "w") as f:
@@ -427,51 +437,53 @@ class TestIFFCapturePreparation:
         mock_get_timing.return_value = 10
         mock_get_info.return_value = (
             {
-                "zeros": 0,
-                "modes": [],
-                "amplitude": 0.1,
-                "template": [1],
-                "modalBase": "mirror",
-            },
-            {
-                "zeros": 0,
-                "modes": [],
-                "amplitude": 0.1,
-                "template": [1, -1],
-                "modalBase": "mirror",
-            },
-            {
-                "zeros": 0,
-                "modes": [1, 2, 3],
-                "amplitude": 0.1,
-                "template": [1, -1],
-                "modalBase": "mirror",
-                "paddingZeros": 0,
-            },
-            {"nacts": 100, "timing": 10},
+                "TRIGGER": {
+                    "zeros": 0,
+                    "modes": [10],
+                    "amplitude": 0.1,
+                    "template": [1],
+                    "modalBase": "mirror",
+                },
+                "REGISTRATION": {
+                    "zeros": 0,
+                    "modes": [1, 2, 3],
+                    "amplitude": 0.1,
+                    "template": [1, -1],
+                    "modalBase": "zonal",
+                },
+                "IFFUNC": {
+                    "zeros": 0,
+                    "modes": list(range(100)),
+                    "amplitude": 0.1,
+                    "template": [1, -1],
+                    "modalBase": "hadamard",
+                    "paddingZeros": 2,
+                },
+                "timing": 10, 'triggerMode': False, 'delay': 0
+            }
         )
         config_map = {
             "TRIGGER": {
                 "zeros": 0,
-                "modes": [],
+                "modes": [10],
                 "amplitude": 0.1,
                 "template": [1],
                 "modalBase": "mirror",
             },
             "REGISTRATION": {
                 "zeros": 0,
-                "modes": [],
-                "amplitude": 0.1,
-                "template": [1, -1],
-                "modalBase": "mirror",
-            },
-            "IFFUNC": {
-                "zeros": 0,
                 "modes": [1, 2, 3],
                 "amplitude": 0.1,
                 "template": [1, -1],
-                "modalBase": "mirror",
-                "paddingZeros": 0,
+                "modalBase": "zonal",
+            },
+            "IFFUNC": {
+                "zeros": 0,
+                "modes": list(range(100)),
+                "amplitude": 0.1,
+                "template": [1, -1],
+                "modalBase": "hadamard",
+                "paddingZeros": 2,
             },
         }
 
@@ -511,26 +523,27 @@ class TestIFFCapturePreparation:
             "INFLUENCE.FUNCTIONS": {
                 "TRIGGER": {
                     "zeros": 0,
-                    "modes": [],
+                    "modes": [10],
                     "amplitude": 0.1,
                     "template": [1],
                     "modalBase": "mirror",
                 },
                 "REGISTRATION": {
                     "zeros": 0,
-                    "modes": [],
-                    "amplitude": 0.1,
-                    "template": [1, -1],
-                    "modalBase": "mirror",
-                },
-                "IFFUNC": {
-                    "zeros": 0,
                     "modes": [1, 2, 3],
                     "amplitude": 0.1,
                     "template": [1, -1],
-                    "modalBase": "mirror",
+                    "modalBase": "zonal",
                 },
-                "DM": {"nacts": 100, "timing": 10},
+                "IFFUNC": {
+                    "zeros": 0,
+                    "modes": list(range(100)),
+                    "amplitude": 0.1,
+                    "template": [1, -1],
+                    "modalBase": "hadamard",
+                    "paddingZeros": 2,
+                },
+                "timing": 10, 'triggerMode': False, 'delay': 0
             }
         }
         with open(config_file, "w") as f:
@@ -538,51 +551,53 @@ class TestIFFCapturePreparation:
 
         mock_get_info.return_value = (
             {
-                "zeros": 0,
-                "modes": [],
-                "amplitude": 0.1,
-                "template": [1],
-                "modalBase": "mirror",
-            },
-            {
-                "zeros": 0,
-                "modes": [],
-                "amplitude": 0.1,
-                "template": [1, -1],
-                "modalBase": "mirror",
-            },
-            {
-                "zeros": 0,
-                "modes": [1, 2, 3],
-                "amplitude": 0.1,
-                "template": [1, -1],
-                "modalBase": "mirror",
-                "paddingZeros": 0,
-            },
-            {"nacts": 100, "timing": 10},
+                "TRIGGER": {
+                    "zeros": 0,
+                    "modes": [10],
+                    "amplitude": 0.1,
+                    "template": [1],
+                    "modalBase": "mirror",
+                },
+                "REGISTRATION": {
+                    "zeros": 0,
+                    "modes": [1, 2, 3],
+                    "amplitude": 0.1,
+                    "template": [1, -1],
+                    "modalBase": "zonal",
+                },
+                "IFFUNC": {
+                    "zeros": 0,
+                    "modes": list(range(100)),
+                    "amplitude": 0.1,
+                    "template": [1, -1],
+                    "modalBase": "hadamard",
+                    "paddingZeros": 2,
+                },
+                "timing": 10, 'triggerMode': False, 'delay': 0
+            }
         )
         config_map = {
             "TRIGGER": {
                 "zeros": 0,
-                "modes": [],
+                "modes": [10],
                 "amplitude": 0.1,
                 "template": [1],
                 "modalBase": "mirror",
             },
             "REGISTRATION": {
                 "zeros": 0,
-                "modes": [],
-                "amplitude": 0.1,
-                "template": [1, -1],
-                "modalBase": "mirror",
-            },
-            "IFFUNC": {
-                "zeros": 0,
                 "modes": [1, 2, 3],
                 "amplitude": 0.1,
                 "template": [1, -1],
-                "modalBase": "mirror",
-                "paddingZeros": 0,
+                "modalBase": "zonal",
+            },
+            "IFFUNC": {
+                "zeros": 0,
+                "modes": list(range(100)),
+                "amplitude": 0.1,
+                "template": [1, -1],
+                "modalBase": "hadamard",
+                "paddingZeros": 2,
             },
         }
 
@@ -603,46 +618,54 @@ class TestIFFCapturePreparation:
     def test_create_aux_cmd_history(self, mock_get_info, mock_get_iff_config, mock_dm):
         """Test creating auxiliary command history."""
         mock_get_info.return_value = (
-            {"modes": [1], "amplitude": 0.1, "zeros": 2, "modalBase": "mirror"},
             {
-                "modes": [1],
-                "amplitude": 0.1,
-                "template": [1, -1],
-                "zeros": 0,
-                "modalBase": "mirror",
-            },
-            {
-                "modes": [1, 2, 3],
-                "amplitude": 0.1,
-                "template": [1, -1],
-                "zeros": 0,
-                "modalBase": "mirror",
-                "paddingZeros": 0,
-            },
-            {},
+                "TRIGGER": {
+                    "zeros": 0,
+                    "modes": [10],
+                    "amplitude": 0.1,
+                    "template": [1],
+                    "modalBase": "mirror",
+                },
+                "REGISTRATION": {
+                    "zeros": 0,
+                    "modes": [1, 2, 3],
+                    "amplitude": 0.1,
+                    "template": [1, -1],
+                    "modalBase": "zonal",
+                },
+                "IFFUNC": {
+                    "zeros": 0,
+                    "modes": list(range(100)),
+                    "amplitude": 0.1,
+                    "template": [1, -1],
+                    "modalBase": "hadamard",
+                    "paddingZeros": 2,
+                },
+                "timing": 10, 'triggerMode': False, 'delay': 0
+            }
         )
         config_map = {
             "TRIGGER": {
-                "modes": [1],
+                "modes": [10],
                 "amplitude": 0.1,
-                "zeros": 2,
+                "zeros": 0,
                 "template": [1],
                 "modalBase": "mirror",
             },
             "REGISTRATION": {
-                "modes": [1],
-                "amplitude": 0.1,
-                "template": [1, -1],
-                "zeros": 0,
-                "modalBase": "mirror",
-            },
-            "IFFUNC": {
                 "modes": [1, 2, 3],
                 "amplitude": 0.1,
                 "template": [1, -1],
                 "zeros": 0,
-                "modalBase": "mirror",
-                "paddingZeros": 0,
+                "modalBase": "zonal",
+            },
+            "IFFUNC": {
+                "modes": list(range(100)),
+                "amplitude": 0.1,
+                "template": [1, -1],
+                "zeros": 0,
+                "modalBase": "hadamard",
+                "paddingZeros": 2,
             },
         }
 
@@ -732,15 +755,31 @@ class TestIFFCapturePreparation:
     ):
         """Test that create_cmd_matrix_history raises ValueError for invalid n_repetitions."""
         mock_get_info.return_value = (
-            None,
-            None,
             {
-                "modes": [0, 1, 2],
-                "amplitude": 0.1,
-                "template": [1, -1],
-                "zeros": 0,
-            },
-            None,
+                "TRIGGER": {
+                    "zeros": 0,
+                    "modes": [10],
+                    "amplitude": 0.1,
+                    "template": [1],
+                    "modalBase": "mirror",
+                },
+                "REGISTRATION": {
+                    "zeros": 0,
+                    "modes": [1, 2, 3],
+                    "amplitude": 0.1,
+                    "template": [1, -1],
+                    "modalBase": "zonal",
+                },
+                "IFFUNC": {
+                    "zeros": 0,
+                    "modes": list(range(100)),
+                    "amplitude": 0.1,
+                    "template": [1, -1],
+                    "modalBase": "hadamard",
+                    "paddingZeros": 2,
+                },
+                "timing": 10, 'triggerMode': False, 'delay': 0
+            }
         )
 
         prep = ifa.IFFCapturePreparation(mock_dm)

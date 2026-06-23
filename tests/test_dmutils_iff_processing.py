@@ -17,35 +17,35 @@ class TestSaveCube:
     # TODO: Re-enable this test once the problem is solved:
     # AttributeError: '_CorruptedHDU' object has no attribute '_verify'. Did you mean: 'verify'?
     
-    # def test_save_cube_basic(self, sample_iff_folder_structure, temp_dir, monkeypatch):
-    #     """Test saving a cube."""
-    #     from opticalib.core.root import folders
+    def test_save_cube_basic(self, sample_iff_folder_structure, temp_dir, monkeypatch):
+        """Test saving a cube."""
+        from opticalib.core.root import folders
 
-    #     tn, tn_folder = sample_iff_folder_structure
+        tn, tn_folder = sample_iff_folder_structure
 
-    #     int_folder = os.path.join(temp_dir, "INTMatrices")
-    #     os.makedirs(int_folder, exist_ok=True)
-    #     monkeypatch.setattr(folders, "INTMAT_ROOT_FOLDER", int_folder)
-    #     monkeypatch.setattr(ifp, "_intMatFold", int_folder)
-    #     iff_folder = os.path.dirname(tn_folder)
+        int_folder = os.path.join(temp_dir, "INTMatrices")
+        os.makedirs(int_folder, exist_ok=True)
+        monkeypatch.setattr(folders, "INTMAT_ROOT_FOLDER", int_folder)
+        monkeypatch.setattr(ifp, "_intMatFold", int_folder)
+        iff_folder = os.path.dirname(tn_folder)
 
-    #     def fake_get_file_list(tn_arg=None, fold=None, key=None):
-    #         folder = os.path.join(iff_folder, tn)
-    #         files = sorted(
-    #             os.path.join(folder, f)
-    #             for f in os.listdir(folder)
-    #             if key is None or key in f
-    #         )
-    #         return files
+        def fake_get_file_list(tn_arg=None, fold=None, key=None):
+            folder = os.path.join(iff_folder, tn)
+            files = sorted(
+                os.path.join(folder, f)
+                for f in os.listdir(folder)
+                if key is None or key in f
+            )
+            return files
 
-    #     monkeypatch.setattr(osutils, "get_file_list", fake_get_file_list)
+        monkeypatch.setattr(osutils, "get_file_list", fake_get_file_list)
 
-    #     cube = ifp.save_cube(tn)
+        cube = ifp.save_cube(tn)
 
-    #     assert cube is not None
-    #     assert isinstance(cube, ma.MaskedArray)
-    #     cube_path = os.path.join(int_folder, tn, "IMCube.fits")
-    #     assert os.path.exists(cube_path)
+        assert cube is not None
+        assert isinstance(cube, ma.MaskedArray)
+        cube_path = os.path.join(int_folder, tn, "IMCube.fits")
+        assert os.path.exists(cube_path)
 
     def test_save_cube_with_rebin(
         self, sample_iff_folder_structure, temp_dir, monkeypatch
@@ -295,36 +295,34 @@ class TestGetAcqInfo:
         from opticalib.core.root import folders
 
         # Mock config responses
-        mock_iff_config.side_effect = [
-            {
-                "zeros": 0,
-                "modes": [1],
-                "amplitude": 0.1,
-                "template": [1, -1],
-                "modalBase": "mirror",
-                "paddingZeros": 0,
-            },
-            {
-                "zeros": 0,
-                "modes": [1],
-                "amplitude": 0.1,
-                "template": [1, -1],
-                "modalBase": "mirror",
-                "paddingZeros": 0,
-            },
-            {
-                "zeros": 0,
-                "modes": [1, 2, 3],
-                "amplitude": 0.1,
-                "template": [1, -1],
-                "modalBase": "mirror",
-                "paddingZeros": 0,
-            },
-            {
-                "nacts": 100,
+        mock_iff_config.side_effect = [{
                 "timing": 10,
                 "delay": 5,
                 "triggerMode": False,
+                'TRIGGER': {
+                    "zeros": 0,
+                    "modes": [1],
+                    "amplitude": 0.1,
+                    "template": [1, -1],
+                    "modalBase": "mirror",
+                    "paddingZeros": 0,
+                },
+                'REGISTRATION': {
+                    "zeros": 0,
+                    "modes": [1],
+                    "amplitude": 0.1,
+                    "template": [1, -1],
+                    "modalBase": "mirror",
+                    "paddingZeros": 0,
+                },
+                'IFFUNC': {
+                    "zeros": 0,
+                    "modes": [1, 2, 3],
+                    "amplitude": 0.1,
+                    "template": [1, -1],
+                    "modalBase": "mirror",
+                    "paddingZeros": 0,
+                },
             },
         ]
 
@@ -332,12 +330,12 @@ class TestGetAcqInfo:
         os.makedirs(config_folder, exist_ok=True)
         monkeypatch.setattr(folders, "CONFIGURATION_FOLDER", config_folder)
 
-        infoT, infoR, infoIF, infoDM = ifp._get_acq_info()
+        info = ifp._get_acq_info()
 
-        assert infoT is not None
-        assert infoR is not None
-        assert infoIF is not None
-        assert infoDM is not None
+        assert info is not None
+        assert info["TRIGGER"] is not None
+        assert info["REGISTRATION"] is not None
+        assert info["IFFUNC"] is not None
 
 
 class TestGetTriggerFrame:
@@ -351,12 +349,12 @@ class TestGetTriggerFrame:
     ):
         """Test getting trigger frame with no zeros."""
         # Mock setup
-        mock_get_info.return_value = (
-            {"zeros": 0, "modes": [], "amplitude": 0.1},
-            {},
-            {},
-            {},
-        )
+        mock_get_info.return_value = {
+            "TRIGGER": {"zeros": 0, "modes": [], "amplitude": 0.1},
+            "REGISTRATION": {},
+            "IFFUNC": {},
+            "delay": 0,
+        }
         mock_get_file_list.return_value = ["file1.fits", "file2.fits"]
 
         trig_frame = ifp.get_trigger_frame("test_tn")
@@ -374,12 +372,12 @@ class TestGetTriggerFrame:
         import numpy.ma as ma
 
         # Mock setup
-        mock_get_info.return_value = (
-            {"zeros": 2, "modes": [1], "amplitude": 0.1},
-            {},
-            {},
-            {},
-        )
+        mock_get_info.return_value = {
+            "TRIGGER": {"zeros": 2, "modes": [1], "amplitude": 0.1},
+            "REGISTRATION": {},
+            "IFFUNC": {},
+            "delay": 0,
+        }
         mock_get_file_list.return_value = [
             "file0.fits",
             "file1.fits",
