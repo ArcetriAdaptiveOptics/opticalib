@@ -59,12 +59,12 @@ _intMatFold = _fn.INTMAT_ROOT_FOLDER
 _frameCenter = [200, 200]
 _ts = _osu.newtn
 
-_MODES_FILE = "modes_vector.fits"
-_MATRIX_FILE = "cmdMatrix.fits"
-_AMP_FILE = "ampVector.fits"
+_MODES_FILE = "modes_list.fits"
+_MATRIX_FILE = "cmd_matrix.fits"
+_AMP_FILE = "amplitude.fits"
 _TEMPLATE_FILE = "template.fits"
-_REGACTS_FILE = "regActs.fits"
-_INDEXLIST_FILE = "indexList.fits"
+_REGACTS_FILE = "registration_modes.fits"
+_INDEXLIST_FILE = "index_list.fits"
 _CUBE_FILE = "IMCube.fits"
 _COORD_FILE = ""  # TODO
 
@@ -120,8 +120,8 @@ def process(
         return ntn
 
     info = _get_acq_par(tn)
-    if not info["modes_vector"].dtype.type is _np.int_:
-        info["modes_vector"] = info["modes_vector"].astype(int)
+    if not info["FILES"]["modes_list"].dtype.type is _np.int_:
+        info["FILES"]["modes_list"] = info["FILES"]["modes_list"].astype(int)
 
     info.update(_get_acq_info(tn))
 
@@ -146,15 +146,15 @@ def process(
         tn=tn,
         fileMat=modesMat,
         ampVect=info["IFFUNC"]["amplitude"],
-        modeList=info["IFFUNC"]["modes"],
-        template=info["template"],
-        n_repetitions=info["n_repetitions"],
+        modeList=info["IFFUNC"]["modes_list"],
+        template=info['FILES']["template"],
+        n_repetitions=info['FILES']["n_repetitions"],
         io_workers=nworkers,
         prefetch=nmode_prefetch,
     )
     if register and not len(regMat) == 0:
         actImgList = registration_redux(tn, regMat)
-        dx = find_frame_offset(tn, actImgList, info["registration_acts"])
+        dx = find_frame_offset(tn, actImgList, info["FILES"]["registration_modes"])
     else:
         dx = register
     if save:
@@ -217,8 +217,8 @@ def piston_process(
     period = unwrap_args.get("period", 2)
 
     info = _get_acq_par(tn)
-    if not info["modes_vector"].dtype.type is _np.int_:
-        info["modes_vector"] = info["modes_vector"].astype(int)
+    if not info["FILES"]["modes_list"].dtype.type is _np.int_:
+        info["FILES"]["modes_list"] = info["FILES"]["modes_list"].astype(int)
 
     info.update(_get_acq_info(tn))
 
@@ -235,10 +235,10 @@ def piston_process(
         0
     ]  # (M, T)
 
-    M = len(info["IFFUNC"]["modes"])
-    T = len(info["template"])
-    modeList = info["IFFUNC"]["modes"]
-    ampVect = info["IFFUNC"]["amplitude"]
+    M = len(info["IFFUNC"]["modes_list"])
+    T = len(info['FILES']["template"])
+    modeList = info["FILES"]["modes_list"]
+    ampVect = info["FILES"]["amplitude"]
 
     img0 = _osu.read_phasemap(modesMat[0, 0])
     zfit = _zern.ZernikeFitter(img0)
@@ -422,10 +422,10 @@ def cube_roi_processing(
     if not _os.path.exists(save_path):
         _os.makedirs(save_path)
 
-    _osu.save_fits(_os.path.join(save_path, "IMCube.fits"), newcube, overwrite=True)
-    _osu.save_fits(_os.path.join(save_path, "cmdMatrix.fits"), cmdmat, overwrite=True)
+    _osu.save_fits(_os.path.join(save_path, _CUBE_FILE), newcube, overwrite=True)
+    _osu.save_fits(_os.path.join(save_path, _MATRIX_FILE), cmdmat, overwrite=True)
     _osu.save_fits(
-        _os.path.join(save_path, "modes_vector.fits"), modesvec, overwrite=True
+        _os.path.join(save_path, _MODES_FILE), modesvec, overwrite=True
     )
 
     return newtn
@@ -860,7 +860,7 @@ def get_trigger_frame(
     go = i = 1
     thresh = infoT["amplitude"] / _np.sqrt(3)
     print(f"Trigger threshold: {thresh:.2e}")
-    if infoT["zeros"] == 0 and len(infoT["modes"]) == 0:
+    if infoT["trailing_zeros"] == 0 and len(infoT["modes_list"]) == 0:
         trigFrame = 0
         return trigFrame
     # listout = [] # ??
@@ -874,7 +874,7 @@ def get_trigger_frame(
                 img0.mask[r == 0] = True
         rr2check = _np.nanstd(zfit.remove_zernike(img1 - img0, [1, 2, 3]))
         print(f"Frame {i-1}: std = {rr2check:.2e}")
-        if go > infoT["zeros"] + 1:
+        if go > infoT["trailing_zeros"] + 1:
             msg = f"Frame {go}. Heading Zeros exceeded: std = {rr2check:.2e} < {thresh:.2e} (Amp/sqrt(3))"
             raise RuntimeError(msg)
         if rr2check > thresh:
@@ -910,12 +910,12 @@ def get_reg_frames(tn: str, info: dict[str, _ot.Any]) -> tuple[int, _ot.ArrayLik
     """
     infoR = info["REGISTRATION"]
     trigFrame = info["trigFrame"]
-    timing = _rif.get_timing()
-    if infoR["zeros"] == 0 and len(infoR["modes"]) == 0:
+    timing = info['timing']
+    if infoR["trailing_zeros"] == 0 and len(infoR["modes_list"]) == 0:
         regStart = regEnd = (trigFrame + 1) if trigFrame != 0 else 0
     else:
-        regStart = trigFrame + infoR["zeros"] * timing + (1 if trigFrame != 0 else 0)
-        regEnd = regStart + len(infoR["modes"]) * len(infoR["template"]) * timing
+        regStart = trigFrame + infoR["trailing_zeros"] * timing + (1 if trigFrame != 0 else 0)
+        regEnd = regStart + len(infoR["modes_list"]) * len(infoR["template"]) * timing
     return regStart, regEnd
 
 
@@ -944,7 +944,7 @@ def get_reg_file_matrix(tn: str, info: dict[str, _ot.Any]) -> tuple[int, _ot.Arr
     infoR = info["REGISTRATION"]
     regStart, regEnd = get_reg_frames(tn, info)
     regList = fileList[regStart:regEnd]
-    regMat = _np.reshape(regList, (len(infoR["modes"]), len(infoR["template"])))
+    regMat = _np.reshape(regList, (len(infoR["modes_list"]), len(infoR["template"])))
     return regMat
 
 
@@ -975,13 +975,13 @@ def get_iff_file_matrix(tn: str, info: dict[str, _ot.Any]) -> _ot.ArrayLike:
 
     infoIF = info["IFFUNC"]
     _, regEnd = get_reg_frames(tn, info)
-    k = regEnd + infoIF["zeros"]
+    k = regEnd + infoIF["trailing_zeros"]
     # `k` is the starting point in the file list for the IFF frames
 
-    n_useful_frames = len(info["modes_vector"]) * len(info["template"])  # [M x N x T]
+    n_useful_frames = len(info["FILES"]["modes_list"]) * len(info["FILES"]["template"])  # [M x N x T]
     iffList = fileList[k : k + n_useful_frames]
     iffMat = _np.reshape(
-        iffList, (info["n_repetitions"], len(infoIF["modes"]), len(infoIF["template"]))
+        iffList, (info["FILES"]["n_repetitions"], len(infoIF["modes_list"]), len(infoIF["template"]))
     )  # [N, M, T]
     return iffMat
 
@@ -1006,7 +1006,7 @@ def _modes_matrix_reorganization(
         where the modes are re-ordered as 0,1,..,M-1.
     """
     # Not shuffled case
-    if not info["shuffle"]:
+    if not info["FILES"]["shuffle"]:
         return modesMat
 
     # Shuffled case
@@ -1015,16 +1015,16 @@ def _modes_matrix_reorganization(
     # indexList[i, j] stores the original position (in the requested modesList) of the
     # mode that was placed at position j during repetition i of the shuffled acquisition
     shuffled_modes = _np.asarray(
-        info["modes_vector"].reshape((N, M)), dtype=int
+        info["FILES"]["modes_list"].reshape((N, M)), dtype=int
     )  # [N, M]
 
-    NM = len(info["modes_vector"])
+    NM = len(info["FILES"]["modes_list"])
 
     ## --- Checks --- ##
-    if N != info["n_repetitions"]:
+    if N != info["FILES"]["n_repetitions"]:
         raise ValueError(
             "the IFF file matrix has mismatching ``n_repetitions``: "
-            f"{N} != {info['n_repetitions']}"
+            f"{N} != {info['FILES']['n_repetitions']}"
         )
 
     if NM != N * M:
@@ -1167,13 +1167,13 @@ def _get_acq_par(tn: str) -> dict[str, _ot.ArrayLike | bool | int]:
     Returns
     -------
     dictionary containing the acquisition parameters:
-    - ampVector : float | ArrayLike
+    - amp_vector : float | ArrayLike
         Vector containg the amplitude of each commanded mode.
     - modes_vector : int | ArrayLike
         Vector containing the list of commanded modes.
     - template : int | ArrayLike
         Sampling template ampplied on each mode.
-    - indexList : int | ArrayLike
+    - index_list : int | ArrayLike
         Indexing of the modes inside the commanded matrix.
     - registration_acts : int | ArrayLike
         Vector containing the commanded actuators for the registration.
@@ -1191,13 +1191,15 @@ def _get_acq_par(tn: str) -> dict[str, _ot.ArrayLike | bool | int]:
     shuffle = modes_vector.header.get("SHUFFLE", False)
     n_repetitions = modes_vector.header.get("N_REP", 1)
     return {
-        "ampVector": ampVector,
-        "modes_vector": modes_vector,
-        "template": template,
-        "indexList": indexList,
-        "registration_acts": registration_acts,
-        "shuffle": shuffle,
-        "n_repetitions": n_repetitions,
+        "FILES": {
+            "amplitude": ampVector,
+            "modes_list": modes_vector,
+            "template": template,
+            "index_list": indexList,
+            "registration_modes": registration_acts,
+            "shuffle": shuffle,
+            "n_repetitions": n_repetitions,
+        }
     }
 
 
@@ -1219,7 +1221,7 @@ def _get_acq_info(
         Information read from the iffConfig.ini file.
     """
     path = _os.path.join(_ifFold, tn) if tn is not None else _fn.CONFIGURATION_FOLDER
-    info = _rif.get_iff_config(None, path=path)
+    info = _rif.get_iff_config(None, bpath=path)
     return info
 
 
@@ -1269,8 +1271,8 @@ def _check_information_consistency(info: dict[str, _ot.Any]) -> None:
         Raised when the number of modes or template lengths do not match
         the expected values from the configuration.
     """
-    expected_modes_count = len(info["IFFUNC"]["modes"]) * info["n_repetitions"]
-    actual_modes_count = len(info["modes_vector"])
+    expected_modes_count = len(info["IFFUNC"]["modes_list"]) * info['FILES']["n_repetitions"]
+    actual_modes_count = len(info["FILES"]["modes_list"])
     if expected_modes_count != actual_modes_count:
         raise ValueError(
             "Expected number of modes does not match the number of "
@@ -1278,7 +1280,7 @@ def _check_information_consistency(info: dict[str, _ot.Any]) -> None:
             f"{expected_modes_count} != {actual_modes_count}"
         )
 
-    folder_template_length = len(info["template"])
+    folder_template_length = len(info['FILES']["template"])
     config_template_length = len(info["IFFUNC"]["template"])
     if folder_template_length != config_template_length:
         raise ValueError(

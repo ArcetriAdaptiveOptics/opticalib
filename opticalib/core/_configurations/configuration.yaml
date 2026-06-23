@@ -108,29 +108,31 @@ PHASING:
 # data acquisition and processing.
 INFLUENCE.FUNCTIONS:
   timing: 1
-  sequentialDelay: 0.0
-  triggeredMode: # if not using triggerMode, put false and comment next 2 lines (for Microgate DMs)
+  sequential_delay: 0.0
+  triggered_mode: # if not using triggerMode, put false and comment next 2 lines (for Microgate DMs)
     frequency: 5.
-    cmdDelay: 0.0
+    cmd_delay: 0.0
   TRIGGER:
-    numberofzeros: 0
-    modeid: []
-    modeamp: 0.05
+    trailing_zeros: 0
+    modes_list: []
+    amplitude: 0.05
     template: []
-    modalbase: hadamard
+    modal_base: hadamard
   REGISTRATION:
-    numberofzeros: 0
-    modeid: []
-    modeamp: 0.1
+    trailing_zeros: 0
+    modes_list: []
+    amplitude: 0.1
     template: []
-    modalbase: zonal
+    modal_base: zonal
   IFFUNC:
-    numberofzeros: 0
-    paddingZeros: 5
-    modeid: np.arange(0,88,1)
-    modeamp: 0.05
+    trailing_zeros: 0
+    padding_zeros: 5
+    modes_list: np.arange(0,88,1)
+    amplitude: 0.05
     template: [1, -1, 1]
-    modalbase: zonal
+    shuffle: false
+    n_repetitions: 1
+    modal_base: zonal
 
 ## Stitching configuration ##
 # Here you can set the parameters for the stitching procedure.

@@ -136,12 +136,12 @@ class IffData:
         filelist = _osu.get_file_list(self.tn, _fn.IFFUNCTIONS_ROOT_FOLDER)
 
         attr_map = {
-            "ampVector": "_amplitude",
-            "cmdMatrix": "_cmd_matrix",
-            "modes_vector": "_modes_vector",
-            "regActs": "_reg_acts",
+            "amplitude": "_amplitude",
+            "cmd_matrix": "_cmd_matrix",
+            "modes_list": "_modes_list",
+            "registration_modes": "_reg_modes",
             "template": "_template",
-            "timedCmdHistory": "_timed_cmd_history",
+            "timed_cmd_history": "_timed_cmd_history",
         }
 
         for key, attr in attr_map.items():
@@ -215,18 +215,18 @@ class IffData:
         return self._cmd_matrix
 
     @property
-    def modes_vector(self) -> _ot.ArrayLike:
+    def modes_list(self) -> _ot.ArrayLike:
         """
         Modes vector.
         """
-        return self._modes_vector
+        return self._modes_list
 
     @property
-    def registration_acts(self) -> _ot.ArrayLike:
+    def registration_modes(self) -> _ot.ArrayLike:
         """
-        Actuators used for IFF registration.
+        Modes used for IFF registration.
         """
-        return self._reg_acts
+        return self._reg_modes
 
     @property
     def template(self) -> _ot.ImageData:
@@ -241,6 +241,20 @@ class IffData:
         Timed command matrix history.
         """
         return self._timed_cmd_history
+    
+    @property
+    def shuffle(self) -> bool:
+        """
+        Whether the modes were shuffled during the IFF measurement.
+        """
+        return self._modes_list.header.get("SHUFFLE", False)
+
+    @property
+    def n_repetitions(self) -> int:
+        """
+        Number of repetitions in the IFF measurement.
+        """
+        return self._modes_list.header.get("N_REP", 1)
 
     def mode(self, index: int) -> _ot.ImageData:
         """
@@ -249,8 +263,12 @@ class IffData:
         return self._get_mode(index)
 
     def __repr__(self) -> str:
-        return (
-            f"IffData(tn={self.tn}, "
-            f"n_modes={len(self._modes_vector) if self._modes_vector is not None else 'N/A'}, "
-            f"template={self._template if self._template is not None else 'N/A'})"
-        )
+        txt = ''
+        txt += f"IffData(tn={self.tn}, "
+        if self.shuffle:
+            nmodes = len(self._modes_list) // self.n_repetitions
+            txt += f"n_modes={nmodes} (shuffled, x{self.n_repetitions}), "
+        else:
+            txt += f"n_modes={len(self._modes_list) if self._modes_list is not None else 'N/A'}, "
+        txt += f"template={self._template if self._template is not None else 'N/A'})"
+        return txt

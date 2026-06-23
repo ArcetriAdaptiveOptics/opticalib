@@ -497,9 +497,9 @@ class TestIFFCapturePreparation:
         info = prep.get_info_to_save()
 
         assert isinstance(info, dict)
-        assert "timedCmdHistory" in info
-        assert "cmdMatrix" in info
-        assert "modes_vector" in info
+        assert "timed_cmd_history" in info
+        assert "cmd_matrix" in info
+        assert "modes_list" in info
         assert "template" in info
         assert "shuffle" in info
 

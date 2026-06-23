@@ -15,7 +15,6 @@ from opticalib.ground import osutils as _osu
 from opticalib.core import config as _rif
 from opticalib.core.fitsarray import fits_array as _fa
 from opticalib.core import _types as _ot
-from .iff_processing import _get_acq_info
 
 
 class IFFCapturePreparation:
@@ -76,6 +75,8 @@ class IFFCapturePreparation:
         self._dm = dm
         self.mirrorModes = dm.mirrorModes
         self._NActs = dm.n_acts
+        
+        self._config = _rif.get_iff_config(key=None)
 
         # IFF info
         self.modalBaseId = None
@@ -87,6 +88,7 @@ class IFFCapturePreparation:
         self._modesAmp = None
         self._template = None
         self._shuffle = False
+        self._n_repetitions = 1
 
         # Matrices
         self.timedCmdHistory = None
@@ -105,14 +107,15 @@ class IFFCapturePreparation:
             Dictionary containing all the vectors and matrices needed
         """
         info = {
-            "timedCmdHistory": self.timedCmdHistory,
-            "cmdMatrix": self._cmdMatrix,
-            "modes_vector": self._modesList,
-            "regActs": self._regActs,
-            "ampVector": self._modesAmp,
-            "indexList": self._indexingList,
+            "timed_cmd_history": self.timedCmdHistory,
+            "cmd_matrix": self._cmdMatrix,
+            "modes_list": self._modesList,
+            "registration_modes": self._regActs,
+            "amplitude": self._modesAmp,
+            "index_list": self._indexingList,
             "template": self._template,
             "shuffle": self._shuffle,
+            "n_repetitions": self._n_repetitions,
         }
         return info
 
@@ -168,8 +171,9 @@ class IFFCapturePreparation:
         """
         # Provide manually the cmdMatrixHistory
         if cmdMat is not None:
-            infoIF = _get_acq_info()['IFFUNC']
-            trailing_zeros = _np.zeros((cmdMat.shape[0], infoIF["paddingZeros"]))
+            trailing_zeros = _np.zeros(
+                (cmdMat.shape[0], self._config['IFFUNC']['trailing_zeros'])
+            )
             self._cmdMatrix = cmdMat
             cmdMat = _np.hstack((cmdMat, trailing_zeros))
             self.cmdMatHistory = cmdMat
@@ -199,7 +203,7 @@ class IFFCapturePreparation:
             cmdHistory = self.cmdMatHistory
             self._regActs = _np.array([])
 
-        timing = _rif.get_timing()
+        timing = self._config['timing']
         timedCmdHist = _np.repeat(cmdHistory, timing, axis=1)
         self.timedCmdHistory = timedCmdHist
         return timedCmdHist
@@ -243,16 +247,17 @@ class IFFCapturePreparation:
             Command matrix history to be applied, with the correct push-pull
             application, following the desired template.
         """
-        infoIF = _get_acq_info()['IFFUNC']
+        infoIF = self._config['IFFUNC']
         modesList = _np.asarray(
-            modesList if modesList is not None else infoIF.get("modes"), dtype=int
+            modesList if modesList is not None else infoIF.get("modes_list"), dtype=int
         )
         template = _np.asarray(
             template if template is not None else infoIF.get("template"), dtype=int
         )
         modesAmp = modesAmp if modesAmp is not None else infoIF.get("amplitude")
-        zeroScheme = infoIF["zeros"]
+        zeroScheme = infoIF["trailing_zeros"]
 
+        n_repetitions = n_repetitions if n_repetitions is not None else infoIF.get("n_repetitions", 1)
         if n_repetitions < 1:
             raise ValueError(f"n_repetitions must be >= 1, got {n_repetitions}")
 
@@ -292,7 +297,7 @@ class IFFCapturePreparation:
 
         n_frame = len(final_mlist) * n_push_pull
         cmd_matrixHistory = _np.zeros(
-            (self._NActs, n_frame + zeroScheme + infoIF["paddingZeros"])
+            (self._NActs, n_frame + zeroScheme + infoIF["padding_zeros"])
         )
         n_modes = final_cmd_mat.shape[1]
 
@@ -339,39 +344,34 @@ class IFFCapturePreparation:
         """
         self._create_trigger_padding() if self.triggPadCmdHist is None else None
         self._create_registration_pattern() if self.regPadCmdHist is None else None
-        # if self.triggPadCmdHist is not None and self.regPadCmdHist is not None:
-        #     aux_cmdHistory = _np.hstack((self.triggPadCmdHist, self.regPadCmdHist))
-        # elif self.triggPadCmdHist is not None:
-        #     aux_cmdHistory = self.triggPadCmdHist
-        # elif self.regPadCmdHist is not None:
-        #     aux_cmdHistory = self.regPadCmdHist
-        # else:
-        #     aux_cmdHistory = None
+
         matrices = [
             m for m in [self.triggPadCmdHist, self.regPadCmdHist] if m is not None
         ]
         aux_cmdHistory = _np.hstack(matrices) if matrices else None
+
         self.auxCmdHistory = aux_cmdHistory
+
         return aux_cmdHistory
 
     def _create_registration_pattern(self) -> None:
         """
         Creates the registration pattern to apply after the triggering and before
         the commands to apply for the IFF acquisition. The information about number
-        of zeros, mode(s) and amplitude are read from the 'iffconfig.ini' file.
+        of trailing zeros, mode(s) and amplitude are read from the 'iffconfig.ini' file.
         """
-        infoR = _rif.get_iff_config("REGISTRATION")
-        if len(infoR["modes"]) == 0:
-            self._regActs = infoR["modes"]
+        infoR = self._config["REGISTRATION"]
+        if len(infoR["modes_list"]) == 0:
+            self._regActs = infoR["modes_list"]
             return
-        self._regActs = infoR["modes"]
-        self._update_modal_base(infoR["modalBase"])
-        zeroScheme = _np.zeros((self._NActs, infoR["zeros"]))
+        self._regActs = infoR["modes_list"]
+        self._update_modal_base(infoR["modal_base"])
+        zeroScheme = _np.zeros((self._NActs, infoR["trailing_zeros"]))
         regScheme = _np.zeros(
-            (self._NActs, len(infoR["template"]) * len(infoR["modes"]))
+            (self._NActs, len(infoR["template"]) * len(infoR["modes_list"]))
         )
         k = 0
-        for mode in infoR["modes"]:
+        for mode in infoR["modes_list"]:
             for t in range(len(infoR["template"])):
                 regScheme.T[k] = (
                     self._modalBase.T[mode] * infoR["amplitude"] * infoR["template"][t]
@@ -386,12 +386,12 @@ class IFFCapturePreparation:
         registration padding scheme. The information about number of zeros,
         mode(s) and amplitude are read from the 'iffconfig.ini' file.
         """
-        infoT = _rif.get_iff_config("TRIGGER")
-        if len(infoT["modes"]) == 0:
+        infoT = self._config["TRIGGER"]
+        if len(infoT["modes_list"]) == 0:
             return
-        self._update_modal_base(infoT["modalBase"])
-        zeroScheme = _np.zeros((self._NActs, infoT["zeros"]))
-        trigMode = self._modalBase[:, infoT["modes"]] * infoT["amplitude"]
+        self._update_modal_base(infoT["modal_base"])
+        zeroScheme = _np.zeros((self._NActs, infoT["trailing_zeros"]))
+        trigMode = self._modalBase[:, infoT["modes_list"]] * infoT["amplitude"]
         triggHist = _np.hstack((zeroScheme, trigMode))
         self.triggPadCmdHist = triggHist.copy()
 
@@ -399,8 +399,7 @@ class IFFCapturePreparation:
         """
         Cuts the modal base according the given modes list
         """
-        infoIF = _rif.get_iff_config("IFFUNC")
-        modalbase = mbase or infoIF["modalBase"]
+        modalbase = mbase or self._config["IFFUNC"]["modal_base"]
         self._update_modal_base(modalbase)
         self._cmdMatrix = self._modalBase[:, mlist]
 

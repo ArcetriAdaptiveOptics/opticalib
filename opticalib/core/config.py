@@ -25,6 +25,7 @@ import numpy as _np
 import yaml
 
 from .exceptions import DeviceNotFoundError
+from .decorators import expand_list_arguments as _ela
 from typing import Any as _Any
 
 global _cfold
@@ -52,13 +53,16 @@ _update_imports()
 yaml_config_file = "configuration.yaml"
 _iff_config_file = "iffConfig.yaml"
 
-_nzeroName = "numberofzeros"
-_modeIdName = "modeid"
-_modeAmpName = "modeamp"
-_templateName = "template"
-_modalBaseName = "modalbase"
+_TZERO = "trailing_zeros"
+_MODEID = "modes_list"
+_MODEAMP = "amplitude"
+_TEMPLATE = "template"
+_MODALBASE = "modal_base"
+_SHUFFLE = "shuffle"
+_NREP = "n_repetitions"
 
-_items = [_nzeroName, _modeIdName, _modeAmpName, _templateName, _modalBaseName]
+_items = [_TZERO, _MODEID, _MODEAMP, _TEMPLATE, _MODALBASE, _SHUFFLE, _NREP]
+_IFSECTIONS = ["TRIGGER", "REGISTRATION", "IFFUNC"]
 
 
 def _resolve_config_path(path: str | None = None) -> str:
@@ -278,24 +282,22 @@ def get_iff_config(key: str|None, bpath: str = _cfold):
             path=bpath,
         )
     except KeyError:
-        cc = _get_section_config(section='INFLUENCE.FUNCTIONS', path=bpath)
+        try:
+            cc = _get_section_config(section='INFLUENCE.FUNCTIONS', path=bpath)
+        except KeyError:
+            # Assuming this loading is the `iffConfig.yaml` file copied during 
+            # the IFF acquisition
+            cc = load(bpath)
 
-    if key is None:
-        return cc
+    for section in cc.keys():
+        if key is None:
+            if section in _IFSECTIONS:
+                for k, vals in cc[section].items():
+                    cc[section][k] = _parse_val(vals)
+        else:
+            cc[section] = _parse_val(cc[section])
 
-    nzeros = int(cc[_nzeroName])
-    modeId = _parse_val(cc[_modeIdName])
-    modeAmp = _parse_val(cc[_modeAmpName])
-    modalBase = cc[_modalBaseName]
-    template = _parse_val(cc[_templateName])
-    return {
-        "zeros": nzeros,
-        "modes": modeId,
-        "amplitude": modeAmp,
-        "template": template,
-        "modalBase": modalBase,
-        "paddingZeros": cc.get("paddingZeros", 0),
-    }
+    return cc
 
 
 def copy_iff_config_file(tn: str, old_path: str = _cfold):
@@ -322,8 +324,8 @@ def copy_iff_config_file(tn: str, old_path: str = _cfold):
     print(f"IFF configuration copied to {nfname.rsplit('/' + yaml_config_file, 1)[0]}")
     return nfname
 
-
-def update_iff_config(tn: str, item: str, value: _Any):
+@_ela(['item', 'value'])
+def update_iff_config(tn: str, item: str|list[str], value: _Any|list[_Any]):
     """
     Updates the YAML configuration file for the IFF acquisition.
     The item passed is within the INFLUENCE.FUNCTIONS/IFFUNC section.
@@ -333,10 +335,10 @@ def update_iff_config(tn: str, item: str, value: _Any):
     tn : str
         Tracking number of the `iffConfig.yaml` copied from the original
         `configuration.yaml` file.
-    item : str
-        The configuration item to update.
-    value : any
-        New value to update.
+    item : str, list of str
+        The configuration item(s) to update.
+    value : any, list of any
+        New value(s) to update.
     """
     key = "IFFUNC"
     file = _os.path.join(_iffold, tn, _iff_config_file)

@@ -75,12 +75,24 @@ def iff_data_acquisition(
     )
     info = ifc.get_info_to_save()
     tn, _ = _prepare_data2_save(info)
+
     _rif.copy_iff_config_file(tn)
-    for param, value in zip(
-        ["modeid", "modeamp", "template"], [modesList, amplitude, template]
-    ):
-        if value is not None:
-            _rif.update_iff_config(tn, param, value)
+    pars2update = dict(zip(
+        ["modes_list", "amplitude", "template", "shuffle", "n_repetitions", "modal_base"],
+        [modesList, amplitude, template, shuffle, n_repetitions, modalbase]
+    ))
+    pars2update = {k: v for k, v in pars2update.items() if v is not None}  
+     
+    _rif.update_iff_config(
+        tn,
+        item=list(pars2update.keys()),
+        value=list(pars2update.values())
+    )
+    # for param, value in zip(
+    #     ["modeid", "modeamp", "template"], [modesList, amplitude, template]
+    # ):
+    #     if value is not None:
+    #         _rif.update_iff_config(tn, param, value)
     dm.upload_cmd_history(tch)
     if read_buffer is not False:
         try:
@@ -181,11 +193,11 @@ def piston_data_acquisition(
     info = ifc.get_info_to_save()
 
     # Hacking the standard IFF procedure
-    info["ampVector"] = _np.asarray(ampvec)
+    info["amplitude"] = _np.asarray(ampvec)
     info["template"] = _np.asarray(template)
-    info["cmdMatrix"] = _np.full((dm.n_acts, len(amps)), 1.0)
-    info["modes_vector"] = modeslist
-    info["indexList"] = modeslist
+    info["cmd_matrix"] = _np.full((dm.n_acts, len(amps)), 1.0)
+    info["modes_list"] = modeslist
+    info["index_list"] = modeslist
     info["shuffle"] = 0
     tn, _ = _prepare_data2_save(info)
 
@@ -273,9 +285,8 @@ def _prepare_data2_save(info: dict[str, _ot.Any]) -> tuple[str, str]:
                 tvalue = _np.asarray(value)
             else:
                 tvalue = value
-            if key == "shuffle":
-                with open(_os.path.join(iffpath, f"{key}.dat"), "w") as f:
-                    f.write(str(value))
+            if key in ["shuffle", 'n_repetitions']:
+                continue
             else:
                 _osu.save_fits(
                     _os.path.join(iffpath, f"{key}.fits"), tvalue, overwrite=True
