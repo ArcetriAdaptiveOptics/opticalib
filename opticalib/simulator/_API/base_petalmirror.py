@@ -1,8 +1,8 @@
 import os
 import xupy as xp
 import numpy as _np
-from ... import typings as _ot
-from .. import factory_functions as ff
+from ...core import _types as _ot
+from .. import factory as ff
 from ...core import root as _root
 from ...ground.roi import roi_generator
 from ...ground import osutils as osu
@@ -216,7 +216,7 @@ class BaseFakePTL:
         ):
             n_zern = 3
             print("Computing Zernike matrix...")
-            from ..factory_functions import generate_zernike_matrix
+            from ..factory import generate_zernike_matrix
 
             zms = []
             for mask in self._rois:

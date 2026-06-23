@@ -55,7 +55,7 @@ import numpy as _np
 from . import roi as _roi
 from .osutils import get_kwargs
 from abc import abstractmethod, ABC
-from opticalib import typings as _t
+from opticalib.core import _types as _t
 from .logger import SystemLogger as _SL
 from contextlib import contextmanager as _contextmanager
 from arte.utils.zernike_generator import ZernikeGenerator as _ZernikeGenerator

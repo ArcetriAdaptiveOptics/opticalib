@@ -1,4 +1,6 @@
 """
+DEFORMABLE MIRRORS
+==================
 This module contains the classes for the high-level use of deformable mirrors.
 
 Author(s)
@@ -16,8 +18,8 @@ Description
 import os as _os
 import numpy as _np
 import time as _time
-from . import _API as _api
-from opticalib import typings as _ot
+from ._API.base_devices import BaseDeformableMirror
+from opticalib.core import _types as _ot
 from opticalib.core import exceptions as _oe
 from contextlib import contextmanager as _contextmanager
 from opticalib.core import config as _rc
@@ -29,8 +31,8 @@ from opticalib.ground.osutils import (
 )
 from opticalib.ground.logger import SystemLogger as _SL
 
-
-class PetalMirror(_api.BasePetalMirror, _api.base_devices.BaseDeformableMirror):
+from ._API.piAPI import BasePetalMirror
+class PetalMirror(BasePetalMirror, BaseDeformableMirror):
     """
     Petal Deformable Mirror interface.
 
@@ -154,7 +156,8 @@ class PetalMirror(_api.BasePetalMirror, _api.base_devices.BaseDeformableMirror):
             return tn
 
 
-class AdOpticaDm(_api.BaseAdOpticaDm, _api.base_devices.BaseDeformableMirror):
+from ._API.micAPI import BaseAdOpticaDm
+class AdOpticaDm(BaseAdOpticaDm, BaseDeformableMirror):
     """
     AdOptica Deformable Mirror interface.
 
@@ -568,7 +571,8 @@ class M4AU(AdOpticaDm):
             self._borderIds = []
 
 
-class AlpaoDm(_api.BaseAlpaoMirror, _api.base_devices.BaseDeformableMirror):
+from ._API.alpaoAPI import BaseAlpaoMirror
+class AlpaoDm(BaseAlpaoMirror, BaseDeformableMirror):
     """
     Alpao Deformable Mirror interface.
 
@@ -803,7 +807,8 @@ class AlpaoDm(_api.BaseAlpaoMirror, _api.base_devices.BaseDeformableMirror):
         return f"{self._name}(n_acts={self.n_acts}, serial='{self.serial_number}')"
 
 
-class SplattDm(_api.base_devices.BaseDeformableMirror):
+from ._API.splattAPI import SPLATTEngine
+class SplattDm(BaseDeformableMirror):
     """
     SPLATT deformable mirror interface.
     """
@@ -811,7 +816,7 @@ class SplattDm(_api.base_devices.BaseDeformableMirror):
     def __init__(self, ip: str = None, port: int = None):
         """The Constructor"""
         self._name = "Splatt"
-        self._dm = _api.SPLATTEngine(ip, port)
+        self._dm = SPLATTEngine(ip, port)
         self.n_acts = self._dm.n_acts
         self.mirrorModes = self._dm.mirrorModes
         self.act_coord = self._dm.actCoords

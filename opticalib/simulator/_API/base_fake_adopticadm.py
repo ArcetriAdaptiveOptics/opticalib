@@ -9,7 +9,7 @@ from ._rbf_gpu import RBFInterpolator
 
 # from scipy.interpolate import Rbf
 from opticalib import folders as fp
-from opticalib import typings as _t
+from opticalib.core import _types as _t
 from opticalib.ground import geometry as geo
 from opticalib.ground import osutils as osu
 from opticalib.ground import roi
@@ -350,7 +350,7 @@ class BaseFakeDp:
         ):
             n_zern = self.n_acts // 2
             print("Computing Zernike matrix...")
-            from ..factory_functions import generate_zernike_matrix
+            from ..factory import generate_zernike_matrix
 
             zms = []
             for mask in [self._ms0, self._ms1]:

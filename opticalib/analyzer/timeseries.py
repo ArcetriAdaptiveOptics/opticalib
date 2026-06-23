@@ -31,9 +31,9 @@ This module is part of the OPTICALIB library and relies on other modules within 
 
 import os as _os
 import numpy as _np
-from .. import typings as _ot
+from ..core import _types as _ot
 from ..ground import osutils as osu, modal_decomposer as _md
-from . import images_processing as _ip
+from . import image_processing as _ip
 from ..core.root import OPD_SERIES_ROOT_FOLDER as _OPDSER
 
 

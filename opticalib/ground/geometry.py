@@ -1,7 +1,7 @@
 import numpy as np
 from skimage import draw
 from arte.types.mask import CircularMask
-from opticalib import typings as _ot
+from opticalib.core import _types as _ot
 
 
 def draw_circular_pupil(

@@ -43,13 +43,13 @@ dedicated folder in the flat root folder.
 
 import os as _os
 import numpy as _np
-from opticalib import typings as _ot
+from opticalib.core import _types as _ot
 from . import iff_processing as _ifp
 from opticalib.ground import osutils as _osu
 from opticalib.core.root import folders as _fn
 from opticalib.ground import reconstructor as _crec
 from ..ground.logger import SystemLogger as _SL
-from ..analyzer.images_processing import mode_rebinner as _rebin
+from ..analyzer.image_processing import mode_rebinner as _rebin
 from opticalib.core.data_classes import FlatData
 
 

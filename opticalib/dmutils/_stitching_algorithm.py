@@ -2,7 +2,7 @@ import numpy as np
 import xupy as xp
 from tqdm import tqdm, trange
 from opticalib.ground.modal_decomposer import ZernikeFitter
-from opticalib import typings as t
+from opticalib.core import _types as t
 
 f32 = xp.float
 

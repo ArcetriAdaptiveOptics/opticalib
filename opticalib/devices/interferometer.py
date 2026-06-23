@@ -13,8 +13,8 @@ import time as _time
 import shutil as _sh
 import subprocess as _sb
 
-from . import _API as _api
-from opticalib import typings as _ot
+from ._API.base_devices import BaseWavefrontSensor
+from opticalib.core import _types as _ot
 from opticalib.core import root as _fn
 from opticalib.ground import osutils as _osu
 from opticalib.ground.logger import SystemLogger as _SL
@@ -26,7 +26,7 @@ _confReader = _fn.ConfSettingReader4D
 _OPDIMG = _Folds.OPD_IMAGES_ROOT_FOLDER
 
 
-class _4DInterferometer(_api.BaseWavefrontSensor):
+class _4DInterferometer(BaseWavefrontSensor):
     """
     Class for the 4D Laser Interferometer.
     """

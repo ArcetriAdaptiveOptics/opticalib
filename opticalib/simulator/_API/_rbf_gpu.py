@@ -24,7 +24,7 @@ References:
     [2] Wahba, G., 1990. Spline Models for Observational Data.
 """
 
-from opticalib import typings as _ot
+from opticalib.core import _types as _ot
 import numpy as np
 import xupy as xp
 

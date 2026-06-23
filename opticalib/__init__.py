@@ -20,6 +20,7 @@ How to Use:
 > img = interf.acquire_map()
 ```
 """
+from __future__ import annotations
 
 from .__version__ import __version__
 
@@ -29,7 +30,7 @@ from .core.root import (
     create_configuration_file,
     set_configuration_file,
 )
-from .core import config as read_config
+from .core import config
 from .core.fitsarray import fits_array
 from .devices import *
 from .devices.interferometer import _4DInterferometer
@@ -64,7 +65,7 @@ __all__ = [
     "folders",
     "create_configuration_file",
     "set_configuration_file",
-    "read_config",
+    "config",
     "get_camera_settings",
     "get_frame_rate",
     "fits_array",

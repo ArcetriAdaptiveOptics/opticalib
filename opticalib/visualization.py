@@ -9,7 +9,7 @@ DM commands, and other relevant visualizations for optical data analysis.
 
 import numpy as np
 from matplotlib import pyplot as plt
-from . import typings as _ot
+from .core import _types as _ot
 from .ground import osutils as _osu
 
 

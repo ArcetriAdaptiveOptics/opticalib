@@ -1,13 +1,29 @@
+"""
+CAMERAS
+=======
+2026
+
+This module contains the classes for the high-level use of cameras.
+
+Author(s)
+---------
+- Pietro Ferraiuolo : pietro.ferraiuolo@inaf.it
+
+Description
+-----------
+
+"""
+
+
 import time as _time
 
 import vmbpy as _vmbpy
 
-from .. import typings as _ot
-from ..core.decorators import ReconnectionError as _re
+from ..core import _types as _ot
 from ..core.decorators import allow_reconnect as _ar
 from ..ground.logger import SystemLogger as _sl
 from ..core.config import get_cameras_config as _gcc
-from ._API import BaseCamera
+from ._API.base_devices import BaseCamera
 
 
 class GigaVision(BaseCamera):

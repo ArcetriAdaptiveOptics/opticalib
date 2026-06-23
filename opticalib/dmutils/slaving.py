@@ -13,7 +13,7 @@ the force applied by the master actuators or achieving a zero-force configuratio
 
 import xupy as _xp
 import numpy as _np
-from opticalib import typings as _ot
+from opticalib.core import _types as _ot
 from opticalib.core import exceptions as _oe
 
 

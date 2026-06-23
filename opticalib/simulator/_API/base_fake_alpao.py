@@ -1,8 +1,8 @@
 import os
 import xupy as xp
 import numpy as np
-from ... import typings as _t
-from ..factory_functions import *
+from ...core import _types as _t
+from ..factory import *
 from ...core import root as _root
 from ...core.config import get_iff_config as _dmc
 from abc import ABC, abstractmethod

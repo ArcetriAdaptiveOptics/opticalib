@@ -45,10 +45,10 @@ import configparser as _cp
 from tqdm import tqdm as _tqdm
 from ..core.root import folders
 from ..core import fitsarray as _fa
-from opticalib import typings as _ot
+from opticalib.core import _types as _ot
 from ..core import config as _rif
 from concurrent.futures import ThreadPoolExecutor as _tpe
-from ..analyzer import images_processing as _ip
+from ..analyzer import image_processing as _ip
 from ..ground import modal_decomposer as _zern, osutils as _osu, roi as _roi
 from ..core.decorators import expand_list_arguments as _expand_list_arguments
 

@@ -5,10 +5,10 @@ import contextlib as _clib
 from shutil import copyfile as _cp
 from opticalib import folders as _fn
 from opticalib.ground import osutils as _osu
-from opticalib.procedures import iff as _iff
 from . import iff_processing as _ifp
-from opticalib import typings as _ot
+from opticalib.core import _types as _ot
 from opticalib.core.config import get_section_config as _gsc
+from ..procedures import iff as _iff
 from ._stitching_algorithm import map_stitching as _map_stitching
 from skimage.draw import disk as _disk
 

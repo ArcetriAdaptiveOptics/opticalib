@@ -1,6 +1,6 @@
 import numpy as _np
 import matplotlib.pyplot as _plt
-from opticalib import typings as _t
+from opticalib.core import _types as _t
 from opticalib.analyzer import mode_rebinner as rebinned
 from matplotlib.animation import FuncAnimation as _FuncAnimation
 from opticalib.ground.logger import SystemLogger as _SL

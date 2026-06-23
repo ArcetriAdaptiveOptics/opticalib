@@ -16,7 +16,7 @@ Author(s):
 
 import numpy as _np
 from skimage import measure as _meas
-from opticalib import typings as _ot
+from opticalib.core import _types as _ot
 
 
 def roi_generator(

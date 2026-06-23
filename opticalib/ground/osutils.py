@@ -17,7 +17,7 @@ import time as _time
 import h5py as _h5py
 from numpy import uint8 as _uint8
 from astropy.io import fits as _fits
-from opticalib import typings as _ot
+from opticalib.core import _types as _ot
 from numpy.ma import masked_array as _masked_array
 from opticalib.core import fitsarray as _fa
 from opticalib.core import root as _fn

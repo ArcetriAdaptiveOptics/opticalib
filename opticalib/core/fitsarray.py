@@ -2,7 +2,7 @@ import numpy as _np
 from astropy.io import fits as _fits
 import xupy as _xp
 
-from .. import typings as _ot
+from . import _types as _ot
 
 
 def _prepare_header(
