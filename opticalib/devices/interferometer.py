@@ -14,6 +14,7 @@ import shutil as _sh
 import subprocess as _sb
 
 from ._API.base_devices import BaseWavefrontSensor
+from ._API.i4dAPI import I4D
 from opticalib.core import _types as _ot
 from opticalib.core import root as _fn
 from opticalib.ground import osutils as _osu
@@ -48,7 +49,7 @@ class _4DInterferometer(BaseWavefrontSensor):
         self._logger.info(
             f"Wavefront Sensor {self._name} initialized on address {self.ip}:{self.port}"
         )
-        self._i4d = _api.I4D(self.ip, self.port)
+        self._i4d = I4D(self.ip, self.port)
         self._ic = _osu._InterferometerConverter()
         _Folds._update_interf_paths()
 
@@ -74,7 +75,7 @@ class _4DInterferometer(BaseWavefrontSensor):
         """
         if nframes == 1:
             self._logger.info("Acquiring single frame.")
-            width, height, _, data_array = self._i4d.take_single_measurement()
+            width, height, _, data_array = self._i4d.takeSingleMeasurement()
             masked_ima = self._from_data_array_to_masked_array(
                 width, height, data_array * 632.8e-9
             )
@@ -83,7 +84,7 @@ class _4DInterferometer(BaseWavefrontSensor):
             self._logger.info(f"Acquiring {nframes} frames with {delay}s delay.")
             image_list = []
             for __ in range(nframes):
-                width, height, _, data_array = self._i4d.take_single_measurement()
+                width, height, _, data_array = self._i4d.takeSingleMeasurement()
                 masked_ima = self._from_data_array_to_masked_array(
                     width, height, data_array * 632.8e-9
                 )
@@ -130,12 +131,12 @@ class _4DInterferometer(BaseWavefrontSensor):
         """
         self.acquire_map()
         if nframes == 1:
-            data, height, _, width = self._i4d.get_fringe_amplitude_data()
+            data, height, _, width = self._i4d.getFringeAmplitudeData()
             data2d = _np.reshape(data, (width, height))
         else:
             image_list = []
             for __ in range(nframes):
-                data, height, _, width = self._i4d.get_fringe_amplitude_data()
+                data, height, _, width = self._i4d.getFringeAmplitudeData()
                 data2d_t = _np.reshape(data, (width, height))
                 image_list.append(data2d_t)
                 _time.sleep(delay)
@@ -157,7 +158,7 @@ class _4DInterferometer(BaseWavefrontSensor):
         data: numpy array
             Interferogram data.
         """
-        json_data = self._i4d.get_interferogram(index)
+        json_data = self._i4d.getInterferogram(index)
         data = _np.array(json_data["Data"], dtype=float)
         # width = json_data["Width"]
         # height = json_data["Height"]
@@ -195,7 +196,7 @@ class _4DInterferometer(BaseWavefrontSensor):
             f"Capturing {numberOfFrames} frames into folder '{folder_name}'."
         )
         fold4d = _os.path.join(_Folds.CAPTURE_FOLDER_NAME_4D_PC, folder_name)
-        self._i4d.burst_frames_to_specific_directory(fold4d, numberOfFrames)
+        self._i4d.burstFramesToSpecificDirectory(fold4d, numberOfFrames)
         self.save_configuration(_os.path.join(fold4d, "SoftwareSettings.4dini"))
         self.copy4_d_settings(
             _os.path.join(_Folds.CAPTURE_FOLDER_NAME_LOCAL_PC, folder_name),
@@ -234,7 +235,7 @@ class _4DInterferometer(BaseWavefrontSensor):
                 self._logger.info(f"Loading configuration file `{conf2load}`")
                 self.load_configuration(conf2load)
 
-            self._i4d.convert_raw_frames_in_directory_to_measurements_in_destination_directory(
+            self._i4d.convertRawFramesInDirectoryToMeasurementsInDestinationDirectory(
                 produce4d,
                 capture4d,
             )
@@ -276,7 +277,7 @@ class _4DInterferometer(BaseWavefrontSensor):
         enable: bool
             If True, enables triggered mode; if False, disables it.
         """
-        self._i4d.set_trigger_mode(1 if enable is True else 0)
+        self._i4d.setTriggerMode(1 if enable is True else 0)
         if enable:
             self._logger.warning("Triggered mode enabled, waiting for TTL.")
             print("Triggered mode enabled, waiting for TTL")
@@ -296,7 +297,7 @@ class _4DInterferometer(BaseWavefrontSensor):
             name of the configuration file (optional). If None, the original file
             name is used
         """
-        self._i4d.save_configuration(newConfigurationPath)
+        self._i4d.saveConfiguration(newConfigurationPath)
         self._logger.info(f"Configuration file saved to '{newConfigurationPath}'.")
 
     def load_configuration(self, conffile: str) -> None:
@@ -308,7 +309,7 @@ class _4DInterferometer(BaseWavefrontSensor):
         conffile: str
             name of the configuration file to load
         """
-        self._i4d.load_configuration(conffile)
+        self._i4d.loadConfiguration(conffile)
         self._logger.info(f"Configuration file '{conffile}' loaded.")
 
     def copy_4d_settings(
