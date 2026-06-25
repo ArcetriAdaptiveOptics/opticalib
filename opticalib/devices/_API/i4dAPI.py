@@ -22,7 +22,7 @@ class I4D:
             self._port,
         )
 
-    def _read_json_data(self, url, data=None):
+    def _readJsonData(self, url, data=None):
         """
         Parameters
         ----------
@@ -65,7 +65,7 @@ class I4D:
             raise Exception("Response error see /tmp/out.html for details")
 
     ### DATA PROXY ###
-    def get_feature_analysis_results(self):
+    def getFeatureAnalysisResults(self):
         """
         Returns
         -------
@@ -74,8 +74,8 @@ class I4D:
         numberOfFeatures:
         totalFeatureAreaInSquareMicrons:
         """
-        url = "%s%s" % (self._dataServiceAddress, "get_feature_analysis_results")
-        json_data = self._read_json_data(url)
+        url = "%s%s" % (self._dataServiceAddress, "GetFeatureAnalysisResults")
+        json_data = self._readJsonData(url)
         features = np.array(json_data["Features"])
         fractionalFeatureArea = json_data["FractionalFeatureArea"]
         numberOfFeatures = json_data["NumberOfFeatures"]
@@ -87,19 +87,19 @@ class I4D:
             totalFeatureAreaInSquareMicrons,
         )
 
-    def get_first_nine_zernike_terms(self):
+    def getFirstNineZernikeTerms(self):
         """
         Returns
         -------
         zernike_waves_terms:
         """
         """ Return the first nine zernike of image"""
-        url = "%s%s" % (self._dataServiceAddress, "get_first_nine_zernike_terms")
-        json_data = self._read_json_data(url)
+        url = "%s%s" % (self._dataServiceAddress, "GetFirstNineZernikeTerms")
+        json_data = self._readJsonData(url)
         zernike_waves_terms = np.array(json_data)
         return zernike_waves_terms
 
-    def get_fringe_amplitude_data(self):
+    def getFringeAmplitudeData(self):
         """
         Returns
         -------
@@ -111,15 +111,15 @@ class I4D:
         width: int
             width of the image in pixel
         """
-        url = "%s%s" % (self._dataServiceAddress, "get_fringe_amplitude_data")
-        json_data = self._read_json_data(url)
+        url = "%s%s" % (self._dataServiceAddress, "GetFringeAmplitudeData")
+        json_data = self._readJsonData(url)
         width = json_data["Width"]
         height = json_data["Height"]
         pixel_size_in_microns = json_data["PixelSizeInMicrons"]
         data = np.array(json_data["Data"], dtype=float)
         return data, height, pixel_size_in_microns, width
 
-    def get_intensity_data(self):
+    def getIntensityData(self):
         """
         Returns
         -------
@@ -131,15 +131,15 @@ class I4D:
         width: int
             width of the image in pixel
         """
-        url = "%s%s" % (self._dataServiceAddress, "get_intensity_data")
-        json_data = self._read_json_data(url)
+        url = "%s%s" % (self._dataServiceAddress, "GetIntensityData")
+        json_data = self._readJsonData(url)
         width = json_data["Width"]
         height = json_data["Height"]
         pixel_size_in_microns = json_data["PixelSizeInMicrons"]
         data = np.array(json_data["Data"], dtype=float)
         return data, height, pixel_size_in_microns, width
 
-    def get_interferogram(self, index):
+    def getInterferogram(self, index):
         """
         Parameters
         ----------
@@ -149,12 +149,12 @@ class I4D:
         -------
         json_data:
         """
-        url = "%s%s" % (self._dataServiceAddress, "get_interferogram")
+        url = "%s%s" % (self._dataServiceAddress, "GetInterferogram")
         data = index
-        json_data = self._read_json_data(url, data)
+        json_data = self._readJsonData(url, data)
         return json_data
 
-    def get_measurement_info(self):
+    def getMeasurementInfo(self):
         """
         Returns
         -------
@@ -172,8 +172,8 @@ class I4D:
         wavelengthInNM:
         wedge:
         """
-        url = "%s%s" % (self._dataServiceAddress, "get_measurement_info")
-        json_data = self._read_json_data(url)
+        url = "%s%s" % (self._dataServiceAddress, "GetMeasurementInfo")
+        json_data = self._readJsonData(url)
         averageFringeAmplitude = json_data["AverageFringeAmplitude"]
         averageIntensity = json_data["AverageIntensity"]
         averageModulation = json_data["AverageModulation"]
@@ -203,7 +203,7 @@ class I4D:
             wedge,
         )
 
-    def data_service_get_modulation_data(self):
+    def dataServiceGetModulationData(self):
         """
         Returns
         -------
@@ -216,7 +216,7 @@ class I4D:
             vector containing image data
         """
         url = "%s%s" % (self._dataServiceAddress, "GetModulationData/")
-        json_data = self._read_json_data(url)
+        json_data = self._readJsonData(url)
         width = json_data["Width"]
         height = json_data["Height"]
         pixel_size_in_microns = json_data["PixelSizeInMicrons"]
@@ -224,7 +224,7 @@ class I4D:
         data_array = np.array(data_list, dtype=float)
         return width, height, pixel_size_in_microns, data_array
 
-    def get_phase_step_calculator_results(self):
+    def getPhaseStepCalculatorResults(self):
         """
         Returns
         -------
@@ -233,15 +233,15 @@ class I4D:
         phaseStepsInDegrees:
         width:
         """
-        url = "%s%s" % (self._dataServiceAddress, "get_phase_step_calculator_results")
-        json_data = self._read_json_data(url)
+        url = "%s%s" % (self._dataServiceAddress, "GetPhaseStepCalculatorResults")
+        json_data = self._readJsonData(url)
         averagePhaseStepInDegrees = json_data["AveragePhaseStepInDegrees"]
         height = json_data["Height"]
         phaseStepsInDegrees = np.array(json_data["PhaseStepsInDegrees"])
         width = json_data["Width"]
         return averagePhaseStepInDegrees, height, phaseStepsInDegrees, width
 
-    def get_surface_data(self):
+    def getSurfaceData(self):
         """
         Returns
         -------
@@ -253,15 +253,15 @@ class I4D:
         width: int
             width of the image in pixel
         """
-        url = "%s%s" % (self._dataServiceAddress, "get_surface_data")
-        json_data = self._read_json_data(url)
+        url = "%s%s" % (self._dataServiceAddress, "GetSurfaceData")
+        json_data = self._readJsonData(url)
         data = np.array(json_data["Data"], dtype=float)
         height = json_data["Height"]
         pixel_size_in_microns = json_data["PixelSizeInMicrons"]
         width = json_data["Width"]
         return data, height, pixel_size_in_microns, width
 
-    def get_unprocessed_surface_data(self):
+    def getUnprocessedSurfaceData(self):
         """
         Returns
         -------
@@ -273,27 +273,27 @@ class I4D:
         width: int
             width of the image in pixel
         """
-        url = "%s%s" % (self._dataServiceAddress, "get_unprocessed_surface_data")
-        json_data = self._read_json_data(url)
+        url = "%s%s" % (self._dataServiceAddress, "GetUnprocessedSurfaceData")
+        json_data = self._readJsonData(url)
         data = np.array(json_data["Data"], dtype=float)
         height = json_data["Height"]
         pixel_size_in_microns = json_data["PixelSizeInMicrons"]
         width = json_data["Width"]
         return data, height, pixel_size_in_microns, width
 
-    def save_data_to_disk(self, path):
+    def saveDataToDisk(self, path):
         """
         Parameters
         ----------
         path: string
             path where to save the measurements
         """
-        url = "%s%s" % (self._dataServiceAddress, "save_data_to_disk/")
+        url = "%s%s" % (self._dataServiceAddress, "SaveDataToDisk/")
         data = path
-        self._read_json_data(url, data)
+        self._readJsonData(url, data)
 
     ### SYSTEM PROXY ###
-    def take_single_measurement(self):
+    def takeSingleMeasurement(self):
         """
         Returns
         -------
@@ -305,8 +305,8 @@ class I4D:
         data_array: numpy array
             vector containing image data
         """
-        url = "%s%s" % (self._systemServiceAddress, "take_single_measurement/")
-        json_data = self._read_json_data(url)
+        url = "%s%s" % (self._systemServiceAddress, "TakeSingleMeasurement/")
+        json_data = self._readJsonData(url)
         width = json_data["Width"]
         height = json_data["Height"]
         pixel_size_in_microns = json_data["PixelSizeInMicrons"]
@@ -314,14 +314,14 @@ class I4D:
         data_array = np.array(data_list, dtype=float)
         return width, height, pixel_size_in_microns, data_array
 
-    def set_detector_mask(self, mask):
+    def setDetectorMask(self, mask):
         """
         Parameters
         ----------
         mask: numpy array
             numpy 2d array with np.nan in the obscured area
         """
-        url = "%s%s" % (self._systemServiceAddress, "set_detector_mask")
+        url = "%s%s" % (self._systemServiceAddress, "SetDetectorMask")
         height_str = "%i" % mask.shape[0]
         width_str = "%i" % mask.shape[1]
         data = {
@@ -329,22 +329,22 @@ class I4D:
             "Width": width_str,
             "MaskArray": mask.flatten().tolist(),
         }
-        self._read_json_data(url, data)
+        self._readJsonData(url, data)
         print("reload")
         return
 
-    def get_system_info(self):
+    def getSystemInfo(self):
         """
         Returns
         -------
         serialNumber:
         """
-        url = "%s%s" % (self._systemServiceAddress, "get_system_info")
-        json_data = self._read_json_data(url)
+        url = "%s%s" % (self._systemServiceAddress, "GetSystemInfo")
+        json_data = self._readJsonData(url)
         serialNumber = json_data["SystemSerialNumber"]
         return serialNumber
 
-    def convert_raw_frames_in_directory_to_measurements_in_destination_directory(
+    def convertRawFramesInDirectoryToMeasurementsInDestinationDirectory(
         self, measurementsDirectory, rawFramesDirectory
     ):
         """
@@ -357,15 +357,15 @@ class I4D:
         """
         url = "%s%s" % (
             self._systemServiceAddress,
-            "convert_raw_frames_in_directory_to_measurements_in_destination_directory",
+            "ConvertRawFramesInDirectoryToMeasurementsInDestinationDirectory",
         )
         data = {
             "MeasurementsDirectory": measurementsDirectory,
             "RawFramesDirectory": rawFramesDirectory,
         }
-        self._read_json_data(url, data)
+        self._readJsonData(url, data)
 
-    def set_trigger_mode(self, trigger: int):
+    def setTriggerMode(self, trigger: int):
         """
         Enables/Disables external triggering mode.
 
@@ -375,43 +375,43 @@ class I4D:
             0 = Disabled
             1 = Enabled
         """
-        url = "%s%s" % (self._systemServiceAddress, "set_trigger_mode")
+        url = "%s%s" % (self._systemServiceAddress, "SetTriggerMode")
         data = {"CameraIsExternallyTriggered": trigger}
-        self._read_json_data(url, data)
+        self._readJsonData(url, data)
 
-    def take_averaged_measurement(self, numberOfSamples):
+    def takeAveragedMeasurement(self, numberOfSamples):
         """
         Parameters
         ----------
         numberOfSamples: int
              numbers of measurements to average
         """
-        url = "%s%s" % (self._systemServiceAddress, "take_averaged_measurement")
+        url = "%s%s" % (self._systemServiceAddress, "TakeAveragedMeasurement")
         data = numberOfSamples
-        self._read_json_data(url, data)
+        self._readJsonData(url, data)
 
-    def save_configuration(self, newConfigurationPath: str):
+    def saveConfiguration(self, newConfigurationPath: str):
         """
         Parameters
         ---------
         configurationPath: string
             file path for configuration to save
         """
-        url = "%s%s" % (self._systemServiceAddress, "save_configuration")
-        self._read_json_data(url, newConfigurationPath)
+        url = "%s%s" % (self._systemServiceAddress, "SaveConfiguration")
+        self._readJsonData(url, newConfigurationPath)
 
-    def load_configuration(self, configurationPath: str):
+    def loadConfiguration(self, configurationPath: str):
         """
         Parameters
         ---------
         configurationPath: string
             file path for configuration to load
         """
-        url = "%s%s" % (self._systemServiceAddress, "load_configuration")
-        self._read_json_data(url, configurationPath)
+        url = "%s%s" % (self._systemServiceAddress, "LoadConfiguration")
+        self._readJsonData(url, configurationPath)
 
     ### FRAME BURST PROXY ###
-    def burst_frames_to_specific_directory(self, directory, numberOfFrames):
+    def burstFramesToSpecificDirectory(self, directory, numberOfFrames):
         """
         Parameters
         ----------
@@ -422,12 +422,12 @@ class I4D:
         """
         url = "%s%s" % (
             self._frameBurstServiceAddress,
-            "burst_frames_to_specific_directory",
+            "BurstFramesToSpecificDirectory",
         )
         data = {"BurstDirectory": directory, "NumberOfFrames": numberOfFrames}
-        self._read_json_data(url, data)
+        self._readJsonData(url, data)
 
-    def burst_frames_to_disk(self, numberOfFrames):
+    def burstFramesToDisk(self, numberOfFrames):
         """
         Parameters
         ----------
@@ -435,6 +435,6 @@ class I4D:
             number of frames to acquire
 
         """
-        url = "%s%s" % (self._frameBurstServiceAddress, "burst_frames_to_disk")
+        url = "%s%s" % (self._frameBurstServiceAddress, "BurstFramesToDisk")
         data = numberOfFrames
-        self._read_json_data(url, data)
+        self._readJsonData(url, data)
