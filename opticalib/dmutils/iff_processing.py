@@ -958,9 +958,18 @@ def getIffFileMatrix(tn: str, info: dict[str, _ot.Any]) -> _ot.ArrayLike:
         _os.path.isdir(fold)
     else:
         fold = None
-    fileList = _osu.getFileList(
-        tn, fold="OPDImages" if fold is None else fold, key="image_"
-    )
+    try:
+        fileList = _osu.getFileList(
+            tn, fold="OPDImages" if fold is None else fold, key="image_"
+        )
+        if len(fileList) == 0:
+            raise KeyError("No files found with key 'image_' in the OPDImages folder.")
+    except KeyError as ke:
+        fileList = _osu.getFileList(
+            tn, fold="OPDImages" if fold is None else fold, key=".4D"
+        )
+        if len(fileList) == 0:
+            raise KeyError("No files found with key '.4D' in the OPDImages folder.") from ke
 
     infoIF = info["IFFUNC"]
     _, regEnd = getRegFrames(tn, info)
