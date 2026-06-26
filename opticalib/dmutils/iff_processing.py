@@ -146,7 +146,7 @@ def process(
     iffRedux(
         tn=tn,
         fileMat=modesMat,
-        ampVect=info["IFFUNC"]["amplitude"],
+        ampVect=info['ampVector'],
         modeList=info["IFFUNC"]["modes"],
         template=info["template"],
         n_repetitions=info["n_repetitions"],
