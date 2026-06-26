@@ -22,8 +22,8 @@ Contents:
 
 """
 
-from . import flattening, iff_preparation, iff_processing, slaving, stitching
-from ..procedures import iff as iff_module
+from . import flattening, iff_processing, slaving
+from ..procedures import iff as iff_module, stitching
 from .flattening import Flattening
 from ..core.data_classes import FlatData, IffData
 from .iff_preparation import IFFCapturePreparation
@@ -41,5 +41,4 @@ __all__ = [
     "slaving",
     "stitching",
     "make_modal_base",
-    "get_buffer_mean_values",
 ]

@@ -68,7 +68,7 @@ _INDEXLIST_FILE = "index_list.fits"
 _CUBE_FILE = "IMCube.fits"
 _COORD_FILE = ""  # TODO
 
-
+@_expand_list_arguments(['tn'])
 def process(
     tn: str | list[str],
     register: bool = False,
@@ -104,21 +104,6 @@ def process(
     nmode_prefetch : int, optional
         Number of modes to prefetch during the processing. The default is 1.
     """
-    if isinstance(tn, list) and all([_osu.is_tn(t) for t in tn]):
-        for t in tn:
-            process(
-                t,
-                register=register,
-                save=save,
-                rebin=rebin,
-                trigger_roi=trigger_roi,
-                nworkers=nworkers,
-                nmode_prefetch=nmode_prefetch,
-            )
-
-        ntn = stack_cubes(tn)
-        return ntn
-
     info = _get_acq_par(tn)
     if not info["FILES"]["modes_list"].dtype.type is _np.int_:
         info["FILES"]["modes_list"] = info["FILES"]["modes_list"].astype(int)
@@ -300,7 +285,7 @@ def piston_process(
     if save:
         save_cube(tn, rebin=rebin, register=register)
 
-
+@_expand_list_arguments(["tn", "activeRoiID"])
 def cube_roi_processing(
     tn: str | list[str],
     activeRoiID: int | list[int],
@@ -341,36 +326,15 @@ def cube_roi_processing(
         The tracking number of the new processed dataset. If a list of TN and
         activeRoiID is passed, then the TN of the stacked cube will be returned.
     """
-    import time
-
-    if all(
-        [isinstance(x, list) for x in [tn, activeRoiID]] + [_osu.is_tn(t) for t in tn]
-    ):
-
-        newtns = [
-            cube_roi_processing(
-                t,
-                r,
-                fitting_mask=fitting_mask,
-                tt_detrend=tt_detrend,
-                mean_subtraction=mean_subtraction,
-                roinull=roinull,
-            )
-            for t, r in zip(tn, activeRoiID)
-        ]
-        time.sleep(1)  # to avoid conflicts in the newly created tn for the stacking
-        return stack_cubes(newtns)
-
-    time.sleep(0.5)
-
     save_path, newtn = _osu.create_data_folder(
         basepath=_fn.INTMAT_ROOT_FOLDER, get_tn=True
     )
     load_path = _os.path.join(_fn.INTMAT_ROOT_FOLDER, tn)
 
-    cube = _osu.load_fits(_os.path.join(load_path, "IMCube.fits")).transpose(2, 0, 1)
-    cmdmat = _osu.load_fits(_os.path.join(load_path, "cmdMatrix.fits"))
-    modesvec = _osu.load_fits(_os.path.join(load_path, "modes_vector.fits"))
+    cube = _osu.load_fits(_os.path.join(load_path, _CUBE_FILE)).transpose(2, 0, 1)
+    cmdmat = _osu.load_fits(_os.path.join(load_path, _MATRIX_FILE))
+    modesvec = _osu.load_fits(_os.path.join(load_path, _MODES_FILE))
+    ampvect = _osu.load_fits(_os.path.join(load_path, _AMP_FILE))
 
     zfitter = _zern.ZernikeFitter(fitting_mask)
 
@@ -427,6 +391,7 @@ def cube_roi_processing(
     _osu.save_fits(
         _os.path.join(save_path, _MODES_FILE), modesvec, overwrite=True
     )
+    _osu.save_fits(_os.path.join(save_path, _AMP_FILE), ampvect, overwrite=True)
 
     return newtn
 
@@ -1239,7 +1204,7 @@ def _check_stacked_cubes(tnlist: str) -> dict[str, _ot.Any]:
     flag : dict
         Dictionary containing the flagging information about the stacked cube.
     """
-    _, _, modesVectList, rebin = _get_cube_list(tnlist)
+    _, _, modesVectList, _, rebin = _get_cube_list(tnlist)
     nmodes = len(modesVectList[0])
     nvects = len(modesVectList)
     for i in range(nvects):

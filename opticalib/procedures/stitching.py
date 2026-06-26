@@ -1,16 +1,16 @@
 import os as _os
 import io as _io
 import numpy as _np
+from . import iff as _iff
 import contextlib as _clib
+from ..core import _types as _ot
 from shutil import copyfile as _cp
-from opticalib import folders as _fn
-from opticalib.ground import osutils as _osu
-from . import iff_processing as _ifp
-from opticalib.core import _types as _ot
-from opticalib.core.config import get_section_config as _gsc
-from ..procedures import iff as _iff
-from ._stitching_algorithm import map_stitching as _map_stitching
+from ..ground import osutils as _osu
 from skimage.draw import disk as _disk
+from ..core.root import folders as _fn
+from ..dmutils import iff_processing as _ifp
+from ..core.config import get_section_config as _gsc
+from ..ground._stitching_algorithm import map_stitching as _map_stitching
 
 _ts = _osu.newtn
 
