@@ -132,7 +132,7 @@ class GigaVision(BaseCamera):
                     self._cam = self._vimba.get_camera_by_id(self.cam_ip)
 
                 self._cam.__enter__()
-                self._exptime = None
+                self._exptime = self.get_exptime()
                 self._logger.info(f"Successfully reconnected to camera {self._name}")
                 return
 
