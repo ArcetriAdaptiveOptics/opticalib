@@ -321,12 +321,13 @@ class Flattening:
         self.load_image2_shape(img2pass)
         self.compute_rec_mat(modes2discard)
         deltacmd = self.compute_flat_cmd(modes2flat)
-        cmd = self._dm.get_shape()  # TODO: check if this is correct for DP
 
         # handle diverse DM set_shape args
         _ = setshape_kwargs.pop("differential", None)
         self._logger.info(f"Applying flat command to the {self._dm._name}")
         self._dm.set_shape(deltacmd, differential=True, **setshape_kwargs)
+
+        cmd = self._dm.get_shape()  # TODO: check if this is correct for DP
 
         self._lastFlatImg = interf.acquire_map(nframes)
 
