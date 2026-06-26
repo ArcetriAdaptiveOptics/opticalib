@@ -262,5 +262,11 @@ def sample_int_matrix_folder(temp_dir, monkeypatch, sample_int_cube):
     osutils.save_fits(
         os.path.join(tn_folder, "modesVector.fits"), modes_vec, overwrite=True
     )
+    
+    # Create amp vector
+    amp_vec = np.array([0.1, 0.2, 0.3, 0.4, 0.5])
+    osutils.save_fits(
+        os.path.join(tn_folder, "ampVector.fits"), amp_vec, overwrite=True
+    )
 
     return tn, tn_folder
