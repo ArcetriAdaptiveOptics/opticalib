@@ -294,6 +294,42 @@ class TestParseVal:
         assert isinstance(result, float)
 
 
+class TestUpdateIffConfig:
+    """Test updateIffConfig function."""
+
+    def test_update_iff_config_non_regular_sequence(self, temp_dir, monkeypatch):
+        """Test non-regular arrays are serialized as explicit lists."""
+        tn = "tn_test"
+        tn_dir = os.path.join(temp_dir, tn)
+        os.makedirs(tn_dir, exist_ok=True)
+        iff_config = os.path.join(tn_dir, "iffConfig.yaml")
+        with open(iff_config, "w") as f:
+            yaml.dump({"IFFUNC": {"modeid": "[]"}}, f)
+
+        monkeypatch.setattr(read_config, "_iffold", temp_dir)
+        value = np.array([1, 1, 2, 2, 3, 3, 4, 5, 6])
+        read_config.updateIffConfig(tn, "modeid", value)
+
+        saved = read_config.load_yaml_config(iff_config)
+        assert saved["IFFUNC"]["modeid"] == "[1,1,2,2,3,3,4,5,6]"
+
+    def test_update_iff_config_regular_sequence(self, temp_dir, monkeypatch):
+        """Test regular arrays are serialized as np.arange expressions."""
+        tn = "tn_test"
+        tn_dir = os.path.join(temp_dir, tn)
+        os.makedirs(tn_dir, exist_ok=True)
+        iff_config = os.path.join(tn_dir, "iffConfig.yaml")
+        with open(iff_config, "w") as f:
+            yaml.dump({"IFFUNC": {"modeid": "[]"}}, f)
+
+        monkeypatch.setattr(read_config, "_iffold", temp_dir)
+        value = np.array([1, 2, 3, 4])
+        read_config.updateIffConfig(tn, "modeid", value)
+
+        saved = read_config.load_yaml_config(iff_config)
+        assert saved["IFFUNC"]["modeid"] == "np.arange(1, 5, 1)"
+
+
 class TestGetAlignmentConfig:
     """Test getAlignmentConfig function."""
 

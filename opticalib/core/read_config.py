@@ -245,15 +245,25 @@ def updateIffConfig(tn: str, item: str, value: _Any):
     file = _os.path.join(_iffold, tn, _iff_config_file)
     config = load_yaml_config(file)
     if isinstance(value, (_np.ndarray, list)):
-        vmax = _np.max(value)
-        vmin = _np.min(value)
-        step = value[1] - value[0] if len(value) > 1 else 1
-        if step == 0.0:
-            config[key][item] = f"[{','.join(str(v) for v in [vmax]*len(value))}]"
-        elif _np.array_equal(value, _np.arange(vmin, vmax + 1, step)):
-            config[key][item] = f"np.arange({vmin}, {vmax + 1}, {step})"
+        arr = _np.asarray(value)
+        if arr.ndim != 1:
+            config[key][item] = str(arr.tolist())
+        elif arr.size == 0:
+            config[key][item] = "[]"
+        elif arr.size == 1:
+            config[key][item] = f"[{arr[0]}]"
         else:
-            config[key][item] = f"[{','.join(str(v) for v in value)}]"
+            diffs = _np.diff(arr)
+            # A constant sequence has all zero increments.
+            if _np.allclose(diffs, 0):
+                config[key][item] = f"[{','.join(str(v) for v in arr)}]"
+            # A regular sequence has one non-zero increment across all elements.
+            elif _np.allclose(diffs, diffs[0]):
+                step = diffs[0]
+                stop = arr[-1] + step
+                config[key][item] = f"np.arange({arr[0]}, {stop}, {step})"
+            else:
+                config[key][item] = f"[{','.join(str(v) for v in arr)}]"
     else:
         config[key][item] = str(value)
     dump_yaml_config(config, file)
