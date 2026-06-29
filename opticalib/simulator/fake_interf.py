@@ -55,7 +55,6 @@ class Fake4DInterf:
         self._fps = 10
         self._fW, self._fH = self._readFullFrameSize()
         self._dmzfitter = self._dm._zern
-        self._phase_ambiguity = True
 
     def live(
         self,
@@ -354,6 +353,7 @@ Noise              : {self._noisy}"""
         self._surf = kwargs.get("surface_view", False)
         self._freeze = kwargs.get("freeze_on_acquisition", False)
         self._noisy = kwargs.get("add_noise", False)
+        self._phase_ambiguity = kwargs.get("phase_ambiguity", True)
 
     # ==========================================================================
 
