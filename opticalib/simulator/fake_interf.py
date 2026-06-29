@@ -1,9 +1,10 @@
 import numpy as _np
 import matplotlib.pyplot as _plt
-from opticalib.core import _types as _t
-from opticalib.analyzer import mode_rebinner as rebinned
+from ..core import _types as _t
+from ..analyzer import mode_rebinner as rebinned
 from matplotlib.animation import FuncAnimation as _FuncAnimation
-from opticalib.ground.logger import SystemLogger as _SL
+from ..ground.logger import SystemLogger as _SL
+from ..ground.roi import roiGenerator as _rg
 
 _conf = {
     "width": 512,
@@ -188,10 +189,11 @@ class Fake4DInterf:
         )
         imglist = []
         for _ in range(nframes):
-            img = self._dm._shape
-            kk = _np.floor(_np.random.random(1) * 5 - 2)
-            masked_ima = img + _np.ones(img.shape) * self._lambda * kk
-            imglist.append(masked_ima)
+            masked_ima = self._dm._shape.copy()
+            if self._phase_ambiguity:
+                rois = _rg.roiGenerator(masked_ima)
+                for roi in rois:
+                    masked_ima[roi == 0] += self._lambda * _np.floor(_np.random.random(1) * 5 - 2)
         image = _np.ma.dstack(imglist)
         image = _np.mean(image, axis=2)
         masked_img = _np.ma.masked_array(image, mask=self._dm._mask)
@@ -257,6 +259,14 @@ class Fake4DInterf:
     # --------------------------------------------------------------------------
     # Series of functions to control the behavior of the live interferometer
     # --------------------------------------------------------------------------
+    def toggle_phase_ambiguity(self):
+        """
+        Toggles the phase ambiguity of the interferometer.
+        """
+        self._logger.info(
+            f"Toggling phase ambiguity: now {'on' if not self._phase_ambiguity else 'off'}"
+        )
+        self._phase_ambiguity = not self._phase_ambiguity
 
     def toggle_shape_removal(self, modes: list[int]):
         """
@@ -341,6 +351,7 @@ Noise              : {self._noisy}"""
         self._surf = kwargs.get("surface_view", False)
         self._freeze = kwargs.get("freeze_on_acquisition", False)
         self._noisy = kwargs.get("add_noise", False)
+        self._phase_ambiguity = kwargs.get("phase_ambiguity", True)
 
     # ==========================================================================
 
