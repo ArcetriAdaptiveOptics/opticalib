@@ -4,7 +4,7 @@ from ..core import _types as _t
 from ..analyzer import mode_rebinner as rebinned
 from matplotlib.animation import FuncAnimation as _FuncAnimation
 from ..ground.logger import SystemLogger as _SL
-from ..ground.roi import roiGenerator as _rg
+from ..ground.roi import roi_generator as _rg
 
 _conf = {
     "width": 512,
@@ -191,7 +191,7 @@ class Fake4DInterf:
         for _ in range(nframes):
             masked_ima = self._dm._shape.copy()
             if self._phase_ambiguity:
-                rois = _rg.roiGenerator(masked_ima)
+                rois = _rg(masked_ima)
                 for roi in rois:
                     masked_ima[roi == 0] += self._lambda * _np.floor(_np.random.random(1) * 5 - 2)
         image = _np.ma.dstack(imglist)
