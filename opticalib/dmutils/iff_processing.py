@@ -370,9 +370,10 @@ def cubeRoiProcessing(
     )
     load_path = _os.path.join(_fn.INTMAT_ROOT_FOLDER, tn)
 
-    cube = _osu.load_fits(_os.path.join(load_path, "IMCube.fits")).transpose(2, 0, 1)
-    cmdmat = _osu.load_fits(_os.path.join(load_path, "cmdMatrix.fits"))
-    modesvec = _osu.load_fits(_os.path.join(load_path, "modesVector.fits"))
+    cube = _osu.load_fits(_os.path.join(load_path, _CUBE_FILE)).transpose(2, 0, 1)
+    cmdmat = _osu.load_fits(_os.path.join(load_path, _MATRIX_FILE))
+    modesvec = _osu.load_fits(_os.path.join(load_path, _MODES_FILE))
+    ampvec = _osu.load_fits(_os.path.join(load_path, _AMP_FILE))
 
     zfitter = _zern.ZernikeFitter(fitting_mask)
 
@@ -424,11 +425,13 @@ def cubeRoiProcessing(
     if not _os.path.exists(save_path):
         _os.makedirs(save_path)
 
-    _osu.save_fits(_os.path.join(save_path, "IMCube.fits"), newcube, overwrite=True)
-    _osu.save_fits(_os.path.join(save_path, "cmdMatrix.fits"), cmdmat, overwrite=True)
+    _osu.save_fits(_os.path.join(save_path, _CUBE_FILE), newcube, overwrite=True)
+    _osu.save_fits(_os.path.join(save_path, _MATRIX_FILE), cmdmat, overwrite=True)
     _osu.save_fits(
-        _os.path.join(save_path, "modesVector.fits"), modesvec, overwrite=True
+        _os.path.join(save_path, _MODES_FILE), modesvec, overwrite=True
     )
+    _osu.save_fits(_os.path.join(save_path, _AMP_FILE), ampvec, overwrite=True)
+    
 
     return newtn
 
@@ -971,9 +974,19 @@ def getIffFileMatrix(tn: str, info: dict[str, _ot.Any]) -> _ot.ArrayLike:
         _os.path.isdir(fold)
     else:
         fold = None
-    fileList = _osu.getFileList(
-        tn, fold="OPDImages" if fold is None else fold, key="image_"
-    )
+    try:
+        fileList = _osu.getFileList(
+            tn, fold="OPDImages" if fold is None else fold, key="image_"
+        )
+        if len(fileList) == 0:
+            raise KeyError(f"No image files found with key `image_`")
+    except KeyError as ke:
+        fileList = _osu.getFileList(
+            tn, fold="OPDImages" if fold is None else fold, key=".4D"
+        )
+        if len(fileList) == 0:
+            raise KeyError(f"No image files found with key `.4D`") from ke
+        
 
     infoIF = info["IFFUNC"]
     _, regEnd = getRegFrames(tn, info)
@@ -1250,7 +1263,7 @@ def _checkStackedCubes(tnlist: str) -> dict[str, _ot.Any]:
     flag : dict
         Dictionary containing the flagging information about the stacked cube.
     """
-    _, _, modesVectList, rebin = _getCubeList(tnlist)
+    _, _, modesVectList, _, rebin = _getCubeList(tnlist)
     nmodes = len(modesVectList[0])
     nvects = len(modesVectList)
     for i in range(nvects):
