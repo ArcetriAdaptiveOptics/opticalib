@@ -481,7 +481,7 @@ def read_phasemap(file_path: str) -> _ot.ImageData:
     return image
 
 
-def load_fits(filepath: str, on_gpu: bool = False) -> _ot.FitsData:
+def load_fits(filepath: str, on_gpu: bool = False) -> _ot.FitsData|list[_ot.FitsData]:
     """
     Loads a FITS file.
 
@@ -495,34 +495,52 @@ def load_fits(filepath: str, on_gpu: bool = False) -> _ot.FitsData:
 
     Returns
     -------
-    fit : ArrayLike
+    data : ArrayLike | list[ArrayLike]
         The loaded FITS file data (masked) array, on CPU or GPU, with attached header
         (as Fits<...>Array).
+        
+        If the FITS file has multiple HDUs, a list of FitsArray objects is returned,
+        one for each HDU.
     """
     if not filepath.endswith(".fits"):
         filepath += ".fits"
+    
+    multi_hdu = False
     with _fits.open(filepath) as hdul:
-        fit = hdul[0].data
-        header = hdul[0].header
-        if (len(hdul) > 1 and len(hdul) < 3) and hasattr(hdul[1], "data"):
+        H = len(hdul)
+        
+        # Simple HDU case
+        if H == 1:
+            data = hdul[0].data
+            header = hdul[0].header
+
+        # Double HDU case: first is data, second is mask
+        elif H == 2:
+            data = hdul[0].data
+            header = hdul[0].header
             mask = hdul[1].data.astype(bool)
-            fit = _masked_array(fit, mask=mask)
-        elif len(hdul) > 2:
+            data = _masked_array(data, mask=mask)
+        
+        # Multiple HDU case
+        elif H > 2:
+            on_gpu = False
+            multi_hdu = True
+            data = [hdu.data for hdu in hdul if hasattr(hdu, "data")]
             header = [hdu.header for hdu in hdul if hasattr(hdu, "header")]
-            fit = [hdu.data for hdu in hdul if hasattr(hdu, "data")]
-            if on_gpu:
-                raise NotImplementedError(
-                    "Loading multi-extension FITS files on GPU is not supported yet."
-                )
-    if on_gpu:
-        import xupy as _xu
 
-        if isinstance(fit, _masked_array):
-            fit = _xu.ma.MaskedArray(fit)
-        else:
-            fit = _xu.asarray(fit)
+    if not multi_hdu:
+        if on_gpu:
+            import xupy as _xu
 
-    out = _fa.fits_array(fit, header=header)
+            if isinstance(data, _masked_array):
+                data = _xu.ma.MaskedArray(data)
+            else:
+                data = _xu.asarray(data)
+
+        out = _fa.fits_array(data, header=header)
+    else:
+        out = [_fa.fits_array(fit, header=head) for fit, head in zip(data, header)]
+        print(f"HDUList(n_data={H})")
     return out
 
 
