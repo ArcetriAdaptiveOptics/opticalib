@@ -9,7 +9,7 @@ from ..core.root import OPD_SERIES_ROOT_FOLDER as _ops
 from ..core import _types as _ot
 
 
-class Measurements:  # TODO: Change name
+class TimeSeries:  # TODO: Change name
     """
     Class to handle optical time-series measurements.
 
@@ -60,11 +60,10 @@ class Measurements:  # TODO: Change name
         tn: str
             The Tracking Number of the data in the OPDSeries folder.
         """
-        path = _cdf(_ops)
+        path, tn = _cdf(basepath=_ops, get_tn=True)
         for _ in range(nframes):
-            tn = _ts()
             img = self._acquire_func()
-            _save_fits(_join(path, tn), img)
+            _save_fits(_join(path, _ts()), img)
             if delay > 0:
                 _t.sleep(delay)
-        return path.split("/")[-1]
+        return tn

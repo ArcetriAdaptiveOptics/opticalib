@@ -7,7 +7,7 @@ import os
 import numpy as np
 import numpy.ma as ma
 from unittest.mock import MagicMock, Mock, patch
-from opticalib.procedures import Measurements
+from opticalib.procedures import TimeSeries as Measurements
 
 
 class _FakeInterferometer:
@@ -108,10 +108,11 @@ class TestAcquireTimeSeries:
 
         # Patch save_fits and create_data_folder to avoid actual file I/O
         opd_folder = os.path.join(temp_dir, "OPDSeries")
-        data_subfolder = os.path.join(opd_folder, "20260403_080000")
+        tn = "20260403_080000"
+        data_subfolder = os.path.join(opd_folder, tn)
         os.makedirs(data_subfolder, exist_ok=True)
 
-        monkeypatch.setattr("opticalib.procedures.measurements._cdf", lambda path: data_subfolder)
+        monkeypatch.setattr("opticalib.procedures.measurements._cdf", lambda basepath, get_tn: (data_subfolder, tn))
         monkeypatch.setattr("opticalib.procedures.measurements._save_fits", lambda path, data: None)
 
         result = m.acquire_time_series(nframes=2)
@@ -134,7 +135,7 @@ class TestAcquireTimeSeries:
 
         data_subfolder = os.path.join(temp_dir, "sub")
         os.makedirs(data_subfolder, exist_ok=True)
-        monkeypatch.setattr("opticalib.procedures.measurements._cdf", lambda path: data_subfolder)
+        monkeypatch.setattr("opticalib.procedures.measurements._cdf", lambda basepath, get_tn=True: (data_subfolder, "20260403_080000"))
         monkeypatch.setattr("opticalib.procedures.measurements._save_fits", lambda path, data: None)
 
         nframes = 3
@@ -158,7 +159,7 @@ class TestAcquireTimeSeries:
 
         data_subfolder = os.path.join(temp_dir, "sub")
         os.makedirs(data_subfolder, exist_ok=True)
-        monkeypatch.setattr("opticalib.procedures.measurements._cdf", lambda path: data_subfolder)
+        monkeypatch.setattr("opticalib.procedures.measurements._cdf", lambda basepath, get_tn=True: (data_subfolder, "20260403_080000"))
         monkeypatch.setattr("opticalib.procedures.measurements._save_fits", lambda path, data: None)
 
         nframes = 2

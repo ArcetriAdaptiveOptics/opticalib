@@ -100,7 +100,7 @@ def list_tn(folder: str) -> list[str]:
 
 def create_data_folder(
     basepath: str = _fn.OPD_IMAGES_ROOT_FOLDER, get_tn: bool = False
-) -> str:
+    ) -> str|list[str]:
     """
     Creates a new data folder with a unique tracking number in the specified base path.
 
@@ -112,8 +112,9 @@ def create_data_folder(
 
     Returns
     -------
-    tn_path : str
-        The path to the newly created tracking number folder.
+    tn_path : str | list[str]
+        The path to the newly created tracking number folder, or a list containing
+        the path and the tracking number if `get_tn` is True.
     """
     ex = True
     while ex:

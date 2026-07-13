@@ -163,7 +163,7 @@ class Alignment:
             if not _sc.fitting_surface == ""
             else None
         )
-        self._zfit = _zfitter(self._surface)
+        self._fitter = _zfitter(self._surface)
         self._moveFnc = self.__get_callables(self.mdev, _sc.devices_move_calls)
         self._readFnc = self.__get_callables(self.mdev, _sc.devices_read_calls)
         self._acquire = self.__get_callables(self.ccd, _sc.ccd_acquisition)
@@ -178,8 +178,8 @@ class Alignment:
             else [_sc.devices_dof] * len(self._moveFnc)
         )
         self._idx = _sc.slices
-        self._zvec2fit = _np.arange(1, 11)
-        self._zvec2use = _sc.zernike_to_use
+        self._modes2fit = _np.arange(1, 11)
+        self._modes2use = _sc.zernike_to_use
         self._template = _sc.push_pull_template
         self._correct_cavity = True
         self._dataPath = _fn.ALIGNMENT_ROOT_FOLDER
@@ -190,8 +190,8 @@ class Alignment:
 
     def correct_alignment(
         self,
-        modes2correct: _ot.ArrayLike,
-        zern2correct: _ot.ArrayLike,
+        dof_to_use: _ot.ArrayLike,
+        modes_to_correct: _ot.ArrayLike,
         n_frames: int = 15,
         apply: bool = False,
         save: bool = False,
@@ -201,10 +201,10 @@ class Alignment:
 
         Parameters
         ----------
-        modes2correct : array-like
+        dof_to_use : array-like
+            Indices of the degrees of freedom to use.
+        modes_to_correct : array-like
             Indices of the modes to correct.
-        zern2correct : array-like
-            Indices of the Zernike coefficients to correct.
         tn : str, optional
             Tracking number of the intMat.fits to be used
         n_frames : int, optional
@@ -234,7 +234,7 @@ class Alignment:
         self._logger.info(f"{self.correct_alignment.__qualname__}")
         self._correct_cavity = True
         image = self._acquire[0](nframes=n_frames)
-        zernike_coeff = self._zern_routine(image)
+        zernike_coeff = self._modal_calibration(image)
         if self.intMat is not None:
             intMat = self.intMat
         else:
@@ -242,10 +242,10 @@ class Alignment:
             raise AttributeError(
                 "No internal matrix found. Please calibrate the alignment first."
             )
-        reduced_intMat = intMat[_np.ix_(zern2correct, modes2correct)]
-        reduced_cmdMat = self.cmdMat[:, modes2correct]
+        reduced_intMat = intMat[_np.ix_(modes_to_correct, dof_to_use)]
+        reduced_cmdMat = self.cmdMat[:, dof_to_use]
         recMat = self._create_rec_mat(reduced_intMat)
-        reduced_cmd = _np.dot(recMat, zernike_coeff[zern2correct])
+        reduced_cmd = _np.dot(recMat, zernike_coeff[modes_to_correct])
         f_cmd = -_np.dot(reduced_cmdMat, reduced_cmd)
         self._alcmd = f_cmd.copy()
         print(f"Resulting Command: {f_cmd}")
@@ -274,7 +274,7 @@ class Alignment:
 
     def calibrate_alignment(
         self,
-        cmdAmp: int | float | _ot.ArrayLike,
+        amplitudes: int | float | _ot.ArrayLike,
         n_frames: int = 15,
         template: _ot.ArrayLike = None,
         n_repetitions: int = 1,
@@ -284,12 +284,13 @@ class Alignment:
 
         Parameters
         ----------
-        cmdAmp : int|float|arrayLike
-            The command amplitude used for calibration.
+        amplitudes : int|float|arrayLike
+            The commanded amplitude of the degrees of freedom used for calibration.
         n_frames : int, optional
             The number of frames acquired and averaged for calibration. Default is 15.
         template : list, optional
-            A list representing the template for calibration. If not provided, the default template will be used.
+            A list representing the template for calibration. 
+            If not provided, the default template will be used.
         n_repetitions : int, optional
             The number of repetitions for the calibration process. Default is 1.
 
@@ -313,10 +314,10 @@ class Alignment:
         self._correct_cavity = False
         self._logger.info("Starting calibration.")
         self._logger.info(f"Cavity correction: False")
-        self._cmdAmp = cmdAmp
+        self._cmdAmp = amplitudes
         template = template if template is not None else self._template
         imglist = self._images_production(template, n_frames, n_repetitions, tn)
-        intMat = self._zern_routine(imglist)
+        intMat = self._modal_calibration(imglist)
         self.intMat = intMat.copy()
         filename = _os.path.join(path, "InteractionMatrix.fits")
         _osu.save_fits(filename, self.intMat, overwrite=True)
@@ -436,7 +437,7 @@ class Alignment:
                 n_results = results
         return n_results
 
-    def _zern_routine(
+    def _modal_calibration(
         self, imglist: list[_ot.ImageData] | _ot.CubeData
     ) -> _ot.MatrixLike:
         """
@@ -458,12 +459,12 @@ class Alignment:
             imglist = [imglist]
         for img in imglist:
             if self._surface is None:
-                coeff, _ = self._zfit.fit(img, self._zvec2fit)
+                coeff, _ = self._fitter.fit(img, self._modes2fit)
             else:
                 if self._correct_cavity is True:
                     img -= 2 * self._surface
-                coeff = self._zfit.fit_on_roi(img, self._zvec2fit, "global")
-            coefflist.append(coeff[self._zvec2use])
+                coeff = self._fitter.fit_on_roi(img, self._modes2fit, "global")
+            coefflist.append(coeff[self._modes2use])
         if len(coefflist) == 1:
             coefflist = _np.array([c for c in coefflist[0]])
         self._logger.info("Creating Interaction Matrix")
