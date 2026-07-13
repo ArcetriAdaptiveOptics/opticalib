@@ -268,7 +268,7 @@ class TestComputeSlavedIM:
         dm = _FakeDM(n_acts, slave_ids=[8, 9], border_ids=[6, 7])
         npix = 50
         im = np.random.randn(n_acts, npix)
-        result = slaving.compute_slaved_im(dm, im)
+        result = slaving.compute_slaved_im(dm, im_modal=im)
 
         assert isinstance(result, np.ndarray)
         assert result.ndim == 2
