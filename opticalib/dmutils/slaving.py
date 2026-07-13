@@ -112,7 +112,8 @@ def compute_slaved_command_matrix(
 
 def compute_slaved_im(
     dm: _ot.DeformableMirrorDevice,
-    im: _ot.MatrixLike,
+    im_zonal: _ot.MatrixLike = None,
+    im_modal: _ot.MatrixLike = None,
     method: str = None,
 ) -> _ot.MatrixLike:
     """
@@ -122,8 +123,12 @@ def compute_slaved_im(
     ----------
     dm : opticalib.DeformableMirror
         Deformable mirror object with slaved actuators.
-    IM : opticalib.MatrixLike
-        Original interaction matrix.
+    im_zonal : opticalib.MatrixLike, optional
+        Original ZONAL interaction matrix.
+    im_modal : opticalib.MatrixLike, optional
+        Original MODAL interaction matrix. If this is passed instead of the zonal
+        one, it gets projected into the zonal basis using the DM's Feed-Forward 
+        matrix.
     method : str, optional
         Method to compute the master-to-slave matrix. Options are:
         - None: Creates an IM with the same number of rows as the original one,
@@ -146,9 +151,12 @@ def compute_slaved_im(
             f"Feed-Forward matrix not available in {dm.__class__.__name__}."
         )
 
-    im = _xp.asarray(im)
-    _, _, vt = _xp.linalg.svd(ffwd)
-    zim = vt.T @ im  # zonal interaction matrix
+    if im_zonal is not None:
+        zim = _xp.asarray(im_zonal)
+    elif im_modal is not None:
+        im = _xp.asarray(im_modal)
+        _, _, vt = _xp.linalg.svd(ffwd)
+        zim = vt.T @ im  # zonal interaction matrix
 
     if method is not None:
         return compute_slaved_mat(dm, zim, method=method)
@@ -177,7 +185,7 @@ def compute_slaved_mat(
     dm : opticalib.DeformableMirror
         Deformable mirror object with slaved actuators.
     M : opticalib.MatrixLike
-        Original matrix to slaved.
+        Original matrix to be slaved.
 
         Works on:
         - `FeedForward` (nactuators, nactuators)
