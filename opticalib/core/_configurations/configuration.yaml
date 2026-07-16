@@ -12,7 +12,12 @@ SYSTEM:
 DEVICES:
   # In the wavefront sensor section can be defined any Wavefront sensor used to
   # acquire phase maps.
-  WFS: null
+  WFS: 
+    INGOT:
+      camera: CAMERAS:GigaVision
+      pupil_radius: 
+      pupils_centers:
+        - [0, 0]
 
   INTERFEROMETERS:
     PhaseCamX:

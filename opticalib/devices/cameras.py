@@ -92,6 +92,7 @@ class GigaVision(BaseCamera):
                 f"Could not connect to camera {self._name} with ID {self.cam_id}."
             ) from e
 
+        self._exptime = None
         self._exptime = self.get_exptime()
 
     def reconnect(self, max_attempts: int = 2) -> None:
