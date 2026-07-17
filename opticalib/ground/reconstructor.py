@@ -54,6 +54,7 @@ class ComputeReconstructor:
         self._tn = tn or None
         self._analysisMask: _ot.MaskData | None = None
         self._intMat = None
+        self._recMat = None
 
         # Initialization w/ IM computation
         self.load_interaction_cube(intCube=interaction_matrix_cube, tn=tn)
@@ -137,7 +138,7 @@ class ComputeReconstructor:
 
             del im, U, S, Vt
             gc.collect()
-
+        self._recMat = rec.copy()
         return rec
 
     def get_svd(

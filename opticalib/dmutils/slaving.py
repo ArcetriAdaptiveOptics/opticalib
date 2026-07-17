@@ -56,6 +56,7 @@ def compute_slave_cmd(
         If an unknown slaving method is specified.
     """
     sid, bid, mid = _get_act_roles(dm)
+    command = cmd.copy()
 
     if sid is None or len(sid) == 0:
         raise _oe.DeviceAttributeError(
@@ -68,9 +69,9 @@ def compute_slave_cmd(
         )
 
     if method == "zero-force":
-        return _zero_force_slaving(sid, mid, dm.ff, cmd)
+        return _zero_force_slaving(sid, mid, dm.ff, command)
     elif method == "minimum-rms":
-        return _minimum_rms_slaving(sid, mid, bid, dm.ff, cmd)
+        return _minimum_rms_slaving(sid, mid, bid, dm.ff, command)
 
     else:
         raise ValueError(

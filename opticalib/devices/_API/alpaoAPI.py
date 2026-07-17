@@ -66,6 +66,7 @@ class BaseAlpaoMirror:
             "dm97": [5, 7, 9, 11],
             "dm192": [4, 8, 12, 12, 16, 16, 18],
             "dm277": [7, 9, 11, 13, 15, 17, 19],
+            'dm292': [4, 8, 12, 14, 16, 16, 18, 18, 20],
             "dm468": [8, 12, 16, 18, 20, 20, 22, 22, 24],
             "dm820": [10, 14, 18, 20, 22, 24, 26, 28, 28, 30, 30, 32],
         }
@@ -80,6 +81,7 @@ class BaseAlpaoMirror:
         self.mirrorModes = None
         self.cmdHistory = None
         self.refAct = None
+        self.ff = None
 
     # ------------------------------------------------------------------
     # SDK-level interface

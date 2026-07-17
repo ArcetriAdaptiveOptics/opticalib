@@ -36,6 +36,8 @@ def make_modal_base(
     """
     if isinstance(modes, int):
         modes_list = list(range(1, modes + 1))
+    else:
+        modes_list = modes
 
     if not all([i != 0 for i in modes_list]):
         raise ValueError("Index 0 not permitted.")
