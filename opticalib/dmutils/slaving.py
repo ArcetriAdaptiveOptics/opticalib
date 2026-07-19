@@ -128,7 +128,7 @@ def compute_slaved_im(
         Original ZONAL interaction matrix.
     im_modal : opticalib.MatrixLike, optional
         Original MODAL interaction matrix. If this is passed instead of the zonal
-        one, it gets projected into the zonal basis using the DM's Feed-Forward 
+        one, it gets projected into the zonal basis using the DM's Feed-Forward
         matrix.
     method : str, optional
         Method to compute the master-to-slave matrix. Options are:
@@ -278,7 +278,8 @@ def _get_act_roles(
     else:
         bid = _np.array(sorted(bid), dtype=int)  # border ids
         mid = _np.array(  # Master ids
-            [_i for _i in range(dm.n_acts) if _i not in sid and _i not in bid], dtype=int
+            [_i for _i in range(dm.n_acts) if _i not in sid and _i not in bid],
+            dtype=int,
         )
 
     return sid, bid, mid
@@ -393,7 +394,9 @@ def _minimum_rms_slaving(
     Method from <a href="https://arxiv.org/abs/2101.04801"> Riccardi,A.; 2021 (arXiv:2101.04801)</a>
     """
     cmd = _xp.asarray(cmd)
-    K = _get_decomposed_ffwd(slave_ids, masterIds, ffwd, border_ids, method="minimum-rms")
+    K = _get_decomposed_ffwd(
+        slave_ids, masterIds, ffwd, border_ids, method="minimum-rms"
+    )
 
     Q0 = -_xp.linalg.pinv(K["bs"].T @ K["bs"] + K["ss"].T @ K["ss"])
 

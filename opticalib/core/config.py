@@ -243,12 +243,12 @@ def get_phasing_config():
         raise KeyError("Phasing configuration not found in the YAML file.")
 
 
-def get_iff_config(key: str|None, bpath: str = _cfold):
+def get_iff_config(key: str | None, bpath: str = _cfold):
     """
     Reads the configuration from the YAML file for the IFF acquisition.
-    The key passed is the block of information retrieved within the 
+    The key passed is the block of information retrieved within the
     INFLUENCE.FUNCTIONS section.
-    
+
     If ``key=None``, the function returns the entire INFLUENCE.FUNCTIONS section.
 
     Parameters
@@ -283,9 +283,9 @@ def get_iff_config(key: str|None, bpath: str = _cfold):
         )
     except KeyError:
         try:
-            cc = _get_section_config(section='INFLUENCE.FUNCTIONS', path=bpath)
+            cc = _get_section_config(section="INFLUENCE.FUNCTIONS", path=bpath)
         except KeyError:
-            # Assuming this loading is the `iffConfig.yaml` file copied during 
+            # Assuming this loading is the `iffConfig.yaml` file copied during
             # the IFF acquisition
             cc = load(bpath)
 
@@ -324,8 +324,9 @@ def copy_iff_config_file(tn: str, old_path: str = _cfold):
     print(f"IFF configuration copied to {nfname.rsplit('/' + yaml_config_file, 1)[0]}")
     return nfname
 
-@_ela(['item', 'value'])
-def update_iff_config(tn: str, item: str|list[str], value: _Any|list[_Any]):
+
+@_ela(["item", "value"])
+def update_iff_config(tn: str, item: str | list[str], value: _Any | list[_Any]):
     """
     Updates the YAML configuration file for the IFF acquisition.
     The item passed is within the INFLUENCE.FUNCTIONS/IFFUNC section.

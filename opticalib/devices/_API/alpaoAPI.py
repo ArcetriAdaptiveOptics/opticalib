@@ -66,7 +66,7 @@ class BaseAlpaoMirror:
             "dm97": [5, 7, 9, 11],
             "dm192": [4, 8, 12, 12, 16, 16, 18],
             "dm277": [7, 9, 11, 13, 15, 17, 19],
-            'dm292': [4, 8, 12, 14, 16, 16, 18, 18, 20],
+            "dm292": [4, 8, 12, 14, 16, 16, 18, 18, 20],
             "dm468": [8, 12, 16, 18, 20, 20, 22, 22, 24],
             "dm820": [10, 14, 18, 20, 22, 24, 26, 28, 28, 30, 30, 32],
         }
@@ -178,7 +178,9 @@ class BaseAlpaoMirror:
             raise ValueError(f"Reference actuator {refAct} is out of range.")
         self.refAct = refAct
 
-    def _check_cmd_integrity(self, cmd: _t.ArrayLike, amp_threshold: float = 0.9) -> None:
+    def _check_cmd_integrity(
+        self, cmd: _t.ArrayLike, amp_threshold: float = 0.9
+    ) -> None:
         """
         Validate a command vector before sending it to the hardware.
 

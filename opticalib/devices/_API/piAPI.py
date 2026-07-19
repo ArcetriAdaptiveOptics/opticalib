@@ -22,14 +22,12 @@ class BasePetalMirror:
         Initialize the petal mirror device with the given addresses.
         """
         self._had_error = False
-        
+
         ptl_config = _rc.get_device_config("DEFORMABLE.MIRRORS", "PetalDM")
 
         if ip_addresses is None:
             ips = [ptl_config.get(f"ip{i}") for i in range(6)]
-            self._ip_addresses = [
-                ip for ip in ips if ip is not None
-            ]
+            self._ip_addresses = [ip for ip in ips if ip is not None]
         else:
             self._ip_addresses = ip_addresses
 
@@ -52,7 +50,7 @@ class BasePetalMirror:
         self.nSegments = len(self._devices)
         self.nActsPerSegment = 3
         self.n_acts = self.nSegments * self.nActsPerSegment
-        self._slaveIds  = ptl_config.get("slave_ids", [])
+        self._slaveIds = ptl_config.get("slave_ids", [])
         self._borderIds = ptl_config.get("border_ids", [])
 
     @property

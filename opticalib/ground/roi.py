@@ -205,4 +205,10 @@ def remap_on_new_mask(
     return remasked_data
 
 
-__all__ = ["roi_generator", "count_rois", "img_cut", "cube_master_mask", "remap_on_new_mask"]
+__all__ = [
+    "roi_generator",
+    "count_rois",
+    "img_cut",
+    "cube_master_mask",
+    "remap_on_new_mask",
+]

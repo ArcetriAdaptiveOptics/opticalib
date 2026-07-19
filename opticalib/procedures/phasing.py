@@ -27,6 +27,7 @@ def _get_tunable_filter():
 
 _FILTER_BANDWIDTH_MODE = {"narrow": 8, "medium": 4, "wide": 2, "black": 1}
 
+
 # FIXME: Change the name from SPL to a generig PhasingProcedure (or smlt)
 # Also include the interferometer for the full procedure
 class SPL:
@@ -58,7 +59,7 @@ class SPL:
         """
         The constructor
         """
-        
+
         if isinstance(camera, str):
             if camera.lower() == "none":
                 camera = None
@@ -69,7 +70,7 @@ class SPL:
         elif camera is None:
             try:
                 from ..devices.cameras import GigaVision
-                
+
                 _, device = _splconf["camera"].split(":")
                 camera = GigaVision(name=device)
             except Exception:

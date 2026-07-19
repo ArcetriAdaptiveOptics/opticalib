@@ -75,7 +75,7 @@ class IFFCapturePreparation:
         self._dm = dm
         self.mirrorModes = dm.mirrorModes
         self._NActs = dm.n_acts
-        
+
         self._config = _rif.get_iff_config(key=None)
 
         # IFF info
@@ -172,7 +172,7 @@ class IFFCapturePreparation:
         # Provide manually the cmdMatrixHistory
         if cmdMat is not None:
             trailing_zeros = _np.zeros(
-                (cmdMat.shape[0], self._config['IFFUNC']['trailing_zeros'])
+                (cmdMat.shape[0], self._config["IFFUNC"]["trailing_zeros"])
             )
             self._cmdMatrix = cmdMat
             cmdMat = _np.hstack((cmdMat, trailing_zeros))
@@ -203,7 +203,7 @@ class IFFCapturePreparation:
             cmdHistory = self.cmdMatHistory
             self._regActs = _np.array([])
 
-        timing = self._config['timing']
+        timing = self._config["timing"]
         timedCmdHist = _np.repeat(cmdHistory, timing, axis=1)
         self.timedCmdHistory = timedCmdHist
         return timedCmdHist
@@ -247,7 +247,7 @@ class IFFCapturePreparation:
             Command matrix history to be applied, with the correct push-pull
             application, following the desired template.
         """
-        infoIF = self._config['IFFUNC']
+        infoIF = self._config["IFFUNC"]
         modesList = _np.asarray(
             modesList if modesList is not None else infoIF.get("modes_list"), dtype=int
         )
@@ -257,7 +257,11 @@ class IFFCapturePreparation:
         modesAmp = modesAmp if modesAmp is not None else infoIF.get("amplitude")
         zeroScheme = infoIF["trailing_zeros"]
 
-        n_repetitions = n_repetitions if n_repetitions is not None else infoIF.get("n_repetitions", 1)
+        n_repetitions = (
+            n_repetitions
+            if n_repetitions is not None
+            else infoIF.get("n_repetitions", 1)
+        )
         if n_repetitions < 1:
             raise ValueError(f"n_repetitions must be >= 1, got {n_repetitions}")
 

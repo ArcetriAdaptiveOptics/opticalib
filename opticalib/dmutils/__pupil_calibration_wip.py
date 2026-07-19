@@ -155,9 +155,9 @@ class PupilCalibrator:
         match slaving_method:
             case "spline":
                 ...
-                #tps = (alpha=0.0)
-                #tps.fit(master_coords.T, cmd[master_ids])
-                #cmd = tps.transform(coords.T)
+                # tps = (alpha=0.0)
+                # tps.fit(master_coords.T, cmd[master_ids])
+                # cmd = tps.transform(coords.T)
             case "nearest":
                 cmd = _gd(
                     master_coords,

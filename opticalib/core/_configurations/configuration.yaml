@@ -15,8 +15,13 @@ DEVICES:
   WFS: 
     INGOT:
       camera: CAMERAS:GigaVision
-      pupil_radius: 
+      camera_base_exptime: 2000 #in ms
+      camera_binning: 2
+      subapertures: 258
+      n_pupils: 3
       pupils_centers:
+        - [0, 0]
+        - [0, 0]
         - [0, 0]
 
   INTERFEROMETERS:

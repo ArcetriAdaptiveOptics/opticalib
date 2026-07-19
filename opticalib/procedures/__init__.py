@@ -10,8 +10,8 @@ Author(s):
 
 Description:
 ------------
-This module gathers all the procedures implemented in the opticalib package, 
-which are the high-level routines that can be used to perform specific tasks. 
+This module gathers all the procedures implemented in the opticalib package,
+which are the high-level routines that can be used to perform specific tasks.
 These include:
 - `iff.py`: high level module for managing the acquisition of IFFs.
 - `alignment.py`: high level module for managing the alignment of a DM.
@@ -21,7 +21,7 @@ These include:
 
 from . import iff
 from .alignment import Alignment
-from .phasing import SPL #FIXME
+from .phasing import SPL  # FIXME
 from .measurements import TimeSeries
 
 from .iff import iff_data_acquisition, piston_data_acquisition

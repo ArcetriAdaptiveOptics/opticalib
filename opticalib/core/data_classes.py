@@ -241,7 +241,7 @@ class IffData:
         Timed command matrix history.
         """
         return self._timed_cmd_history
-    
+
     @property
     def shuffle(self) -> bool:
         """
@@ -263,7 +263,7 @@ class IffData:
         return self._get_mode(index)
 
     def __repr__(self) -> str:
-        txt = ''
+        txt = ""
         txt += f"IffData(tn={self.tn}, "
         if self.shuffle:
             nmodes = len(self._modes_list) // self.n_repetitions

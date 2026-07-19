@@ -100,7 +100,7 @@ def list_tn(folder: str) -> list[str]:
 
 def create_data_folder(
     basepath: str = _fn.OPD_IMAGES_ROOT_FOLDER, get_tn: bool = False
-    ) -> str|list[str]:
+) -> str | list[str]:
     """
     Creates a new data folder with a unique tracking number in the specified base path.
 
@@ -482,7 +482,7 @@ def read_phasemap(file_path: str) -> _ot.ImageData:
     return image
 
 
-def load_fits(filepath: str, on_gpu: bool = False) -> _ot.FitsData|list[_ot.FitsData]:
+def load_fits(filepath: str, on_gpu: bool = False) -> _ot.FitsData | list[_ot.FitsData]:
     """
     Loads a FITS file.
 
@@ -499,17 +499,17 @@ def load_fits(filepath: str, on_gpu: bool = False) -> _ot.FitsData|list[_ot.Fits
     data : ArrayLike | list[ArrayLike]
         The loaded FITS file data (masked) array, on CPU or GPU, with attached header
         (as Fits<...>Array).
-        
+
         If the FITS file has multiple HDUs, a list of FitsArray objects is returned,
         one for each HDU.
     """
     if not filepath.endswith(".fits"):
         filepath += ".fits"
-    
+
     multi_hdu = False
     with _fits.open(filepath) as hdul:
         H = len(hdul)
-        
+
         # Simple HDU case
         if H == 1:
             data = hdul[0].data
@@ -521,7 +521,7 @@ def load_fits(filepath: str, on_gpu: bool = False) -> _ot.FitsData|list[_ot.Fits
             header = hdul[0].header
             mask = hdul[1].data.astype(bool)
             data = _masked_array(data, mask=mask)
-        
+
         # Multiple HDU case
         elif H > 2:
             on_gpu = False

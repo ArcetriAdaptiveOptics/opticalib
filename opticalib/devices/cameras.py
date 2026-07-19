@@ -14,7 +14,6 @@ Description
 
 """
 
-
 import time as _time
 
 import vmbpy as _vmbpy

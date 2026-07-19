@@ -289,7 +289,7 @@ class Alignment:
         n_frames : int, optional
             The number of frames acquired and averaged for calibration. Default is 15.
         template : list, optional
-            A list representing the template for calibration. 
+            A list representing the template for calibration.
             If not provided, the default template will be used.
         n_repetitions : int, optional
             The number of repetitions for the calibration process. Default is 1.

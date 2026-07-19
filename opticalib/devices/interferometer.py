@@ -248,7 +248,9 @@ class _4DInterferometer(BaseWavefrontSensor):
                 )
             except Exception as e:
                 print(e)
-            self.copy4_d_settings(dest=dest_data_fold, src=capture_local, iscapture=False)
+            self.copy4_d_settings(
+                dest=dest_data_fold, src=capture_local, iscapture=False
+            )
 
     from contextlib import contextmanager
 

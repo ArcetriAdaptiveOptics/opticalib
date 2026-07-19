@@ -32,6 +32,8 @@ from opticalib.ground.osutils import (
 from opticalib.ground.logger import SystemLogger as _SL
 
 from ._API.piAPI import BasePetalMirror
+
+
 class PetalMirror(BasePetalMirror, BaseDeformableMirror):
     """
     Petal Deformable Mirror interface.
@@ -157,6 +159,8 @@ class PetalMirror(BasePetalMirror, BaseDeformableMirror):
 
 
 from ._API.micAPI import BaseAdOpticaDm
+
+
 class AdOpticaDm(BaseAdOpticaDm, BaseDeformableMirror):
     """
     AdOptica Deformable Mirror interface.
@@ -429,10 +433,10 @@ class DP(AdOpticaDm):
         self.nActsPerSegment: int = 111
         try:
             dp_config = _rc.get_device_config("DEFORMABLE.MIRRORS", "DP")
-            self._slaveIds  = dp_config.get("slave_ids", [])
+            self._slaveIds = dp_config.get("slave_ids", [])
             self._borderIds = dp_config.get("border_ids", [])
         except KeyError:
-            self._slaveIds  = []
+            self._slaveIds = []
             self._borderIds = []
 
     @_contextmanager
@@ -564,14 +568,16 @@ class M4AU(AdOpticaDm):
         self.nActsPerSegment = 892
         try:
             m4au_config = _rc.get_device_config("DEFORMABLE.MIRRORS", "M4AU")
-            self._slaveIds  = m4au_config.get("slave_ids", [])
+            self._slaveIds = m4au_config.get("slave_ids", [])
             self._borderIds = m4au_config.get("border_ids", [])
         except KeyError:
-            self._slaveIds  = []
+            self._slaveIds = []
             self._borderIds = []
 
 
 from ._API.alpaoAPI import BaseAlpaoMirror
+
+
 class AlpaoDm(BaseAlpaoMirror, BaseDeformableMirror):
     """
     Alpao Deformable Mirror interface.
@@ -616,10 +622,10 @@ class AlpaoDm(BaseAlpaoMirror, BaseDeformableMirror):
         self.is_segmented = False
         try:
             dm_config = _rc.get_device_config("DEFORMABLE.MIRRORS", self._name)
-            self._slaveIds  = dm_config.get("slave_ids", [])
+            self._slaveIds = dm_config.get("slave_ids", [])
             self._borderIds = dm_config.get("border_ids", [])
         except KeyError:
-            self._slaveIds  = []
+            self._slaveIds = []
             self._borderIds = []
         self.has_slaved_acts = False if len(self._slaveIds) == 0 else True
 
@@ -808,6 +814,8 @@ class AlpaoDm(BaseAlpaoMirror, BaseDeformableMirror):
 
 
 from ._API.splattAPI import SPLATTEngine
+
+
 class SplattDm(BaseDeformableMirror):
     """
     SPLATT deformable mirror interface.
@@ -826,10 +834,10 @@ class SplattDm(BaseDeformableMirror):
         self.is_segmented = False
         try:
             dm_config = _rc.get_device_config("DEFORMABLE.MIRRORS", self._name)
-            self._slaveIds  = dm_config.get("slave_ids", [])
+            self._slaveIds = dm_config.get("slave_ids", [])
             self._borderIds = dm_config.get("border_ids", [])
         except KeyError:
-            self._slaveIds  = []
+            self._slaveIds = []
             self._borderIds = []
         self._logger = _SL(the_class=__class__)
 

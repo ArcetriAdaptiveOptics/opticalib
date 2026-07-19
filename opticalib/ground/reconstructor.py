@@ -65,11 +65,11 @@ class ComputeReconstructor:
         self._intMat_Vt = None
         self._threshold = None
         self._filtered_sv = None
-    
+
     @property
     def IM(self):
         return self._intMat
-    
+
     @property
     def RM(self):
         return self._recMat

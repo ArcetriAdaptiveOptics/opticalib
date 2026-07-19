@@ -193,7 +193,9 @@ class Fake4DInterf:
             if self._phase_ambiguity:
                 rois = _rg(masked_ima)
                 for roi in rois:
-                    masked_ima[roi == 0] += self._lambda * _np.floor(_np.random.random(1) * 5 - 2)
+                    masked_ima[roi == 0] += self._lambda * _np.floor(
+                        _np.random.random(1) * 5 - 2
+                    )
         image = _np.ma.dstack(imglist)
         image = _np.mean(image, axis=2)
         masked_img = _np.ma.masked_array(image, mask=self._dm._mask)

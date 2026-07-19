@@ -68,7 +68,8 @@ _INDEXLIST_FILE = "index_list.fits"
 _CUBE_FILE = "IMCube.fits"
 _COORD_FILE = ""  # TODO
 
-@_expand_list_arguments(['tn'])
+
+@_expand_list_arguments(["tn"])
 def process(
     tn: str | list[str],
     register: bool = False,
@@ -132,8 +133,8 @@ def process(
         fileMat=modesMat,
         ampVect=info["IFFUNC"]["amplitude"],
         modeList=info["IFFUNC"]["modes_list"],
-        template=info['FILES']["template"],
-        n_repetitions=info['FILES']["n_repetitions"],
+        template=info["FILES"]["template"],
+        n_repetitions=info["FILES"]["n_repetitions"],
         io_workers=nworkers,
         prefetch=nmode_prefetch,
     )
@@ -221,7 +222,7 @@ def piston_process(
     ]  # (M, T)
 
     M = len(info["IFFUNC"]["modes_list"])
-    T = len(info['FILES']["template"])
+    T = len(info["FILES"]["template"])
     modeList = info["FILES"]["modes_list"]
     ampVect = info["FILES"]["amplitude"]
 
@@ -284,6 +285,7 @@ def piston_process(
 
     if save:
         save_cube(tn, rebin=rebin, register=register)
+
 
 @_expand_list_arguments(["tn", "activeRoiID"])
 def cube_roi_processing(
@@ -388,9 +390,7 @@ def cube_roi_processing(
 
     _osu.save_fits(_os.path.join(save_path, _CUBE_FILE), newcube, overwrite=True)
     _osu.save_fits(_os.path.join(save_path, _MATRIX_FILE), cmdmat, overwrite=True)
-    _osu.save_fits(
-        _os.path.join(save_path, _MODES_FILE), modesvec, overwrite=True
-    )
+    _osu.save_fits(_os.path.join(save_path, _MODES_FILE), modesvec, overwrite=True)
     _osu.save_fits(_os.path.join(save_path, _AMP_FILE), ampvect, overwrite=True)
 
     return newtn
@@ -742,7 +742,7 @@ def registration_redux(tn: str, fileMat: list[str]) -> list[_ot.ImageData]:
     """
     from opticalib.analyzer import push_pull_reduction_algorithm
 
-    infoR = _get_acq_info(tn)['REGISTRATION']
+    infoR = _get_acq_info(tn)["REGISTRATION"]
     template = infoR["template"]
     if _np.array_equal(fileMat, _np.array([])) and len(infoR["modesid"]) == 0:
         print("No registration data found")
@@ -817,7 +817,7 @@ def get_trigger_frame(
         file.
     """
     zfit = _zern.ZernikeFitter()
-    infoT = _get_acq_info(tn)['TRIGGER']
+    infoT = _get_acq_info(tn)["TRIGGER"]
     if amplitude is not None:
         infoT["amplitude"] = amplitude
     fileList = _osu.get_file_list(tn, fold="OPDImages")
@@ -875,11 +875,13 @@ def get_reg_frames(tn: str, info: dict[str, _ot.Any]) -> tuple[int, _ot.ArrayLik
     """
     infoR = info["REGISTRATION"]
     trigFrame = info["trigFrame"]
-    timing = info['timing']
+    timing = info["timing"]
     if infoR["trailing_zeros"] == 0 and len(infoR["modes_list"]) == 0:
         regStart = regEnd = (trigFrame + 1) if trigFrame != 0 else 0
     else:
-        regStart = trigFrame + infoR["trailing_zeros"] * timing + (1 if trigFrame != 0 else 0)
+        regStart = (
+            trigFrame + infoR["trailing_zeros"] * timing + (1 if trigFrame != 0 else 0)
+        )
         regEnd = regStart + len(infoR["modes_list"]) * len(infoR["template"]) * timing
     return regStart, regEnd
 
@@ -943,10 +945,17 @@ def get_iff_file_matrix(tn: str, info: dict[str, _ot.Any]) -> _ot.ArrayLike:
     k = regEnd + infoIF["trailing_zeros"]
     # `k` is the starting point in the file list for the IFF frames
 
-    n_useful_frames = len(info["FILES"]["modes_list"]) * len(info["FILES"]["template"])  # [M x N x T]
+    n_useful_frames = len(info["FILES"]["modes_list"]) * len(
+        info["FILES"]["template"]
+    )  # [M x N x T]
     iffList = fileList[k : k + n_useful_frames]
     iffMat = _np.reshape(
-        iffList, (info["FILES"]["n_repetitions"], len(infoIF["modes_list"]), len(infoIF["template"]))
+        iffList,
+        (
+            info["FILES"]["n_repetitions"],
+            len(infoIF["modes_list"]),
+            len(infoIF["template"]),
+        ),
     )  # [N, M, T]
     return iffMat
 
@@ -1236,7 +1245,9 @@ def _check_information_consistency(info: dict[str, _ot.Any]) -> None:
         Raised when the number of modes or template lengths do not match
         the expected values from the configuration.
     """
-    expected_modes_count = len(info["IFFUNC"]["modes_list"]) * info['FILES']["n_repetitions"]
+    expected_modes_count = (
+        len(info["IFFUNC"]["modes_list"]) * info["FILES"]["n_repetitions"]
+    )
     actual_modes_count = len(info["FILES"]["modes_list"])
     if expected_modes_count != actual_modes_count:
         raise ValueError(
@@ -1245,7 +1256,7 @@ def _check_information_consistency(info: dict[str, _ot.Any]) -> None:
             f"{expected_modes_count} != {actual_modes_count}"
         )
 
-    folder_template_length = len(info['FILES']["template"])
+    folder_template_length = len(info["FILES"]["template"])
     config_template_length = len(info["IFFUNC"]["template"])
     if folder_template_length != config_template_length:
         raise ValueError(

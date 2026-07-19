@@ -581,7 +581,9 @@ class Flattening:
             self._oldCube = self._intCube.copy()
             zern2fit = zernModes if zernModes is not None else [1, 2, 3]
             self._logger.info(f"Filtering cube of zernike modes {zern2fit}...")
-            self._intCube, new_tn = _ifp.filter_zernike_cube(self.tn, zern2fit, mode=mode)
+            self._intCube, new_tn = _ifp.filter_zernike_cube(
+                self.tn, zern2fit, mode=mode
+            )
             self.load_new_tn(new_tn)
             self.filtered = True
             self.filteredModes = zern2fit
