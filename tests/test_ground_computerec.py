@@ -43,6 +43,8 @@ class TestComputeReconstructor:
         n_images = sample_cube.shape[2]
         n_pixels = np.sum(~cr._analysisMask)
         assert rec.shape == (n_pixels, n_images)
+        assert cr.RM is not None
+        np.testing.assert_allclose(rec, cr.RM)
 
     def test_compute_reconstructor_run_int_threshold(self, sample_cube):
         """Test run method with integer threshold."""

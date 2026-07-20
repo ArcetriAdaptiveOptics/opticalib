@@ -591,6 +591,24 @@ def get_interf_config(device_name: str):
     return config
 
 
+def get_wfs_config(device_name: str):
+    """
+    Retrieves the wavefront sensor address from the YAML configuration file.
+
+    Returns
+    -------
+    ip : str
+        Wavefront sensor ip address.
+    port : int
+        Wavefront sensor port.
+    """
+    try:
+        config = get_section_config("DEVICES", "WFS")[device_name]
+    except KeyError:
+        raise DeviceNotFoundError(device_name)
+    return config
+
+
 def get_alignment_config():
     """
     Reads the alignment settings in the configuration file.

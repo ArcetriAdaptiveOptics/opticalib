@@ -112,7 +112,9 @@ class ComputeReconstructor:
             else:
 
                 if sv_threshold is None:
-                    return _xp.asnumpy(_xp.linalg.pinv(im))
+                    rec = _xp.asnumpy(_xp.linalg.pinv(im))
+                    self._recMat = rec.copy()
+                    return rec
 
                 elif isinstance(sv_threshold, int):
                     self._threshold = {
@@ -135,10 +137,10 @@ class ComputeReconstructor:
             self._filtered_sv = sv_inv_threshold
             self._logger.info("Computing Reconstructor Matrix: Vt.T @ S_inv @ U.T")
             rec = _xp.asnumpy(Vt.T @ _xp.diag(sv_inv_threshold) @ U.T)
+            self._recMat = rec.copy()
 
             del im, U, S, Vt
             gc.collect()
-        self._recMat = rec.copy()
         return rec
 
     def get_svd(

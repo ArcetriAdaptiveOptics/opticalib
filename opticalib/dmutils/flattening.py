@@ -23,7 +23,7 @@ from opticalib.dmutils import flattening as flt
 tn = '20240906_110000' # example tn
 f = flt.Flattening(tn)
 # say we have acquired an image
-img = interf.acquire_map()
+img = wfs.acquire_map()
 f.load_image2shape(img)
 f.compute_rec_mat()
 'Computing reconstruction matrix...'
@@ -74,7 +74,7 @@ class Flattening:
 
     Public Methods
     --------------
-    - apply_flat_command(dm, interf, modes2flat, nframes=5, modes2discard=None):
+    - apply_flat_command(dm, wfs, modes2flat, nframes=5, modes2discard=None):
         Acquires images, computes and applies the flattening command, and saves results.
     - compute_flat_cmd(n_modes):
         Computes the flattening command for the loaded shape and selected modes.
@@ -90,25 +90,25 @@ class Flattening:
     Usage Example
     -------------
         >>> f = Flattening('20240906_110000')
-        >>> img = interf.acquire_map()
+        >>> img = wfs.acquire_map()
         >>> f.load_image2_shape(img)
         >>> f.compute_rec_mat()
         >>> flat_cmd = f.compute_flat_cmd(10)
-        >>> f.apply_flat_command(dm, interf, modes2flat=10)
+        >>> f.apply_flat_command(dm, wfs, modes2flat=10)
     """
 
     def __init__(
         self,
         tn: str,
         dm: _ot.Optional[_ot.DeformableMirrorDevice] = None,
-        interf: _ot.Optional[_ot.InterferometerDevice] = None,
+        wfs: _ot.Optional[_ot.InterferometerDevice|_ot.WFSDevice] = None,
     ) -> None:
         """The Constructor"""
         self.tn = tn
         self._oldtn = tn
 
         self._dm = dm
-        self._interf = interf
+        self._wfs = wfs
         self._logger = _SL(__class__)
 
         self._path = _os.path.join(_ifp._intMatFold, self.tn)
@@ -184,8 +184,8 @@ class Flattening:
             The arguments for the `apply_flat_command` function:
             - dm : DeformableMirrorDevice
                 Deformable mirror object.
-            - interf : InterferometerDevice
-                Interferometer object to acquire phasemaps.
+            - wfs : InterferometerDevice | WFSDevice
+                Wavefront sensor object to acquire phasemaps.
             - modes2flat : int | ArrayLike
                 Modes to flatten.
             - modes2discard : int, optional
@@ -242,7 +242,7 @@ class Flattening:
     def apply_flat_command(
         self,
         dm: _ot.Optional[_ot.DeformableMirrorDevice] = None,
-        interf: _ot.Optional[_ot.InterferometerDevice] = None,
+        wfs: _ot.Optional[_ot.InterferometerDevice | _ot.WFSDevice] = None,
         modes2flat: _ot.Optional[int | _ot.ArrayLike] = None,
         modes2discard: _ot.Optional[int] = None,
         img: _ot.Optional[_ot.ImageData] = None,
@@ -258,11 +258,11 @@ class Flattening:
         ----------
         dm : DeformableMirrorDevice, optional
             Deformable mirror object.
-        interf : InterferometerDevice, optional
-            Interferometer object to acquire phasemaps.
+        wfs : InterferometerDevice | WFSDevice, optional
+            Wavefront sensor object to acquire phasemaps.
         img : ImageData, optional
             Image to flatten. If not provided, it will acquired using the provided
-            interferometer.
+            wavefront sensor.
         modes2flat : int | ArrayLike, optional
             Modes to flatten.
         modes2discard : int, optional
@@ -292,28 +292,28 @@ class Flattening:
         else:
             self._dm = dm
 
-        # if `Interf` is not present, register the one provided
-        if interf is None:
-            if self._interf is None:
+        # if `WFS` is not present, register the one provided
+        if wfs is None:
+            if self._wfs is None:
                 self._logger.error(
-                    "Interferometer device must be provided either as an argument or during class instantiation."
+                    "Wavefront sensor device must be provided either as an argument or during class instantiation."
                 )
                 raise ValueError(
-                    "Interferometer device must be provided either as an argument or during class instantiation."
+                    "Wavefront sensor device must be provided either as an argument or during class instantiation."
                 )
             else:
-                interf = self._interf
+                wfs = self._wfs
 
         else:
-            self._interf = interf
+            self._wfs = wfs
 
         if modes2flat is None:
             modes2flat = self._dm.n_acts
 
-        self._logger.info("Acquiring starting image from interferometer...")
+        self._logger.info("Acquiring starting image from wavefront sensor...")
 
         if img is None:
-            self._startImg = interf.acquire_map(nframes)
+            self._startImg = wfs.acquire_map(nframes)
             img2pass = _rebin(self._startImg, self.rebin)
         else:
             self._startImg = img2pass = img.copy()
@@ -329,7 +329,7 @@ class Flattening:
 
         cmd = self._dm.get_shape()  # TODO: check if this is correct for DP
 
-        self._lastFlatImg = interf.acquire_map(nframes)
+        self._lastFlatImg = wfs.acquire_map(nframes)
 
         fold = None
         if save:
@@ -340,7 +340,7 @@ class Flattening:
                 "modes discarded in reconstructor",
             )
             header["DMNAME"] = (self._dm._name, "deformable mirror name")
-            header["INTERF"] = (interf._name, "interferometer used")
+            header["WFS"] = (wfs._name, "wavefront sensor used")
             modes2flat = (
                 _np.arange(modes2flat) if isinstance(modes2flat, int) else modes2flat
             )

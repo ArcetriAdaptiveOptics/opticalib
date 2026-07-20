@@ -131,8 +131,8 @@ class Alignment:
 
     def __init__(
         self,
-        mechanical_devices: _ot.GenericDevice | list[_ot.GenericDevice],
-        acquisition_devices: _ot.InterferometerDevice | list[_ot.InterferometerDevice],
+        mechanical_devices: list[_ot.GenericDevice],
+        acquisition_devices: list[_ot.InterferometerDevice|_ot.CameraDevice|_ot.WFSDevice],
         calibtn: _ot.Optional[str] = None,
     ):
         """
@@ -140,11 +140,11 @@ class Alignment:
 
         Parameters
         ----------
-        mechanical_devices : object or list of objects
+        mechanical_devices : list of objects
             The mechanical devices used for alignment. Can be either
             a single object which calls more devices or a list of
             single devices.
-        acquisition_devices : object
+        acquisition_devices : list of objects
             The acquisition devices used for alignment.
         calibtn : str, optional
             The tracking number of the alignment calibration to be used.

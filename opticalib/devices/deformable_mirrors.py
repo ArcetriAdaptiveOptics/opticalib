@@ -490,7 +490,7 @@ class DP(AdOpticaDm):
         Example
         -------
         >>> with dm.read_buffer(npoints_per_cmd=150) as buf:
-        ...     dm.run_cmd_history(interf=myInterf, save='test_run')
+        ...     dm.run_cmd_history(wfs=myWFS, save='test_run')
         >>> print(buf['actPos'].shape)  # Access the buffer data
         (111, 33300)
         >>> # Or access via class attribute

@@ -473,10 +473,10 @@ class StitchAcquire:
 
     Parameters
     ----------
-    dm : _ot.DeformableMirrorDevice
+    dm : DeformableMirrorDevice
         The deformable mirror device used for the acquisition.
-    interf : _ot.InterferometerDevice
-        The interferometer device used for the acquisition.
+    wfs : InterferometerDevice | CameraDevice | WFSDevice
+        The wavefront sensor device or camera used for the acquisition.
     motors : _ot.GenericDevice
         The motor device controlling the axis of the acquisition.
     """
@@ -484,11 +484,11 @@ class StitchAcquire:
     def __init__(
         self,
         dm: _ot.DeformableMirrorDevice,
-        interf: _ot.InterferometerDevice,
+        wfs: _ot.InterferometerDevice | _ot.CameraDevice | _ot.WFSDevice,
         motors: _ot.GenericDevice,
     ):
         self.dm = dm
-        self.interf = interf
+        self.wfs = wfs
         self.axis = motors
         self.dataFold = _fn.BASE_DATA_PATH
         self._lastCommandedCoords = [-999, -999]
@@ -614,7 +614,7 @@ class StitchAcquire:
             co = _io.StringIO()
             with _clib.redirect_stdout(co):
                 self.set_axis_position(xz)
-            imglist.append(self.interf.acquire_map(nframes=nframes))
+            imglist.append(self.wfs.acquire_map(nframes=nframes))
         cube = _np.ma.dstack(imglist)
         _osu.save_fits(_os.path.join(ddir, "cube.fits"), cube, header=header)
         if homing:
@@ -640,7 +640,7 @@ class StitchAcquire:
         tnvec = []
         for _, xz in enumerate(coord_vec):
             self.set_axis_position(xz)
-            tn = _iff.iff_data_acquisition(self.dm, self.interf)
+            tn = _iff.iff_data_acquisition(self.dm, self.wfs)
             tnvec.append([tn, xz])
         self.axis.homing()
         return tnvec

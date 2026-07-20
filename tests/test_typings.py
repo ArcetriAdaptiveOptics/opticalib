@@ -147,7 +147,7 @@ class TestInstanceCheck:
                 pass
 
             def run_cmd_history(
-                self, interf=None, delay=0, save=None, differential=False
+                self, wfs=None, delay=0, save=None, differential=False
             ):
                 return "tn"
 
@@ -229,7 +229,7 @@ class TestIsinstance:
                 pass
 
             def run_cmd_history(
-                self, interf=None, delay=0, save=None, differential=False
+                self, wfs=None, delay=0, save=None, differential=False
             ):
                 return "tn"
 

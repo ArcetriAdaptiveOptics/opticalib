@@ -139,7 +139,7 @@ class PetalMirror(BaseFakePTL):
 
     def run_cmd_history(
         self,
-        interf: _t.InterferometerDevice = None,
+        wfs: _t.Optional[_t.InterferometerDevice|_t.WFSDevice] = None,
         save: str = None,
         rebin: int = 1,
         differential: bool = True,
@@ -150,8 +150,8 @@ class PetalMirror(BaseFakePTL):
 
         Parameters
         ----------
-        interf : Interferometer
-            Interferometer object to acquire the phase map.
+        wfs : InterferometerDevice | WFSDevice, optional
+            Wavefront sensor object used to acquire the data.
         rebin : int
             Rebinning factor for the acquired phase map.
         modal : bool
@@ -173,7 +173,7 @@ class PetalMirror(BaseFakePTL):
                 f"Running command history of shape {self.cmdHistory.shape}"
             )
 
-            if interf is not None:
+            if wfs is not None:
                 datafold, tn = osu.create_data_folder(get_tn=True)
             else:
                 tn = save
@@ -188,9 +188,9 @@ class PetalMirror(BaseFakePTL):
                 if differential:
                     cmd += s
                 self.set_shape(cmd)
-                if interf is not None:
+                if wfs is not None:
                     time.sleep(delay)
-                    img = interf.acquire_map(rebin=rebin)
+                    img = wfs.acquire_map(rebin=rebin)
                     path = os.path.join(datafold, f"image_{i:05d}.fits")
                     osu.save_fits(path, img)
         self.set_shape(s)
@@ -543,7 +543,7 @@ class DP(BaseFakeDp):
         Returns the current amplitudes commanded to the dm's actuators.
     upload_cmd_history(cmdhist)
         Upload the command history to the deformable mirror memory.
-    run_cmd_history(interf=None, save=None, rebin=1, modal=False, differential=True, delay=0)
+    run_cmd_history(wfs=None, save=None, rebin=1, modal=False, differential=True, delay=0)
         Runs the command history on the deformable mirror.
     visualize_shape(cmd=None)
         Visualizes the command amplitudes on the mirror's actuators.
@@ -610,7 +610,7 @@ class DP(BaseFakeDp):
 
     def run_cmd_history(
         self,
-        interf: _t.InterferometerDevice = None,
+        wfs: _t.Optional[_t.InterferometerDevice|_t.WFSDevice] = None,
         save: str = None,
         rebin: int = 1,
         modal: bool = False,
@@ -622,8 +622,8 @@ class DP(BaseFakeDp):
 
         Parameters
         ----------
-        interf : Interferometer
-            Interferometer object to acquire the phase map.
+        wfs : Interferometer | WFSDevice
+            Wavefront sensor used to acquire the data.
         rebin : int
             Rebinning factor for the acquired phase map.
         modal : bool
@@ -657,9 +657,9 @@ class DP(BaseFakeDp):
                 if differential:
                     cmd = cmd + s
                 self.set_shape(cmd, modal=modal)
-                if interf is not None:
+                if wfs is not None:
                     time.sleep(delay)
-                    img = interf.acquire_map(rebin=rebin)
+                    img = wfs.acquire_map(rebin=rebin)
                     path = os.path.join(datafold, f"image_{i:05d}.fits")
                     osu.save_fits(path, img)
         self.set_shape(s)
@@ -813,7 +813,7 @@ class M4AU(BaseFakeM4):
 
     def run_cmd_history(
         self,
-        interf: _t.InterferometerDevice = None,
+        wfs: _t.Optional[_t.InterferometerDevice|_t.WFSDevice] = None,
         save: str = None,
         rebin: int = 1,
         modal: bool = False,
@@ -825,8 +825,8 @@ class M4AU(BaseFakeM4):
 
         Parameters
         ----------
-        interf : Interferometer
-            Interferometer object to acquire the phase map.
+        wfs : Interferometer | WFSDevice
+            Wavefront sensor used to acquire the data.
         rebin : int
             Rebinning factor for the acquired phase map.
         modal : bool
@@ -858,9 +858,9 @@ class M4AU(BaseFakeM4):
                 if differential:
                     cmd = cmd + s
                 self.set_shape(cmd, modal=modal)
-                if interf is not None:
+                if wfs is not None:
                     time.sleep(delay)
-                    img = interf.acquire_map(rebin=rebin)
+                    img = wfs.acquire_map(rebin=rebin)
                     path = os.path.join(datafold, f"image_{i:05d}.fits")
                     osu.save_fits(path, img)
         self.set_shape(s)
