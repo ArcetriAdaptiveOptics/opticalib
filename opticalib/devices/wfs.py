@@ -28,14 +28,14 @@ class Ingot(BaseWavefrontSensor):
     Guide Stars (LGS). It consists of a prismatic structure that splits the LGS
     beacon in regions, and depending on the prism can form between three to six
     pupils.
-    
+
     Parameters
     ----------
     camera : str | CameraDevice
         The camera device to use for acquiring images. Can be a string
         representing the camera name defined in the experiment's configuration
         file or an instance of an object compatible with the ``opticalib.CameraDevice``.
-    
+
     Methods
     -------
     acquire_detector(nframes) -> ImageData
@@ -79,7 +79,9 @@ class Ingot(BaseWavefrontSensor):
             _np.asarray(
                 [
                     (x, y, r)
-                    for (x, y), r in zip(self._pupil_centers, [self._pupil_radius] * self.n_pup)
+                    for (x, y), r in zip(
+                        self._pupil_centers, [self._pupil_radius] * self.n_pup
+                    )
                 ],
                 dtype=[("xc", float), ("yc", float), ("radius", float)],
             )
@@ -120,7 +122,7 @@ class Ingot(BaseWavefrontSensor):
     def get_exptime(self) -> int:
         """
         Get the current camera exposure time in milliseconds.
-        
+
         Returns
         -------
         exposure_ms : int
@@ -132,16 +134,16 @@ class Ingot(BaseWavefrontSensor):
         """
         Acquires raw un-processed detector data directly from the camera sensor,
         leaving geometry masking and sub-pupil transformations bypassed.
-        
+
         Parameters
         ----------
         nframes : int, optional
             The number of frames to acquire from the camera. Default is 1.
-        
+
         Returns
         -------
         frame : ImageData
-            The raw detector data as an image or cube, depending on the number 
+            The raw detector data as an image or cube, depending on the number
             of frames.
         """
         return self._camera.acquire_frames(nframes)
@@ -153,15 +155,15 @@ class Ingot(BaseWavefrontSensor):
     ) -> _ot.CubeData:
         """
         Function for acquiring the Ingot WFS pupils.
-        
+
         It acquires a frame from the camera and extract the pupils in it by using
-        the defined pupils informations. If ``detect_pupils`` is set to True, 
+        the defined pupils informations. If ``detect_pupils`` is set to True,
         it will first detect the pupils in the frame and then extract them.
 
         Parameters
         ----------
         frames : ImageData | CubeData | list[ImageData] | int
-            The input frames to process. If an integer is provided, it will 
+            The input frames to process. If an integer is provided, it will
             acquire that many frames from the camera.
         detect_pupils : bool, optional
             Whether to detect pupils in the frames before extracting them. Default is False.
@@ -187,16 +189,13 @@ class Ingot(BaseWavefrontSensor):
         return pupil_images
 
     def acquire_map(
-        self,
-        nframes: int = 1,
-        output_type: str = "slopes",
-        detect_pupils: bool = False
+        self, nframes: int = 1, output_type: str = "slopes", detect_pupils: bool = False
     ) -> _ot.ImageData:
         """
         Acquires data from the Ingot WFS.
-        
+
         It can either acquire the pupils, making it equal to the ``acquire_pupils``
-        method, or compute the slopes from the pupils, depending on the 
+        method, or compute the slopes from the pupils, depending on the
         ``output_type`` parameter.
 
         Parameters
@@ -204,16 +203,16 @@ class Ingot(BaseWavefrontSensor):
         nframes : int, optional
             The number of frames to acquire from the camera. Default is 1.
         output_type : str, optional
-            The type of output to return. Can be either "pupils" or "slopes". 
+            The type of output to return. Can be either "pupils" or "slopes".
             Default is "slopes".
         detect_pupils : bool, optional
-            Whether to detect pupils in the frames before extracting them. 
+            Whether to detect pupils in the frames before extracting them.
             Default is False.
 
         Returns
         -------
         pupils or slopes : ImageData
-            The acquired data, either pupil images or slope maps depending on 
+            The acquired data, either pupil images or slope maps depending on
             ``output_type``.
         """
         image = self._camera.acquire_frames(nframes)
@@ -234,7 +233,7 @@ class Ingot(BaseWavefrontSensor):
     ) -> tuple[_ot.ImageData, _ot.ImageData]:
         """
         Algorithm to compute the slopes from the pupil images.
-        
+
         Given the the pupil images:
         ```
             A
@@ -270,14 +269,14 @@ class Ingot(BaseWavefrontSensor):
 
     def _detect_pupils(self, image: _ot.ImageData):
         """
-        Pupil detection algorithm using the Hough Transform to find circular 
+        Pupil detection algorithm using the Hough Transform to find circular
         features in the image.
-        
+
         Parameters
         ----------
         image : ImageData
             The input image in which to detect pupils.
-            
+
         Raises
         ------
         RuntimeError
@@ -338,7 +337,6 @@ class Ingot(BaseWavefrontSensor):
         pupdata = _np.append(temp[0], temp2)
         self._pupil_info = pupdata
 
-
     def _extract_pupils(self, image: _ot.ImageData):
         """
         Pupil extraction algorithm that extracts the pupils from the input image
@@ -355,7 +353,7 @@ class Ingot(BaseWavefrontSensor):
         pupils : CubeData
             The extracted pupil images as a cube.
         """
-        
+
         r = int(self._pupil_info["radius"][0])
         shape = tuple([2 * r + 1] * 2)
         pupil = _geo.draw_circular_pupil(shape, r)
@@ -363,9 +361,7 @@ class Ingot(BaseWavefrontSensor):
         for pp in range(self.n_pup):
             xc = int(self._pupil_info["xc"][pp])
             yc = int(self._pupil_info["yc"][pp])
-            pupils[pp, :, :] = image[
-                (yc - r) : (yc + r + 1), (xc - r) : (xc + r + 1)
-            ]
+            pupils[pp, :, :] = image[(yc - r) : (yc + r + 1), (xc - r) : (xc + r + 1)]
             pupils[pp, pupil] = _np.nan
             pupils[pp, :, :].mask = pupil
 
@@ -375,7 +371,6 @@ class Ingot(BaseWavefrontSensor):
 
         pupils /= _np.sum(pupils, axis=0)
         return pupils
-
 
     def __repr__(self) -> str:
         """The string representation of the Ingot WFS object."""

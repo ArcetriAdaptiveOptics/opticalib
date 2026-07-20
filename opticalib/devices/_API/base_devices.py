@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from opticalib.core import _types as _ot
 from opticalib.ground import logger as _logger
-from opticalib.dmutils.slaving import compute_slave_cmd
+from opticalib.dmutils.slaving import compute_slave_cmd, compute_slaved_command_matrix
 
 
 class BaseWavefrontSensor(ABC):
@@ -10,12 +10,25 @@ class BaseWavefrontSensor(ABC):
     """
 
     @abstractmethod
-    def acquire_map(self):
+    def acquire_map(self, nframes):
         """
         Abstract method to measure the interference pattern.
         Must be implemented by subclasses.
+
+        Parameters
+        ----------
+        nframes : int
+            Number of frames to acquire.
         """
         raise NotImplementedError("Subclasses must implement acquire_map method")
+
+    @abstractmethod
+    def acquire_detector(self, nframes):
+        """
+        Abstract method to acquire frames from the detector.
+        Must be implemented by subclasses.
+        """
+        raise NotImplementedError("Subclasses must implement acquire_detector method")
 
 
 class BaseDeformableMirror(ABC):
@@ -40,15 +53,24 @@ class BaseDeformableMirror(ABC):
         raise NotImplementedError("Subclasses must implement get_shape method")
 
     @abstractmethod
-    def upload_cmd_history(self, tcmdhist):
+    def upload_cmd_history(self, tcmdhist, *, slave: bool | str = False):
         """
         Abstract method to upload the command history to the deformable mirror.
         Must be implemented by subclasses.
+
+        Parameters
+        ----------
+        tcmdhist : np.array
+            Command history to be uploaded. Should be a 2D matrix of shape
+            (nacts, nmodes).
+        slave : bool | str, optional
+            Slaving option for the input command history. If ``True``, the slaving method
+            is chosen automatically; if a string is provided, it is used as method.
         """
         raise NotImplementedError("Subclasses must implement upload_cmd_history method")
 
     @abstractmethod
-    def run_cmd_history(self, interf, differential, save):
+    def run_cmd_history(self, wfs, differential, save):
         """
         Abstract method to run the command history on the deformable mirror.
         Must be implemented by subclasses.
@@ -83,6 +105,15 @@ class BaseDeformableMirror(ABC):
         if method is None:
             return cmd
         return compute_slave_cmd(self, cmd, method=method)
+
+    def _slave_cmdmat(self, cmdmat: _ot.ArrayLike, slave: bool | str) -> _ot.MatrixLike:
+        """
+        Apply actuator slaving to a command matrix when requested.
+        """
+        method = self._get_slaving_method(slave)
+        if method is None:
+            return cmdmat
+        return compute_slaved_command_matrix(self, cmdmat, method=method)
 
 
 class BaseCamera(ABC):

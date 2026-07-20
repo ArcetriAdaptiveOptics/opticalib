@@ -36,8 +36,10 @@ from astropy.io.fits import Header
 if TYPE_CHECKING:
     from ..ground.reconstructor import ComputeReconstructor
 
+#################################
+## DATA TYPES AND TYPE ALIASES ##
+#################################
 Reconstructor: TypeAlias = Union["ComputeReconstructor", None]
-
 Number: TypeAlias = Union[int, float, complex]
 
 
@@ -87,6 +89,9 @@ CubeData = TypeVar("CubeData", bound=_CubeProtocol)
 FitsData = TypeVar("FitsData", _FitsArrayProtocol, _FitsMaskedArrayProtocol)
 
 
+####################################
+## DEVICE PROTOCOLS AND TYPE VARS ##
+####################################
 @runtime_checkable
 class _InterfProtocol(Protocol):
     def acquire_map(
@@ -104,8 +109,18 @@ class _CameraProtocol(Protocol):
     def get_exptime(self) -> int | float: ...
 
 
+@runtime_checkable
+class _WFSProtocol(Protocol):
+    def acquire_map(
+        self, nframes: int, delay: int | float, rebin: int
+    ) -> ImageData: ...
+    def acquire_pupil(self, **kwargs: dict[str, Any]) -> ImageData: ...
+    def acquire_detector(self, **kwargs: dict[str, Any]) -> ImageData: ...
+
+
 InterferometerDevice = TypeVar("InterferometerDevice", bound=_InterfProtocol)
 CameraDevice = TypeVar("CameraDevice", bound=_CameraProtocol)
+WFSDevice = TypeVar("WFSDevice", bound=_WFSProtocol)
 
 
 @runtime_checkable
@@ -114,10 +129,12 @@ class _DMProtocol(Protocol):
     def n_acts(self) -> int: ...
     def set_shape(self, cmd: MatrixLike, differential: bool) -> None: ...
     def get_shape(self) -> ArrayLike: ...
-    def upload_cmd_history(self, cmdhist: MatrixLike) -> None: ...
+    def upload_cmd_history(
+        self, cmdhist: MatrixLike, *, slave: bool | str = False
+    ) -> None: ...
     def run_cmd_history(
         self,
-        interf: Optional[InterferometerDevice],
+        wfs: Optional[InterferometerDevice | WFSDevice],
         delay: int | float,
         save: Optional[str],
         differential: bool,
@@ -154,6 +171,10 @@ FakeInterferometerDevice = TypeVar(
 )
 
 GenericDevice = TypeVar("GenericDevice")
+
+#######################
+## UTILITY FUNCTIONS ##
+#######################
 
 
 def array_str_formatter(array: ArrayLike | list[ArrayLike]) -> str | list[str]:
@@ -328,6 +349,7 @@ class InstanceCheck:
         generic_class_map = {
             "DeformableMirrorDevice": _DMProtocol,
             "InterferometerDevice": _InterfProtocol,
+            "WFSDevice": _WFSProtocol,
             "CameraDevice": _CameraProtocol,
             "FakeDeformableMirrorDevice": _FakeDMProtocol,
             "FakeInterferometerDevice": _FakeInterfProtocol,
@@ -365,6 +387,7 @@ class InstanceCheck:
             "DeformableMirrorDevice": cls.generic_check,
             "FakeDeformableMirrorDevice": cls.generic_check,
             "FakeInterferometerDevice": cls.generic_check,
+            "WFSDevice": cls.generic_check,
         }
         if class_name not in checks:
             raise ValueError(f"Unknown class name: {class_name}")

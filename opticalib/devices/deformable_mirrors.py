@@ -12,9 +12,6 @@ Description
 
 """
 
-# FIXME - Change the reading path of _dmc -> slave ids should not be read from the dm
-#           configuration of IFF section
-
 import os as _os
 import numpy as _np
 import time as _time
@@ -80,7 +77,9 @@ class PetalMirror(BasePetalMirror, BaseDeformableMirror):
         cmd = self._apply_slaving(cmd=cmd, slave=slave)
         self._mirror_command(cmd, differential)
 
-    def upload_cmd_history(self, tcmdhist: _ot.MatrixLike) -> None:
+    def upload_cmd_history(
+        self, tcmdhist: _ot.MatrixLike, slave: bool | str = False
+    ) -> None:
         """
         Uploads the (timed) command history to the DM.
 
@@ -88,6 +87,10 @@ class PetalMirror(BasePetalMirror, BaseDeformableMirror):
         ----------
         tcmdhist : _ot.MatrixLike
             The command history to be uploaded, of shape (n_acts, nmodes).
+        slave : bool | str, optional
+            Slaving option for the input command history. If ``True``, the slaving method
+            is chosen automatically; if a string is provided, it is used as method.
+            Default is False.
         """
         if not _ot.isinstance_(tcmdhist, "MatrixLike"):
             self._logger.error(
@@ -96,30 +99,37 @@ class PetalMirror(BasePetalMirror, BaseDeformableMirror):
             raise _oe.MatrixError(
                 f"Expecting a 2D Matrix of shape (n_acts, nmodes), got instead: {tcmdhist.shape}"
             )
+        if slave:
+            tcmdhist = self._slave_cmdmat(cmdmat=tcmdhist, slave=slave)
         self.cmdHistory = tcmdhist
         self._logger.info(f"Loaded Timed command history of shape {tcmdhist.shape}")
 
     def run_cmd_history(
         self,
-        interf: _ot.Optional[_ot.InterferometerDevice] = None,
-        differential: bool = True,
+        wfs: _ot.Optional[_ot.InterferometerDevice | _ot.WFSDevice] = None,
         save: _ot.Optional[str] = None,
+        **setshape_kwargs: dict[str, _ot.Any],
     ) -> None:
         """
         Runs the loaded command history on the DM.
 
         Parameters
         ----------
-        interf : _ot.InterferometerDevice
-            The interferometer device to be used for acquiring images during the command history run.
+        wfs : InterferometerDevice | WFSDevice, optional
+            The wavefront sensor device to be used for acquiring images during the command history run.
         differential : bool, optional
             If True, the commands will be applied as differential commands (default is True).
+        slave : bool | str, optional
+            Slaving option for the input command. If ``True``, the slaving method
+            is chosen automatically; if a string is provided, it is used as method.
+            Default is False.
         save : str, optional
             If provided, the data will be saved in a folder with this name, instead of a freshly
             generated timestamp.
         """
         self._logger.info("Starting to run the command history")
-
+        slave = setshape_kwargs.pop("slave", False)
+        differential = setshape_kwargs.pop("differential", True)
         iff_config = _rc.get_iff_config(key=None)
 
         if self.cmdHistory is None:
@@ -127,7 +137,7 @@ class PetalMirror(BasePetalMirror, BaseDeformableMirror):
             raise _oe.MatrixError("No Command History to run!")
 
         else:
-            if interf is not None:
+            if wfs is not None:
                 if save is None:
                     datafold, tn = _cdf(base_path=_opdi, get_tn=True)
                 else:
@@ -146,11 +156,11 @@ class PetalMirror(BasePetalMirror, BaseDeformableMirror):
 
                 if differential:
                     cmd = cmd + s
-                self.set_shape(cmd)
+                self.set_shape(cmd, **setshape_kwargs, slave=slave)
 
-                if interf is not None:
+                if wfs is not None:
                     _time.sleep(iff_config["delay"])
-                    img = interf.acquire_map()
+                    img = wfs.acquire_map()
                     _sf(_os.path.join(datafold, f"image_{i:05d}.fits"), img)
 
             # Return to starting position
@@ -293,7 +303,9 @@ class AdOpticaDm(BaseAdOpticaDm, BaseDeformableMirror):
         else:
             self._last_cmd = cmd.copy()
 
-    def upload_cmd_history(self, tcmdhist: _ot.MatrixLike) -> None:
+    def upload_cmd_history(
+        self, tcmdhist: _ot.MatrixLike, slave: bool | str = False
+    ) -> None:
         """
         Uploads the (timed) command history in the DM. if `for_triggered` is true,
         then it is loaded direclty in the AO client for the triggere mode run.
@@ -312,6 +324,8 @@ class AdOpticaDm(BaseAdOpticaDm, BaseDeformableMirror):
                 f"Expecting a 2D Matrix of shape (used_acts, nmodes), got instead: {tcmdhist.shape}"
             )
         tcmdhist += self._last_cmd[:, None]
+        if slave:
+            tcmdhist = self._slave_cmdmat(cmdmat=tcmdhist, slave=slave)
         trig = _rc.get_iff_config(None)["triggerMode"]
         self.cmdHistory = tcmdhist.copy()
         if trig is not False:
@@ -321,9 +335,9 @@ class AdOpticaDm(BaseAdOpticaDm, BaseDeformableMirror):
 
     def run_cmd_history(
         self,
-        interf: _ot.Optional[_ot.InterferometerDevice] = None,
-        differential: bool = True,
+        wfs: _ot.Optional[_ot.InterferometerDevice | _ot.WFSDevice] = None,
         save: _ot.Optional[str] = None,
+        **setshape_kwargs: dict[str, _ot.Any],
     ) -> None:
         """
         Runs the loaded command history on the DM. If `triggered` is not False, it must
@@ -331,10 +345,16 @@ class AdOpticaDm(BaseAdOpticaDm, BaseDeformableMirror):
 
         Parameters
         ----------
-        interf : _ot.InterferometerDevice
-            The interferometer device to be used for acquiring images during the command history run.
+        wfs : _ot.InterferometerDevice | _ot.WFSDevice, optional
+            The wavefront sensor device to be used for acquiring images during the command history run.
         differential : bool, optional
             If True, the commands will be applied as differential commands (default is True).
+        slave : bool | str, optional
+            Slaving option for the input command. If ``True``, the slaving method
+            is chosen automatically; if a string is provided, it is used as method.
+
+            Note: it works only in sequential mode, not in triggered mode.
+            Default is False.
         triggered : bool | dict[str, _ot.Any], optional
             If False, the command history will be run in a sequential mode.
             If not False, a dictionary must be provided, where it should contain the keys
@@ -348,6 +368,8 @@ class AdOpticaDm(BaseAdOpticaDm, BaseDeformableMirror):
         dmifconf = _rc.get_iff_config(key=None)
         triggered = dmifconf["triggerMode"]
         sequential_delay = dmifconf["sequentialDelay"]
+        differential: bool = setshape_kwargs.pop("differential", True)
+        slave: bool | str = setshape_kwargs.pop("slave", False)
         if triggered is not False:
             for arg in triggered.keys():
                 if not arg in ["frequency", "cmdDelay"]:
@@ -362,9 +384,9 @@ class AdOpticaDm(BaseAdOpticaDm, BaseDeformableMirror):
             self._logger.info("Executing Command history")
             nframes = self.cmdHistory.shape[-1]
             self._aoClient.timeHistoryRun(freq, 0, tdelay)
-            if interf is not None:
-                with interf.triggered():
-                    interf.capture(nframes - 2, save)
+            if wfs is not None:
+                with wfs.triggered():
+                    wfs.capture(nframes - 2, save)
             self.set_shape(ins)
             self._logger.info("Command history execution completed")
 
@@ -377,17 +399,17 @@ class AdOpticaDm(BaseAdOpticaDm, BaseDeformableMirror):
                 print(f"{tn} - {self.cmdHistory.shape[-1]} images to go.")
                 datafold = _os.path.join(self.baseDataPath, tn)
                 s = self.get_shape() - self._biasCmd
-                if not _os.path.exists(datafold) and interf is not None:
+                if not _os.path.exists(datafold) and wfs is not None:
                     _os.mkdir(datafold)
                 self._logger.info("Executing Command history")
                 for i, cmd in enumerate(self.cmdHistory.T):
                     print(f"{i+1}/{self.cmdHistory.shape[-1]}", end="\r", flush=True)
                     if differential:
                         cmd = cmd + s
-                    self.set_shape(cmd)
-                    if interf is not None:
+                    self.set_shape(cmd, **setshape_kwargs, slave=slave)
+                    if wfs is not None:
                         _time.sleep(sequential_delay)
-                        img = interf.acquire_map()
+                        img = wfs.acquire_map()
                         path = _os.path.join(datafold, f"image_{i:05d}.fits")
                         _sf(path, img)
                 self._logger.info("Command history execution completed")
@@ -677,7 +699,9 @@ class AlpaoDm(BaseAlpaoMirror, BaseDeformableMirror):
         zero = _np.zeros(self.n_acts)
         self.set_shape(zero)
 
-    def upload_cmd_history(self, tcmdhist: _ot.MatrixLike) -> None:
+    def upload_cmd_history(
+        self, tcmdhist: _ot.MatrixLike, *, slave: bool | str = False
+    ) -> None:
         """
         Upload a command history to the DM.
 
@@ -686,61 +710,72 @@ class AlpaoDm(BaseAlpaoMirror, BaseDeformableMirror):
         tcmdhist : np.array
             Command history to be uploaded. Should be a 2D matrix of shape
             (nacts, nmodes).
+        slave : bool | str, optional
+            Slaving option for the input command history. If ``True``, the slaving method
+            is chosen automatically; if a string is provided, it is used as method.
         """
         if not _ot.isinstance_(tcmdhist, "MatrixLike"):
             raise _oe.MatrixError(
                 f"Expecting a 2D Matrix of shape (nacts, nmodes), got instead: {tcmdhist.shape}"
             )
+        if slave:
+            tcmdhist = self._slave_cmdmat(cmdmat=tcmdhist, slave=slave)
         self.cmdHistory = tcmdhist
 
     def run_cmd_history(
         self,
-        interf: _ot.InterferometerDevice = None,
+        wfs: _ot.Optional[_ot.InterferometerDevice | _ot.WFSDevice] = None,
         save: str = None,
-        differential: bool = True,
+        **setshape_kwargs: dict[str, _ot.Any],
     ) -> str:
         """
         Runs the command history on the DM.
 
         Parameters
         ----------
-        interf : InterferometerDevice, optional
-            Interferometer device to acquire images.
+        wfs : InterferometerDevice | WFSDevice, optional
+            Wavefront sensor device to acquire images.
         save : str, optional
             Directory to save the acquired images.
         differential : bool, optional
             If True, the command is applied differentially (added to the current shape).
+        slave : bool | str, optional
+            Slaving option for the input command. If ``True``, the slaving method
+            is chosen automatically; if a string is provided, it is used as method.
+            Default is False.
 
         Returns
         -------
-        str
+        tn : str
             Tracking number of the directory where the images are saved.
 
         """
         delay: float = _rc.get_iff_config(key=None).get("sequentialDelay", 0.0)
+        differential: bool = setshape_kwargs.get("differential", True)
+        slaving: bool | str = setshape_kwargs.get("slave", False)
 
         if self.cmdHistory is None:
             raise _oe.MatrixError("No Command History to run!")
 
         s = self.get_shape()
 
-        if isinstance(interf, tuple):
+        if isinstance(wfs, tuple):
             import types
 
-            if isinstance(interf[0], (types.FunctionType, types.MethodType)):
+            if isinstance(wfs[0], (types.FunctionType, types.MethodType)):
                 tn = []
                 for i, cmd in enumerate(self.cmdHistory.T):
                     if differential:
                         cmd = cmd + s
-                    self.set_shape(cmd)
-                    if interf is not None:
+                    self.set_shape(cmd, slave=slaving)
+                    if wfs is not None:
                         _time.sleep(delay)
-                        img = interf[0](*interf[1:])
+                        img = wfs[0](*wfs[1:])
                         tn.append(img)
 
         else:
 
-            if interf is not None:
+            if wfs is not None:
                 if save is None:
                     datafold, tn = _cdf(base_path=_opdi, get_tn=True)
                 else:
@@ -754,15 +789,15 @@ class AlpaoDm(BaseAlpaoMirror, BaseDeformableMirror):
 
                 if differential:
                     cmd = cmd + s
-                self.set_shape(cmd)
+                self.set_shape(cmd, slave=slaving)
 
-                if interf is not None:
+                if wfs is not None:
                     _time.sleep(delay)
-                    img = interf.acquire_map()
+                    img = wfs.acquire_map()
                     _sf(_os.path.join(datafold, f"image_{i:05d}.fits"), img)
 
         # get back to the starting shape
-        self.set_shape(s)
+        self.set_shape(s, slave=slaving)
         return tn
 
     def visualize_shape(self, cmd: _ot.ArrayLike = None, **kwargs: dict[str, _ot.Any]):
@@ -876,7 +911,7 @@ class SplattDm(BaseDeformableMirror):
 
     def run_cmd_history(
         self,
-        interf: _ot.Optional[_ot.InterferometerDevice] = None,
+        wfs: _ot.Optional[_ot.InterferometerDevice | _ot.WFSDevice] = None,
         delay: int | float = 0.2,
         save: _ot.Optional[str] = None,
         differential: bool = True,
@@ -891,7 +926,7 @@ class SplattDm(BaseDeformableMirror):
             s = self._dm.get_position_command()  # self._dm.flatPos # self.get_shape()
             if read_buffers is True:
                 delay = 0.0
-            if not _os.path.exists(datafold) and interf is not None:
+            if not _os.path.exists(datafold) and wfs is not None:
                 _os.mkdir(datafold)
             for i, cmd in enumerate(self.cmdHistory.T):
                 print(f"{i+1}/{self.cmdHistory.shape[-1]}", end="\r", flush=True)
@@ -905,9 +940,9 @@ class SplattDm(BaseDeformableMirror):
                     path = _os.path.join(datafold, f"buffer_{i:05d}.fits")
                     hdr_dict = {"BUF_TN": str(bufTN)}
                     _sf(path, [pos, cur], hdr_dict)
-                if interf is not None:
+                if wfs is not None:
                     _time.sleep(delay)
-                    img = interf.acquire_map()
+                    img = wfs.acquire_map()
                     path = _os.path.join(datafold, f"image_{i:05d}.fits")
                     _sf(path, img)
         self.set_shape(s)

@@ -10,12 +10,15 @@ from opticalib.ground import osutils as osu
 from opticalib.core.root import folders as fp
 from opticalib.ground.logger import SystemLogger as _SL
 from opticalib.ground.modal_decomposer import ZernikeFitter as _ZF
-from opticalib.dmutils.slaving import compute_slave_cmd as _compute_slave_cmd
+from opticalib.dmutils.slaving import (
+    compute_slave_cmd as _compute_slave_cmd,
+    compute_slaved_command_matrix as _compute_slaved_command_matrix,
+)
 
 
 def _apply_slaving(
     dm: _t.FakeDeformableMirrorDevice,
-    cmd: _t.ArrayLike,
+    cmd: _t.ArrayLike | _t.MatrixLike,
     slave: bool | str,
 ) -> _t.ArrayLike:
     """
@@ -29,6 +32,8 @@ def _apply_slaving(
         method = "zero-force" if len(dm.border_ids) == 0 else "minimum-rms"
     else:
         return cmd
+    if _t.isinstance_(cmd, "MatrixLike"):
+        return _compute_slaved_command_matrix(dm, cmd, method=method)
     return _compute_slave_cmd(dm, cmd, method=method)
 
 
@@ -294,32 +299,39 @@ class AlpaoDm(BaseFakeAlpao):
         """
         return self._actPos.copy()
 
-    def upload_cmd_history(self, cmdhist: _t.MatrixLike):
+    def upload_cmd_history(self, cmdhist: _t.MatrixLike, slave: bool | str = False):
         """
         Upload the command history to the deformable mirror memory.
         Ready to run the `run_cmd_history` method.
+
+        Parameters
+        ----------
+        cmdhist : MatrixLike
+            Command history to be uploaded to the deformable mirror.
+        slave : bool | str
+            If True, apply slaving to the command history. If a string is provided,
+            it specifies the slaving method to be used.
         """
         self._logger.info(
             f"Uploading command history of shape {cmdhist.shape} to {self._name}"
         )
-        self.cmdHistory = cmdhist
+        self.cmdHistory = _apply_slaving(self, cmdhist, slave)
 
     def run_cmd_history(
         self,
-        interf: _t.InterferometerDevice = None,
+        wfs: _t.InterferometerDevice | _t.WFSDevice | None = None,
         save: str = None,
         rebin: int = 1,
-        modal: bool = False,
-        differential: bool = True,
         delay: float = 0,
+        **setshape_kwargs: dict[str, _t.Any],
     ):
         """
         Runs the command history on the deformable mirror.
 
         Parameters
         ----------
-        interf : Interferometer
-            Interferometer object to acquire the phase map.
+        wfs : Interferometer or WFSDevice
+            Interferometer or WFSDevice object to acquire the data.
         rebin : int
             Rebinning factor for the acquired phase map.
         modal : bool
@@ -327,12 +339,18 @@ class AlpaoDm(BaseFakeAlpao):
         differential : bool
             If True, the command history is applied differentially
             to the initial shape.
+        slave : bool | str
+            If True, apply slaving to the command history. If a string is provided,
+            it specifies the slaving method to be used.
+        **setshape_kwargs : dict
+            Additional keyword arguments to be passed to the `set_shape` method.
 
         Returns
         -------
         tn :str
             Timestamp of the data saved.
         """
+        differential = setshape_kwargs.pop("differential", True)
         if self.cmdHistory is None:
             self._logger.error("No Command History found in memory!")
             raise Exception("No Command History to run!")
@@ -340,8 +358,8 @@ class AlpaoDm(BaseFakeAlpao):
             self._logger.info(
                 f"Running command history of shape {self.cmdHistory.shape}"
             )
-            if all([interf is not None, interf._live is True, interf._surf is False]):
-                interf.toggle_surface_view()
+            if all([wfs is not None, wfs._live is True, wfs._surf is False]):
+                wfs.toggle_surface_view()
             tn = osu.newtn() if save is None else save
             print(f"{tn} - {self.cmdHistory.shape[-1]} images to go.")
             datafold = os.path.join(fp.OPD_IMAGES_ROOT_FOLDER, tn)
@@ -352,10 +370,10 @@ class AlpaoDm(BaseFakeAlpao):
                 print(f"{i+1}/{self.cmdHistory.shape[-1]}", end="\r", flush=True)
                 if differential:
                     cmd = cmd + s
-                self.set_shape(cmd, modal=modal)
-                if interf is not None:
+                self.set_shape(cmd, **setshape_kwargs)
+                if wfs is not None:
                     time.sleep(delay)
-                    img = interf.acquire_map(rebin=rebin)
+                    img = wfs.acquire_map(rebin=rebin)
                     path = os.path.join(datafold, f"image_{i:05d}.fits")
                     osu.save_fits(path, img)
         self.set_shape(s)

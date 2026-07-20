@@ -11,16 +11,16 @@ Author(s):
 
 import os as _os
 import numpy as _np
+from opticalib.core import _types as _ot
+from opticalib.ground import osutils as _osu
+from ..dmutils import iff_preparation as _ifa
 from opticalib.core.root import folders as _fn
 from opticalib.core import config as _rif, exceptions as _oe
-from ..dmutils import iff_preparation as _ifa
-from opticalib.ground import osutils as _osu
-from opticalib.core import _types as _ot
 
 
 def iff_data_acquisition(
     dm: _ot.DeformableMirrorDevice,
-    interf: _ot.InterferometerDevice,
+    wfs: _ot.InterferometerDevice | _ot.WFSDevice,
     modesList: _ot.Optional[_ot.ArrayLike] = None,
     amplitude: _ot.Optional[float | _ot.ArrayLike] = None,
     template: _ot.Optional[_ot.ArrayLike] = None,
@@ -28,6 +28,7 @@ def iff_data_acquisition(
     shuffle: bool = False,
     n_repetitions: int = 1,
     read_buffer: bool | dict[str, _ot.Any] = False,
+    **setshape_kwargs: dict[str, _ot.Any],
 ) -> str:
     """
     This is the user-lever function for the acquisition of the IFF data, given a
@@ -40,8 +41,8 @@ def iff_data_acquisition(
     ----------
     dm: DeformableMirrorDevice
         The inizialized deformable mirror object
-    interf: InterferometerDevice
-        The initialized interferometer object to take measurements
+    wfs: InterferometerDevice | WFSDevice
+        The initialized wavefront sensor object to take measurements
     modesList: ArrayLike , optional
         list of modes index to be measured, relative to the command matrix to be used
     amplitude: float | ArrayLike, optional
@@ -58,6 +59,16 @@ def iff_data_acquisition(
         If True, read the buffer data with default parameters.
         If a dictionary is provided, it is passed as keyword arguments to the
         `read_buffer` method of the deformable mirror device.
+    slave: bool | str, optional
+        If True, the deformable mirror device is set to slave mode during the
+        acquisition. If a string is provided, it specifies the slaving method to
+        be used. Default to False
+
+    Other Parameters
+    ----------------
+    **dm_wkargs: dict[str, Any]
+        Additional keyword arguments to be passed to the deformable mirror device
+        ``set_shape`` method.
 
     Returns
     -------
@@ -95,12 +106,8 @@ def iff_data_acquisition(
     _rif.update_iff_config(
         tn, item=list(pars2update.keys()), value=list(pars2update.values())
     )
-    # for param, value in zip(
-    #     ["modeid", "modeamp", "template"], [modesList, amplitude, template]
-    # ):
-    #     if value is not None:
-    #         _rif.update_iff_config(tn, param, value)
-    dm.upload_cmd_history(tch)
+    slaving = setshape_kwargs.pop("slave", False)
+    dm.upload_cmd_history(tch, slave=slaving)
     if read_buffer is not False:
         try:
             if not hasattr(dm, "read_buffer"):
@@ -112,18 +119,18 @@ def iff_data_acquisition(
             else:
                 rb_kwargs = {}
             with dm.read_buffer(**rb_kwargs):
-                dm.run_cmd_history(interf, save=tn)
+                dm.run_cmd_history(wfs, save=tn, **setshape_kwargs)
             save_buffer_data(dm, tn)
         except _oe.BufferError as be:
             print(be)
     else:
-        _ = dm.run_cmd_history(interf, save=tn)
+        _ = dm.run_cmd_history(wfs, save=tn, **setshape_kwargs)
     return tn
 
 
 def piston_data_acquisition(
     dm: _ot.DeformableMirrorDevice,
-    interf: _ot.InterferometerDevice,
+    wfs: _ot.InterferometerDevice | _ot.WFSDevice,
     segmentID: int = 0,
     *,
     template: list[int],
@@ -145,8 +152,8 @@ def piston_data_acquisition(
     ----------
     dm: DeformableMirrorDevice
         The inizialized deformable mirror object
-    interf: InterferometerDevice
-        The initialized interferometer object to take measurements
+    wfs: InterferometerDevice | WFSDevice
+        The initialized wavefront sensor object to take measurements
     template: list[int]
         The template defining the stepping pattern. Must have an odd length.
     stepamp: float, optional
@@ -228,12 +235,12 @@ def piston_data_acquisition(
             else:
                 rb_kwargs = {}
             with dm.read_buffer(**rb_kwargs):
-                dm.run_cmd_history(interf, save=tn, differential=differential)
+                dm.run_cmd_history(wfs, save=tn, differential=differential)
             save_buffer_data(dm, tn)
         except _oe.BufferError as be:
             print(be)
     else:
-        _ = dm.run_cmd_history(interf, save=tn, differential=differential)
+        _ = dm.run_cmd_history(wfs, save=tn, differential=differential)
     return tn
 
 
@@ -318,9 +325,7 @@ def _prepare_stepping_amplitudes(
     nstep: int
         The number of steps in the sequence.
     stepamp: float, optional
-        The amplitude of each step. Default is 25e-6.
-    substep_amp: int, optional
-        The amplitude of the substep. Default is 25e-6.
+        The amplitude of each step. Default is 70e-9.
     reverse: bool, optional
         If True, appends the reverse of the sequence to itself. Default is False.
     """
