@@ -90,7 +90,7 @@ class ComputeReconstructor:
             The threshold for the singular values. If None, the function will
             compute the pseudo-inverse of the interaction matrix.
 
-            If an integeris provided, it will be used an index threshold.
+            If an integer is provided, it will be used as an index threshold.
 
             If a float is provided, it will be used as a value threshold.
 
