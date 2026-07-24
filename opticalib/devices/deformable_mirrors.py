@@ -533,8 +533,9 @@ class DP(AdOpticaDm):
 
             for act_idx in range(subsys_nacts):
                 tmp = bufData[f"ch{act_idx:04d}"]
+                result[act_idx] = {}
                 for k, idx in zip(keys, range(tmp.shape[1])):
-                    result[k] = tmp[:, idx]
+                    result[act_idx][k] = tmp[:, idx]
 
             # Store in both the yielded dict and class attribute
             self.bufferData = result.copy()
