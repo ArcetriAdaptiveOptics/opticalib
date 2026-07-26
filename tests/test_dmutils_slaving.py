@@ -268,7 +268,7 @@ class TestComputeSlavedIM:
         dm = _FakeDM(nActs, slaveIds=[8, 9], borderIds=[6, 7])
         npix = 50
         IM = np.random.randn(nActs, npix)
-        result = slaving.compute_slaved_IM(dm, IM)
+        result = slaving.compute_slaved_IM(dm, im_modal=IM)
 
         assert isinstance(result, np.ndarray)
         assert result.ndim == 2
@@ -279,7 +279,7 @@ class TestComputeSlavedIM:
         dm = _FakeDM(nActs, slaveIds=[8, 9], borderIds=[6, 7])
         npix = 50
         IM = np.random.randn(nActs, npix)
-        result = slaving.compute_slaved_IM(dm, IM, method="zero-force")
+        result = slaving.compute_slaved_IM(dm, im_modal=IM, method="zero-force")
 
         assert isinstance(result, np.ndarray)
         assert result.ndim == 2
@@ -289,7 +289,7 @@ class TestComputeSlavedIM:
         dm = _FakeDMNoFF(10, slaveIds=[8, 9])
         IM = np.random.randn(10, 50)
         with pytest.raises(oe.DeviceAttributeError):
-            slaving.compute_slaved_IM(dm, IM)
+            slaving.compute_slaved_IM(dm, im_modal=IM)
 
 
 class TestComputeSlavedMat:

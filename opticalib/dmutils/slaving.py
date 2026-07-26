@@ -110,7 +110,7 @@ def compute_slaved_command_matrix(
     return _xp.asnumpy(nCMDMAT.T)
 
 
-def compute_slaved_im(
+def compute_slaved_IM(
     dm: _ot.DeformableMirrorDevice,
     im_zonal: _ot.MatrixLike = None,
     im_modal: _ot.MatrixLike = None,
