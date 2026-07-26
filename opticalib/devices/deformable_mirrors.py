@@ -450,8 +450,8 @@ class DP(AdOpticaDm):
         ------
         dict
             A dictionary that will be populated with buffer results:
-            - 'actPos': actuator positions (222, buffer_length)
-            - 'actForce': actuator forces (222, buffer_length)
+            - 'actPos': actuator positions (buffer_length, 111)
+            - 'actForce': actuator forces (buffer_length, 111)
 
         Example
         -------
@@ -531,11 +531,18 @@ class DP(AdOpticaDm):
                 "actForce",  # 16
             ]
 
+            # Pre-allocating the buffer matrices and dtypes
+            first_channel = bufData["ch0000"]
+            for key, idx in zip(keys, range(first_channel.shape[1])):
+                result[key] = _np.empty(
+                    (first_channel.shape[0], subsys_nacts),
+                    dtype=first_channel[:, idx].dtype,
+                )
+
             for act_idx in range(subsys_nacts):
                 tmp = bufData[f"ch{act_idx:04d}"]
-                result[act_idx] = {}
-                for k, idx in zip(keys, range(tmp.shape[1])):
-                    result[act_idx][k] = tmp[:, idx]
+                for key, idx in zip(keys, range(tmp.shape[1])):
+                    result[key][:, act_idx] = tmp[:, idx]
 
             # Store in both the yielded dict and class attribute
             self.bufferData = result.copy()
