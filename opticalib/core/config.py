@@ -221,7 +221,7 @@ def get_device_config(device_type: str, device_name: str | None = None):
         config = get_section_config("DEVICES", device_type)
         if device_name is not None:
             config = config[device_name]
-    except KeyError:
+    except (KeyError, TypeError):
         raise DeviceNotFoundError(
             f"{device_type} '{device_name}' not found in configuration."
         )

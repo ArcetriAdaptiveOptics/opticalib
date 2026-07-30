@@ -454,10 +454,10 @@ class DP(AdOpticaDm):
         self.nSegments: int = 2
         self.nActsPerSegment: int = 111
         try:
-            dp_config = _rc.get_device_config("DEFORMABLE.MIRRORS", "DP")
+            dp_config = _rc.get_device_config("DEFORMABLE.MIRRORS", self._name)
             self._slaveIds = dp_config.get("slave_ids", [])
             self._borderIds = dp_config.get("border_ids", [])
-        except KeyError:
+        except _oe.DeviceNotFoundError:
             self._slaveIds = []
             self._borderIds = []
 
