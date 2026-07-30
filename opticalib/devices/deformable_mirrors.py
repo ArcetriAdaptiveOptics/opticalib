@@ -196,7 +196,7 @@ class AdOpticaDm(BaseAdOpticaDm, BaseDeformableMirror):
         """
         Retrieve the actuators positions
         """
-        pos = self._aoClient.get_position()
+        pos = self._aoClient.getPosition()
         return pos
 
     def set_to_initial_shape(self):

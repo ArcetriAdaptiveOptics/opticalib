@@ -63,7 +63,7 @@ class BaseAdOpticaDm:
 
         """
         # micLibrary.get_force()
-        force = self._aoClient.get_force()
+        force = self._aoClient.getForce()
         return force
 
     def plot_acts(self, amp: ot.Optional[ot.ArrayLike] = None, **kwargs):
