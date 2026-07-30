@@ -198,7 +198,7 @@ class _4DInterferometer(BaseWavefrontSensor):
         fold4d = _os.path.join(_Folds.CAPTURE_FOLDER_NAME_4D_PC, folder_name)
         self._i4d.burstFramesToSpecificDirectory(fold4d, numberOfFrames)
         self.save_configuration(_os.path.join(fold4d, "SoftwareSettings.4dini"))
-        self.copy4_d_settings(
+        self.copy_4d_settings(
             _os.path.join(_Folds.CAPTURE_FOLDER_NAME_LOCAL_PC, folder_name),
             iscapture=True,
         )
@@ -248,7 +248,7 @@ class _4DInterferometer(BaseWavefrontSensor):
                 )
             except Exception as e:
                 print(e)
-            self.copy4_d_settings(
+            self.copy_4d_settings(
                 dest=dest_data_fold, src=capture_local, iscapture=False
             )
 

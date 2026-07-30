@@ -326,7 +326,7 @@ class AdOpticaDm(BaseAdOpticaDm, BaseDeformableMirror):
         tcmdhist += self._last_cmd[:, None]
         if slave:
             tcmdhist = self._slave_cmdmat(cmdmat=tcmdhist, slave=slave)
-        trig = _rc.get_iff_config(None)["triggerMode"]
+        trig = _rc.get_iff_config(None)["triggered_mode"]
         self.cmdHistory = tcmdhist.copy()
         if trig is not False:
             self._aoClient.timeHistoryUpload(tcmdhist)
@@ -366,20 +366,20 @@ class AdOpticaDm(BaseAdOpticaDm, BaseDeformableMirror):
             If provided, the command history will be saved with this name as a timestamp.
         """
         dmifconf = _rc.get_iff_config(key=None)
-        triggered = dmifconf["triggerMode"]
-        sequential_delay = dmifconf["sequentialDelay"]
+        triggered = dmifconf["triggered_mode"]
+        sequential_delay = dmifconf["sequential_delay"]
         differential: bool = setshape_kwargs.pop("differential", True)
         slave: bool | str = setshape_kwargs.pop("slave", False)
         if triggered is not False:
             for arg in triggered.keys():
-                if not arg in ["frequency", "cmdDelay"]:
+                if not arg in ["frequency", "cmd_delay"]:
                     raise _oe.CommandError(
                         f"Invalid argument '{arg}' in triggered commands."
                     )
             if self.cmdHistory is None:
                 raise _oe.CommandError("No Command History uploaded!")
             freq = triggered.get("frequency", 1.0)
-            tdelay = triggered.get("cmdDelay", 0.8)
+            tdelay = triggered.get("cmd_delay", 0.8)
             ins = self._last_cmd.copy()
             self._logger.info("Executing Command history")
             nframes = self.cmdHistory.shape[-1]
@@ -506,7 +506,7 @@ class DP(AdOpticaDm):
             raise _oe.BufferError(
                 "Missing `total_frames` value: either load a command history or provide the variable's value"
             )
-        triggered = _rc.get_iff_config(key=None).get("triggerMode")
+        triggered = _rc.get_iff_config(key=None).get("triggered_mode")
         if triggered is not False:
             thistfreq = triggered.get("frequency", 1.0)
         if segment == 0:
