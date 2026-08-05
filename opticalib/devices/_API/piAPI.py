@@ -200,15 +200,18 @@ class BasePetalMirror:
 
         try:
             if not self._had_morning_routine:
-                for k, dev in enumerate(self._devices):
-                    self._logger.info(
-                        f"Warming up piezos for segment {k} : {self._ip_addresses[k]}"
-                    )
-                    for c in [0, 6, 12, 6, 0, 6, 12, 6, 0, 6]:
+                self._logger.info(
+                    f"Warming up the segments piezos."
+                )
+                pos = self._read_act_position()
+                routine = [0,6,12,6]*4
+                for c in routine:
+                    for dev in self._devices:
                         dev.MOV({"1": c})
-                        time.sleep(0.25)
+                        time.sleep(0.2)
                         dev.checkerror()
                 self._had_morning_routine = True
+                self._mirror_command(pos, differential=False)
         except GCSError as err:
             self._logger.error(f"Error during warming up: {err}")
             self._had_error = True
