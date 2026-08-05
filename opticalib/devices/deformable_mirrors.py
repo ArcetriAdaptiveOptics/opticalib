@@ -483,9 +483,8 @@ class DP(AdOpticaDm):
         Yields
         ------
         dict
-            A dictionary that will be populated with buffer results:
-            - 'actPos': actuator positions (222, buffer_length)
-            - 'actForce': actuator forces (222, buffer_length)
+            A dictionary that will be populated with buffer results
+            
 
         Example
         -------

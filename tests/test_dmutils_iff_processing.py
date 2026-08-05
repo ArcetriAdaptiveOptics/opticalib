@@ -126,6 +126,11 @@ class TestStackCubes:
         osutils.save_fits(
             os.path.join(tn2_folder, ifp._AMP_FILE), amp_vec2, overwrite=True
         )
+        
+        amp_vec2 = np.array([0.1, 0.2, 0.3, 0.4, 0.5])
+        osutils.save_fits(
+            os.path.join(tn2_folder, "ampVector.fits"), amp_vec2, overwrite=True
+        )
 
         tnlist = [tn1, tn2]
         monkeypatch.setattr(ifp, "_check_stacked_cubes", lambda tn_list: {'Flag':{'Cube type': 'sequential stack'}})

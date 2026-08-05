@@ -3,8 +3,7 @@ import matplotlib.pyplot as _plt
 from ..core import _types as _t
 from ..analyzer import mode_rebinner as rebinned
 from matplotlib.animation import FuncAnimation as _FuncAnimation
-from ..ground.logger import SystemLogger as _SL
-from ..ground.roi import roi_generator as _rg
+from opticalib.ground.logger import SystemLogger as _SL
 
 _conf = {
     "width": 512,
@@ -189,13 +188,9 @@ class Fake4DInterf:
         )
         imglist = []
         for _ in range(nframes):
-            masked_ima = self._dm._shape.copy()
-            if self._phase_ambiguity:
-                rois = _rg(masked_ima)
-                for roi in rois:
-                    masked_ima[roi == 0] += self._lambda * _np.floor(
-                        _np.random.random(1) * 5 - 2
-                    )
+            img = self._dm._shape
+            kk = _np.floor(_np.random.random(1) * 5 - 2)
+            masked_ima = img + _np.ones(img.shape) * self._lambda * kk
             imglist.append(masked_ima)
         image = _np.ma.dstack(imglist)
         image = _np.mean(image, axis=2)
@@ -262,14 +257,6 @@ class Fake4DInterf:
     # --------------------------------------------------------------------------
     # Series of functions to control the behavior of the live interferometer
     # --------------------------------------------------------------------------
-    def toggle_phase_ambiguity(self):
-        """
-        Toggles the phase ambiguity of the interferometer.
-        """
-        self._logger.info(
-            f"Toggling phase ambiguity: now {'on' if not self._phase_ambiguity else 'off'}"
-        )
-        self._phase_ambiguity = not self._phase_ambiguity
 
     def toggle_shape_removal(self, modes: list[int]):
         """

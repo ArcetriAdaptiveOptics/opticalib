@@ -333,10 +333,9 @@ def cube_roi_processing(
     )
     load_path = _os.path.join(_fn.INTMAT_ROOT_FOLDER, tn)
 
-    cube = _osu.load_fits(_os.path.join(load_path, _CUBE_FILE)).transpose(2, 0, 1)
-    cmdmat = _osu.load_fits(_os.path.join(load_path, _MATRIX_FILE))
-    modesvec = _osu.load_fits(_os.path.join(load_path, _MODES_FILE))
-    ampvect = _osu.load_fits(_os.path.join(load_path, _AMP_FILE))
+    cube = _osu.load_fits(_os.path.join(load_path, "IMCube.fits")).transpose(2, 0, 1)
+    cmdmat = _osu.load_fits(_os.path.join(load_path, "cmdMatrix.fits"))
+    modesvec = _osu.load_fits(_os.path.join(load_path, "modesVector.fits"))
 
     zfitter = _zern.ZernikeFitter(fitting_mask)
 
@@ -388,10 +387,11 @@ def cube_roi_processing(
     if not _os.path.exists(save_path):
         _os.makedirs(save_path)
 
-    _osu.save_fits(_os.path.join(save_path, _CUBE_FILE), newcube, overwrite=True)
-    _osu.save_fits(_os.path.join(save_path, _MATRIX_FILE), cmdmat, overwrite=True)
-    _osu.save_fits(_os.path.join(save_path, _MODES_FILE), modesvec, overwrite=True)
-    _osu.save_fits(_os.path.join(save_path, _AMP_FILE), ampvect, overwrite=True)
+    _osu.save_fits(_os.path.join(save_path, "IMCube.fits"), newcube, overwrite=True)
+    _osu.save_fits(_os.path.join(save_path, "cmdMatrix.fits"), cmdmat, overwrite=True)
+    _osu.save_fits(
+        _os.path.join(save_path, "modesVector.fits"), modesvec, overwrite=True
+    )
 
     return newtn
 
@@ -936,18 +936,9 @@ def get_iff_file_matrix(tn: str, info: dict[str, _ot.Any]) -> _ot.ArrayLike:
         _os.path.isdir(fold)
     else:
         fold = None
-    try:
-        fileList = _osu.get_file_list(
-            tn, fold="OPDImages" if fold is None else fold, key="image_"
-        )
-        if len(fileList) == 0:
-            raise KeyError(f"No image files found with key `image_`")
-    except KeyError as ke:
-        fileList = _osu.get_file_list(
-            tn, fold="OPDImages" if fold is None else fold, key=".4D"
-        )
-        if len(fileList) == 0:
-            raise KeyError(f"No image files found with key `.4D`") from ke
+    fileList = _osu.getFileList(
+        tn, fold="OPDImages" if fold is None else fold, key="image_"
+    )
 
     infoIF = info["IFFUNC"]
     _, regEnd = get_reg_frames(tn, info)
@@ -1222,7 +1213,7 @@ def _check_stacked_cubes(tnlist: str) -> dict[str, _ot.Any]:
     flag : dict
         Dictionary containing the flagging information about the stacked cube.
     """
-    _, _, modesVectList, _, rebin = _get_cube_list(tnlist)
+    _, _, modesVectList, rebin = _getCubeList(tnlist)
     nmodes = len(modesVectList[0])
     nvects = len(modesVectList)
     for i in range(nvects):
