@@ -355,7 +355,7 @@ class StitchAnalysis:
 
     def reload_constants(self) -> None:
         """Reload the constants from the configuration file"""
-        self.constants = _gsc()
+        self.constants = _gsc("STITCHING")
         print("Constants reloaded")
 
     def _check_cube_dimension(self, cube: _ot.CubeData) -> _ot.CubeData:

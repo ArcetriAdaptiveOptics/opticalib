@@ -8,5 +8,5 @@ opticalib.procedures.measurements
 
    .. autosummary::
    
-      Measurements
+      TimeSeries
    

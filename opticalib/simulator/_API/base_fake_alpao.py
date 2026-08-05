@@ -223,6 +223,8 @@ class BaseFakeAlpao(ABC):
         max_x, max_y = self._mask.shape
         if not self.actCoords.shape[1] == 2:
             act_coords = self.actCoords.T  # shape: (n_acts, 2)
+        else:
+            act_coords = self.actCoords  # shape: (n_acts, 2)
         act_pix_coords = np.zeros((self.n_acts, 2), dtype=int)
         act_pix_coords[:, 0] = (
             act_coords[:, 1] / np.max(act_coords[:, 1]) * max_x
