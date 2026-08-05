@@ -21,7 +21,7 @@ These include:
 
 from . import iff
 from .alignment import Alignment
-from .phasing import SPL  # FIXME
+from .phasing import SPL
 from .measurements import TimeSeries
 
 from .iff import iff_data_acquisition, piston_data_acquisition

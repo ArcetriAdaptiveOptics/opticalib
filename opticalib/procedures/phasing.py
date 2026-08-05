@@ -28,7 +28,7 @@ def _get_tunable_filter():
 _FILTER_BANDWIDTH_MODE = {"narrow": 8, "medium": 4, "wide": 2, "black": 1}
 
 
-class PistonPhasing:
+class SPL:
     """
     Sensor for Phase Lag
     ====================

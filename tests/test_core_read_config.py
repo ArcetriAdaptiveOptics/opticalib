@@ -360,7 +360,7 @@ class TestUpdateIffConfig:
 
         monkeypatch.setattr(read_config, "_iffold", temp_dir)
         value = np.array([1, 1, 2, 2, 3, 3, 4, 5, 6])
-        read_config.updateIffConfig(tn, "modeid", value)
+        read_config.update_iff_config(tn, "modeid", value)
 
         saved = read_config.load_yaml_config(iff_config)
         assert saved["IFFUNC"]["modeid"] == "[1,1,2,2,3,3,4,5,6]"
@@ -376,7 +376,7 @@ class TestUpdateIffConfig:
 
         monkeypatch.setattr(read_config, "_iffold", temp_dir)
         value = np.array([1, 2, 3, 4])
-        read_config.updateIffConfig(tn, "modeid", value)
+        read_config.update_iff_config(tn, "modeid", value)
 
         saved = read_config.load_yaml_config(iff_config)
         assert saved["IFFUNC"]["modeid"] == "np.arange(1, 5, 1)"
