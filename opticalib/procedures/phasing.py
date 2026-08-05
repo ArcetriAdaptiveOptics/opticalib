@@ -28,9 +28,7 @@ def _get_tunable_filter():
 _FILTER_BANDWIDTH_MODE = {"narrow": 8, "medium": 4, "wide": 2, "black": 1}
 
 
-# FIXME: Change the name from SPL to a generig PhasingProcedure (or smlt)
-# Also include the interferometer for the full procedure
-class SPL:
+class PistonPhasing:
     """
     Sensor for Phase Lag
     ====================
