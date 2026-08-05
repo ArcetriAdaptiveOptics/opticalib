@@ -45,7 +45,7 @@ class TestFlattening:
         tn, tn_folder = sample_int_matrix_folder
 
         f = flt.Flattening(tn)
-        f.loadImage2Shape(sample_image)
+        f.load_image2_shape(sample_image)
 
         assert f.shape2flat is not None
         assert isinstance(f.shape2flat, ma.MaskedArray)
@@ -55,8 +55,8 @@ class TestFlattening:
         tn, tn_folder = sample_int_matrix_folder
 
         f = flt.Flattening(tn)
-        f.loadImage2Shape(sample_image)
-        f.computeRecMat(5)
+        f.load_image2_shape(sample_image)
+        f.compute_rec_mat(5)
 
         assert f.RM is not None
         assert isinstance(f.RM, np.ndarray)
@@ -66,25 +66,25 @@ class TestFlattening:
         tn, tn_folder = sample_int_matrix_folder
 
         f = flt.Flattening(tn)
-        f.loadImage2Shape(sample_image)
-        f.computeRecMat(5)
+        f.load_image2_shape(sample_image)
+        f.compute_rec_mat(5)
 
-        flat_cmd = f.computeFlatCmd(modes2flat=5)
+        flat_cmd = f.compute_flat_cmd(modes2flat=5)
 
         assert flat_cmd is not None
         assert isinstance(flat_cmd, np.ndarray)
         assert len(flat_cmd) == f.CM.shape[0]
-        assert f.flatCmd is not None
+        assert f.flat_cmd is not None
 
     def test_compute_flat_cmd_list_modes(self, sample_int_matrix_folder, sample_image):
         """Test computing flat command with list of modes."""
         tn, tn_folder = sample_int_matrix_folder
 
         f = flt.Flattening(tn)
-        f.loadImage2Shape(sample_image)
-        f.computeRecMat(5)
+        f.load_image2_shape(sample_image)
+        f.compute_rec_mat(5)
 
-        flat_cmd = f.computeFlatCmd(modes2flat=[0, 1, 2, 3, 4])
+        flat_cmd = f.compute_flat_cmd(modes2flat=[0, 1, 2, 3, 4])
 
         assert flat_cmd is not None
         assert isinstance(flat_cmd, np.ndarray)
@@ -97,21 +97,21 @@ class TestFlattening:
         tn, tn_folder = sample_int_matrix_folder
 
         f = flt.Flattening(tn)
-        f.loadImage2Shape(sample_image)
-        f.computeRecMat(5)
+        f.load_image2_shape(sample_image)
+        f.compute_rec_mat(5)
 
         with pytest.raises(TypeError):
-            f.computeFlatCmd(modes2flat="invalid")
+            f.compute_flat_cmd(modes2flat="invalid")
 
     def test_get_svd_matrices(self, sample_int_matrix_folder, sample_image):
         """Test getting SVD matrices."""
         tn, tn_folder = sample_int_matrix_folder
 
         f = flt.Flattening(tn)
-        f.loadImage2Shape(sample_image)
-        f.computeRecMat(5)
+        f.load_image2_shape(sample_image)
+        f.compute_rec_mat(5)
 
-        U, S, Vt = f.getSVDmatrices()
+        U, S, Vt = f.get_svd_matrices()
 
         assert U is not None
         assert S is not None
@@ -120,9 +120,9 @@ class TestFlattening:
         assert isinstance(S, np.ndarray)
         assert isinstance(Vt, np.ndarray)
 
-    @patch("opticalib.dmutils.flattening._ifp.filterZernikeCube")
-    @patch("opticalib.dmutils.flattening.Flattening._loadCmdMat")
-    @patch("opticalib.dmutils.flattening.Flattening._loadReconstructor")
+    @patch("opticalib.dmutils.flattening._ifp.filter_zernike_cube")
+    @patch("opticalib.dmutils.flattening.Flattening._load_cmd_mat")
+    @patch("opticalib.dmutils.flattening.Flattening._load_reconstructor")
     def test_filter_int_cube(self, mock_rec, mock_cmd, mock_filter, sample_int_matrix_folder):
         """Test filtering interaction cube."""
         import os
@@ -151,14 +151,14 @@ class TestFlattening:
         # Mock the reconstructor to return a mock that can load the new cube
         from unittest.mock import MagicMock
         mock_reconstructor = MagicMock()
-        mock_reconstructor.loadInteractionCube.return_value = None
+        mock_reconstructor.load_interaction_cube.return_value = None
         mock_rec.return_value = mock_reconstructor
         f._rec = mock_reconstructor
 
-        result = f.filterIntCube(zernModes=[1, 2, 3])
+        result = f.filter_int_cube(zernModes=[1, 2, 3])
 
         assert result is f  # Should return self
-        # Verify that filterZernikeCube was called
+        # Verify that filter_zernike_cube was called
         mock_filter.assert_called_once_with(tn, [1, 2, 3], mode='global')
 
     def test_load_new_tn(self, sample_int_matrix_folder):
@@ -171,7 +171,7 @@ class TestFlattening:
         # This will fail if the new tn doesn't exist, but we test the method
         # In a real scenario, you'd create the new tn folder first
         try:
-            f.loadNewTn(new_tn)
+            f.load_new_tn(new_tn)
             assert f.tn == new_tn
         except FileNotFoundError:
             # Expected if new_tn doesn't exist
@@ -182,7 +182,7 @@ class TestFlattening:
         tn, tn_folder = sample_int_matrix_folder
 
         f = flt.Flattening(tn)
-        master_mask = f._getMasterMask()
+        master_mask = f._get_master_mask()
 
         assert master_mask is not None
         assert isinstance(master_mask, np.ndarray)
@@ -194,7 +194,7 @@ class TestFlattening:
         tn, tn_folder = sample_int_matrix_folder
 
         f = flt.Flattening(tn)
-        aligned_img = f._alignImgAndCubeMasks(sample_image)
+        aligned_img = f._align_img_and_cube_masks(sample_image)
 
         assert aligned_img is not None
         assert isinstance(aligned_img, ma.MaskedArray)
@@ -218,9 +218,9 @@ class TestFlattening:
 
         # Properly configure mock_dm with required attributes
         mock_dm._name = "TestDM"
-        mock_dm.nActs = 100
-        mock_dm.get_force.return_value = np.ones(mock_dm.nActs)
-        mock_dm.get_shape.return_value = np.zeros(mock_dm.nActs)
+        mock_dm.n_acts = 100
+        mock_dm.get_force.return_value = np.ones(mock_dm.n_acts)
+        mock_dm.get_shape.return_value = np.zeros(mock_dm.n_acts)
         mock_dm.set_shape.return_value = None
 
         # Setup mock interferometer
@@ -233,10 +233,10 @@ class TestFlattening:
         monkeypatch.setattr(folders, "FLAT_ROOT_FOLDER", flat_folder)
 
         f = flt.Flattening(tn)
-        f.loadImage2Shape(mock_interferometer.acquire_map())
-        f.computeRecMat(threshold=5)
+        f.load_image2_shape(mock_interferometer.acquire_map())
+        f.compute_rec_mat(threshold=5)
 
-        flat_tn = f.applyFlatCommand(
+        flat_tn = f.apply_flat_command(
             mock_dm, mock_interferometer, modes2flat=5, nframes=1
         )
 
@@ -260,20 +260,20 @@ class TestFlattening:
         tn, _ = sample_int_matrix_folder
 
         mock_dm._name = "TestDM"
-        mock_dm.nActs = 100
-        mock_dm.get_force.return_value = np.ones(mock_dm.nActs)
-        mock_dm.get_shape.return_value = np.zeros(mock_dm.nActs)
+        mock_dm.n_acts = 100
+        mock_dm.get_force.return_value = np.ones(mock_dm.n_acts)
+        mock_dm.get_shape.return_value = np.zeros(mock_dm.n_acts)
         mock_dm.set_shape.return_value = None
 
         mock_interferometer._name = "TestInterferometer"
         mock_interferometer.acquire_map.return_value = sample_image
 
         f = flt.Flattening(tn)
-        f.loadImage2Shape(sample_image)
-        f.computeRecMat(threshold=5)
+        f.load_image2_shape(sample_image)
+        f.compute_rec_mat(threshold=5)
 
-        with patch.object(f, "saveFlatData") as mocked_save:
-            out = f.applyFlatCommand(
+        with patch.object(f, "save_flat_data") as mocked_save:
+            out = f.apply_flat_command(
                 mock_dm,
                 mock_interferometer,
                 modes2flat=5,

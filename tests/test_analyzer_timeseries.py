@@ -105,7 +105,7 @@ class TestAverageFrames:
 
 
 class TestRunningMean:
-    """Tests for the runningMean function."""
+    """Tests for the running_mean function."""
 
     def test_basic_running_mean(self):
         """Test the running mean of a simple increasing sequence."""

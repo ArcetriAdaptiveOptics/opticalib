@@ -1,5 +1,5 @@
 """
-Tests for opticalib.core.read_config module.
+Tests for opticalib.core.config module.
 """
 
 import pytest
@@ -9,7 +9,7 @@ import shutil
 import yaml
 import numpy as np
 from opticalib.core.exceptions import DeviceNotFoundError
-from opticalib.core import read_config
+from opticalib.core import config as read_config
 
 
 class TestLoadYamlConfig:
@@ -29,7 +29,7 @@ class TestLoadYamlConfig:
         # Mock the configuration folder
         monkeypatch.setattr(read_config, "_cfold", temp_dir)
         # Also need to update the module-level variable
-        import opticalib.core.read_config as rc_module
+        import opticalib.core.config as rc_module
 
         monkeypatch.setattr(rc_module, "_cfold", temp_dir)
         config = read_config.load_yaml_config(path=temp_dir)
@@ -65,8 +65,62 @@ class TestDumpYamlConfig:
         assert loaded["TEST"]["key"] == "value"
 
 
+class TestLoadDump:
+    """Test the refactored load/dump functions."""
+
+    def test_load_from_iff_file(self, temp_dir):
+        """Test loading iffConfig from an explicit file path."""
+        iff_file = os.path.join(temp_dir, "iffConfig.yaml")
+        with open(iff_file, "w") as f:
+            yaml.safe_dump({"TEST": {"value": 1}}, f)
+
+        config = read_config.load(path=iff_file)
+        assert config["TEST"]["value"] == 1
+
+    def test_dump_to_explicit_file(self, temp_dir):
+        """Test dumping config to an explicit file path."""
+        outfile = os.path.join(temp_dir, "custom.yaml")
+        data = {"A": {"B": 2}}
+        read_config.dump(data, outfile)
+
+        with open(outfile, "r") as f:
+            loaded = yaml.safe_load(f)
+        assert loaded == data
+
+
+class TestGetSectionConfig:
+    """Test get_section_config function."""
+
+    def test_get_section_config_section_and_subsection(self, temp_dir, monkeypatch):
+        """Test reading both section and subsection values."""
+        config_file = os.path.join(temp_dir, "configuration.yaml")
+        config_data = {
+            "PHASING": {"expected_psfs": 6},
+            "DEVICES": {"CAMERAS": {"TestCam": {"id": "ID"}}},
+        }
+        with open(config_file, "w") as f:
+            yaml.safe_dump(config_data, f)
+
+        monkeypatch.setattr(read_config, "_cfile", config_file)
+        assert read_config.get_section_config("PHASING")["expected_psfs"] == 6
+        assert (
+            read_config.get_section_config("DEVICES", "CAMERAS")["TestCam"]["id"]
+            == "ID"
+        )
+
+    def test_get_section_config_missing_section(self, temp_dir, monkeypatch):
+        """Test missing section handling."""
+        config_file = os.path.join(temp_dir, "configuration.yaml")
+        with open(config_file, "w") as f:
+            yaml.safe_dump({"A": {}}, f)
+
+        monkeypatch.setattr(read_config, "_cfile", config_file)
+        with pytest.raises(KeyError):
+            read_config.get_section_config("MISSING")
+
+
 class TestGetIffConfig:
-    """Test getIffConfig function."""
+    """Test get_iff_config function."""
 
     def test_get_iff_config(self, temp_dir, monkeypatch):
         """Test getting IFF configuration."""
@@ -74,11 +128,11 @@ class TestGetIffConfig:
         config_data = {
             "INFLUENCE.FUNCTIONS": {
                 "IFFUNC": {
-                    "numberofzeros": 2,
-                    "modeid": [1, 2, 3],
-                    "modeamp": [0.1, 0.2, 0.3],
+                    "trailing_zeros": 2,
+                    "modes_list": [1, 2, 3],
+                    "amplitude": [0.1, 0.2, 0.3],
                     "template": [[1, 2], [3, 4]],
-                    "modalbase": "test_base",
+                    "modal_base": "test_base",
                 }
             }
         }
@@ -86,19 +140,17 @@ class TestGetIffConfig:
             yaml.dump(config_data, f)
 
         monkeypatch.setattr(read_config, "_cfold", temp_dir)
-        config = read_config.getIffConfig("IFFUNC", bpath=temp_dir)
+        config = read_config.get_iff_config("IFFUNC", bpath=temp_dir)
 
-        assert config["zeros"] == 2
-        assert isinstance(config["modes"], np.ndarray)
+        assert config["trailing_zeros"] == 2
+        assert isinstance(config["modes_list"], np.ndarray)
         assert isinstance(config["amplitude"], np.ndarray)
         assert isinstance(config["template"], np.ndarray)
-        assert config["modalBase"] == "test_base"
-        assert "paddingZeros" in config
-        assert config["paddingZeros"] == 0  # Default value when not in config
+        assert config["modal_base"] == "test_base"
 
 
 class TestGetDmConfig:
-    """Test getDmConfig function."""
+    """Test get_dm_config function."""
 
     def test_get_dm_config_success(self, temp_dir, monkeypatch):
         """Test getting DM configuration successfully."""
@@ -112,7 +164,7 @@ class TestGetDmConfig:
             yaml.dump(config_data, f)
 
         monkeypatch.setattr(read_config, "_cfile", config_file)
-        config = read_config.getDmConfig("TestDM")
+        config = read_config.get_dm_config("TestDM")
 
         assert config["ip"] == "127.0.0.1"
         assert config["port"] == 9090
@@ -127,11 +179,11 @@ class TestGetDmConfig:
         monkeypatch.setattr(read_config, "_cfile", config_file)
 
         with pytest.raises(DeviceNotFoundError):
-            read_config.getDmConfig("NonExistentDM")
+            read_config.get_dm_config("NonExistentDM")
 
 
 class TestGetInterfConfig:
-    """Test getInterfConfig function."""
+    """Test get_interf_config function."""
     def test_get_interf_config_success(self, temp_dir, monkeypatch):
         """Test getting interferometer configuration successfully."""
         config_file = os.path.join(temp_dir, "configuration.yaml")
@@ -144,7 +196,7 @@ class TestGetInterfConfig:
             yaml.dump(config_data, f)
 
         monkeypatch.setattr(read_config, "_cfile", config_file)
-        config = read_config.getInterfConfig("TestInterf")
+        config = read_config.get_interf_config("TestInterf")
 
         assert config["ip"] == "127.0.0.1"
         assert config["port"] == 8011
@@ -159,11 +211,11 @@ class TestGetInterfConfig:
         monkeypatch.setattr(read_config, "_cfile", config_file)
 
         with pytest.raises(DeviceNotFoundError):
-            read_config.getInterfConfig("NonExistentInterf")
+            read_config.get_interf_config("NonExistentInterf")
 
 
 class TestGetCamerasConfig:
-    """Test getCamerasConfig function."""
+    """Test get_cameras_config function."""
 
     def test_get_cameras_config_all(self, temp_dir, monkeypatch):
         """Test getting all cameras configuration."""
@@ -175,7 +227,7 @@ class TestGetCamerasConfig:
             yaml.dump(config_data, f)
 
         monkeypatch.setattr(read_config, "_cfile", config_file)
-        config = read_config.getCamerasConfig()
+        config = read_config.get_cameras_config()
 
         assert "Cam1" in config
         assert "Cam2" in config
@@ -188,7 +240,7 @@ class TestGetCamerasConfig:
             yaml.dump(config_data, f)
 
         monkeypatch.setattr(read_config, "_cfile", config_file)
-        config = read_config.getCamerasConfig("TestCam")
+        config = read_config.get_cameras_config("TestCam")
 
         assert config["id"] == "test_cam"
 
@@ -202,11 +254,11 @@ class TestGetCamerasConfig:
         monkeypatch.setattr(read_config, "_cfile", config_file)
 
         with pytest.raises(DeviceNotFoundError):
-            read_config.getCamerasConfig("NonExistentCam")
+            read_config.get_cameras_config("NonExistentCam")
 
 
 class TestGetNActs:
-    """Test getNActs function."""
+    """Test get_n_acts function."""
 
     def test_get_nacts(self, temp_dir, monkeypatch):
         """Test getting number of actuators."""
@@ -216,14 +268,14 @@ class TestGetNActs:
             yaml.dump(config_data, f)
 
         monkeypatch.setattr(read_config, "_cfold", temp_dir)
-        nacts = read_config.getNActs(bpath=temp_dir)
+        nacts = read_config.get_n_acts(bpath=temp_dir)
 
         assert nacts == 100
         assert isinstance(nacts, int)
 
 
 class TestGetTiming:
-    """Test getTiming function."""
+    """Test get_timing function."""
 
     def test_get_timing(self, temp_dir, monkeypatch):
         """Test getting timing configuration."""
@@ -233,14 +285,14 @@ class TestGetTiming:
             yaml.dump(config_data, f)
 
         monkeypatch.setattr(read_config, "_cfold", temp_dir)
-        timing = read_config.getTiming(bpath=temp_dir)
+        timing = read_config.get_timing(bpath=temp_dir)
 
         assert timing == 10
         assert isinstance(timing, int)
 
 
 class TestGetCmdDelay:
-    """Test getCmdDelay function."""
+    """Test get_cmd_delay function."""
 
     def test_get_cmd_delay(self, temp_dir, monkeypatch):
         """Test getting command delay."""
@@ -250,7 +302,7 @@ class TestGetCmdDelay:
             yaml.dump(config_data, f)
 
         monkeypatch.setattr(read_config, "_cfold", temp_dir)
-        cmd_delay = read_config.getCmdDelay(bpath=temp_dir)
+        cmd_delay = read_config.get_cmd_delay(bpath=temp_dir)
 
         assert cmd_delay == 0.1
         assert isinstance(cmd_delay, float)
@@ -308,7 +360,7 @@ class TestUpdateIffConfig:
 
         monkeypatch.setattr(read_config, "_iffold", temp_dir)
         value = np.array([1, 1, 2, 2, 3, 3, 4, 5, 6])
-        read_config.updateIffConfig(tn, "modeid", value)
+        read_config.update_iff_config(tn, "modeid", value)
 
         saved = read_config.load_yaml_config(iff_config)
         assert saved["IFFUNC"]["modeid"] == "[1,1,2,2,3,3,4,5,6]"
@@ -324,14 +376,14 @@ class TestUpdateIffConfig:
 
         monkeypatch.setattr(read_config, "_iffold", temp_dir)
         value = np.array([1, 2, 3, 4])
-        read_config.updateIffConfig(tn, "modeid", value)
+        read_config.update_iff_config(tn, "modeid", value)
 
         saved = read_config.load_yaml_config(iff_config)
         assert saved["IFFUNC"]["modeid"] == "np.arange(1, 5, 1)"
 
 
 class TestGetAlignmentConfig:
-    """Test getAlignmentConfig function."""
+    """Test get_alignment_config function."""
 
     def test_get_alignment_config(self, temp_dir, monkeypatch):
         """Test getting alignment configuration."""
@@ -345,7 +397,7 @@ class TestGetAlignmentConfig:
             yaml.dump(config_data, f)
 
         monkeypatch.setattr(read_config, "_cfile", config_file)
-        config = read_config.getAlignmentConfig()
+        config = read_config.get_alignment_config()
 
         assert hasattr(config, "slices")
         assert len(config.slices) == 2
@@ -353,7 +405,7 @@ class TestGetAlignmentConfig:
 
 
 class TestGetStitchingConfig:
-    """Test getStitchingConfig function."""
+    """Test get_stitching_config function."""
 
     def test_get_stitching_config(self, temp_dir, monkeypatch):
         """Test getting stitching configuration."""
@@ -363,7 +415,7 @@ class TestGetStitchingConfig:
             yaml.dump(config_data, f)
 
         monkeypatch.setattr(read_config, "_cfile", config_file)
-        config = read_config.getStitchingConfig()
+        config = read_config.get_stitching_config()
 
         assert config["overlap"] == 0.1
         assert config["method"] == "test_method"

@@ -15,7 +15,7 @@ such as path management, configuration handling and custom exceptions.
 Contents:
 ---------
 - `root.py`: Module for managing the `opticalib` file paths.
-- `read_config.py`: Module for handling the `opticalib` main configuration file.
+- `config.py`: Module for handling the `opticalib` main configuration file.
 - `exceptions.py`: Module for defining custom exceptions.
-- `dataclass.py`: Module for shared package dataclasses.
+- `data_classes.py`: Module for shared package dataclasses.
 """

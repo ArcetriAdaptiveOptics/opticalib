@@ -1,4 +1,4 @@
-﻿opticalib.ground.modal\_decomposer
+opticalib.ground.modal\_decomposer
 ==================================
 
 .. automodule:: opticalib.ground.modal_decomposer

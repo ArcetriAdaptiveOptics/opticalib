@@ -16,7 +16,7 @@ process(tn, registration=False, roi=None, save=False, rebin=1)
     into INTMatrices/tn. If 'registration is not False', upon createing the cube,
     the registration algorithm is performed.
 
-stackCubes(tnlist)
+stack_cubes(tnlist)
     Function that, given as imput a tracking number list containing cubes data,
     will stack the found cubes into a new one with a new tracking number, into
     INTMatrices/new_tn. A 'flag.txt' file will be created to give more information
@@ -33,7 +33,7 @@ Cube saved in '/path/to/data/OPTData/INTMatrices/20160516_114916/IMcube.fits'
 ifp.process(tn2, save=True)
 Cube saved in '/path/to/data/OPTData/INTMatrices/20160516_114917/IMcube.fits'
 tnlist = [tn1, tn2]
-ifp.stackCubes(tnlist)
+ifp.stack_cubes(tnlist)
 Stacked cube and matrices saved in '/path/to/data/OPTData/INTMatrices/'new_tn'/IMcube.fits'
 ```
 """
@@ -45,10 +45,10 @@ import configparser as _cp
 from tqdm import tqdm as _tqdm
 from ..core.root import folders
 from ..core import fitsarray as _fa
-from opticalib import typings as _ot
-from ..core import read_config as _rif
+from opticalib.core import _types as _ot
+from ..core import config as _rif
 from concurrent.futures import ThreadPoolExecutor as _tpe
-from ..analyzer import images_processing as _ip
+from ..analyzer import image_processing as _ip
 from ..ground import modal_decomposer as _zern, osutils as _osu, roi as _roi
 from ..core.decorators import expand_list_arguments as _expand_list_arguments
 
@@ -59,16 +59,17 @@ _intMatFold = _fn.INTMAT_ROOT_FOLDER
 _frameCenter = [200, 200]
 _ts = _osu.newtn
 
-_MODES_FILE = "modesVector.fits"
-_MATRIX_FILE = "cmdMatrix.fits"
-_AMP_FILE = "ampVector.fits"
+_MODES_FILE = "modes_list.fits"
+_MATRIX_FILE = "cmd_matrix.fits"
+_AMP_FILE = "amplitude.fits"
 _TEMPLATE_FILE = "template.fits"
-_REGACTS_FILE = "regActs.fits"
-_INDEXLIST_FILE = "indexList.fits"
+_REGACTS_FILE = "registration_modes.fits"
+_INDEXLIST_FILE = "index_list.fits"
 _CUBE_FILE = "IMCube.fits"
 _COORD_FILE = ""  # TODO
 
 
+@_expand_list_arguments(["tn"])
 def process(
     tn: str | list[str],
     register: bool = False,
@@ -104,66 +105,50 @@ def process(
     nmode_prefetch : int, optional
         Number of modes to prefetch during the processing. The default is 1.
     """
-    if isinstance(tn, list) and all([_osu.is_tn(t) for t in tn]):
-        for t in tn:
-            process(
-                t,
-                register=register,
-                save=save,
-                rebin=rebin,
-                trigger_roi=trigger_roi,
-                nworkers=nworkers,
-                nmode_prefetch=nmode_prefetch,
-            )
+    info = _get_acq_par(tn)
+    if not info["FILES"]["modes_list"].dtype.type is _np.int_:
+        info["FILES"]["modes_list"] = info["FILES"]["modes_list"].astype(int)
 
-        ntn = stackCubes(tn)
-        return ntn
-
-    info = _getAcqPar(tn)
-    if not info["modesVector"].dtype.type is _np.int_:
-        info["modesVector"] = info["modesVector"].astype(int)
-
-    for k, dic in zip(["TRIGGER", "REGISTRATION", "IFFUNC", "DM"], _getAcqInfo(tn)):
-        info.update({k: dic})
+    info.update(_get_acq_info(tn))
 
     new_fold = _os.path.join(_intMatFold, tn)
     if not _os.path.exists(new_fold):
         _os.mkdir(new_fold)
 
-    trigFrame = getTriggerFrame(tn, roi=trigger_roi)
+    trigFrame = get_trigger_frame(tn, roi=trigger_roi)
     info["trigFrame"] = trigFrame
 
     _check_information_consistency(info)
 
-    regMat = getRegFileMatrix(tn, info)
-    modesMat = getIffFileMatrix(tn, info)
+    regMat = get_reg_file_matrix(tn, info)
+    modesMat = get_iff_file_matrix(tn, info)
 
     modesMat = _modes_matrix_reorganization(modesMat, info)
     # At this point, the ``modesMat`` is reordered as 0,1,..,M-1, where M is
     # the number of modes, and is of shape (N, M, T), where: N is the number of
     # template realizations, and T is the push-pull template sequence.
 
-    iffRedux(
+    iff_redux(
         tn=tn,
         fileMat=modesMat,
         ampVect=info["IFFUNC"]["amplitude"],
-        modeList=info["IFFUNC"]["modes"],
-        template=info["template"],
-        n_repetitions=info["n_repetitions"],
+        modeList=info["IFFUNC"]["modes_list"],
+        template=info["FILES"]["template"],
+        n_repetitions=info["FILES"]["n_repetitions"],
         io_workers=nworkers,
         prefetch=nmode_prefetch,
     )
     if register and not len(regMat) == 0:
-        actImgList = registrationRedux(tn, regMat)
-        dx = findFrameOffset(tn, actImgList, info["registrationActs"])
+        actImgList = registration_redux(tn, regMat)
+        dx = find_frame_offset(tn, actImgList, info["FILES"]["registration_modes"])
     else:
         dx = register
     if save:
-        saveCube(tn, rebin=rebin, register=dx)
+        save_cube(tn, rebin=rebin, register=dx)
 
 
 @_expand_list_arguments(["tn", "active_roi", "reference_roi"])
-def pistonProcess(
+def piston_process(
     tn: str | list[str],
     active_roi: int | list[int],
     reference_roi: int | list[int],
@@ -217,30 +202,29 @@ def pistonProcess(
     wvl = unwrap_args.get("wavelength", 632.8e-9 / 2)
     period = unwrap_args.get("period", 2)
 
-    info = _getAcqPar(tn)
-    if not info["modesVector"].dtype.type is _np.int_:
-        info["modesVector"] = info["modesVector"].astype(int)
+    info = _get_acq_par(tn)
+    if not info["FILES"]["modes_list"].dtype.type is _np.int_:
+        info["FILES"]["modes_list"] = info["FILES"]["modes_list"].astype(int)
 
-    for k, dic in zip(["TRIGGER", "REGISTRATION", "IFFUNC", "DM"], _getAcqInfo(tn)):
-        info.update({k: dic})
+    info.update(_get_acq_info(tn))
 
     fold = _os.path.join(_ifFold, tn)
     if not _os.path.exists(fold):
         _os.mkdir(fold)
 
-    trigFrame = getTriggerFrame(tn, roi=trigger_roi)
+    trigFrame = get_trigger_frame(tn, roi=trigger_roi)
     info["trigFrame"] = trigFrame
 
     _check_information_consistency(info)
 
-    modesMat = _modes_matrix_reorganization(getIffFileMatrix(tn, info), info)[
+    modesMat = _modes_matrix_reorganization(get_iff_file_matrix(tn, info), info)[
         0
     ]  # (M, T)
 
-    M = len(info["IFFUNC"]["modes"])
-    T = len(info["template"])
-    modeList = info["IFFUNC"]["modes"]
-    ampVect = info["IFFUNC"]["amplitude"]
+    M = len(info["IFFUNC"]["modes_list"])
+    T = len(info["FILES"]["template"])
+    modeList = info["FILES"]["modes_list"]
+    ampVect = info["FILES"]["amplitude"]
 
     img0 = _osu.read_phasemap(modesMat[0, 0])
     zfit = _zern.ZernikeFitter(img0)
@@ -252,14 +236,14 @@ def pistonProcess(
             img1 = _osu.read_phasemap(modesMat[j, i])
             master_mask = _np.logical_or(img0.mask, img1.mask)
             dimg = _np.power(-1, i + 1) * (img0 - img1)
-            rois = _roi.roiGenerator(dimg)
+            rois = _roi.roi_generator(dimg)
 
             match pist_algorithm:
                 case "average":
                     r1 = _np.mean(dimg[rois[reference_roi] == 0])
 
                 case "zernike":
-                    r1 = zfit.fitOnRoi(dimg, [1, 2, 3], "local")[reference_roi, 0]
+                    r1 = zfit.fit_on_roi(dimg, [1, 2, 3], "local")[reference_roi, 0]
 
                 case _:
                     raise ValueError(
@@ -300,10 +284,11 @@ def pistonProcess(
         _osu.save_fits(img_name, iffimg, overwrite=True, header=header)
 
     if save:
-        saveCube(tn, rebin=rebin, register=register)
+        save_cube(tn, rebin=rebin, register=register)
 
 
-def cubeRoiProcessing(
+@_expand_list_arguments(["tn", "activeRoiID"])
+def cube_roi_processing(
     tn: str | list[str],
     activeRoiID: int | list[int],
     fitting_mask: _ot.MaskData = None,
@@ -343,44 +328,21 @@ def cubeRoiProcessing(
         The tracking number of the new processed dataset. If a list of TN and
         activeRoiID is passed, then the TN of the stacked cube will be returned.
     """
-    import time
-
-    if all(
-        [isinstance(x, list) for x in [tn, activeRoiID]] + [_osu.is_tn(t) for t in tn]
-    ):
-
-        newtns = [
-            cubeRoiProcessing(
-                t,
-                r,
-                fitting_mask=fitting_mask,
-                tt_detrend=tt_detrend,
-                mean_subtraction=mean_subtraction,
-                roinull=roinull,
-            )
-            for t, r in zip(tn, activeRoiID)
-        ]
-        time.sleep(1)  # to avoid conflicts in the newly created tn for the stacking
-        return stackCubes(newtns)
-
-    time.sleep(0.5)
-
     save_path, newtn = _osu.create_data_folder(
         basepath=_fn.INTMAT_ROOT_FOLDER, get_tn=True
     )
     load_path = _os.path.join(_fn.INTMAT_ROOT_FOLDER, tn)
 
-    cube = _osu.load_fits(_os.path.join(load_path, _CUBE_FILE)).transpose(2, 0, 1)
-    cmdmat = _osu.load_fits(_os.path.join(load_path, _MATRIX_FILE))
-    modesvec = _osu.load_fits(_os.path.join(load_path, _MODES_FILE))
-    ampvec = _osu.load_fits(_os.path.join(load_path, _AMP_FILE))
+    cube = _osu.load_fits(_os.path.join(load_path, "IMCube.fits")).transpose(2, 0, 1)
+    cmdmat = _osu.load_fits(_os.path.join(load_path, "cmdMatrix.fits"))
+    modesvec = _osu.load_fits(_os.path.join(load_path, "modesVector.fits"))
 
     zfitter = _zern.ZernikeFitter(fitting_mask)
 
     # Main Loop over cube images
     newcube = []
     for v in _tqdm(cube, desc=f"tn: {newtn}", unit="modes", ncols=80):
-        activeRoi = _roi.roiGenerator(v).pop(activeRoiID)  # type: ignore
+        activeRoi = _roi.roi_generator(v).pop(activeRoiID)  # type: ignore
 
         # We do Global ROI Fitting here:
         # Doing Local ROI fitting is equivalent (then right) only the there are
@@ -389,9 +351,9 @@ def cubeRoiProcessing(
             r2rImage = v.copy()
             r2rImage.mask[activeRoi == 0] = True
 
-            coeffs = zfitter.fitOnRoi(r2rImage, [1, 2, 3], mode="global")
+            coeffs = zfitter.fit_on_roi(r2rImage, [1, 2, 3], mode="global")
             _, matrix = zfitter.fit(v, [1, 2, 3])
-            surf2remove = zfitter.makeSurface(
+            surf2remove = zfitter.make_surface(
                 [1, 2, 3], v, coeffs=coeffs, mat=matrix, mode="full-aperture"
             )
 
@@ -425,18 +387,16 @@ def cubeRoiProcessing(
     if not _os.path.exists(save_path):
         _os.makedirs(save_path)
 
-    _osu.save_fits(_os.path.join(save_path, _CUBE_FILE), newcube, overwrite=True)
-    _osu.save_fits(_os.path.join(save_path, _MATRIX_FILE), cmdmat, overwrite=True)
+    _osu.save_fits(_os.path.join(save_path, "IMCube.fits"), newcube, overwrite=True)
+    _osu.save_fits(_os.path.join(save_path, "cmdMatrix.fits"), cmdmat, overwrite=True)
     _osu.save_fits(
-        _os.path.join(save_path, _MODES_FILE), modesvec, overwrite=True
+        _os.path.join(save_path, "modesVector.fits"), modesvec, overwrite=True
     )
-    _osu.save_fits(_os.path.join(save_path, _AMP_FILE), ampvec, overwrite=True)
-    
 
     return newtn
 
 
-def saveCube(
+def save_cube(
     tn: str,
     rebin: int = 1,
     register: bool = False,
@@ -465,7 +425,7 @@ def saveCube(
     cube : masked_array
         Data cube of the images, with shape (npx, npx, nmodes).
     """
-    cube = _osu.loadCubeFromFilelist(tn_or_fl=tn, fold=_ifFold, key="mode_")
+    cube = _osu.load_cube_from_filelist(tn_or_fl=tn, fold=_ifFold, key="mode_")
     new_fold = _os.path.join(_intMatFold, tn)
     _os.makedirs(new_fold, exist_ok=True)
 
@@ -479,22 +439,22 @@ def saveCube(
     header = {}
     header["REBIN"] = (rebin, "Rebinning factor applied")
     if rebin > 1:
-        cube = _ip.cubeRebinner(cube, rebin)
+        cube = _ip.cube_rebinner(cube, rebin)
     cube.header.update(header)
     # Saving the cube
     cube_path = _os.path.join(new_fold, _CUBE_FILE)
     _osu.save_fits(cube_path, cube, overwrite=True)
-    # Copying the cmdMatrix and the ModesVector into the INTMAT Folder
-    _copyFromIffToIM(name=_MATRIX_FILE, tn=tn)
-    _copyFromIffToIM(name=_MODES_FILE, tn=tn)
-    _copyFromIffToIM(name=_AMP_FILE, tn=tn)
+    # Copying the cmdMatrix and the modes_vector into the INTMAT Folder
+    _copy_from_iff_to_im(name=_MATRIX_FILE, tn=tn)
+    _copy_from_iff_to_im(name=_MODES_FILE, tn=tn)
+    _copy_from_iff_to_im(name=_AMP_FILE, tn=tn)
     print(
         f"Cube of shape {cube.shape} saved in '.../{'/'.join(cube_path.split('/')[-2:])}'"
     )
     return cube
 
 
-def stackCubes(tnlist: list[str], cube_names: _ot.Optional[list[str]] = None) -> str:
+def stack_cubes(tnlist: list[str], cube_names: _ot.Optional[list[str]] = None) -> str:
     """
     Stack the cubes contained in the corresponding tracking number folder, creating
     a new cube, along with stacked command matrix and modes vector.
@@ -517,8 +477,8 @@ def stackCubes(tnlist: list[str], cube_names: _ot.Optional[list[str]] = None) ->
     _os.mkdir(stacked_cube_fold)
 
     # Get cube parameters and validation info
-    cubes, cmats, mvecs, avecs, rebin = _getCubeList(tnlist, cube_names)
-    cube_type = _checkStackedCubes(tnlist)["Flag"]["Cube type"]
+    cubes, cmats, mvecs, avecs, rebin = _get_cube_list(tnlist, cube_names)
+    cube_type = _check_stacked_cubes(tnlist)["Flag"]["Cube type"]
 
     # Convert FitsMaskedArrayGpu to regular masked arrays for dstack
     cube_list = [
@@ -596,7 +556,7 @@ def add_mode_to_cube(
     _osu.save_fits(modesvec_path, new_modesvec, overwrite=True)
 
 
-def filterZernikeCube(
+def filter_zernike_cube(
     tn: str,
     zern_modes: _ot.Optional[list[int]] = None,
     mode: str = "global",
@@ -627,13 +587,13 @@ def filterZernikeCube(
     new_tn = _os.path.join(_intMatFold, _ts())
     CmdMat = _os.path.join(_intMatFold, tn, _MATRIX_FILE)
     ModesVec = _os.path.join(_intMatFold, tn, _MODES_FILE)
-    cube = _fa.FitsMaskedArray.fromFits(_os.path.join(_intMatFold, tn, _CUBE_FILE))
+    cube = _fa.FitsMaskedArray.from_fits(_os.path.join(_intMatFold, tn, _CUBE_FILE))
     zern_modes = zern_modes if zern_modes is not None else [1, 2, 3]
-    from opticalib.analyzer import removeZernikeFromCube
+    from opticalib.analyzer import remove_zernike_from_cube
 
-    ffcube = removeZernikeFromCube(cube, zern_modes, mode=mode)
+    ffcube = remove_zernike_from_cube(cube, zern_modes, mode=mode)
     # TODO: Problem with master mask... is it the data?
-    # ffcube.mask = _roi.cubeMasterMask(ffcube)
+    # ffcube.mask = _roi.cube_master_mask(ffcube)
 
     if save:
         _os.mkdir(new_tn)
@@ -645,7 +605,7 @@ def filterZernikeCube(
     return ffcube, new_tn.split("/")[-1]
 
 
-def iffRedux(
+def iff_redux(
     tn: str,
     fileMat: _ot.MatrixLike,
     ampVect: _ot.ArrayLike,
@@ -691,7 +651,7 @@ def iffRedux(
     - io_workers controls the number of threads used to prefetch mode blocks.
     - prefetch controls how many future modes to keep in-flight.
     """
-    from opticalib.analyzer import pushPullReductionAlgorithm
+    from opticalib.analyzer import push_pull_reduction_algorithm
 
     fold = _os.path.join(_ifFold, tn)
 
@@ -736,7 +696,7 @@ def iffRedux(
 
             for rep_idx in range(N):
                 imgs = futures.pop((rep_idx, mode_idx)).result()
-                red = pushPullReductionAlgorithm(
+                red = push_pull_reduction_algorithm(
                     imgs,
                     template,
                     normalization=max(len(template) - 1, 1) * 2 * ampVect[mode_idx],
@@ -764,7 +724,7 @@ def iffRedux(
             )
 
 
-def registrationRedux(tn: str, fileMat: list[str]) -> list[_ot.ImageData]:
+def registration_redux(tn: str, fileMat: list[str]) -> list[_ot.ImageData]:
     """
     Reduction function that performs the push-pull analysis on the registration
     data.
@@ -780,25 +740,25 @@ def registrationRedux(tn: str, fileMat: list[str]) -> list[_ot.ImageData]:
     imgList : ArrayLike
         List of the processed registration images.
     """
-    from opticalib.analyzer import pushPullReductionAlgorithm
+    from opticalib.analyzer import push_pull_reduction_algorithm
 
-    _, infoR, _, _ = _getAcqInfo(tn)
+    infoR = _get_acq_info(tn)["REGISTRATION"]
     template = infoR["template"]
     if _np.array_equal(fileMat, _np.array([])) and len(infoR["modesid"]) == 0:
         print("No registration data found")
         return []
-    nActs = fileMat.shape[0]
+    n_acts = fileMat.shape[0]
     imglist = []
-    for i in range(0, nActs - 1):
+    for i in range(0, n_acts - 1):
         imgs = [_osu.read_phasemap(x) for x in fileMat[i, :]]
-        img = pushPullReductionAlgorithm(imgs, template)
+        img = push_pull_reduction_algorithm(imgs, template)
         imglist.append(img)
     # cube = _np.ma.masked_array(imglist)
     # _osu.save_fits(_os.path.join(_intMatFold, tn, "regActCube.fits"), cube)
     return imglist
 
 
-def findFrameOffset(
+def find_frame_offset(
     tn: str, imglist: list[_ot.ImageData], actlist: _ot.ArrayLike
 ) -> float:
     """
@@ -820,13 +780,13 @@ def findFrameOffset(
         Position difference
     """
     actCoordFile = _os.path.join(_ifFold, tn, _COORD_FILE)
-    actCoord = _osu.load_fits(actCoordFile)
-    xy = _fa.findFrameCoord(imglist, actlist, actCoord)  # type: ignore
+    act_coord = _osu.load_fits(actCoordFile)
+    xy = _fa.find_frame_coord(imglist, actlist, act_coord)  # type: ignore
     dp = xy - _frameCenter
     return dp
 
 
-def getTriggerFrame(
+def get_trigger_frame(
     tn: str, amplitude: _ot.Optional[int | float] = None, roi: _ot.Optional[int] = None
 ) -> int:
     """
@@ -857,29 +817,29 @@ def getTriggerFrame(
         file.
     """
     zfit = _zern.ZernikeFitter()
-    infoT, _, _, _ = _getAcqInfo(tn)
+    infoT = _get_acq_info(tn)["TRIGGER"]
     if amplitude is not None:
         infoT["amplitude"] = amplitude
-    fileList = _osu.getFileList(tn, fold="OPDImages")
+    fileList = _osu.get_file_list(tn, fold="OPDImages")
     img0 = _osu.read_phasemap(fileList[0])
     go = i = 1
     thresh = infoT["amplitude"] / _np.sqrt(3)
     print(f"Trigger threshold: {thresh:.2e}")
-    if infoT["zeros"] == 0 and len(infoT["modes"]) == 0:
+    if infoT["trailing_zeros"] == 0 and len(infoT["modes_list"]) == 0:
         trigFrame = 0
         return trigFrame
     # listout = [] # ??
     while go != 0:
         img1 = _osu.read_phasemap(fileList[i])
         if not roi is None:
-            rois = _roi.roiGenerator(img0)
+            rois = _roi.roi_generator(img0)
             _ = rois.pop(roi)
             for r in rois:
                 img1.mask[r == 0] = True
                 img0.mask[r == 0] = True
-        rr2check = _np.nanstd(zfit.removeZernike(img1 - img0, [1, 2, 3]))
+        rr2check = _np.nanstd(zfit.remove_zernike(img1 - img0, [1, 2, 3]))
         print(f"Frame {i-1}: std = {rr2check:.2e}")
-        if go > infoT["zeros"] + 1:
+        if go > infoT["trailing_zeros"] + 1:
             msg = f"Frame {go}. Heading Zeros exceeded: std = {rr2check:.2e} < {thresh:.2e} (Amp/sqrt(3))"
             raise RuntimeError(msg)
         if rr2check > thresh:
@@ -893,7 +853,7 @@ def getTriggerFrame(
     return trigFrame
 
 
-def getRegFrames(tn: str, info: dict[str, _ot.Any]) -> tuple[int, _ot.ArrayLike]:
+def get_reg_frames(tn: str, info: dict[str, _ot.Any]) -> tuple[int, _ot.ArrayLike]:
     """
     Search for the registration frames in the images file list.
 
@@ -915,16 +875,18 @@ def getRegFrames(tn: str, info: dict[str, _ot.Any]) -> tuple[int, _ot.ArrayLike]
     """
     infoR = info["REGISTRATION"]
     trigFrame = info["trigFrame"]
-    timing = _rif.getTiming()
-    if infoR["zeros"] == 0 and len(infoR["modes"]) == 0:
+    timing = info["timing"]
+    if infoR["trailing_zeros"] == 0 and len(infoR["modes_list"]) == 0:
         regStart = regEnd = (trigFrame + 1) if trigFrame != 0 else 0
     else:
-        regStart = trigFrame + infoR["zeros"] * timing + (1 if trigFrame != 0 else 0)
-        regEnd = regStart + len(infoR["modes"]) * len(infoR["template"]) * timing
+        regStart = (
+            trigFrame + infoR["trailing_zeros"] * timing + (1 if trigFrame != 0 else 0)
+        )
+        regEnd = regStart + len(infoR["modes_list"]) * len(infoR["template"]) * timing
     return regStart, regEnd
 
 
-def getRegFileMatrix(tn: str, info: dict[str, _ot.Any]) -> tuple[int, _ot.ArrayLike]:
+def get_reg_file_matrix(tn: str, info: dict[str, _ot.Any]) -> tuple[int, _ot.ArrayLike]:
     """
     Search for the registration frames in the images file list, and creates the
     registration file matrix.
@@ -945,15 +907,15 @@ def getRegFileMatrix(tn: str, info: dict[str, _ot.Any]) -> tuple[int, _ot.ArrayL
         _os.path.isdir(fold)
     else:
         fold = None
-    fileList = _osu.getFileList(tn, fold="OPDImages" if fold is None else fold)
+    fileList = _osu.get_file_list(tn, fold="OPDImages" if fold is None else fold)
     infoR = info["REGISTRATION"]
-    regStart, regEnd = getRegFrames(tn, info)
+    regStart, regEnd = get_reg_frames(tn, info)
     regList = fileList[regStart:regEnd]
-    regMat = _np.reshape(regList, (len(infoR["modes"]), len(infoR["template"])))
+    regMat = _np.reshape(regList, (len(infoR["modes_list"]), len(infoR["template"])))
     return regMat
 
 
-def getIffFileMatrix(tn: str, info: dict[str, _ot.Any]) -> _ot.ArrayLike:
+def get_iff_file_matrix(tn: str, info: dict[str, _ot.Any]) -> _ot.ArrayLike:
     """
     Creates the iffMat
 
@@ -974,29 +936,26 @@ def getIffFileMatrix(tn: str, info: dict[str, _ot.Any]) -> _ot.ArrayLike:
         _os.path.isdir(fold)
     else:
         fold = None
-    try:
-        fileList = _osu.getFileList(
-            tn, fold="OPDImages" if fold is None else fold, key="image_"
-        )
-        if len(fileList) == 0:
-            raise KeyError(f"No image files found with key `image_`")
-    except KeyError as ke:
-        fileList = _osu.getFileList(
-            tn, fold="OPDImages" if fold is None else fold, key=".4D"
-        )
-        if len(fileList) == 0:
-            raise KeyError(f"No image files found with key `.4D`") from ke
-        
+    fileList = _osu.getFileList(
+        tn, fold="OPDImages" if fold is None else fold, key="image_"
+    )
 
     infoIF = info["IFFUNC"]
-    _, regEnd = getRegFrames(tn, info)
-    k = regEnd + infoIF["zeros"]
+    _, regEnd = get_reg_frames(tn, info)
+    k = regEnd + infoIF["trailing_zeros"]
     # `k` is the starting point in the file list for the IFF frames
 
-    n_useful_frames = len(info["modesVector"]) * len(info["template"])  # [M x N x T]
+    n_useful_frames = len(info["FILES"]["modes_list"]) * len(
+        info["FILES"]["template"]
+    )  # [M x N x T]
     iffList = fileList[k : k + n_useful_frames]
     iffMat = _np.reshape(
-        iffList, (info["n_repetitions"], len(infoIF["modes"]), len(infoIF["template"]))
+        iffList,
+        (
+            info["FILES"]["n_repetitions"],
+            len(infoIF["modes_list"]),
+            len(infoIF["template"]),
+        ),
     )  # [N, M, T]
     return iffMat
 
@@ -1021,7 +980,7 @@ def _modes_matrix_reorganization(
         where the modes are re-ordered as 0,1,..,M-1.
     """
     # Not shuffled case
-    if not info["shuffle"]:
+    if not info["FILES"]["shuffle"]:
         return modesMat
 
     # Shuffled case
@@ -1030,16 +989,16 @@ def _modes_matrix_reorganization(
     # indexList[i, j] stores the original position (in the requested modesList) of the
     # mode that was placed at position j during repetition i of the shuffled acquisition
     shuffled_modes = _np.asarray(
-        info["modesVector"].reshape((N, M)), dtype=int
+        info["FILES"]["modes_list"].reshape((N, M)), dtype=int
     )  # [N, M]
 
-    NM = len(info["modesVector"])
+    NM = len(info["FILES"]["modes_list"])
 
     ## --- Checks --- ##
-    if N != info["n_repetitions"]:
+    if N != info["FILES"]["n_repetitions"]:
         raise ValueError(
             "the IFF file matrix has mismatching ``n_repetitions``: "
-            f"{N} != {info['n_repetitions']}"
+            f"{N} != {info['FILES']['n_repetitions']}"
         )
 
     if NM != N * M:
@@ -1103,7 +1062,7 @@ def _add_vect_to_mat(
     return new_matrix
 
 
-def _copyFromIffToIM(name: str, tn: str) -> None:
+def _copy_from_iff_to_im(name: str, tn: str) -> None:
     """
     Copies an IFFunctions file from the IFFunctions folder to the IntMatrices folder.
 
@@ -1120,7 +1079,7 @@ def _copyFromIffToIM(name: str, tn: str) -> None:
     _sh.copy2(opd_path, iff_path)
 
 
-def _getCubeList(
+def _get_cube_list(
     tnlist: str, cubeNames: _ot.Optional[list[str]] = None
 ) -> tuple[
     list[_ot.ImageData], list[_ot.MatrixLike], _ot.ArrayLike, list[_ot.ArrayLike], int
@@ -1170,7 +1129,7 @@ def _getCubeList(
     return cubeList, matrixList, modesVectList, ampvecs, rebin
 
 
-def _getAcqPar(tn: str) -> dict[str, _ot.ArrayLike | bool | int]:
+def _get_acq_par(tn: str) -> dict[str, _ot.ArrayLike | bool | int]:
     """
     Reads ad returns the acquisition parameters from fits files.
 
@@ -1182,15 +1141,15 @@ def _getAcqPar(tn: str) -> dict[str, _ot.ArrayLike | bool | int]:
     Returns
     -------
     dictionary containing the acquisition parameters:
-    - ampVector : float | ArrayLike
+    - amp_vector : float | ArrayLike
         Vector containg the amplitude of each commanded mode.
-    - modesVector : int | ArrayLike
+    - modes_vector : int | ArrayLike
         Vector containing the list of commanded modes.
     - template : int | ArrayLike
         Sampling template ampplied on each mode.
-    - indexList : int | ArrayLike
+    - index_list : int | ArrayLike
         Indexing of the modes inside the commanded matrix.
-    - registrationActs : int | ArrayLike
+    - registration_acts : int | ArrayLike
         Vector containing the commanded actuators for the registration.
     - shuffle : bool
         Shuffle information.
@@ -1198,29 +1157,29 @@ def _getAcqPar(tn: str) -> dict[str, _ot.ArrayLike | bool | int]:
         Number of repetitions for each mode's push-pull packet.
     """
     base = _os.path.join(_ifFold, tn)
-    modesVector = _osu.load_fits(_os.path.join(base, _MODES_FILE))
+    modes_vector = _osu.load_fits(_os.path.join(base, _MODES_FILE))
     indexList = _osu.load_fits(_os.path.join(base, _INDEXLIST_FILE))
     ampVector = _osu.load_fits(_os.path.join(base, _AMP_FILE))
     template = _osu.load_fits(_os.path.join(base, _TEMPLATE_FILE))
-    registrationActs = _osu.load_fits(_os.path.join(base, _REGACTS_FILE))
-    shuffle = modesVector.header.get("SHUFFLE", False)
-    n_repetitions = modesVector.header.get("N_REP", 1)
+    registration_acts = _osu.load_fits(_os.path.join(base, _REGACTS_FILE))
+    shuffle = modes_vector.header.get("SHUFFLE", False)
+    n_repetitions = modes_vector.header.get("N_REP", 1)
     return {
-        "ampVector": ampVector,
-        "modesVector": modesVector,
-        "template": template,
-        "indexList": indexList,
-        "registrationActs": registrationActs,
-        "shuffle": shuffle,
-        "n_repetitions": n_repetitions,
+        "FILES": {
+            "amplitude": ampVector,
+            "modes_list": modes_vector,
+            "template": template,
+            "index_list": indexList,
+            "registration_modes": registration_acts,
+            "shuffle": shuffle,
+            "n_repetitions": n_repetitions,
+        }
     }
 
 
-def _getAcqInfo(
+def _get_acq_info(
     tn: _ot.Optional[str] = None,
-) -> tuple[
-    dict[str, _ot.Any], dict[str, _ot.Any], dict[str, _ot.Any], dict[str, _ot.Any]
-]:
+) -> dict[str, _ot.Any]:
     """
     Returns the information read from the iffConfig.ini file.
 
@@ -1232,24 +1191,15 @@ def _getAcqInfo(
 
     Returns
     -------
-    infoT : dict
-        Information read about the TRIGGER options.
-    infoR : dict
-        Information read about the REGISTRATION options.
-    infoIF : dict
-        Information read about the IFFUNC option.
-    infoDM : dict
-        Information read about the DM options.
+    info : dict
+        Information read from the iffConfig.ini file.
     """
     path = _os.path.join(_ifFold, tn) if tn is not None else _fn.CONFIGURATION_FOLDER
-    infoT = _rif.getIffConfig("TRIGGER", bpath=path)
-    infoR = _rif.getIffConfig("REGISTRATION", bpath=path)
-    infoIF = _rif.getIffConfig("IFFUNC", bpath=path)
-    infoDM = _rif.getIffConfig("DM", bpath=path)
-    return infoT, infoR, infoIF, infoDM
+    info = _rif.get_iff_config(None, bpath=path)
+    return info
 
 
-def _checkStackedCubes(tnlist: str) -> dict[str, _ot.Any]:
+def _check_stacked_cubes(tnlist: str) -> dict[str, _ot.Any]:
     """
     Inspect the cubes to stack, to check whether there are shared modes, or not.
 
@@ -1263,7 +1213,7 @@ def _checkStackedCubes(tnlist: str) -> dict[str, _ot.Any]:
     flag : dict
         Dictionary containing the flagging information about the stacked cube.
     """
-    _, _, modesVectList, _, rebin = _getCubeList(tnlist)
+    _, _, modesVectList, rebin = _getCubeList(tnlist)
     nmodes = len(modesVectList[0])
     nvects = len(modesVectList)
     for i in range(nvects):
@@ -1295,8 +1245,10 @@ def _check_information_consistency(info: dict[str, _ot.Any]) -> None:
         Raised when the number of modes or template lengths do not match
         the expected values from the configuration.
     """
-    expected_modes_count = len(info["IFFUNC"]["modes"]) * info["n_repetitions"]
-    actual_modes_count = len(info["modesVector"])
+    expected_modes_count = (
+        len(info["IFFUNC"]["modes_list"]) * info["FILES"]["n_repetitions"]
+    )
+    actual_modes_count = len(info["FILES"]["modes_list"])
     if expected_modes_count != actual_modes_count:
         raise ValueError(
             "Expected number of modes does not match the number of "
@@ -1304,7 +1256,7 @@ def _check_information_consistency(info: dict[str, _ot.Any]) -> None:
             f"{expected_modes_count} != {actual_modes_count}"
         )
 
-    folder_template_length = len(info["template"])
+    folder_template_length = len(info["FILES"]["template"])
     config_template_length = len(info["IFFUNC"]["template"])
     if folder_template_length != config_template_length:
         raise ValueError(

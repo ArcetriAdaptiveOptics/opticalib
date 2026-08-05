@@ -10,10 +10,9 @@ opticalib.ground
    :toctree:
    :recursive:
 
-   computerec
-   geo
    geometry
    logger
    modal_decomposer
    osutils
+   reconstructor
    roi

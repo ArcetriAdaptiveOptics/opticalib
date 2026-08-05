@@ -3,11 +3,12 @@ import xupy as xp
 import numpy as np
 import opticalib
 from opticalib import dmutils
+from opticalib import procedures
 
 opt = opticalib
 join = os.path.join
 
-folders = opath = opticalib.folders
+folders = opaths = opticalib.folders
 modal_decomposer = zern = opticalib.ground.modal_decomposer
 osutils = osu = opticalib.ground.osutils
 analyzer = az = opticalib.analyzer
@@ -16,11 +17,14 @@ oplt = opticalib.visualization
 roi = opticalib.ground.roi
 
 ifp = dmutils.iff_processing
-ifm = dmutils.iff_module
+ifm = procedures.iff
 
 from matplotlib.pyplot import *
 
-ion()
+try:
+    ion()
+except Exception:
+    pass
 
 __all__ = [
     "os",
@@ -31,7 +35,7 @@ __all__ = [
     "opt",
     "join",
     "folders",
-    "opath",
+    "opaths",
     "modal_decomposer",
     "zern",
     "osutils",

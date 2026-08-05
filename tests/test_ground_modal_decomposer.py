@@ -47,28 +47,28 @@ class TestZernikeFitter:
         radius = size / 2 - 5
         mask = (x**2 + y**2) > radius**2
 
-        fitter.setFitMask(mask)
+        fitter.set_fit_mask(mask)
 
         assert fitter._fit_mask is not None
         assert fitter.auxmask is not None
         assert fitter._mgen is not None
 
     def test_set_fit_mask_with_circular_mask(self):
-        """Test setting fit mask with CircularMask object."""
+        """Test setting fit mask with circular_mask object."""
         fitter = md.ZernikeFitter()
 
         cmask = CircularMask((100, 100))
-        fitter.setFitMask(cmask)
+        fitter.set_fit_mask(cmask)
 
         assert fitter._fit_mask is not None
         assert fitter.auxmask is not None
         assert fitter._mgen is not None
 
     def test_fit_mask_property(self, circular_mask):
-        """Test fitMask property."""
+        """Test fit_mask property."""
         fitter = md.ZernikeFitter(fit_mask=circular_mask)
 
-        mask = fitter.fitMask
+        mask = fitter.fit_mask
         assert mask is not None
         assert isinstance(mask, np.ndarray)
 
@@ -101,7 +101,7 @@ class TestZernikeFitter:
         """Test removing default Zernike modes (piston, tip, tilt)."""
         fitter = md.ZernikeFitter(fit_mask=sample_image.mask)
 
-        filtered = fitter.removeZernike(sample_image)
+        filtered = fitter.remove_zernike(sample_image)
 
         assert filtered is not None
         assert isinstance(filtered, ma.MaskedArray)
@@ -112,7 +112,7 @@ class TestZernikeFitter:
         """Test removing custom Zernike modes."""
         fitter = md.ZernikeFitter(fit_mask=sample_image.mask)
 
-        filtered = fitter.removeZernike(sample_image, zernike_index_vector=[1, 2, 3, 4])
+        filtered = fitter.remove_zernike(sample_image, zernike_index_vector=[1, 2, 3, 4])
 
         assert filtered is not None
         assert isinstance(filtered, ma.MaskedArray)
@@ -124,7 +124,7 @@ class TestZernikeFitter:
         fitter = md.ZernikeFitter(fit_mask=sample_image.mask)
 
         modes = [1, 2, 3]
-        surface = fitter.makeSurface(modes, image=sample_image)
+        surface = fitter.make_surface(modes, image=sample_image)
 
         assert surface is not None
         assert isinstance(surface, ma.MaskedArray)
@@ -135,7 +135,7 @@ class TestZernikeFitter:
         fitter = md.ZernikeFitter(fit_mask=circular_mask)
 
         modes = [1]
-        surface = fitter.makeSurface(modes)
+        surface = fitter.make_surface(modes)
 
         assert surface is not None
         assert isinstance(surface, np.ndarray) or isinstance(surface, ma.MaskedArray)
@@ -145,7 +145,7 @@ class TestZernikeFitter:
         fitter = md.ZernikeFitter(fit_mask=circular_mask)
 
         modes = [1, 2, 3]
-        surface = fitter.makeSurface(modes_indices=modes)
+        surface = fitter.make_surface(modes_indices=modes)
 
         assert surface is not None
 
@@ -154,7 +154,7 @@ class TestZernikeFitter:
         fitter = md.ZernikeFitter()
 
         with pytest.raises(ValueError):
-            fitter.makeSurface([1])
+            fitter.make_surface([1])
 
     # FIXME
     def test_filter_modes(self, sample_image):
@@ -162,7 +162,7 @@ class TestZernikeFitter:
         fitter = md.ZernikeFitter(fit_mask=sample_image.mask)
 
         modes = [1, 2, 3]
-        filtered = fitter.filterModes(sample_image, modes)
+        filtered = fitter.filter_modes(sample_image, modes)
 
         assert filtered is not None
         assert isinstance(filtered, ma.MaskedArray)
@@ -173,7 +173,7 @@ class TestZernikeFitter:
         fitter = md.ZernikeFitter(fit_mask=sample_image)
 
         modes = [1, 2, 3]
-        coeffs = fitter.fitOnRoi(sample_image, modes2fit=modes, mode="global")
+        coeffs = fitter.fit_on_roi(sample_image, modes2fit=modes, mode="global")
 
         assert coeffs is not None
         assert len(coeffs) == len(modes)
@@ -183,7 +183,7 @@ class TestZernikeFitter:
         fitter = md.ZernikeFitter(fit_mask=sample_image)
 
         modes = [1, 2, 3]
-        coeffs = fitter.fitOnRoi(sample_image, modes2fit=modes, mode="local")
+        coeffs = fitter.fit_on_roi(sample_image, modes2fit=modes, mode="local")
 
         assert coeffs is not None
         assert len(coeffs.shape) == 2  # Should be 2D array (n_rois, n_modes)
@@ -193,7 +193,7 @@ class TestZernikeFitter:
         fitter = md.ZernikeFitter(fit_mask=sample_image)
 
         with pytest.raises(ValueError, match="mode must be 'global' or 'local'"):
-            fitter.fitOnRoi(sample_image, modes2fit=[1, 2, 3], mode="invalid")
+            fitter.fit_on_roi(sample_image, modes2fit=[1, 2, 3], mode="invalid")
 
     def test_no_mask_context_manager(self, sample_image):
         """Test no_mask context manager."""
@@ -282,7 +282,7 @@ class TestKLFitter:
         fitter = md.KLFitter(nKLModes=10, fit_mask=sample_image.mask)
 
         modes = [0, 1]
-        surface = fitter.makeSurface(modes, image=sample_image)
+        surface = fitter.make_surface(modes, image=sample_image)
 
         assert surface is not None
         assert isinstance(surface, ma.MaskedArray)
@@ -294,7 +294,7 @@ class TestKLFitter:
         fitter = md.KLFitter(nKLModes=10, fit_mask=sample_image.mask)
 
         modes = [0, 1, 2]
-        filtered = fitter.filterModes(sample_image, modes)
+        filtered = fitter.filter_modes(sample_image, modes)
 
         assert filtered is not None
         assert isinstance(filtered, ma.MaskedArray)
@@ -362,7 +362,7 @@ class TestRBFitter:
         fitter = md.RBFitter(fit_mask=sample_image.mask)
 
         modes = [0, 1]
-        surface = fitter.makeSurface(modes, image=sample_image)
+        surface = fitter.make_surface(modes, image=sample_image)
 
         assert surface is not None
         assert isinstance(surface, ma.MaskedArray)
@@ -374,7 +374,7 @@ class TestRBFitter:
         fitter = md.RBFitter(fit_mask=sample_image.mask)
 
         modes = [0, 1, 2]
-        filtered = fitter.filterModes(sample_image, modes)
+        filtered = fitter.filter_modes(sample_image, modes)
 
         assert filtered is not None
         assert isinstance(filtered, ma.MaskedArray)

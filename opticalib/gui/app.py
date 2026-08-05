@@ -383,9 +383,9 @@ class PlotPanel(QFrame):
         self._image_label.setPixmap(scaled)
         self._image_label.setText("")
 
-    def resizeEvent(self, event) -> None:  # noqa: N802
+    def resize_event(self, event) -> None:  # noqa: N802
         """Re-scale the current figure when the widget is resized."""
-        super().resizeEvent(event)
+        super().resize_event(event)
         self._refresh_display()
 
 
@@ -432,7 +432,7 @@ class DevicePanel(QGroupBox):
     }
 
     _SIM_ALPAO_CMD = (
-        "from opticalib.simulator import AlpaoDm\n" "dm = AlpaoDm(nActs={})"
+        "from opticalib.simulator import AlpaoDm\n" "dm = AlpaoDm(n_acts={})"
     )
     # Simulated device labels and terminal commands.
     _SIMULATED_COMMANDS: Dict[str, str] = {
@@ -1497,7 +1497,7 @@ class CalpyGUI(QMainWindow):
     # Cleanup
     # ------------------------------------------------------------------
 
-    def closeEvent(self, event) -> None:  # noqa: N802
+    def close_event(self, event) -> None:  # noqa: N802
         """Stop the kernel gracefully when the window is closed."""
         self._save_layout_settings()
         try:
@@ -1505,7 +1505,7 @@ class CalpyGUI(QMainWindow):
             self._kernel_manager.shutdown_kernel()
         except Exception:
             pass
-        super().closeEvent(event)
+        super().close_event(event)
 
 
 # ---------------------------------------------------------------------------

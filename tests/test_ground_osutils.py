@@ -89,7 +89,7 @@ class TestListTn:
 
 
 class TestFindTracknum:
-    """Test findTracknum function."""
+    """Test find_tracknum function."""
 
     def test_find_tracknum_not_found(self, temp_dir, monkeypatch):
         """Test finding tracking number that doesn't exist."""
@@ -98,7 +98,7 @@ class TestFindTracknum:
         # Create some folders but not the tracking number
         os.makedirs(os.path.join(temp_dir, "OPDImages"), exist_ok=True)
 
-        result = osutils.findTracknum("20240101_120000")
+        result = osutils.find_tracknum("20240101_120000")
         assert result == []
 
     def test_find_tracknum_found(self, temp_dir, monkeypatch):
@@ -111,7 +111,7 @@ class TestFindTracknum:
         os.makedirs(folder, exist_ok=True)
         os.makedirs(os.path.join(folder, tn), exist_ok=True)
 
-        result = osutils.findTracknum(tn)
+        result = osutils.find_tracknum(tn)
         assert result == "OPDImages"
 
     def test_find_tracknum_complete_path(self, temp_dir, monkeypatch):
@@ -124,12 +124,12 @@ class TestFindTracknum:
         tn_path = os.path.join(folder, tn)
         os.makedirs(tn_path, exist_ok=True)
 
-        result = osutils.findTracknum(tn, complete_path=True)
+        result = osutils.find_tracknum(tn, complete_path=True)
         assert result == tn_path
 
 
 class TestGetFileList:
-    """Test getFileList function."""
+    """Test get_file_list function."""
 
     def test_get_file_list_from_folder(self, temp_dir):
         """Test getting file list from folder."""
@@ -139,7 +139,7 @@ class TestGetFileList:
             with open(os.path.join(temp_dir, fname), "w") as f:
                 f.write("test")
 
-        file_list = osutils.getFileList(fold=temp_dir)
+        file_list = osutils.get_file_list(fold=temp_dir)
         # Filter out directories from the list
         file_list = [f for f in file_list if os.path.isfile(f)]
         assert len(file_list) == 3
@@ -154,7 +154,7 @@ class TestGetFileList:
             with open(os.path.join(temp_dir, fname), "w") as f:
                 f.write("test")
 
-        file_list = osutils.getFileList(fold=temp_dir, key="mode_")
+        file_list = osutils.get_file_list(fold=temp_dir, key="mode_")
         assert len(file_list) == 2
         assert all("mode_" in f for f in file_list)
 
@@ -180,7 +180,7 @@ class TestGetFileList:
         with open(os.path.join(optdata, "IFFunctions", tn, "mode_0001.fits"), "w") as f:
             f.write("test")
 
-        file_list = osutils.getFileList(tn=tn, key="mode_")
+        file_list = osutils.get_file_list(tn=tn, key="mode_")
 
         assert isinstance(file_list, list)
         assert len(file_list) == 2

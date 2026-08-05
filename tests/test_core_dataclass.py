@@ -1,8 +1,8 @@
 """
-Tests for opticalib.core.dataclass module.
+Tests for opticalib.core.data_classes module.
 """
 
-from opticalib.core.dataclass import FlatData
+from opticalib.core.data_classes import FlatData
 
 
 def test_flatdata_import_from_dmutils():

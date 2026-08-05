@@ -68,14 +68,6 @@ def expand_list_arguments(
     'Processed 20260101_000000'
     >>> process(["20260101_000000", "20260101_000001"])
     ['Processed 20260101_000000', 'Processed 20260101_000001']
-
-    >>> @expand_list_arguments(["tn", "active_roi", "reference_roi"])
-    ... def piston_process(
-    ...     tn: str,
-    ...     active_roi: int,
-    ...     reference_roi: int,
-    ... ) -> tuple[str, int, int]:
-    ...     return tn, active_roi, reference_roi
     """
 
     def decorator(func: Callable[P, R]) -> Callable[P, R | list[R]]:

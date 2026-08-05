@@ -1,4 +1,4 @@
-﻿opticalib.core.fitsarray
+opticalib.core.fitsarray
 ========================
 
 .. automodule:: opticalib.core.fitsarray

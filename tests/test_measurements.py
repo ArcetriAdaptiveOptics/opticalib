@@ -7,7 +7,7 @@ import os
 import numpy as np
 import numpy.ma as ma
 from unittest.mock import MagicMock, Mock, patch
-from opticalib.measurements import Measurements
+from opticalib.procedures import TimeSeries as Measurements
 
 
 class _FakeInterferometer:
@@ -19,7 +19,7 @@ class _FakeInterferometer:
         mask = np.zeros((50, 50), dtype=bool)
         return ma.masked_array(data, mask=mask)
 
-    def acquireFullFrame(self, **kwargs):
+    def acquire_full_frame(self, **kwargs):
         """Return a fake full-frame image."""
         data = np.random.randn(50, 50).astype(np.float32)
         mask = np.zeros((50, 50), dtype=bool)
@@ -108,11 +108,12 @@ class TestAcquireTimeSeries:
 
         # Patch save_fits and create_data_folder to avoid actual file I/O
         opd_folder = os.path.join(temp_dir, "OPDSeries")
-        data_subfolder = os.path.join(opd_folder, "20260403_080000")
+        tn = "20260403_080000"
+        data_subfolder = os.path.join(opd_folder, tn)
         os.makedirs(data_subfolder, exist_ok=True)
 
-        monkeypatch.setattr("opticalib.measurements._cdf", lambda path: data_subfolder)
-        monkeypatch.setattr("opticalib.measurements._save_fits", lambda path, data: None)
+        monkeypatch.setattr("opticalib.procedures.measurements._cdf", lambda basepath, get_tn: (data_subfolder, tn))
+        monkeypatch.setattr("opticalib.procedures.measurements._save_fits", lambda path, data: None)
 
         result = m.acquire_time_series(nframes=2)
 
@@ -134,8 +135,8 @@ class TestAcquireTimeSeries:
 
         data_subfolder = os.path.join(temp_dir, "sub")
         os.makedirs(data_subfolder, exist_ok=True)
-        monkeypatch.setattr("opticalib.measurements._cdf", lambda path: data_subfolder)
-        monkeypatch.setattr("opticalib.measurements._save_fits", lambda path, data: None)
+        monkeypatch.setattr("opticalib.procedures.measurements._cdf", lambda basepath, get_tn=True: (data_subfolder, "20260403_080000"))
+        monkeypatch.setattr("opticalib.procedures.measurements._save_fits", lambda path, data: None)
 
         nframes = 3
         m.acquire_time_series(nframes=nframes)
@@ -158,8 +159,8 @@ class TestAcquireTimeSeries:
 
         data_subfolder = os.path.join(temp_dir, "sub")
         os.makedirs(data_subfolder, exist_ok=True)
-        monkeypatch.setattr("opticalib.measurements._cdf", lambda path: data_subfolder)
-        monkeypatch.setattr("opticalib.measurements._save_fits", lambda path, data: None)
+        monkeypatch.setattr("opticalib.procedures.measurements._cdf", lambda basepath, get_tn=True: (data_subfolder, "20260403_080000"))
+        monkeypatch.setattr("opticalib.procedures.measurements._save_fits", lambda path, data: None)
 
         nframes = 2
         m.acquire_time_series(nframes=nframes)

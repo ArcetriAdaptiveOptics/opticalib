@@ -18,7 +18,7 @@ from numpy import fft as _fft
 
 # scipy.signal provides detrend and get_window functions not available in numpy.fft
 from scipy import signal as _signal
-from .. import typings as _ot
+from ..core import _types as _ot
 
 
 def extract_frequency_spectrum(

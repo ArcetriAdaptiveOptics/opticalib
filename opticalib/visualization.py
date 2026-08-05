@@ -9,7 +9,7 @@ DM commands, and other relevant visualizations for optical data analysis.
 
 import numpy as np
 from matplotlib import pyplot as plt
-from . import typings as _ot
+from .core import _types as _ot
 from .ground import osutils as _osu
 
 
@@ -58,7 +58,7 @@ def matshow(matrix: _ot.MatrixLike, **kwargs: dict[str, _ot.Any]):
 def surfshow(
     image: _ot.ImageData,
     d3: bool = False,
-    cut: bool = True,
+    cut: bool = False,
     **kwargs: dict[str, _ot.Any],
 ):
     """
@@ -71,7 +71,7 @@ def surfshow(
     d3 : bool, optional
         Whether to display the image as a 3D surface plot. Default is False.
     cut : bool, optional
-        Whether to cut the image to the region of interest. Default is True.
+        Whether to cut the image to the region of interest. Default is False.
     **kwargs
         Additional keyword arguments to be passed to `plot_surface`, as well as some
         additions:
@@ -206,9 +206,9 @@ def myimshow(
         The image object returned by imshow.
     """
     if cut:
-        from opticalib.ground.roi import imgCut
+        from opticalib.ground.roi import img_cut
 
-        image = imgCut(image)
+        image = img_cut(image)
 
     title = kwargs.pop("title", "Image")
     xlabel = kwargs.pop("xlabel", "X [px]")

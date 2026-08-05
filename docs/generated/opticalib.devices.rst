@@ -13,3 +13,4 @@ opticalib.devices
    cameras
    deformable_mirrors
    interferometer
+   wfs

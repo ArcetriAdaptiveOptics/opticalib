@@ -1,13 +1,28 @@
+"""
+CAMERAS
+=======
+2026
+
+This module contains the classes for the high-level use of cameras.
+
+Author(s)
+---------
+- Pietro Ferraiuolo : pietro.ferraiuolo@inaf.it
+
+Description
+-----------
+
+"""
+
 import time as _time
 
 import vmbpy as _vmbpy
 
-from .. import typings as _ot
-from ..core.decorators import ReconnectionError as _re
+from ..core import _types as _ot
 from ..core.decorators import allow_reconnect as _ar
 from ..ground.logger import SystemLogger as _sl
-from ..core.read_config import getCamerasConfig as _gcc
-from ._API import BaseCamera
+from ..core.config import get_cameras_config as _gcc
+from ._API.base_devices import BaseCamera
 
 
 class GigaVision(BaseCamera):
@@ -76,6 +91,7 @@ class GigaVision(BaseCamera):
                 f"Could not connect to camera {self._name} with ID {self.cam_id}."
             ) from e
 
+        self._exptime = None
         self._exptime = self.get_exptime()
 
     def reconnect(self, max_attempts: int = 2) -> None:
@@ -116,6 +132,7 @@ class GigaVision(BaseCamera):
                     self._cam = self._vimba.get_camera_by_id(self.cam_ip)
 
                 self._cam.__enter__()
+                self._exptime = self.get_exptime()
                 self._exptime = self.get_exptime()
                 self._logger.info(f"Successfully reconnected to camera {self._name}")
                 return
@@ -313,7 +330,7 @@ class GigaVision(BaseCamera):
         if len(frames) == 1:
             frames = frames[0]
         else:
-            from ..analyzer import createCube as _cC
+            from ..analyzer import create_cube as _cC
 
             frames = _cC(frames)
 

@@ -1,4 +1,4 @@
-﻿opticalib.ground.logger
+opticalib.ground.logger
 =======================
 
 .. automodule:: opticalib.ground.logger
@@ -16,5 +16,5 @@
    .. autosummary::
    
       SystemLogger
-      txtLogger
+      TxtLogger
    

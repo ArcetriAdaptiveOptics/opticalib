@@ -1,4 +1,4 @@
-# OptiCalib : python framework for OPTical CALibration of deformable mirror and AO experimentation
+# OptiCalib : python framework for OPTical CALibration of deformable mirrors and AO experimentation
 
 ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/ArcetriAdaptiveOptics/opticalib/tests.yml)
 

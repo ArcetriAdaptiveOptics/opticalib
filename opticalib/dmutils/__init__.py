@@ -15,27 +15,30 @@ which are its calibration and flattening.
 
 Contents:
 ---------
-- `iff_acquisition_preparation.py`: Module for preparing the acquisition of the Influence Functions.
+- `iff_preparation.py`: Module for preparing the acquisition of the Influence Functions.
 - `iff_processing.py`: Module for processing the Influence Functions.
-- `iff_module.py`: high level module for managing the acquisition of IFFs.
+- `procedures/iff.py`: high level module for managing the acquisition of IFFs.
 - `flattening.py`: module containing the procedures for flattening a DM.
 
 """
 
-from . import flattening, iff_module, iff_processing
+from . import flattening, iff_processing, slaving
+from ..procedures import iff as iff_module, stitching
 from .flattening import Flattening
-from ..core.dataclass import FlatData
-from .iff_acquisition_preparation import IFFCapturePreparation
+from ..core.data_classes import FlatData, IffData
+from .iff_preparation import IFFCapturePreparation
 
 from ._misc import *
 
 __all__ = [
     "Flattening",
     "FlatData",
+    "IffData",
     "IFFCapturePreparation",
     "iff_module",
     "iff_processing",
     "flattening",
+    "slaving",
+    "stitching",
     "make_modal_base",
-    "get_buffer_mean_values",
 ]

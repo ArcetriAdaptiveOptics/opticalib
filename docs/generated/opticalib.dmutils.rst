@@ -1,4 +1,4 @@
-﻿opticalib.dmutils
+opticalib.dmutils
 =================
 
 .. automodule:: opticalib.dmutils
@@ -10,11 +10,8 @@
    :toctree:
    :recursive:
 
-   actuator_identification_lib
-   dm_analysis
    flattening
-   iff_acquisition_preparation
-   iff_module
+   iff_preparation
    iff_processing
-   pupil_calibration
    slaving
+   stitching

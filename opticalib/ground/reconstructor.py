@@ -1,0 +1,417 @@
+"""
+Module containing the ComputeReconstructor class, which, from a dm calibration,
+computes the reconstruction matrix.
+
+Author(s):
+----------
+- Marco Xompero : written in 2024
+- Pietro Ferraiuolo : modified in 2024
+"""
+
+import numpy as _np
+import xupy as _xp
+from . import osutils as _osu
+import matplotlib.pyplot as _plt
+from opticalib.core import _types as _ot
+from .logger import SystemLogger as _SL
+from opticalib.core.root import folders as _fn
+import gc
+
+_intMatFold = _fn.INTMAT_ROOT_FOLDER
+
+
+class ComputeReconstructor:
+    """
+    This class analyzes the measurements made through the IFF class
+    and calculates the reconstructor to be used in the control loop.
+
+    HOW TO USE IT::
+
+        tn = "YYYYMMDD_HHMMSS"
+        cr = ComputeReconstructor(tn)
+        rec = cr.run()
+
+    OR
+
+        cr = ComputeReconstructor(interaction_matrix_cube=IMCube)
+        rec = cr.run(interactive=True)
+
+        where the interaction_matrix_cube is a masked_array dstack of
+        shape [pixels, pixels, n_images]
+    """
+
+    def __init__(
+        self,
+        interaction_matrix_cube: _ot.MatrixLike | None = None,
+        tn: str = None,
+        mask2intersect: _ot.Optional[_ot.MatrixLike] = None,
+    ):
+        """The constructor"""
+        self._logger = _SL(__class__)
+        self._imgMask = self._mask2intersect(mask2intersect)
+        self._cubeMask = None
+        self._intMatCube = None
+        self._tn = tn or None
+        self._analysisMask: _ot.MaskData | None = None
+        self._intMat = None
+        self._recMat = None
+
+        # Initialization w/ IM computation
+        self.load_interaction_cube(intCube=interaction_matrix_cube, tn=tn)
+        self._set_analysis_mask()
+
+        self._intMat_U = None
+        self._intMat_S = None
+        self._intMat_Vt = None
+        self._threshold = None
+        self._filtered_sv = None
+
+    @property
+    def IM(self):
+        return self._intMat
+
+    @property
+    def RM(self):
+        return self._recMat
+
+    def run(
+        self, sv_threshold: _ot.Optional[int | float] = None, interactive: bool = False
+    ) -> _ot.MatrixLike:
+        """
+        Compute the reconstruction matrix from the interaction matrix and the image
+        to flatten.
+
+        Parameters
+        ----------
+        Interactive : bool, optional
+            If True, the function will show an interactive plot to choose the
+            threshold for the singular values. Default is False.
+        sv_threshold : int | float, optional
+            The threshold for the singular values. If None, the function will
+            compute the pseudo-inverse of the interaction matrix.
+
+            If an integer is provided, it will be used as an index threshold.
+
+            If a float is provided, it will be used as a value threshold.
+
+            Default is None.
+
+        Returns
+        -------
+        recMat : MatrixLike
+            Reconstruction matrix.
+        """
+        with _xp.MemoryContext(
+            print_report=False,
+        ):  # as ctx:
+            self._logger.info("Reconstructor Computation:")
+            im, U, S, Vt = self._compute_int_mat()
+            print("Computing Recontruction matrix...")
+            if interactive:
+                self._threshold = self.make_interactive_plot(self._intMat_S)
+            else:
+
+                if sv_threshold is None:
+                    rec = _xp.asnumpy(_xp.linalg.pinv(im))
+                    self._recMat = rec.copy()
+                    return rec
+
+                elif isinstance(sv_threshold, int):
+                    self._threshold = {
+                        "y": _np.finfo(_np.float32).eps,
+                        "x": -sv_threshold,
+                    }
+
+                else:
+                    self._threshold = {
+                        "y": sv_threshold,
+                        "x": _np.argmin(_np.abs(self._intMat_S - sv_threshold)),
+                    }
+
+            threshold = S.copy()
+            threshold[self._threshold["x"] :] = 0
+            sv_inv_threshold = threshold * 0
+            sv_inv_threshold[0 : self._threshold["x"]] = (
+                1 / threshold[0 : self._threshold["x"]]
+            )
+            self._filtered_sv = sv_inv_threshold
+            self._logger.info("Computing Reconstructor Matrix: Vt.T @ S_inv @ U.T")
+            rec = _xp.asnumpy(Vt.T @ _xp.diag(sv_inv_threshold) @ U.T)
+            self._recMat = rec.copy()
+
+            del im, U, S, Vt
+            gc.collect()
+        return rec
+
+    def get_svd(
+        self,
+    ) -> _ot.Optional[tuple[_ot.MatrixLike, _ot.ArrayLike, _ot.MatrixLike]]:
+        """
+        Returns the SVD components of the interaction matrix.
+
+        Returns
+        -------
+        U : MatrixLike
+            Left singular vectors.
+        S : ArrayLike
+            Singular values.
+        Vt : MatrixLike
+            Right singular vectors transposed.
+        """
+        if all(
+            [x is not None for x in (self._intMat_U, self._intMat_S, self._intMat_Vt)]
+        ):
+            return self._intMat_U, self._intMat_S, self._intMat_Vt
+        print("SVD has not been computed yet. Run the 'run' method first.")
+        return None
+
+    def load_shape2_flat(self, img: _ot.ImageData) -> "ComputeReconstructor":
+        """
+        Function intended as a reloader for the image mask to intersect, in order
+        to create a new recontructor matrix.
+
+        Parameters
+        ----------
+        img : ImageData
+            The image to compute the new recontructor.
+        """
+        self._shape2flat = img.copy()
+        self._imgMask = self._shape2flat.mask
+        return self
+
+    def load_interaction_cube(
+        self, intCube: _ot.Optional[_ot.MatrixLike] = None, tn: str = None
+    ) -> "ComputeReconstructor":
+        """
+        Function intended as a reloader for the interaction matrix cube, to use
+        a different IFF for recontructor creation.
+
+        Parameters
+        ----------
+        intCube : ndarray, optional
+            The data cube itself.
+        tn : str, optional
+            The tracking number where to find the data cube. Default is None.
+
+        Returns
+        -------
+        """
+        import os
+
+        if intCube is not None:
+            self._intMatCube = intCube.copy()
+        elif tn is not None:
+            cube_path = os.path.join(_intMatFold, tn, "IMCube.fits")
+            self._intMatCube = _osu.read_phasemap(cube_path)
+        else:
+            raise KeyError("No cube or tracking number was provided.")
+        self._set_analysis_mask()
+        return self
+
+    def _compute_int_mat(
+        self,
+    ) -> tuple[_ot.MatrixLike, _ot.MatrixLike, _ot.ArrayLike, _ot.MatrixLike]:
+        """
+        Subroutine which computes the interaction matrix and it's SVD, and stores
+        it in class variables.
+        """
+
+        # Recompute if mask changed, or if cached matrices are not initialized yet.
+        mask_changed = not _np.array_equal(self._imgMask, self._analysisMask)
+        cache_ready = all(
+            x is not None
+            for x in (self._intMat, self._intMat_U, self._intMat_S, self._intMat_Vt)
+        )
+
+        if mask_changed or not cache_ready:
+            self._logger.info(
+                f"Computing interaction matrix from cube of size {self._intMatCube.shape}"
+            )
+            print("Computing Interaction Matrix...", end="\n")
+
+            try:
+                self._set_analysis_mask()
+                self._intMat = _np.array(
+                    [
+                        (self._intMatCube[:, :, i].data)[self._analysisMask == 0]
+                        for i in range(self._intMatCube.shape[2])
+                    ]
+                )
+                self._logger.info("SVD of Interaction Matrix")
+                im = _xp.asarray(self._intMat, dtype=_xp.float)
+                U, S, Vt = _xp.linalg.svd(im, full_matrices=False)
+                self._intMat_U, self._intMat_S, self._intMat_Vt = [
+                    _xp.asnumpy(x) for x in (U, S, Vt)
+                ]
+
+                self._logger.info(
+                    f"Computed interaction matrix of shape {self._intMat.shape}"
+                )
+
+                return im, U, S, Vt
+
+            except Exception as e:
+                self._logger.error(
+                    f"Error in computing interaction matrix from cube: {e}"
+                )
+                raise e
+
+        return tuple(
+            _xp.asarray(x, dtype=_xp.float)
+            for x in (self._intMat, self._intMat_U, self._intMat_S, self._intMat_Vt)
+        )
+
+    def _set_analysis_mask(self) -> _ot.MaskData:
+        """
+        Sets the analysis mask as the mask resulting from the 'logical_or' between
+        the cube mask and the image to flatten mask.
+        """
+        # Handling for the instancing of the class with the cube, but without the image to flatten mask.
+        if self._cubeMask is None:
+            self._cubeMask = self._intersect_cube_mask()
+
+        try:
+            if self._imgMask is None:
+                analysis_mask = self._cubeMask
+            else:
+                analysis_mask = _np.logical_or(self._cubeMask, self._imgMask)
+
+        except Exception as e:
+            raise e
+
+        self._analysisMask = analysis_mask
+
+    def _mask2intersect(
+        self, img_or_mask: _ot.Optional[_ot.MatrixLike | _ot.ImageData] = None
+    ) -> _ot.Optional[_ot.MatrixLike]:
+        """
+        Returns the mask from the input image or mask.
+
+        Parameters
+        ----------
+        img_or_mask : ndarray or MaskedArray
+            The image's mask or mask itself to use to compute the reconstructor.
+
+        Returns
+        -------
+        mask : ndarray
+            The mask.
+        """
+        if img_or_mask is not None:
+            try:
+                mask = img_or_mask.mask
+            except AttributeError:
+                mask = img_or_mask
+        else:
+            mask = None
+        return mask
+
+    def _intersect_cube_mask(self) -> _ot.MatrixLike:
+        """
+        Creates the cube's mask by intersecating the masks of each frame.
+
+        Returns
+        -------
+        cube_mask : MatrixLike
+            the intersection mask for the cube.
+        """
+        mask = self._intMatCube[:, :, 0].mask
+        for i in range(1, self._intMatCube.shape[2]):
+            cube_mask = _np.logical_or(mask, self._intMatCube[:, :, i].mask)
+            mask = cube_mask
+        return cube_mask
+
+    def __repr__(self) -> str:
+        if self._tn:
+            arg = f"tn='{self._tn}'"
+        else:
+            arg = f"IntMat: {self._intMatCube.shape}"
+        return f"ComputeReconstructor({arg})"
+
+    # ______________________________________________________________________________
+    @staticmethod
+    def make_interactive_plot(singular_values: _ot.ArrayLike):
+        # Creare il grafico
+        fig, ax = _plt.subplots()
+        modelist = _np.arange(len(singular_values))
+        ax.loglog(modelist, singular_values, "b-o")
+        ax.set_xlabel("Mode number")
+        ax.set_ylabel("Singular value")
+        ax.grid()
+        ax.autoscale(tight=False)
+        ax.set_ylim([min(singular_values), max(singular_values)])
+        ax.title.set_text("Singular values")
+        threshold = dict()
+
+        threshold["y"] = _np.finfo(_np.float32).eps  # 0.01
+        threshold["x"] = 0  # 5 % len(singular_values)
+        ax.axhline(threshold["y"], color="g", linestyle="-", linewidth=1)
+        ax.axvline(threshold["x"], color="g", linestyle="-", linewidth=1)
+        ax.plot(
+            modelist[singular_values < threshold["y"]],
+            singular_values[singular_values < threshold["y"]],
+            "r-x",
+        )
+
+        # Funzione per aggiornare la posizione della croce rossa
+        def update_crosshair(event):
+            if event.inaxes:
+                xlim = ax.get_xlim()
+                ylim = ax.get_ylim()
+                ax.cla()
+                ax.loglog(modelist, singular_values, "b-o")
+                ax.plot(
+                    modelist[singular_values < threshold["y"]],
+                    singular_values[singular_values < threshold["y"]],
+                    "r-x",
+                )
+                ax.autoscale(tight=False)
+                ax.set_xlabel("Mode number")
+                ax.set_ylabel("Singular value")
+                ax.grid()
+                ax.set_xlim(xlim)
+                ax.set_ylim(ylim)
+                ax.axhline(threshold["y"], color="g", linestyle="-", linewidth=1)
+                ax.axvline(threshold["x"], color="g", linestyle="-", linewidth=1)
+                ax.title.set_text("Singular values")
+                x_mouse, y_mouse = event.xdata, event.ydata
+                ax.axhline(y_mouse, color="r", linestyle="-", linewidth=1)
+                ax.axvline(
+                    _np.argmin(_np.abs(singular_values - y_mouse)),
+                    color="r",
+                    linestyle="-",
+                    linewidth=1,
+                )
+                ax.figure.canvas.draw()
+                # print(
+                #    f"Current threshold: X = {threshold['x']:.2f}, \
+                #        Y = {threshold['y']:.5f}"
+                # )
+
+        # Connettere la funzione all'evento di movimento del mouse
+        ax.add_artist(ax.patch)
+        fig.canvas.mpl_connect(
+            "motion_notify_event", lambda event: update_crosshair(event)
+        )
+
+        # Funzione per registrare le coordinate del click
+
+        def record_click(event):
+            if event.inaxes and event.dblclick:
+                x_click, y_click = event.xdata, event.ydata
+                threshold["y"] = y_click
+                threshold["x"] = _np.argmin(_np.abs(singular_values - y_click))
+                ax.axhline(threshold["x"], color="g", linestyle="-", linewidth=1)
+                ax.axvline(threshold["y"], color="g", linestyle="-", linewidth=1)
+                # print(
+                #    f"New eigenvalues threshold: X = {x_click:.2f}, \
+                #            Y = {y_click:.2f}"
+                # )
+                return threshold["x"], threshold["y"]
+
+        # Connettere la funzione all'evento di click del tasto sinistro
+        fig.canvas.mpl_connect("button_press_event", lambda event: record_click(event))
+
+        # Visualizzare il grafico
+        _plt.show()
+        return threshold

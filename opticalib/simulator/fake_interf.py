@@ -1,10 +1,9 @@
 import numpy as _np
 import matplotlib.pyplot as _plt
-from opticalib import typings as _t
-from opticalib.analyzer import modeRebinner as rebinned
+from ..core import _types as _t
+from ..analyzer import mode_rebinner as rebinned
 from matplotlib.animation import FuncAnimation as _FuncAnimation
 from opticalib.ground.logger import SystemLogger as _SL
-from ..ground.roi import roiGenerator as _rg
 
 _conf = {
     "width": 512,
@@ -53,7 +52,7 @@ class Fake4DInterf:
         self._lambda = 632.8e-9  # λ[m]
         self._anim = None
         self._fps = 10
-        self._fW, self._fH = self._readFullFrameSize()
+        self._fW, self._fH = self._read_full_frame_size()
         self._dmzfitter = self._dm._zern
 
     def live(
@@ -99,13 +98,13 @@ class Fake4DInterf:
         fig, ax = _plt.subplots(figsize=(7, 7.5))
         fig.subplots_adjust(top=0.9, bottom=0.1, left=0.05, right=0.95)
         fig.canvas.manager.set_window_title(
-            f"Live View - {self._dm._name} {self._dm.nActs}"
+            f"Live View - {self._dm._name} {self._dm.n_acts}"
         )
         simg = self._dm._wavefront(
             zernike=zernike2remove, surf=self._surf, noisy=self._noisy
         )
         if self.full_frame:
-            simg = self.intoFullFrame(simg)
+            simg = self.into_full_frame(simg)
         im = ax.imshow(simg, cmap=cmap)
         ax.axis("off")
         fig.colorbar(im, ax=ax, orientation="horizontal", pad=0.05, shrink=0.9)
@@ -126,7 +125,7 @@ class Fake4DInterf:
                 zernike=self.shapesRemoved, surf=self._surf, noisy=self._noisy
             )
             if self.full_frame:
-                new_img = self.intoFullFrame(new_img)
+                new_img = self.into_full_frame(new_img)
             if not self._surf:
                 fps_txt.set_text(f"FPS: {framerate:.1f}")
                 pv_txt.set_text("")
@@ -189,20 +188,18 @@ class Fake4DInterf:
         )
         imglist = []
         for _ in range(nframes):
-            masked_ima = self._dm._shape.copy()
-            if self._phase_ambiguity:
-                rois = _rg(masked_ima)
-                for roi in rois:
-                    masked_ima[roi == 0] += _np.floor(_np.random.random(1) * 5 - 2) * self._lambda
+            img = self._dm._shape
+            kk = _np.floor(_np.random.random(1) * 5 - 2)
+            masked_ima = img + _np.ones(img.shape) * self._lambda * kk
             imglist.append(masked_ima)
         image = _np.ma.dstack(imglist)
         image = _np.mean(image, axis=2)
         masked_img = _np.ma.masked_array(image, mask=self._dm._mask)
         fimage = rebinned(masked_img, rebin)
         if self.full_frame:
-            fimage = self.intoFullFrame(fimage)
+            fimage = self.into_full_frame(fimage)
         if self.shapesRemoved is not None:
-            fimage = self._dmzfitter.removeZernike(fimage, self.shapesRemoved)
+            fimage = self._dmzfitter.remove_zernike(fimage, self.shapesRemoved)
         if self._freeze:
             if self._live:
                 self._surf = True
@@ -210,7 +207,7 @@ class Fake4DInterf:
                 self._surf = False
         return fimage
 
-    def intoFullFrame(self, img: _t.ImageData = None):
+    def into_full_frame(self, img: _t.ImageData = None):
         """
         Converts the image to a full frame image of 2000x2000 pxs.
 
@@ -227,7 +224,7 @@ class Fake4DInterf:
         if img is None:
             self.full_frame = True
             return
-        params = self.getCameraSettings()
+        params = self.get_camera_settings()
         ocentre = (params["Width"] // 2 - 1, params["Height"] // 2 - 1)
         ncentre = (self._fW // 2 - 1, self._fH // 2 - 1)
         offset = (ncentre[0] - ocentre[0], ncentre[1] - ocentre[1])
@@ -238,7 +235,7 @@ class Fake4DInterf:
         full_frame = _np.ma.masked_array(full_frame, mask=new_mask)
         return full_frame
 
-    def acquireFullFrame(self, **kwargs: dict[str, _t.Any]):
+    def acquire_full_frame(self, **kwargs: dict[str, _t.Any]):
         """
         Acquires the phase map of the interferometer in full frame mode.
 
@@ -255,22 +252,13 @@ class Fake4DInterf:
         np.array
             Full frame phase map of the interferometer.
         """
-        return self.intoFullFrame(self.acquire_map(**kwargs))
+        return self.into_full_frame(self.acquire_map(**kwargs))
 
     # --------------------------------------------------------------------------
     # Series of functions to control the behavior of the live interferometer
     # --------------------------------------------------------------------------
-    
-    def toggle_phase_ambiguity(self):
-        """
-        Toggles the phase ambiguity of the interferometer.
-        """
-        self._phase_ambiguity = not self._phase_ambiguity
-        self._logger.info(
-            f"Toggling phase ambiguity: now {'on' if self._phase_ambiguity else 'off'}"
-        )
 
-    def toggleShapeRemoval(self, modes: list[int]):
+    def toggle_shape_removal(self, modes: list[int]):
         """
         Removes the acquired shape by the define Zernike modes.
 
@@ -282,7 +270,7 @@ class Fake4DInterf:
         self._logger.info(f"Toggling shape removal: removing modes {modes}")
         self.shapesRemoved = modes
 
-    def toggleSurfaceView(self):
+    def toggle_surface_view(self):
         """
         Continuously acquires the phase map of the interferometer.
 
@@ -294,7 +282,7 @@ class Fake4DInterf:
         )
         self._surf = not self._surf
 
-    def toggleAcquisitionLiveFreeze(self):
+    def toggle_acquisition_live_freeze(self):
         """
         Freezes the live wavefront when acquiring, to show the
         measured surface.
@@ -304,7 +292,7 @@ class Fake4DInterf:
         )
         self._freeze = not self._freeze
 
-    def toggleLiveNoise(self):
+    def toggle_live_noise(self):
         """
         Adds noise to the live wavefront.
         """
@@ -322,7 +310,7 @@ class Fake4DInterf:
         dict
             Current state of the live interferometer.
         """
-        params = self.getCameraSettings()
+        params = self.get_camera_settings()
         state = f"""
 {self._name}
 --------------------------
@@ -357,7 +345,7 @@ Noise              : {self._noisy}"""
 
     # ==========================================================================
 
-    def getCameraSettings(self):
+    def get_camera_settings(self):
         """
         Reads the configuration of the 4D interferometer.
 
@@ -374,7 +362,7 @@ Noise              : {self._noisy}"""
         params["y-offset"] = int(data["y-offset"])
         return params
 
-    def _readFullFrameSize(self):
+    def _read_full_frame_size(self):
         """
         Reads the full frame size of the 4D interferometer.
 

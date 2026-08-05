@@ -1,8 +1,8 @@
 import numpy as np
-from opticalib import typings as _ot
+from opticalib.core import _types as _ot
 from pipython import GCSDevice, GCSError
 from pipython.pidevice.interfaces.pisocket import PISocket
-from opticalib.core.read_config import getDmConfig, getIffConfig as _dmc
+from opticalib.core import config as _rc
 from opticalib.core.exceptions import CommandError
 
 
@@ -23,8 +23,11 @@ class BasePetalMirror:
         """
         self._had_error = False
 
+        ptl_config = _rc.get_device_config("DEFORMABLE.MIRRORS", "PetalDM")
+
         if ip_addresses is None:
-            self._ip_addresses = [ip for ip in getDmConfig("PetalDM").values()]
+            ips = [ptl_config.get(f"ip{i}") for i in range(6)]
+            self._ip_addresses = [ip for ip in ips if ip is not None]
         else:
             self._ip_addresses = ip_addresses
 
@@ -46,17 +49,17 @@ class BasePetalMirror:
         self.is_segmented = True
         self.nSegments = len(self._devices)
         self.nActsPerSegment = 3
-        self.nActs = self.nSegments * self.nActsPerSegment
-        self._slaveIds = _dmc("DM").get("slaveIds", [])
-        self._borderIds = _dmc("DM").get("borderIds", [])
+        self.n_acts = self.nSegments * self.nActsPerSegment
+        self._slaveIds = ptl_config.get("slave_ids", [])
+        self._borderIds = ptl_config.get("border_ids", [])
 
     @property
-    def slaveIds(self):
+    def slave_ids(self):
         """Get the IDs of the slave segments."""
         return self._slaveIds
 
     @property
-    def borderIds(self):
+    def border_ids(self):
         """Get the IDs of the border segments."""
         return self._borderIds
 
@@ -169,8 +172,8 @@ class BasePetalMirror:
             If True, the command is treated as a differential adjustment to the current shape.
         """
 
-        if not len(cmd) == self.nActs:
-            raise CommandError(f"command length must be {self.nActs}")
+        if not len(cmd) == self.n_acts:
+            raise CommandError(f"command length must be {self.n_acts}")
 
         if differential:
             cmd = cmd.copy() + self._get_last_cmd()
@@ -198,12 +201,12 @@ class BasePetalMirror:
         """
         import time
 
+        pos = self._read_act_position()
         try:
             if not self._had_morning_routine:
                 self._logger.info(
                     f"Warming up the segments piezos."
                 )
-                pos = self._read_act_position()
                 routine = [0,6,12,6]*4
                 for c in routine:
                     for dev in self._devices:
@@ -216,6 +219,9 @@ class BasePetalMirror:
             self._logger.error(f"Error during warming up: {err}")
             self._had_error = True
             raise RuntimeError("Morning routine failed") from err
+        finally:
+            self._logger.info("Morning routine completed.")
+            self._mirror_command(pos, differential=False)
 
     def _check_servos(self) -> None:
         """

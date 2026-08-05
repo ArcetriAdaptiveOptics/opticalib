@@ -23,19 +23,19 @@ from opticalib.dmutils import flattening as flt
 tn = '20240906_110000' # example tn
 f = flt.Flattening(tn)
 # say we have acquired an image
-img = interf.acquire_map()
+img = wfs.acquire_map()
 f.load_image2shape(img)
-f.computeRecMat()
+f.compute_rec_mat()
 'Computing reconstruction matrix...'
 ```
 
 all is ready to compute the flat command, by simply running the method
 
 ```python
-flatCmd = f.computeFlatCmd()
+flat_cmd = f.compute_flat_cmd()
 ```
 
-Update : all the steps above have been wrapped into the `applyFlatCommand` method,
+Update : all the steps above have been wrapped into the `apply_flat_command` method,
 which will also save the flat command and the images used for the computation in a
 dedicated folder in the flat root folder.
 
@@ -43,14 +43,14 @@ dedicated folder in the flat root folder.
 
 import os as _os
 import numpy as _np
-from opticalib import typings as _ot
+from opticalib.core import _types as _ot
 from . import iff_processing as _ifp
 from opticalib.ground import osutils as _osu
 from opticalib.core.root import folders as _fn
-from opticalib.ground import computerec as _crec
+from opticalib.ground import reconstructor as _crec
 from ..ground.logger import SystemLogger as _SL
-from ..analyzer.images_processing import modeRebinner as _rebin
-from opticalib.core.dataclass import FlatData
+from ..analyzer.image_processing import mode_rebinner as _rebin
+from opticalib.core.data_classes import FlatData
 
 
 class Flattening:
@@ -74,55 +74,55 @@ class Flattening:
 
     Public Methods
     --------------
-    - applyFlatCommand(dm, interf, modes2flat, nframes=5, modes2discard=None):
+    - apply_flat_command(dm, wfs, modes2flat, nframes=5, modes2discard=None):
         Acquires images, computes and applies the flattening command, and saves results.
-    - computeFlatCmd(n_modes):
+    - compute_flat_cmd(n_modes):
         Computes the flattening command for the loaded shape and selected modes.
-    - loadImage2Shape(img, compute=None):
+    - load_image2_shape(img, compute=None):
         Loads a new image to flatten and optionally computes the reconstruction matrix.
-    - computeRecMat(threshold=None):
+    - compute_rec_mat(threshold=None):
         Computes the reconstruction matrix for the loaded image.
-    - filterIntCube(zernModes=None):
+    - filter_int_cube(zernModes=None):
         Filters the interaction cube by removing specified Zernike modes.
-    - loadNewTn(tn):
+    - load_new_tn(tn):
         Loads a new tracking number and updates internal data.
 
     Usage Example
     -------------
         >>> f = Flattening('20240906_110000')
-        >>> img = interf.acquire_map()
-        >>> f.loadImage2Shape(img)
-        >>> f.computeRecMat()
-        >>> flatCmd = f.computeFlatCmd(10)
-        >>> f.applyFlatCommand(dm, interf, modes2flat=10)
+        >>> img = wfs.acquire_map()
+        >>> f.load_image2_shape(img)
+        >>> f.compute_rec_mat()
+        >>> flat_cmd = f.compute_flat_cmd(10)
+        >>> f.apply_flat_command(dm, wfs, modes2flat=10)
     """
 
     def __init__(
         self,
         tn: str,
         dm: _ot.Optional[_ot.DeformableMirrorDevice] = None,
-        interf: _ot.Optional[_ot.InterferometerDevice] = None,
+        wfs: _ot.Optional[_ot.InterferometerDevice|_ot.WFSDevice] = None,
     ) -> None:
         """The Constructor"""
         self.tn = tn
         self._oldtn = tn
 
         self._dm = dm
-        self._interf = interf
+        self._wfs = wfs
         self._logger = _SL(__class__)
 
         self._path = _os.path.join(_ifp._intMatFold, self.tn)
 
         ## Flat related attributes
         self.shape2flat: _ot.ImageData = None
-        self.flatCmd = None
+        self.flat_cmd = None
         self.rebin = None
         self.filtered = False
         self.filteredModes = None
         self._lastFlatImg: _ot.ImageData = None
-        self._intCube = self._loadIntCube()
-        self._cmdMat = self._loadCmdMat()
-        self._rec = self._loadReconstructor()
+        self._intCube = self._load_int_cube()
+        self._cmdMat = self._load_cmd_mat()
+        self._rec = self._load_reconstructor()
         self._recMat = None
         self._frameCenter = None
         self._flatOffset = None
@@ -153,7 +153,7 @@ class Flattening:
         return self._rec._intMat
 
     @property
-    def analysisMask(self) -> _ot.MaskData:
+    def analysis_mask(self) -> _ot.MaskData:
         """
         Analysis mask property.
         """
@@ -166,7 +166,7 @@ class Flattening:
         """
         return self._rec._intMatCube.header
 
-    def closedLoopFlattening(
+    def closed_loop_flattening(
         self, iterations: int | None = None, **kwargs: dict[str, _ot.Any]
     ) -> None:
         """
@@ -181,11 +181,11 @@ class Flattening:
             It is the number of flattening iterations to perform. If not provided,
             the loop will stop at the user's input.
         kwargs: dict
-            The arguments for the `applyFlatCommand` function:
+            The arguments for the `apply_flat_command` function:
             - dm : DeformableMirrorDevice
                 Deformable mirror object.
-            - interf : InterferometerDevice
-                Interferometer object to acquire phasemaps.
+            - wfs : InterferometerDevice | WFSDevice
+                Wavefront sensor object to acquire phasemaps.
             - modes2flat : int | ArrayLike
                 Modes to flatten.
             - modes2discard : int, optional
@@ -198,7 +198,7 @@ class Flattening:
                 f"Starting closed-loop flattening for {iterations} iterations."
             )
             for _ in range(iterations):
-                self.applyFlatCommand(**kwargs)
+                self.apply_flat_command(**kwargs)
         else:
             import sys
             import threading
@@ -234,18 +234,18 @@ class Flattening:
             iteration = 0
             while not stop_event.is_set():
                 self._logger.info(f"Closed-loop flattening iteration {iteration}")
-                self.applyFlatCommand(**kwargs)
+                self.apply_flat_command(**kwargs)
                 iteration += 1
 
             self._logger.info("Closed-loop flattening stopped by user.")
 
-    def applyFlatCommand(
+    def apply_flat_command(
         self,
         dm: _ot.Optional[_ot.DeformableMirrorDevice] = None,
-        interf: _ot.Optional[_ot.InterferometerDevice] = None,
-        img: _ot.Optional[_ot.ImageData] = None,
+        wfs: _ot.Optional[_ot.InterferometerDevice | _ot.WFSDevice] = None,
         modes2flat: _ot.Optional[int | _ot.ArrayLike] = None,
         modes2discard: _ot.Optional[int] = None,
+        img: _ot.Optional[_ot.ImageData] = None,
         nframes: int = 5,
         save: bool = True,
         **setshape_kwargs: dict[str, _ot.Any],
@@ -258,11 +258,11 @@ class Flattening:
         ----------
         dm : DeformableMirrorDevice, optional
             Deformable mirror object.
-        interf : InterferometerDevice, optional
-            Interferometer object to acquire phasemaps.
+        wfs : InterferometerDevice | WFSDevice, optional
+            Wavefront sensor object to acquire phasemaps.
         img : ImageData, optional
             Image to flatten. If not provided, it will acquired using the provided
-            interferometer.
+            wavefront sensor.
         modes2flat : int | ArrayLike, optional
             Modes to flatten.
         modes2discard : int, optional
@@ -292,43 +292,44 @@ class Flattening:
         else:
             self._dm = dm
 
-        # if `Interf` is not present, register the one provided
-        if interf is None:
-            if self._interf is None:
+        # if `WFS` is not present, register the one provided
+        if wfs is None:
+            if self._wfs is None:
                 self._logger.error(
-                    "Interferometer device must be provided either as an argument or during class instantiation."
+                    "Wavefront sensor device must be provided either as an argument or during class instantiation."
                 )
                 raise ValueError(
-                    "Interferometer device must be provided either as an argument or during class instantiation."
+                    "Wavefront sensor device must be provided either as an argument or during class instantiation."
                 )
             else:
-                interf = self._interf
+                wfs = self._wfs
 
         else:
-            self._interf = interf
+            self._wfs = wfs
 
         if modes2flat is None:
-            modes2flat = self._dm.nActs
+            modes2flat = self._dm.n_acts
 
-        self._logger.info("Acquiring starting image from interferometer...")
+        self._logger.info("Acquiring starting image from wavefront sensor...")
 
         if img is None:
-            self._startImg = interf.acquire_map(nframes)
+            self._startImg = wfs.acquire_map(nframes)
             img2pass = _rebin(self._startImg, self.rebin)
         else:
             self._startImg = img2pass = img.copy()
 
-        self.loadImage2Shape(img2pass)
-        self.computeRecMat(modes2discard)
-        deltacmd = self.computeFlatCmd(modes2flat)
+        self.load_image2_shape(img2pass)
+        self.compute_rec_mat(modes2discard)
+        deltacmd = self.compute_flat_cmd(modes2flat)
 
         # handle diverse DM set_shape args
         _ = setshape_kwargs.pop("differential", None)
         self._logger.info(f"Applying flat command to the {self._dm._name}")
         self._dm.set_shape(deltacmd, differential=True, **setshape_kwargs)
+
         cmd = self._dm.get_shape()  # TODO: check if this is correct for DP
 
-        self._lastFlatImg = interf.acquire_map(nframes)
+        self._lastFlatImg = wfs.acquire_map(nframes)
 
         fold = None
         if save:
@@ -339,11 +340,11 @@ class Flattening:
                 "modes discarded in reconstructor",
             )
             header["DMNAME"] = (self._dm._name, "deformable mirror name")
-            header["INTERF"] = (interf._name, "interferometer used")
+            header["WFS"] = (wfs._name, "wavefront sensor used")
             modes2flat = (
                 _np.arange(modes2flat) if isinstance(modes2flat, int) else modes2flat
             )
-            fold = self.saveFlatData(cmd, header, modes2flat)
+            fold = self.save_flat_data(cmd, header, modes2flat)
             print(f"Flat command saved in .../{'/'.join(fold.split('/')[-2:])}")
             self._logger.info(f"Flat command and images saved in {fold}.")
             return fold.split("/")[-1]
@@ -387,7 +388,7 @@ class Flattening:
         else:
             return flat_cmd
 
-    def computeFlatCmd(self, modes2flat: int | _ot.ArrayLike) -> _ot.ArrayLike:
+    def compute_flat_cmd(self, modes2flat: int | _ot.ArrayLike) -> _ot.ArrayLike:
         """
         Compute the command to apply to flatten the input shape.
 
@@ -404,7 +405,7 @@ class Flattening:
             Flat command.
         """
         self._logger.info("Computing flat command...")
-        img = _np.ma.masked_array(self.shape2flat, mask=self._getMasterMask())
+        img = _np.ma.masked_array(self.shape2flat, mask=self._get_master_mask())
         _cmd = -_np.dot(img.compressed(), self._recMat)
         cmdMat = self._cmdMat.copy()
         if isinstance(modes2flat, int):
@@ -423,10 +424,10 @@ class Flattening:
             raise TypeError(
                 f"`modes2flat` must be either an int or a list of int: {type(modes2flat)}"
             )
-        self.flatCmd = flat_cmd.copy()
+        self.flat_cmd = flat_cmd.copy()
         return flat_cmd
 
-    def loadImage2Shape(self, img: _ot.ImageData) -> None:
+    def load_image2_shape(self, img: _ot.ImageData) -> None:
         """
         (Re)Loader for the image to flatten.
 
@@ -438,11 +439,11 @@ class Flattening:
         if self._cavityOffset is not None:
             self._logger.info("Subtracting the cavity offset from loaded image...")
             img = img - self._cavityOffset
-        self.shape2flat = self._alignImgAndCubeMasks(img)
-        self._rec = self._rec.loadShape2Flat(self.shape2flat)
+        self.shape2flat = self._align_img_and_cube_masks(img)
+        self._rec = self._rec.load_shape2_flat(self.shape2flat)
         self._logger.info("Image to shape loaded to Reconstructor class.")
 
-    def computeRecMat(self, threshold: _ot.Optional[int | float] = None):
+    def compute_rec_mat(self, threshold: _ot.Optional[int | float] = None):
         """
         Compute the reconstruction matrix for the loaded image.
 
@@ -472,7 +473,7 @@ class Flattening:
         self._cavityOffset = cavity_offset.copy()
         self._logger.info("Cavity offset loaded.")
 
-    def getSVDmatrices(self) -> tuple[_ot.ArrayLike, _ot.ArrayLike, _ot.ArrayLike]:
+    def get_svd_matrices(self) -> tuple[_ot.ArrayLike, _ot.ArrayLike, _ot.ArrayLike]:
         """
         Returns the U, S, Vt matrices from the SVD decomposition of the interaction
         matrix.
@@ -488,7 +489,7 @@ class Flattening:
         """
         return self._rec._intMat_U, self._rec._intMat_S, self._rec._intMat_Vt
 
-    def plotEigenvalues(self, **plotkwargs: dict[str, _ot.Any]) -> None:
+    def plot_eigenvalues(self, **plotkwargs: dict[str, _ot.Any]) -> None:
         """
         Plots the eigenvalues of the interaction matrix.
         """
@@ -496,7 +497,7 @@ class Flattening:
 
         if self._rec._intMat_S is None:
             try:
-                self.computeRecMat()
+                self.compute_rec_mat()
             except Exception as e:
                 self._logger.error(
                     f"Error computing reconstruction matrix for eigenvalue plot: {e}"
@@ -516,7 +517,7 @@ class Flattening:
         plt.grid()
         plt.show()
 
-    def plotEigenvectors(
+    def plot_eigenvectors(
         self, modeid: int, out: bool = False, **imshowkwargs: dict[str, _ot.Any]
     ) -> None:
         """
@@ -534,7 +535,7 @@ class Flattening:
         if self._rec._intMat_Vt is None:
             raise ValueError("Reconstruction matrix not computed yet.")
 
-        mask = self._getMasterMask()
+        mask = self._get_master_mask()
         img = _np.ma.masked_array(mask * 0.0, mask=mask)
         mode = (self._rec._intMat_Vt).T
         img[img.mask == 0] = mode[:, modeid]
@@ -555,7 +556,7 @@ class Flattening:
         if out:
             return img
 
-    def filterIntCube(
+    def filter_int_cube(
         self,
         zernModes: _ot.Optional[list[int] | _ot.ArrayLike] = None,
         mode: str = "global",
@@ -580,13 +581,15 @@ class Flattening:
             self._oldCube = self._intCube.copy()
             zern2fit = zernModes if zernModes is not None else [1, 2, 3]
             self._logger.info(f"Filtering cube of zernike modes {zern2fit}...")
-            self._intCube, new_tn = _ifp.filterZernikeCube(self.tn, zern2fit, mode=mode)
-            self.loadNewTn(new_tn)
+            self._intCube, new_tn = _ifp.filter_zernike_cube(
+                self.tn, zern2fit, mode=mode
+            )
+            self.load_new_tn(new_tn)
             self.filtered = True
             self.filteredModes = zern2fit
         return self
 
-    def loadNewTn(self, tn: str) -> None:
+    def load_new_tn(self, tn: str) -> None:
         """
         Load a new tracking number for the flattening.
 
@@ -596,9 +599,9 @@ class Flattening:
             Tracking number of the new data.
         """
         self.__update_tn(tn)
-        self._reloadClass(tn)
+        self._reload_class(tn)
 
-    def saveFlatData(
+    def save_flat_data(
         self,
         cmd: _ot.ArrayLike,
         header: _ot.Header | dict[str, _ot.Any],
@@ -634,17 +637,17 @@ class Flattening:
         ]
         imgstart = self._startImg.copy()
         imgflat = self._lastFlatImg.copy()
-        deltacmd = self.flatCmd.copy()
+        deltacmd = self.flat_cmd.copy()
         data = [cmd, deltacmd, imgstart, imgflat, modes2flat]
 
         if self._cavityOffset is not None:
             data.append(self._cavityOffset.copy())
-            files.append("cavityOffset.fits")
+            files.append("cavity_offset.fits")
 
         dm_optionals = {
             "_last_cmd": "flatCommand.fits",
-            "_bias_cmd": "BiasCommand.fits",
-            "_bias_force": "BiasForces.fits",
+            "_bias_cmd": "bias_command.fits",
+            "_bias_force": "bias_forces.fits",
         }
 
         for op, file in dm_optionals.items():
@@ -664,7 +667,7 @@ class Flattening:
 
         return path
 
-    def _reloadClass(self, tn: str) -> None:
+    def _reload_class(self, tn: str) -> None:
         """
         Reload function for the interaction cube
 
@@ -676,10 +679,10 @@ class Flattening:
             Zernike modes to filter out this cube (if it's not already filtered).
             Default modes are [1,2,3] -> piston/tip/tilt.
         """
-        self._cmdMat = self._loadCmdMat()
-        self._rec = self._rec.loadInteractionCube(tn=tn)
+        self._cmdMat = self._load_cmd_mat()
+        self._rec = self._rec.load_interaction_cube(tn=tn)
 
-    def _getMasterMask(self) -> _ot.ImageData:
+    def _get_master_mask(self) -> _ot.ImageData:
         """
         Creates the intersection mask of the interaction cube.
         """
@@ -689,7 +692,7 @@ class Flattening:
         master_mask[_np.where(cubeMask > 0)] = True
         return master_mask
 
-    def _alignImgAndCubeMasks(self, img: _ot.ImageData) -> _ot.ImageData:
+    def _align_img_and_cube_masks(self, img: _ot.ImageData) -> _ot.ImageData:
         """
         Aligns the image mask with the interaction cube mask.
 
@@ -704,7 +707,7 @@ class Flattening:
             Aligned image.
         """
         self._logger.info("Aligning image and cube masks...")
-        cubemask = self._getMasterMask()
+        cubemask = self._get_master_mask()
         pad_shape = (
             (cubemask.shape[0] - img.shape[0]) // 2,
             (cubemask.shape[1] - img.shape[1]) // 2,
@@ -732,10 +735,10 @@ class Flattening:
 
             zfit = ZernikeFitter(cubemask)
             self._logger.info(f"Filtered modes: {self.filteredModes}")
-            img = zfit.removeZernike(img, self.filteredModes)
+            img = zfit.remove_zernike(img, self.filteredModes)
         return img
 
-    def _loadIntCube(self) -> _ot.CubeData:
+    def _load_int_cube(self) -> _ot.CubeData:
         """
         Interaction cube loader
 
@@ -753,7 +756,7 @@ class Flattening:
         self.filteredModes = fittedModes
         return intCube
 
-    def _loadCmdMat(self) -> _ot.MatrixLike:
+    def _load_cmd_mat(self) -> _ot.MatrixLike:
         """
         Command matrix loader. It loads the saved command matrix of the loaded
         cube.
@@ -766,7 +769,7 @@ class Flattening:
         cmdMat = _osu.load_fits(_os.path.join(self._path, _ifp._MATRIX_FILE))
         return cmdMat
 
-    def _loadReconstructor(self) -> _ot.Reconstructor:
+    def _load_reconstructor(self) -> _ot.Reconstructor:
         """
         Builds the reconstructor object off the input cube
 
@@ -778,7 +781,7 @@ class Flattening:
         rec = _crec.ComputeReconstructor(interaction_matrix_cube=self._intCube)
         return rec
 
-    def _loadFrameCenter(self):
+    def _load_frame_center(self):
         """
         Center frame loader, useful for image registration.
 
@@ -791,9 +794,9 @@ class Flattening:
         frame_center = _osu.load_fits("data")
         return frame_center
 
-    def _registerShape(self, shape: tuple[int, int]) -> _ot.ImageData:
+    def _register_shape(self, shape: tuple[int, int]) -> _ot.ImageData:
         xxx = None
-        dp = _ifp.findFrameOffset(self.tn, xxx)
+        dp = _ifp.find_frame_offset(self.tn, xxx)
         # cannot work. we should create a dedicated function, not necessarily linked to IFF or flattening
         return dp
 

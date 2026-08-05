@@ -10,6 +10,6 @@ opticalib.simulator
    :toctree:
    :recursive:
 
-   factory_functions
+   factory
    fake_dms
    fake_interf

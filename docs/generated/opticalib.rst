@@ -10,14 +10,12 @@
    :toctree:
    :recursive:
 
-   alignment
    analyzer
-   analyzer_old
    core
    devices
    dmutils
    ground
-   measurements
-   phasing
+   gui
+   procedures
    simulator
-   typings
+   visualization

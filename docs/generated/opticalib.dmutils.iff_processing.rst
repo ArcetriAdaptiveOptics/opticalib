@@ -9,16 +9,17 @@ opticalib.dmutils.iff\_processing
    .. autosummary::
    
       add_mode_to_cube
-      cubeRoiProcessing
-      filterZernikeCube
-      findFrameOffset
-      getIffFileMatrix
-      getRegFileMatrix
-      getRegFrames
-      getTriggerFrame
-      iffRedux
+      cube_roi_processing
+      filter_zernike_cube
+      find_frame_offset
+      get_iff_file_matrix
+      get_reg_file_matrix
+      get_reg_frames
+      get_trigger_frame
+      iff_redux
+      piston_process
       process
-      registrationRedux
-      saveCube
-      stackCubes
+      registration_redux
+      save_cube
+      stack_cubes
    

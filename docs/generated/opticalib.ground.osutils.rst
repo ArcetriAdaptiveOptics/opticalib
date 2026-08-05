@@ -1,4 +1,4 @@
-﻿opticalib.ground.osutils
+opticalib.ground.osutils
 ========================
 
 .. automodule:: opticalib.ground.osutils
@@ -9,12 +9,13 @@
    .. autosummary::
    
       create_data_folder
-      findTracknum
-      getFileList
+      find_tracknum
+      get_file_list
       get_h5file_info
       get_kwargs
       is_tn
-      loadCubeFromFilelist
+      list_tn
+      load_cube_from_filelist
       load_fits
       load_h5
       newtn
@@ -22,6 +23,6 @@
       read_phasemap
       save_fits
       save_h5
-      tnRange
+      tn_range
       update_fits_header
    

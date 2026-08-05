@@ -1,4 +1,4 @@
-﻿opticalib.simulator.fake\_interf
+opticalib.simulator.fake\_interf
 ================================
 
 .. automodule:: opticalib.simulator.fake_interf

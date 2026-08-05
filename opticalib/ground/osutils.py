@@ -17,7 +17,7 @@ import time as _time
 import h5py as _h5py
 from numpy import uint8 as _uint8
 from astropy.io import fits as _fits
-from opticalib import typings as _ot
+from opticalib.core import _types as _ot
 from numpy.ma import masked_array as _masked_array
 from opticalib.core import fitsarray as _fa
 from opticalib.core import root as _fn
@@ -100,7 +100,7 @@ def list_tn(folder: str) -> list[str]:
 
 def create_data_folder(
     basepath: str = _fn.OPD_IMAGES_ROOT_FOLDER, get_tn: bool = False
-) -> str:
+) -> str | list[str]:
     """
     Creates a new data folder with a unique tracking number in the specified base path.
 
@@ -112,8 +112,9 @@ def create_data_folder(
 
     Returns
     -------
-    tn_path : str
-        The path to the newly created tracking number folder.
+    tn_path : str | list[str]
+        The path to the newly created tracking number folder, or a list containing
+        the path and the tracking number if `get_tn` is True.
     """
     ex = True
     while ex:
@@ -133,7 +134,7 @@ def create_data_folder(
     return out if len(out) > 1 else out[0]
 
 
-def findTracknum(tn: str, complete_path: bool = False) -> str | list[str]:
+def find_tracknum(tn: str, complete_path: bool = False) -> str | list[str]:
     """
     Search for the tracking number given in input within all the data path subfolders.
 
@@ -179,7 +180,7 @@ def findTracknum(tn: str, complete_path: bool = False) -> str | list[str]:
     return path_list
 
 
-def getFileList(
+def get_file_list(
     tn: _ot.Optional[str] = None,
     fold: _ot.Optional[str] = None,
     key: _ot.Optional[str] = None,
@@ -228,26 +229,26 @@ def getFileList(
 
         iffold = 'IFFunctions'
         tn = '20160516_114916'
-        getFileList(tn, fold=iffold)
+        get_file_list(tn, fold=iffold)
         ['.../OPTData/IFFunctions/20160516_114916/cmdMatrix.fits',
          '.../OPTData/IFFunctions/20160516_114916/mode_0000.fits',
          '.../OPTData/IFFunctions/20160516_114916/mode_0001.fits',
          '.../OPTData/IFFunctions/20160516_114916/mode_0002.fits',
          '.../OPTData/IFFunctions/20160516_114916/mode_0003.fits',
-         '.../OPTData/IFFunctions/20160516_114916/modesVector.fits']
+         '.../OPTData/IFFunctions/20160516_114916/modes_vector.fits']
 
     Let's suppose we want only the list of 'mode_000x.fits' files:
 
     .. code-block:: python
 
-        getFileList(tn, fold=iffold, key='mode_')
+        get_file_list(tn, fold=iffold, key='mode_')
         ['.../OPTData/IFFunctions/20160516_114916/mode_0000.fits',
          '.../OPTData/IFFunctions/20160516_114916/mode_0001.fits',
          '.../OPTData/IFFunctions/20160516_114916/mode_0002.fits',
          '.../OPTData/IFFunctions/20160516_114916/mode_0003.fits']
 
     Notice that, in this specific case, it was necessary to include the underscore
-    after 'mode' to exclude the 'modesVector.fits' file from the list.
+    after 'mode' to exclude the 'modes_vector.fits' file from the list.
     """
     if key is not None and not isinstance(key, str):
         raise TypeError("'key' argument must be a string")
@@ -261,7 +262,7 @@ def getFileList(
         paths = [fold]
     else:
         try:
-            found_paths = findTracknum(tn, complete_path=True)
+            found_paths = find_tracknum(tn, complete_path=True)
         except Exception as exc:
             raise FileNotFoundError(
                 f"Invalid Path: no data found for tn '{tn}'"
@@ -321,7 +322,7 @@ def getFileList(
     return file_list
 
 
-def tnRange(tn0: str, tn1: str, complete_paths: bool = False) -> list[str]:
+def tn_range(tn0: str, tn1: str, complete_paths: bool = False) -> list[str]:
     """
     Returns the list of tracking numbers between tn0 and tn1, within the same
     folder, if they both exist in it.
@@ -345,8 +346,8 @@ def tnRange(tn0: str, tn1: str, complete_paths: bool = False) -> list[str]:
     FileNotFoundError
         An exception is raised if the two tracking numbers are not found in the same folder
     """
-    tn0_fold = findTracknum(tn0)
-    tn1_fold = findTracknum(tn1)
+    tn0_fold = find_tracknum(tn0)
+    tn1_fold = find_tracknum(tn1)
     if isinstance(tn0_fold, str):
         tn0_fold = [tn0_fold]
     if isinstance(tn1_fold, str):
@@ -414,7 +415,7 @@ def get_kwargs(
     return default
 
 
-def loadCubeFromFilelist(
+def load_cube_from_filelist(
     tn_or_fl: str, fold: _ot.Optional[str] = None, key: _ot.Optional[str] = None
 ) -> _ot.CubeData:
     """
@@ -426,7 +427,7 @@ def loadCubeFromFilelist(
         Either the filelist of the data to be put into the cube, or the tracking
         number. In the second case, the filelist is obtained searching for the
         tracking number, for which the additional parameters `fold` and `key` can
-        be used (see the `getFileList` function).
+        be used (see the `get_file_list` function).
     fold : str, optional
         Folder in which searching for the tracking number.
     key : str, optional
@@ -437,24 +438,24 @@ def loadCubeFromFilelist(
     cube : CubeData
         Cube containing all the images loaded from the files.
     """
-    from ..analyzer import createCube
+    from ..analyzer import create_cube
 
     if is_tn(tn_or_fl):
         if fold is None:
             raise ValueError(
                 "When passing a tracking number, the 'fold' argument must be specified"
             )
-        path = findTracknum(tn_or_fl, complete_path=True)
+        path = find_tracknum(tn_or_fl, complete_path=True)
         if isinstance(path, str):
             path = [path]
         for p in path:
             if fold in p:
                 fold = p
                 break
-        fl = getFileList(fold=fold, key=key)
+        fl = get_file_list(fold=fold, key=key)
     else:
         fl = tn_or_fl
-    cube = createCube(fl)
+    cube = create_cube(fl)
     return cube
 
 
@@ -477,11 +478,11 @@ def read_phasemap(file_path: str) -> _ot.ImageData:
     if ext in ["fits", "4Ds"]:
         image = load_fits(file_path)
     elif ext in ["4D", "h5"]:
-        image = _InterferometerConverter.fromPhaseCam6110(file_path)
+        image = _InterferometerConverter.from_phase_cam6110(file_path)
     return image
 
 
-def load_fits(filepath: str, on_gpu: bool = False) -> _ot.FitsData:
+def load_fits(filepath: str, on_gpu: bool = False) -> _ot.FitsData | list[_ot.FitsData]:
     """
     Loads a FITS file.
 
@@ -495,34 +496,52 @@ def load_fits(filepath: str, on_gpu: bool = False) -> _ot.FitsData:
 
     Returns
     -------
-    fit : ArrayLike
+    data : ArrayLike | list[ArrayLike]
         The loaded FITS file data (masked) array, on CPU or GPU, with attached header
         (as Fits<...>Array).
+
+        If the FITS file has multiple HDUs, a list of FitsArray objects is returned,
+        one for each HDU.
     """
     if not filepath.endswith(".fits"):
         filepath += ".fits"
+
+    multi_hdu = False
     with _fits.open(filepath) as hdul:
-        fit = hdul[0].data
-        header = hdul[0].header
-        if (len(hdul) > 1 and len(hdul) < 3) and hasattr(hdul[1], "data"):
+        H = len(hdul)
+
+        # Simple HDU case
+        if H == 1:
+            data = hdul[0].data
+            header = hdul[0].header
+
+        # Double HDU case: first is data, second is mask
+        elif H == 2:
+            data = hdul[0].data
+            header = hdul[0].header
             mask = hdul[1].data.astype(bool)
-            fit = _masked_array(fit, mask=mask)
-        elif len(hdul) > 2:
+            data = _masked_array(data, mask=mask)
+
+        # Multiple HDU case
+        elif H > 2:
+            on_gpu = False
+            multi_hdu = True
+            data = [hdu.data for hdu in hdul if hasattr(hdu, "data")]
             header = [hdu.header for hdu in hdul if hasattr(hdu, "header")]
-            fit = [hdu.data for hdu in hdul if hasattr(hdu, "data")]
-            if on_gpu:
-                raise NotImplementedError(
-                    "Loading multi-extension FITS files on GPU is not supported yet."
-                )
-    if on_gpu:
-        import xupy as _xu
 
-        if isinstance(fit, _masked_array):
-            fit = _xu.ma.MaskedArray(fit)
-        else:
-            fit = _xu.asarray(fit)
+    if not multi_hdu:
+        if on_gpu:
+            import xupy as _xu
 
-    out = _fa.fits_array(fit, header=header)
+            if isinstance(data, _masked_array):
+                data = _xu.ma.MaskedArray(data)
+            else:
+                data = _xu.asarray(data)
+
+        out = _fa.fits_array(data, header=header)
+    else:
+        out = [_fa.fits_array(fit, header=head) for fit, head in zip(data, header)]
+        print(f"HDUList(n_data={H})")
     return out
 
 
@@ -1125,7 +1144,7 @@ class _InterferometerConverter:
     """
 
     @staticmethod
-    def fromPhaseCam4020(h5filename: str) -> _ot.ImageData:
+    def from_phase_cam4020(h5filename: str) -> _ot.ImageData:
         """
         Function for PhaseCam4020
 
@@ -1148,7 +1167,7 @@ class _InterferometerConverter:
         return ima
 
     @staticmethod
-    def fromPhaseCam6110(i4dfilename: str) -> _ot.ImageData:
+    def from_phase_cam6110(i4dfilename: str) -> _ot.ImageData:
         """
         Function for PhaseCam6110
 
@@ -1170,7 +1189,7 @@ class _InterferometerConverter:
         return image
 
     @staticmethod
-    def fromFakeInterf(filename: str) -> _ot.ImageData:
+    def from_fake_interf(filename: str) -> _ot.ImageData:
         """
         Function for fake interferometer
 
@@ -1188,7 +1207,7 @@ class _InterferometerConverter:
         return masked_ima
 
     @staticmethod
-    def fromI4DToSimplerData(i4dname: str, folder: str, h5name: str) -> str:
+    def from_i4_d_to_simpler_data(i4dname: str, folder: str, h5name: str) -> str:
         """
         Function for converting files from 4D 6110 files to H5 files
 

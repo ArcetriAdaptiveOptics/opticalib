@@ -1,4 +1,4 @@
-﻿opticalib.core.exceptions
+opticalib.core.exceptions
 =========================
 
 .. automodule:: opticalib.core.exceptions
@@ -15,4 +15,5 @@
       DeviceNotFoundError
       MatrixError
       PathError
+      ReconnectionError
    

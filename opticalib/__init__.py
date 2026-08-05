@@ -21,21 +21,24 @@ How to Use:
 ```
 """
 
+from __future__ import annotations
+
 from .__version__ import __version__
 
-from .ground.osutils import load_fits, save_fits, getFileList, read_phasemap
+from .ground.osutils import load_fits, save_fits, get_file_list, read_phasemap
 from .core.root import (
     folders,
     create_configuration_file,
     set_configuration_file,
 )
-from .core import read_config
+from .core import config
+from .core import _types as typings
 from .core.fitsarray import fits_array
 from .devices import *
 from .devices.interferometer import _4DInterferometer
 
-getCameraSettings = _4DInterferometer.getCameraSettings
-getFrameRate = _4DInterferometer.getFrameRate
+get_camera_settings = _4DInterferometer.get_camera_settings
+get_frame_rate = _4DInterferometer.get_frame_rate
 
 del _4DInterferometer
 
@@ -60,12 +63,13 @@ __all__ = [
     "load_fits",
     "save_fits",
     "read_phasemap",
-    "getFileList",
+    "get_file_list",
     "folders",
     "create_configuration_file",
     "set_configuration_file",
-    "read_config",
-    "getCameraSettings",
-    "getFrameRate",
+    "config",
+    "typings",
+    "get_camera_settings",
+    "get_frame_rate",
     "fits_array",
 ]

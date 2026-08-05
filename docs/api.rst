@@ -8,3 +8,8 @@ The API docs are generated automatically from the source using autodoc and autos
    :recursive:
 
    opticalib
+
+.. toctree::
+   :hidden:
+
+   generated/opticalib.typings
