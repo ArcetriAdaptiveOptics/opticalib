@@ -28,6 +28,7 @@ def iff_data_acquisition(
     shuffle: bool = False,
     n_repetitions: int = 1,
     read_buffer: bool | dict[str, _ot.Any] = False,
+    parallel_spacing: _ot.Optional[float] = None,
     **setshape_kwargs: dict[str, _ot.Any],
 ) -> str:
     """
@@ -59,6 +60,10 @@ def iff_data_acquisition(
         If True, read the buffer data with default parameters.
         If a dictionary is provided, it is passed as keyword arguments to the
         `read_buffer` method of the deformable mirror device.
+    parallel_spacing: float, optional
+        If > 0, pack zonal actuators into parallel poke groups with this
+        minimum Euclidean spacing in ``dm.act_coord`` units. Default is None
+        (read from config, else 0 = sequential).
     slave: bool | str, optional
         If True, the deformable mirror device is set to slave mode during the
         acquisition. If a string is provided, it specifies the slaving method to
@@ -83,11 +88,29 @@ def iff_data_acquisition(
         shuffle=shuffle,
         modalBase=modalbase,
         n_repetitions=n_repetitions,
+        parallel_spacing=parallel_spacing,
     )
     info = ifc.get_info_to_save()
     tn, _ = _prepare_data2_save(info)
 
     _rif.copy_iff_config_file(tn)
+    # When parallel packing is active, modes_list in FILES is group indices;
+    # keep iffConfig in sync with what was actually commanded.
+    commanded_modes = info.get("modes_list")
+    if commanded_modes is not None:
+        modes_for_cfg = _np.asarray(commanded_modes).ravel()
+        # Drop repetition tiling for config (unique group ids / mode ids)
+        n_rep = int(info.get("n_repetitions", 1) or 1)
+        if n_rep > 1 and modes_for_cfg.size % n_rep == 0:
+            modes_for_cfg = modes_for_cfg[: modes_for_cfg.size // n_rep]
+    else:
+        modes_for_cfg = modesList
+
+    spacing_to_save = parallel_spacing
+    if spacing_to_save is None:
+        raw = info.get("parallel_spacing", 0)
+        spacing_to_save = float(_np.asarray(raw).ravel()[0]) if raw is not None else 0.0
+
     pars2update = dict(
         zip(
             [
@@ -97,8 +120,17 @@ def iff_data_acquisition(
                 "shuffle",
                 "n_repetitions",
                 "modal_base",
+                "parallel_spacing",
             ],
-            [modesList, amplitude, template, shuffle, n_repetitions, modalbase],
+            [
+                modes_for_cfg,
+                amplitude,
+                template,
+                shuffle,
+                n_repetitions,
+                modalbase,
+                spacing_to_save,
+            ],
         )
     )
     pars2update = {k: v for k, v in pars2update.items() if v is not None}
@@ -297,16 +329,20 @@ def _prepare_data2_save(info: dict[str, _ot.Any]) -> tuple[str, str]:
         _os.mkdir(iffpath)
     try:
         for key, value in info.items():
+            if key in ["shuffle", "n_repetitions"]:
+                continue
             if not isinstance(value, _np.ndarray):
                 tvalue = _np.asarray(value)
             else:
                 tvalue = value
-            if key in ["shuffle", "n_repetitions"]:
+            if tvalue is None or (isinstance(tvalue, _np.ndarray) and tvalue.dtype == object):
                 continue
-            else:
-                _osu.save_fits(
-                    _os.path.join(iffpath, f"{key}.fits"), tvalue, overwrite=True
-                )
+            # FITS ImageHDU requires ndim >= 1
+            if isinstance(tvalue, _np.ndarray) and tvalue.ndim == 0:
+                tvalue = tvalue.reshape(1)
+            _osu.save_fits(
+                _os.path.join(iffpath, f"{key}.fits"), tvalue, overwrite=True
+            )
     except KeyError as e:
         print(f"KeyError: {key}, {e}")
     return tn, iffpath

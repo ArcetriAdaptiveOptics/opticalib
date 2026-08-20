@@ -51,6 +51,7 @@ from concurrent.futures import ThreadPoolExecutor as _tpe
 from ..analyzer import image_processing as _ip
 from ..ground import modal_decomposer as _zern, osutils as _osu, roi as _roi
 from ..core.decorators import expand_list_arguments as _expand_list_arguments
+from . import iff_parallel as _ipar
 
 _fn = folders
 _config = _cp.ConfigParser()
@@ -66,8 +67,9 @@ _TEMPLATE_FILE = "template.fits"
 _REGACTS_FILE = "registration_modes.fits"
 _INDEXLIST_FILE = "index_list.fits"
 _CUBE_FILE = "IMCube.fits"
-_COORD_FILE = ""  # TODO
-
+_COORD_FILE = "act_coord.fits"
+_PARALLEL_GROUPS_FILE = "parallel_groups.fits"
+_PARALLEL_SPACING_FILE = "parallel_spacing.fits"
 
 @_expand_list_arguments(["tn"])
 def process(
@@ -105,6 +107,13 @@ def process(
     nmode_prefetch : int, optional
         Number of modes to prefetch during the processing. The default is 1.
     """
+    try:
+        import xupy as _xp
+
+        _xp.use_cpu()
+    except Exception:
+        pass
+
     info = _get_acq_par(tn)
     if not info["FILES"]["modes_list"].dtype.type is _np.int_:
         info["FILES"]["modes_list"] = info["FILES"]["modes_list"].astype(int)
@@ -138,6 +147,10 @@ def process(
         io_workers=nworkers,
         prefetch=nmode_prefetch,
     )
+
+    if _has_parallel_metadata(tn):
+        demux_parallel_modes(tn, info)
+
     if register and not len(regMat) == 0:
         actImgList = registration_redux(tn, regMat)
         dx = find_frame_offset(tn, actImgList, info["FILES"]["registration_modes"])
@@ -724,6 +737,153 @@ def iff_redux(
             )
 
 
+def _has_parallel_metadata(tn: str) -> bool:
+    """Return True if this TN was acquired with parallel IF packing."""
+    path = _os.path.join(_ifFold, tn, _PARALLEL_GROUPS_FILE)
+    return _os.path.isfile(path)
+
+
+def _load_parallel_spacing(tn: str, info: dict[str, _ot.Any]) -> float:
+    """Read parallel spacing from FITS, iffConfig, or mode header."""
+    sp_path = _os.path.join(_ifFold, tn, _PARALLEL_SPACING_FILE)
+    if _os.path.isfile(sp_path):
+        val = _osu.load_fits(sp_path)
+        return float(_np.asarray(val).ravel()[0])
+    cfg = info.get("IFFUNC", {})
+    if "parallel_spacing" in cfg:
+        return float(cfg.get("parallel_spacing") or 0)
+    # Fall back to PAR_SPC header on modes_list
+    modes = info.get("FILES", {}).get("modes_list")
+    if modes is not None and hasattr(modes, "header"):
+        return float(modes.header.get("PAR_SPC", 0) or 0)
+    return 0.0
+
+
+def demux_parallel_modes(tn: str, info: dict[str, _ot.Any] | None = None) -> list[int]:
+    """
+    Demultiplex parallel-group mode_*.fits into per-actuator IFs.
+
+    After ``iff_redux``, group images are named ``mode_<group_id>.fits``.
+    This replaces them with ``mode_<actuator_id>.fits`` and rewrites
+    ``modes_list.fits`` / ``cmd_matrix.fits`` / ``amplitude.fits`` for the
+    expanded zonal set.
+    """
+    if info is None:
+        info = _get_acq_par(tn)
+        info.update(_get_acq_info(tn))
+
+    fold = _os.path.join(_ifFold, tn)
+    groups = _ipar.padded_array_to_groups(
+        _osu.load_fits(_os.path.join(fold, _PARALLEL_GROUPS_FILE))
+    )
+    act_coord = _osu.load_fits(_os.path.join(fold, _COORD_FILE))
+    spacing = _load_parallel_spacing(tn, info)
+    if spacing <= 0:
+        raise ValueError(
+            f"parallel_groups.fits present for tn={tn} but parallel_spacing={spacing}"
+        )
+
+    group_ids = _np.asarray(info["IFFUNC"]["modes_list"], dtype=int).ravel()
+    # When n_repetitions > 1, IFFUNC modes_list is unique groups; FILES may be tiled
+    if group_ids.size != len(groups):
+        # Prefer unique ordered group file indices 0..n_groups-1
+        group_ids = _np.arange(len(groups), dtype=int)
+
+    group_images = []
+    for gid in group_ids:
+        path = _os.path.join(fold, f"mode_{int(gid):05d}.fits")
+        loaded = _osu.load_fits(path)
+        # Fully copy off any memmap so Windows can delete/overwrite the FITS
+        group_images.append(
+            _np.ma.masked_array(
+                _np.array(_np.ma.getdata(loaded), dtype=float, copy=True),
+                mask=_np.array(_np.ma.getmaskarray(loaded), dtype=bool, copy=True),
+            )
+        )
+        del loaded
+
+    n_acts = int(_np.asarray(act_coord).shape[1])
+    amp_groups = _np.asarray(info["FILES"]["amplitude"], dtype=float).ravel()
+    n_rep = int(info["FILES"].get("n_repetitions", 1) or 1)
+    if amp_groups.size == len(groups) * n_rep:
+        amp_groups = amp_groups[: len(groups)]
+    elif amp_groups.size == 1:
+        amp_groups = _np.full(len(groups), float(amp_groups[0]))
+
+    measured: list[int] = []
+    act_amp: dict[int, float] = {}
+    tmp_paths: list[tuple[str, str]] = []
+    for img, group, gamp in zip(group_images, groups, amp_groups):
+        parts = _ipar.demux_group_image(img, group, act_coord, spacing)
+        for act, if_img in parts.items():
+            tmp_path = _os.path.join(fold, f"_demux_mode_{int(act):05d}.fits")
+            final_path = _os.path.join(fold, f"mode_{int(act):05d}.fits")
+            _osu.save_fits(
+                tmp_path,
+                if_img,
+                overwrite=True,
+                header={
+                    "MODEID": (int(act), "actuator id"),
+                    "AMP": (float(gamp), "group poke amplitude"),
+                    "PARDEMUX": (True, "demultiplexed from parallel group"),
+                    "PAR_SPC": (float(spacing), "parallel packing spacing"),
+                },
+            )
+            tmp_paths.append((tmp_path, final_path))
+            measured.append(int(act))
+            act_amp[int(act)] = float(gamp)
+
+    # Drop original group mode_* files, then promote demux temps
+    for name in _os.listdir(fold):
+        if name.startswith("mode_") and name.endswith(".fits"):
+            try:
+                _os.remove(_os.path.join(fold, name))
+            except OSError:
+                pass
+    for tmp_path, final_path in tmp_paths:
+        if _os.path.exists(final_path):
+            try:
+                _os.remove(final_path)
+            except OSError:
+                pass
+        _os.replace(tmp_path, final_path)
+
+    measured = sorted(set(measured))
+    modes_vec = _np.asarray(measured, dtype=int)
+    cmd_mat = _np.eye(n_acts, dtype=float)[:, modes_vec]
+    amps = _np.asarray([act_amp[a] for a in measured], dtype=float)
+    index_list = _np.arange(len(measured), dtype=int)
+
+    header = {
+        "PARDEMUX": True,
+        "PAR_SPC": float(spacing),
+        "N_REP": n_rep,
+        "SHUFFLE": False,
+    }
+    _osu.save_fits(
+        _os.path.join(fold, _MODES_FILE), modes_vec, overwrite=True, header=header
+    )
+    _osu.save_fits(_os.path.join(fold, _MATRIX_FILE), cmd_mat, overwrite=True)
+    _osu.save_fits(
+        _os.path.join(fold, _AMP_FILE), amps, overwrite=True, header=header
+    )
+    _osu.save_fits(
+        _os.path.join(fold, _INDEXLIST_FILE), index_list, overwrite=True, header=header
+    )
+
+    # Keep iffConfig modes_list consistent with demuxed actuators
+    try:
+        _rif.update_iff_config(tn, item="modes_list", value=modes_vec)
+    except Exception as exc:
+        print(f"Warning: could not update iffConfig modes_list after demux: {exc}")
+
+    print(
+        f"Parallel demux: {len(groups)} groups → {len(measured)} actuator IFs "
+        f"(spacing={spacing})"
+    )
+    return measured
+
+
 def registration_redux(tn: str, fileMat: list[str]) -> list[_ot.ImageData]:
     """
     Reduction function that performs the push-pull analysis on the registration
@@ -936,7 +1096,7 @@ def get_iff_file_matrix(tn: str, info: dict[str, _ot.Any]) -> _ot.ArrayLike:
         _os.path.isdir(fold)
     else:
         fold = None
-    fileList = _osu.getFileList(
+    fileList = _osu.get_file_list(
         tn, fold="OPDImages" if fold is None else fold, key="image_"
     )
 

@@ -15,6 +15,7 @@ from opticalib.ground import osutils as _osu
 from opticalib.core import config as _rif
 from opticalib.core.fitsarray import fits_array as _fa
 from opticalib.core import _types as _ot
+from opticalib.dmutils import iff_parallel as _ifp
 
 
 class IFFCapturePreparation:
@@ -89,6 +90,9 @@ class IFFCapturePreparation:
         self._template = None
         self._shuffle = False
         self._n_repetitions = 1
+        self._parallel_spacing = 0.0
+        self._parallel_groups = None
+        self._act_coord = None
 
         # Matrices
         self.timedCmdHistory = None
@@ -116,7 +120,13 @@ class IFFCapturePreparation:
             "template": self._template,
             "shuffle": self._shuffle,
             "n_repetitions": self._n_repetitions,
+            # 1-d so astropy FITS writeto accepts it (0-d scalars fail)
+            "parallel_spacing": _np.asarray([float(self._parallel_spacing or 0)]),
         }
+        if self._parallel_groups is not None:
+            info["parallel_groups"] = _ifp.groups_to_padded_array(self._parallel_groups)
+        if self._act_coord is not None:
+            info["act_coord"] = _np.asarray(self._act_coord)
         return info
 
     def create_timed_cmd_history(
@@ -130,6 +140,7 @@ class IFFCapturePreparation:
         modalBase: str = None,
         shuffle: bool = False,
         n_repetitions: int = 1,
+        parallel_spacing: _ot.Optional[float] = None,
     ) -> _ot.MatrixLike:
         """
         Function that creates the final timed command history to be applied
@@ -162,6 +173,10 @@ class IFFCapturePreparation:
             loaded from the 'iffconfig.ini' file.
         n_repetitions : int
             Number of times the command matrix is repeated. Default is 1.
+        parallel_spacing : float, optional
+            If > 0, pack zonal actuators into parallel poke groups with this
+            minimum Euclidean spacing in ``dm.act_coord`` units. Default is
+            None (read from config ``IFFUNC.parallel_spacing``, else 0 = off).
 
         Returns
         -------
@@ -183,9 +198,18 @@ class IFFCapturePreparation:
             self._shuffle = shuffle
             self._indexingList = _np.arange(0, len(modesList), 1)
             self._n_repetitions = n_repetitions
+            self._parallel_spacing = 0.0
+            self._parallel_groups = None
+            self._act_coord = None
         else:
             self.create_cmd_matrix_history(
-                modesList, modesAmp, template, modalBase, shuffle, n_repetitions
+                modesList,
+                modesAmp,
+                template,
+                modalBase,
+                shuffle,
+                n_repetitions,
+                parallel_spacing=parallel_spacing,
             )
 
         self.triggPadCmdHist = triggerMat.copy() if triggerMat is not None else None
@@ -216,6 +240,7 @@ class IFFCapturePreparation:
         modalBase: _ot.Optional[str] = None,
         shuffle: bool = False,
         n_repetitions: int = 1,
+        parallel_spacing: _ot.Optional[float] = None,
     ) -> _ot.MatrixLike:
         """
         Creates the command matrix history for the IFF acquisition.
@@ -240,6 +265,8 @@ class IFFCapturePreparation:
         n_repetitions : int
             Number of times the command matrix is repeated.
             Default is 1.
+        parallel_spacing : float, optional
+            If > 0, pack actuators into parallel poke groups (zonal base only).
 
         Returns
         -------
@@ -265,7 +292,22 @@ class IFFCapturePreparation:
         if n_repetitions < 1:
             raise ValueError(f"n_repetitions must be >= 1, got {n_repetitions}")
 
-        self._create_cmd_matrix(modesList, modalBase)
+        if parallel_spacing is None:
+            parallel_spacing = float(infoIF.get("parallel_spacing", 0) or 0)
+        else:
+            parallel_spacing = float(parallel_spacing)
+        self._parallel_spacing = parallel_spacing
+
+        if parallel_spacing > 0:
+            act_modes = modesList.copy()
+            self._create_parallel_cmd_matrix(act_modes, modalBase, parallel_spacing)
+            modesList = _np.arange(self._cmdMatrix.shape[1], dtype=int)
+            modesAmp = self._parallel_group_amplitudes(modesAmp, act_modes)
+        else:
+            self._parallel_groups = None
+            self._act_coord = None
+            self._create_cmd_matrix(modesList, modalBase)
+
         A, M = self._cmdMatrix.shape
         n_push_pull = len(template)
 
@@ -319,6 +361,7 @@ class IFFCapturePreparation:
         header = {
             "SHUFFLE": shuffle,
             "N_REP": n_repetitions,
+            "PAR_SPC": float(self._parallel_spacing),
         }
 
         cmdMatHist = _fa(cmd_matrixHistory, header=header)
@@ -331,6 +374,66 @@ class IFFCapturePreparation:
         self._n_repetitions = n_repetitions
         self.cmdMatHistory = cmdMatHist.copy()
         return cmdMatHist
+
+    def _parallel_group_amplitudes(
+        self,
+        modesAmp: float | _ot.ArrayLike,
+        act_modes: _ot.ArrayLike,
+    ) -> _np.ndarray:
+        """Map amplitudes onto parallel groups (scalar, per-group, or per-act)."""
+        n_groups = len(self._parallel_groups)
+        if _np.size(modesAmp) == 1:
+            return _np.full(n_groups, float(_np.asarray(modesAmp).ravel()[0]))
+        amps = _np.asarray(modesAmp, dtype=float).ravel()
+        if amps.size == n_groups:
+            return amps
+        act_modes = _np.asarray(act_modes, dtype=int).ravel()
+        if amps.size != act_modes.size:
+            raise ValueError(
+                "modesAmp length must be 1, n_groups, or n_actuators "
+                "when using parallel_spacing"
+            )
+        act_to_amp = {int(a): float(v) for a, v in zip(act_modes, amps)}
+        return _np.asarray(
+            [act_to_amp[g[0]] for g in self._parallel_groups], dtype=float
+        )
+
+    def _create_parallel_cmd_matrix(
+        self,
+        modes_list: _ot.ArrayLike,
+        mbase: _ot.Optional[str],
+        min_spacing: float,
+    ) -> None:
+        """Pack actuators and build a one-column-per-group command matrix."""
+        modalbase = mbase or self._config["IFFUNC"]["modal_base"]
+        if modalbase not in (None, "zonal"):
+            raise ValueError(
+                "parallel_spacing requires zonal modal base "
+                f"(got {modalbase!r})"
+            )
+        self._update_modal_base("zonal")
+
+        act_coord = getattr(self._dm, "act_coord", None)
+        if act_coord is None or _np.size(act_coord) == 0:
+            raise ValueError(
+                "parallel_spacing requires dm.act_coord with shape (2, n_acts)"
+            )
+        act_coord = _np.asarray(act_coord, dtype=float)
+        if act_coord.ndim != 2 or act_coord.shape[0] != 2:
+            raise ValueError(
+                f"dm.act_coord must have shape (2, n_acts), got {act_coord.shape}"
+            )
+
+        groups = _ifp.pack_actuators(act_coord, modes_list, min_spacing)
+        self._parallel_groups = groups
+        self._act_coord = act_coord
+        self._cmdMatrix = _ifp.build_parallel_cmd_matrix(
+            self._NActs, groups, modal_base=self._modalBase
+        )
+        print(
+            f"Parallel IF packing: {len(modes_list)} actuators → "
+            f"{len(groups)} groups (spacing>={min_spacing})"
+        )
 
     def create_aux_cmd_history(self) -> _ot.Optional[_ot.MatrixLike]:
         """
