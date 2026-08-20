@@ -192,13 +192,15 @@ class TestDemux:
             pr, pc = np.unravel_index(np.argmax(np.abs(peak_data)), peak_data.shape)
             assert abs(pc - c) <= 2
             assert abs(pr - r) <= 2
-            # Neighbor peaks suppressed
+            # Neighbor peaks suppressed in data (zeroed), pupil mask retained
             for oc, or_ in centers:
                 if (oc, or_) == (c, r):
                     continue
                 assert abs(peak_data[int(or_), int(oc)]) < 0.15 * np.max(
                     np.abs(peak_data)
                 )
+            # Mask matches input pupil (not the isolation circle)
+            np.testing.assert_array_equal(peak.mask, img.mask)
 
     def test_partial_modes_leave_zeros(self):
         h, w = 32, 32

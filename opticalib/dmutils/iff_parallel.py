@@ -299,10 +299,12 @@ def demux_group_image(
     for i, act in enumerate(acts):
         col_c, row_c = centers[i]
         circle = (xx - col_c) ** 2 + (yy - row_c) ** 2 > radius_px**2
-        win_mask = mask | circle
         win_data = data.copy()
+        # Zero outside the isolation window but keep the original pupil mask.
+        # Masking the window exterior makes Flattening's cube master mask
+        # (union of per-slice masks) empty when many groups are combined.
         win_data[circle] = 0.0
-        out[int(act)] = _ma.masked_array(win_data, mask=win_mask)
+        out[int(act)] = _ma.masked_array(win_data, mask=mask.copy())
     return out
 
 
