@@ -127,7 +127,12 @@ def process(
     trigFrame = get_trigger_frame(tn, roi=trigger_roi)
     info["trigFrame"] = trigFrame
 
-    _check_information_consistency(info)
+    # Parallel TNs: OPD frames follow group packing even if demux already
+    # rewrote modes_list.fits / iffConfig to per-actuator indices.
+    if _has_parallel_metadata(tn):
+        info = _restore_parallel_cmd_geometry(tn, info)
+    else:
+        _check_information_consistency(info)
 
     regMat = get_reg_file_matrix(tn, info)
     modesMat = get_iff_file_matrix(tn, info)
@@ -743,6 +748,45 @@ def _has_parallel_metadata(tn: str) -> bool:
     return _os.path.isfile(path)
 
 
+def _restore_parallel_cmd_geometry(
+    tn: str, info: dict[str, _ot.Any]
+) -> dict[str, _ot.Any]:
+    """
+    Force acquisition (group) geometry for OPD frame layout / iff_redux.
+
+    After demux, ``modes_list.fits`` and possibly ``iffConfig`` list per-actuator
+    indices, but OPDImages still contain one push-pull packet per group.
+    """
+    fold = _os.path.join(_ifFold, tn)
+    groups = _ipar.padded_array_to_groups(
+        _osu.load_fits(_os.path.join(fold, _PARALLEL_GROUPS_FILE))
+    )
+    n_groups = len(groups)
+    n_rep = int(info["FILES"].get("n_repetitions", 1) or 1)
+    group_ids = _np.arange(n_groups, dtype=int)
+    group_ids_tiled = _np.tile(group_ids, n_rep)
+
+    cfg_amp = info.get("IFFUNC", {}).get("amplitude", 0.1)
+    amp0 = float(_np.asarray(cfg_amp).ravel()[0])
+    group_amps = _np.full(n_groups, amp0, dtype=float)
+    group_amps_tiled = _np.tile(group_amps, n_rep)
+
+    info = dict(info)
+    info["IFFUNC"] = dict(info.get("IFFUNC", {}))
+    info["FILES"] = dict(info.get("FILES", {}))
+    info["IFFUNC"]["modes_list"] = group_ids
+    info["IFFUNC"]["amplitude"] = amp0
+    info["FILES"]["modes_list"] = group_ids_tiled
+    info["FILES"]["amplitude"] = group_amps_tiled
+    info["FILES"]["index_list"] = _np.tile(_np.arange(n_groups, dtype=int), n_rep)
+    info["FILES"]["shuffle"] = False
+    print(
+        f"Parallel TN {tn}: using {n_groups} poke groups for OPD reduction "
+        f"(spacing={_load_parallel_spacing(tn, info)})"
+    )
+    return info
+
+
 def _load_parallel_spacing(tn: str, info: dict[str, _ot.Any]) -> float:
     """Read parallel spacing from FITS, iffConfig, or mode header."""
     sp_path = _os.path.join(_ifFold, tn, _PARALLEL_SPACING_FILE)
@@ -783,11 +827,7 @@ def demux_parallel_modes(tn: str, info: dict[str, _ot.Any] | None = None) -> lis
             f"parallel_groups.fits present for tn={tn} but parallel_spacing={spacing}"
         )
 
-    group_ids = _np.asarray(info["IFFUNC"]["modes_list"], dtype=int).ravel()
-    # When n_repetitions > 1, IFFUNC modes_list is unique groups; FILES may be tiled
-    if group_ids.size != len(groups):
-        # Prefer unique ordered group file indices 0..n_groups-1
-        group_ids = _np.arange(len(groups), dtype=int)
+    group_ids = _np.arange(len(groups), dtype=int)
 
     group_images = []
     for gid in group_ids:
@@ -809,6 +849,12 @@ def demux_parallel_modes(tn: str, info: dict[str, _ot.Any] | None = None) -> lis
         amp_groups = amp_groups[: len(groups)]
     elif amp_groups.size == 1:
         amp_groups = _np.full(len(groups), float(amp_groups[0]))
+    else:
+        # Demux may have already expanded amplitude to n_acts; use IFFUNC scalar
+        cfg_amp = info.get("IFFUNC", {}).get("amplitude", amp_groups.flat[0])
+        amp_groups = _np.full(
+            len(groups), float(_np.asarray(cfg_amp).ravel()[0]), dtype=float
+        )
 
     measured: list[int] = []
     act_amp: dict[int, float] = {}
@@ -871,9 +917,10 @@ def demux_parallel_modes(tn: str, info: dict[str, _ot.Any] | None = None) -> lis
         _os.path.join(fold, _INDEXLIST_FILE), index_list, overwrite=True, header=header
     )
 
-    # Keep iffConfig modes_list consistent with demuxed actuators
+    # Keep iffConfig modes_list as the *commanded group* indices so reprocessing
+    # OPDImages still reshapes correctly. Per-actuator indices live in modes_list.fits.
     try:
-        _rif.update_iff_config(tn, item="modes_list", value=modes_vec)
+        _rif.update_iff_config(tn, item="modes_list", value=group_ids)
     except Exception as exc:
         print(f"Warning: could not update iffConfig modes_list after demux: {exc}")
 
