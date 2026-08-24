@@ -185,12 +185,42 @@ def update_env_var(config_path: str) -> None:
     """
     Update the AOCONF environment variable to point to the specified config path.
 
+    Sets the variable in the current process so it is inherited by any
+    subsequently spawned child processes (IPython, GUI).  This is
+    cross-platform; the previous ``export AOCONF=...`` shell call only
+    worked on Unix and was a no-op for the parent process even there.
+
     Parameters
     ----------
     config_path : str
         Absolute path to the configuration file to set in the environment.
     """
-    subprocess.run('export AOCONF="{}"'.format(config_path), shell=True, check=True)
+    os.environ["AOCONF"] = config_path
+
+
+def _prefer_sysconfig(config_path: str) -> str:
+    """
+    If *config_path* does not exist, try the standard
+    ``<parent>/SysConfig/configuration.yaml`` layout.
+
+    Parameters
+    ----------
+    config_path : str
+        Candidate path to ``configuration.yaml``.
+
+    Returns
+    -------
+    str
+        An existing configuration path when found, otherwise *config_path*.
+    """
+    if os.path.exists(config_path):
+        return config_path
+    alt = os.path.join(
+        os.path.dirname(config_path), "SysConfig", "configuration.yaml"
+    )
+    if os.path.exists(alt):
+        return alt
+    return config_path
 
 
 def main():
@@ -226,31 +256,24 @@ def main():
     if args.config_path is not None:
         config_path = _resolve_config_path(args.config_path)
 
-        update_env_var(config_path)
-
         # --create (flag, no path) combined with -f: create config then continue
         if args.create is not None:
             from opticalib.core.root import create_configuration_file
 
             create_configuration_file(config_path, data_path=True)
 
+        # Prefer SysConfig layout once the file exists (after create or for
+        # existing experiments).  Set AOCONF only after the final path is known.
+        config_path = _prefer_sysconfig(config_path)
+        update_env_var(config_path)
+
         # --gui flag: open the graphical interface
         if args.gui:
-            if not os.path.exists(config_path):
-                config_path = os.path.join(
-                    os.path.dirname(config_path),
-                    "SysConfig",
-                    "configuration.yaml",
-                )
             _launch_gui(config_path=config_path)
             return
 
         # Start an IPython session with the resolved config
         try:
-            if not os.path.exists(config_path):
-                config_path = os.path.join(
-                    os.path.dirname(config_path), "SysConfig", "configuration.yaml"
-                )
             print("\n Initiating IPython Shell, importing Opticalib...\n")
             env = os.environ.copy()
             env["AOCONF"] = config_path

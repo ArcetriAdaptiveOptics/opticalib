@@ -303,7 +303,7 @@ class SPL:
             self.set_filter_mode(filter_mode)
 
         datapath = _osu.create_data_folder(basepath=_fn.SPL_DATA_ROOT_FOLDER)
-        tn = datapath.split("/")[-1]
+        tn = _os.path.basename(_os.path.normpath(datapath))
         print(tn)
 
         _osu.save_fits(
