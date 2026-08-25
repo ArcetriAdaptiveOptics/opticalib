@@ -88,6 +88,28 @@ class TestLoadDump:
         assert loaded == data
 
 
+class TestResolveConfigPathWindowsSafe:
+    """Path containment must tolerate mixed / and \\ separators."""
+
+    def test_is_under_mixed_separators(self, temp_dir):
+        parent = os.path.join(temp_dir, "OPTData", "IFFunctions")
+        child = os.path.join(parent, "20260101_120000")
+        os.makedirs(child, exist_ok=True)
+        # Simulate YAML data_path written with forward slashes on Windows.
+        parent_fwd = parent.replace("\\", "/")
+        assert read_config._is_under(child, parent_fwd)
+        assert read_config._paths_equal(parent, parent_fwd)
+
+    def test_resolve_iff_folder_with_forward_slash_iffold(self, temp_dir, monkeypatch):
+        iff_root = os.path.join(temp_dir, "OPTData", "IFFunctions")
+        tn_dir = os.path.join(iff_root, "20260101_120000")
+        os.makedirs(tn_dir, exist_ok=True)
+        monkeypatch.setattr(read_config, "_iffold", iff_root.replace("\\", "/"))
+        resolved = read_config._resolve_config_path(tn_dir)
+        assert resolved.endswith("iffConfig.yaml")
+        assert os.path.dirname(resolved) == tn_dir
+
+
 class TestGetSectionConfig:
     """Test get_section_config function."""
 

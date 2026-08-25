@@ -4,6 +4,7 @@ Tests ensure the calpy entry point can locate initCalpy.py bootstrap script
 both in development (source checkout) and in installed wheel packages.
 """
 
+import os
 from pathlib import Path
 
 import setup_calpy
@@ -52,3 +53,22 @@ class TestResolveInitFile:
             "MANIFEST.in does not declare __init_script__/initCalpy.py. "
             "This will break calpy in source distributions."
         )
+
+
+class TestUpdateEnvVar:
+    """AOCONF must be set in-process (Windows-safe; no Unix export)."""
+
+    def test_update_env_var_sets_aoconf(self, monkeypatch) -> None:
+        monkeypatch.delenv("AOCONF", raising=False)
+        target = str(Path("C:/fake/SysConfig/configuration.yaml"))
+        setup_calpy.update_env_var(target)
+        assert os.environ["AOCONF"] == target
+
+    def test_prefer_sysconfig_uses_sysconfig_layout(self, tmp_path) -> None:
+        exp = tmp_path / "experiment"
+        sysconfig = exp / "SysConfig"
+        sysconfig.mkdir(parents=True)
+        cfg = sysconfig / "configuration.yaml"
+        cfg.write_text("SYSTEM: {}\n", encoding="utf-8")
+        candidate = str(exp / "configuration.yaml")
+        assert setup_calpy._prefer_sysconfig(candidate) == str(cfg)
