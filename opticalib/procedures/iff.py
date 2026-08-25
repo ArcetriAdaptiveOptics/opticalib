@@ -13,7 +13,7 @@ import os as _os
 import numpy as _np
 from opticalib.core import _types as _ot
 from opticalib.ground import osutils as _osu
-from ..dmutils import iff_preparation as _ifa
+from opticalib.dmutils import iff_preparation as _ifa
 from opticalib.core.root import folders as _fn
 from opticalib.core import config as _rif, exceptions as _oe
 

@@ -19,7 +19,7 @@ Contents:
 - `iff_processing.py`: Module for processing the Influence Functions.
 - `procedures/iff.py`: high level module for managing the acquisition of IFFs.
 - `flattening.py`: module containing the procedures for flattening a DM.
-
+- `modal_base_if.py`: ``make_modal_base_if`` — Zernike/KL command bases from an IF cube.
 """
 
 from . import flattening, iff_processing, slaving
@@ -29,6 +29,7 @@ from ..core.data_classes import FlatData, IffData
 from .iff_preparation import IFFCapturePreparation
 
 from ._misc import *
+from .modal_base_if import make_modal_base_if
 
 __all__ = [
     "Flattening",
@@ -41,4 +42,5 @@ __all__ = [
     "slaving",
     "stitching",
     "make_modal_base",
+    "make_modal_base_if",
 ]
