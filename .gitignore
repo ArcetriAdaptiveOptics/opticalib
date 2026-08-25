@@ -7,6 +7,7 @@ opticalib/simulator/_API/SimData/
 .continue/
 notebooks/
 **/*.ipynb
+labott.code-workspace
 
 # Byte-compiled / optimized / DLL files
 **/__pycache__/
