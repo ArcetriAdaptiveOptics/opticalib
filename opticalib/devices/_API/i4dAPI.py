@@ -1,4 +1,6 @@
 import json
+import os
+import tempfile
 import numpy as np
 import urllib
 
@@ -61,8 +63,9 @@ class I4D:
         except urllib.request.HTTPError as e:
             error_message = e.read()
             print(error_message)
-            open("/tmp/out.html", "w+").write(error_message.decode("utf-8"))
-            raise Exception("Response error see /tmp/out.html for details")
+            err_path = os.path.join(tempfile.gettempdir(), "opticalib_i4d_out.html")
+            open(err_path, "w+", encoding="utf-8").write(error_message.decode("utf-8"))
+            raise Exception(f"Response error see {err_path} for details")
 
     ### DATA PROXY ###
     def getFeatureAnalysisResults(self):

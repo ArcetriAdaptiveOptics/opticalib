@@ -449,7 +449,8 @@ def save_cube(
     _copy_from_iff_to_im(name=_MODES_FILE, tn=tn)
     _copy_from_iff_to_im(name=_AMP_FILE, tn=tn)
     print(
-        f"Cube of shape {cube.shape} saved in '.../{'/'.join(cube_path.split('/')[-2:])}'"
+        f"Cube of shape {cube.shape} saved in "
+        f"'.../{_os.sep.join(_os.path.normpath(cube_path).split(_os.sep)[-2:])}'"
     )
     return cube
 
@@ -602,7 +603,7 @@ def filter_zernike_cube(
         _sh.copyfile(ModesVec, _os.path.join(new_tn, _MODES_FILE))
         print(f"Filtered cube saved at {new_tn}")
 
-    return ffcube, new_tn.split("/")[-1]
+    return ffcube, _os.path.basename(_os.path.normpath(new_tn))
 
 
 def iff_redux(

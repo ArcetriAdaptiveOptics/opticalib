@@ -104,12 +104,13 @@ def create_configuration_file(path: str = "", data_path: str | bool = False) -> 
         set to that path.
     """
     global TEMPLATE_CONF_FILE
-    bp = _os.path.expanduser("~")
-    if not bp in path:
-        if "mnt" in path or "media" in path:
-            pass
-        else:
-            path = _os.path.join(bp, path)
+    # Absolute paths (any drive / mount) are used as-is.  Relative paths are
+    # resolved under the user home directory.  The old substring check against
+    # "~" broke Windows paths outside the home drive (e.g. D:\...) and the
+    # Linux-only "mnt"/"media" exceptions are no longer needed with isabs().
+    path = _os.path.expanduser(path)
+    if path and not _os.path.isabs(path):
+        path = _os.path.join(_os.path.expanduser("~"), path)
     if not ".yaml" in path:
         file = _os.path.join(path, "configuration.yaml")
         _create_folder(path)

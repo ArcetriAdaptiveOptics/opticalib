@@ -65,6 +65,29 @@ _items = [_TZERO, _MODEID, _MODEAMP, _TEMPLATE, _MODALBASE, _SHUFFLE, _NREP]
 _IFSECTIONS = ["TRIGGER", "REGISTRATION", "IFFUNC"]
 
 
+def _paths_equal(a: str, b: str) -> bool:
+    """Return True when *a* and *b* refer to the same path (OS-normalized)."""
+    return _os.path.normcase(_os.path.normpath(_os.path.abspath(a))) == _os.path.normcase(
+        _os.path.normpath(_os.path.abspath(b))
+    )
+
+
+def _is_under(path: str, parent: str) -> bool:
+    """
+    Return True when *path* is *parent* or a descendant of it.
+
+    Uses ``os.path.commonpath`` after normalizing case and separators so
+    mixed ``/`` and ``\\`` paths compare correctly on Windows.
+    """
+    try:
+        path_n = _os.path.normcase(_os.path.normpath(_os.path.abspath(path)))
+        parent_n = _os.path.normcase(_os.path.normpath(_os.path.abspath(parent)))
+        return _os.path.commonpath([path_n, parent_n]) == parent_n
+    except (ValueError, OSError):
+        # Different drives on Windows, or otherwise incomparable paths.
+        return False
+
+
 def _resolve_config_path(path: str | None = None) -> str:
     """
     Resolve the absolute path of a configuration file.
@@ -83,15 +106,15 @@ def _resolve_config_path(path: str | None = None) -> str:
     if path is None:
         return _cfile
 
-    if path == _cfold:
+    if _paths_equal(path, _cfold):
         return _os.path.join(_cfold, yaml_config_file)
 
     if _os.path.isdir(path):
-        if _iffold in _os.path.abspath(path):
+        if _is_under(path, _iffold):
             return _os.path.join(path, _iff_config_file)
         return _os.path.join(path, yaml_config_file)
 
-    if _iffold in _os.path.abspath(path) and not path.endswith(_iff_config_file):
+    if _is_under(path, _iffold) and not path.endswith(_iff_config_file):
         return _os.path.join(path, _iff_config_file)
     return path
 

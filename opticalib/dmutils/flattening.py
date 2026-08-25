@@ -345,9 +345,12 @@ class Flattening:
                 _np.arange(modes2flat) if isinstance(modes2flat, int) else modes2flat
             )
             fold = self.save_flat_data(cmd, header, modes2flat)
-            print(f"Flat command saved in .../{'/'.join(fold.split('/')[-2:])}")
+            print(
+                f"Flat command saved in "
+                f".../{_os.sep.join(_os.path.normpath(fold).split(_os.sep)[-2:])}"
+            )
             self._logger.info(f"Flat command and images saved in {fold}.")
-            return fold.split("/")[-1]
+            return _os.path.basename(_os.path.normpath(fold))
 
         self._logger.info("Flat command applied without saving data.")
         return None
