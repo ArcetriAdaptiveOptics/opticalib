@@ -26,9 +26,9 @@ class BaseAlpaoMirror:
         Number of actuators.  Used to look up the DM configuration
         when *serial_number* is ``None``.
     reset_on_connect : bool, optional
-        Zero actuators after connecting (default ``False``).
+        Zero actuators after connecting (default ``True``).
     reset_on_close : bool, optional
-        Zero actuators on ``deinitialize`` / teardown (default ``False``).
+        Zero actuators on ``deinitialize`` / teardown (default ``True``).
 
     Notes
     -----
@@ -36,14 +36,14 @@ class BaseAlpaoMirror:
     that the rest of the package can be used on systems where the
     Alpao SDK is not installed.
 
-    By default the last commanded shape is not cleared on connect or
-    exit.  Pass ``reset_on_connect=True`` / ``reset_on_close=True``
-    (or ``deinitialize(reset=True)``) when a safe zero is required.
+    By default actuators are zeroed on connect and on teardown, matching
+    previous opticalib behaviour.  Pass ``reset_on_connect=False`` and/or
+    ``reset_on_close=False`` to leave the last commanded shape on the
+    electronics (e.g. across script exit or Ctrl-C).
 
-    Exit without reset relies on the Alpao SDK parameter
-    ``ResetOnClose`` (default ``true`` in the SDK): opticalib sets it
-    from ``reset_on_close`` so destroying the ``asdk.DM`` handle
-    (normal exit, GC, or Ctrl-C) does not zero the electronics.
+    Shape retention on exit uses the Alpao SDK parameter ``ResetOnClose``,
+    set from ``reset_on_close``.  ``deinitialize(reset=False)`` can skip
+    an explicit reset even when ``reset_on_close`` is ``True``.
 
     There is no hardware readback: after reconnect without reset,
     :meth:`get_shape` starts at zeros until the next :meth:`set_shape`.
@@ -55,8 +55,8 @@ class BaseAlpaoMirror:
         n_acts: int | str | None,
         use_plico: bool = False,
         *,
-        reset_on_connect: bool = False,
-        reset_on_close: bool = False,
+        reset_on_connect: bool = True,
+        reset_on_close: bool = True,
     ) -> None:
         """
         Initialise the mirror, connecting to the SDK and loading the
@@ -72,12 +72,11 @@ class BaseAlpaoMirror:
             provided directly.
         reset_on_connect : bool, optional
             If ``True``, call SDK ``Reset()`` after opening the
-            connection (actuators to zero).  Default ``False`` so a
-            previously held shape is not cleared on connect.
+            connection (actuators to zero).  Default ``True``.
         reset_on_close : bool, optional
             If ``True``, ``deinitialize()`` / process teardown will
-            ``Reset()`` the mirror.  Default ``False`` so the last
-            commanded shape is left on the electronics when possible.
+            ``Reset()`` the mirror.  Default ``True``.  Set ``False``
+            to hold the last shape on the electronics when possible.
 
         Raises
         ------

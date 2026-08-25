@@ -625,12 +625,12 @@ class AlpaoDm(BaseAlpaoMirror, BaseDeformableMirror):
         number can be retrieved from the configuration file.
     reset_on_connect : bool, optional
         If ``True``, zero the mirror when opening the connection
-        (SDK ``Reset`` + ``set_zeros_to_acts``).  Default ``False``.
+        (SDK ``Reset`` + ``set_zeros_to_acts``).  Default ``True``.
     reset_on_close : bool, optional
         If ``True``, zero the mirror when the SDK object is destroyed
         (``deinitialize``, normal exit, or Ctrl-C) via SDK
-        ``ResetOnClose``.  Default ``False`` so the last shape is held
-        on the electronics across script exits.
+        ``ResetOnClose``.  Default ``True``.  Set ``False`` to hold
+        the last shape on the electronics across script exits.
     """
 
     def __init__(
@@ -638,8 +638,8 @@ class AlpaoDm(BaseAlpaoMirror, BaseDeformableMirror):
         nacts: _ot.Optional[int | str] = None,
         serial_number: _ot.Optional[str] = None,
         *,
-        reset_on_connect: bool = False,
-        reset_on_close: bool = False,
+        reset_on_connect: bool = True,
+        reset_on_close: bool = True,
     ):
         """
         Initialise the Alpao DM hardware connection.
@@ -656,9 +656,10 @@ class AlpaoDm(BaseAlpaoMirror, BaseDeformableMirror):
             given so that the serial number can be retrieved from the
             configuration file.
         reset_on_connect : bool, optional
-            Zero the DM on connect. Default ``False``.
+            Zero the DM on connect. Default ``True``.
         reset_on_close : bool, optional
-            Zero the DM on close / process exit. Default ``False``.
+            Zero the DM on close / process exit. Default ``True``.
+            Set ``False`` to retain the last commanded shape.
 
         """
         self._logger = _SL(the_class=__class__)
