@@ -25,18 +25,38 @@ class BaseAlpaoMirror:
     n_acts : int, str or None
         Number of actuators.  Used to look up the DM configuration
         when *serial_number* is ``None``.
+    reset_on_connect : bool, optional
+        Zero actuators after connecting (default ``True``).
+    reset_on_close : bool, optional
+        Zero actuators on ``deinitialize`` / teardown (default ``True``).
 
     Notes
     -----
     The ``asdk`` module is imported lazily inside :meth:`_init_sdk` so
     that the rest of the package can be used on systems where the
     Alpao SDK is not installed.
+
+    By default actuators are zeroed on connect and on teardown, matching
+    previous opticalib behaviour.  Pass ``reset_on_connect=False`` and/or
+    ``reset_on_close=False`` to leave the last commanded shape on the
+    electronics (e.g. across script exit or Ctrl-C).
+
+    Shape retention on exit uses the Alpao SDK parameter ``ResetOnClose``,
+    set from ``reset_on_close``.  ``deinitialize(reset=False)`` can skip
+    an explicit reset even when ``reset_on_close`` is ``True``.
+
+    There is no hardware readback: after reconnect without reset,
+    :meth:`get_shape` starts at zeros until the next :meth:`set_shape`.
     """
 
     def __init__(
         self,
         serial_number: str | None,
         n_acts: int | str | None,
+        use_plico: bool = False,
+        *,
+        reset_on_connect: bool = True,
+        reset_on_close: bool = True,
     ) -> None:
         """
         Initialise the mirror, connecting to the SDK and loading the
@@ -50,6 +70,13 @@ class BaseAlpaoMirror:
         n_acts : int, str or None
             Number of actuators.  ``None`` if *serial_number* is
             provided directly.
+        reset_on_connect : bool, optional
+            If ``True``, call SDK ``Reset()`` after opening the
+            connection (actuators to zero).  Default ``True``.
+        reset_on_close : bool, optional
+            If ``True``, ``deinitialize()`` / process teardown will
+            ``Reset()`` the mirror.  Default ``True``.  Set ``False``
+            to hold the last shape on the electronics when possible.
 
         Raises
         ------
@@ -70,7 +97,10 @@ class BaseAlpaoMirror:
             "dm468": [8, 12, 16, 18, 20, 20, 22, 22, 24],
             "dm820": [10, 14, 18, 20, 22, 24, 26, 28, 28, 30, 30, 32],
         }
-        self._init_sdk(serial_number, n_acts)
+        self._reset_on_close = bool(reset_on_close)
+        self._init_sdk(
+            serial_number, n_acts, reset_on_connect=reset_on_connect
+        )
         self.n_acts = int(self._sdk_dm.Get("NbOfActuator"))
         self._last_cmd: _t.ArrayLike = _np.zeros(self.n_acts)
         self._name = f"Alpao{self.n_acts}"
@@ -138,18 +168,44 @@ class BaseAlpaoMirror:
         """
         return int(self._sdk_dm.Get("VersionInfo"))
 
-    def deinitialize(self) -> None:
+    def deinitialize(self, reset: bool | None = None) -> None:
         """
-        Stop the DM and release hardware resources.
+        Stop transfers and release the SDK handle.
 
-        Should be called when the DM object is no longer needed to
-        ensure a clean shutdown of the Alpao SDK connection.
-        Does nothing if the SDK handle was never successfully created.
+        Parameters
+        ----------
+        reset : bool or None, optional
+            If ``True``, call SDK ``Reset()`` (actuators to zero)
+            before releasing.  If ``None`` (default), use the
+            ``reset_on_close`` value from construction.
+
+        Notes
+        -----
+        Shape retention on teardown (including Ctrl-C, which often
+        skips this method) is controlled by SDK ``ResetOnClose``, set
+        at connect from ``reset_on_close``.  An explicit ``Reset()``
+        here is only sent when *reset* / ``reset_on_close`` is true.
         """
-        if not hasattr(self, "_sdk_dm"):
+        if not hasattr(self, "_sdk_dm") or self._sdk_dm is None:
             return
-        self._sdk_dm.Stop()
-        self._sdk_dm.Reset()
+        do_reset = self._reset_on_close if reset is None else bool(reset)
+        try:
+            # Keep SDK destructor behavior aligned with this call.
+            self._sdk_dm.Set("ResetOnClose", int(do_reset))
+        except Exception:
+            pass
+        try:
+            self._sdk_dm.Stop()
+        except Exception:
+            pass
+        if do_reset:
+            try:
+                self._sdk_dm.Reset()
+            except Exception:
+                pass
+        # Drop the Python reference; SWIG ~DM / asdkRelease follows.
+        # With ResetOnClose=0 the electronics keep the last command.
+        self._sdk_dm = None
 
     # ------------------------------------------------------------------
     # Higher-level helpers
@@ -254,6 +310,8 @@ class BaseAlpaoMirror:
         self,
         serial_number: str | None,
         nacts: int | str | None,
+        *,
+        reset_on_connect: bool = False,
     ) -> None:
         """
         Connect to the Alpao SDK and store the raw DM handle.
@@ -279,6 +337,8 @@ class BaseAlpaoMirror:
         nacts : int, str or None
             Number of actuators used to look up the configuration when
             *serial_number* is ``None``.
+        reset_on_connect : bool, optional
+            If ``True``, zero the mirror after connecting.
 
         Raises
         ------
@@ -341,4 +401,12 @@ class BaseAlpaoMirror:
             ) from e
 
         self._sdk_dm = asdk.DM(serial_number)
-        self._sdk_dm.Reset()
+        # SDK default ResetOnClose=true zeros the mirror when ~DM runs
+        # (process exit / GC / Ctrl-C).  Mirror construction flag.
+        try:
+            self._sdk_dm.Set("ResetOnClose", int(bool(self._reset_on_close)))
+        except Exception:
+            # Older SDK builds may lack the parameter; keep going.
+            pass
+        if reset_on_connect:
+            self._sdk_dm.Reset()

@@ -623,12 +623,23 @@ class AlpaoDm(BaseAlpaoMirror, BaseDeformableMirror):
         Hardware serial number of the DM (e.g. ``"BAXXX"``).
         If ``None``, *nacts* must be provided so that the serial
         number can be retrieved from the configuration file.
+    reset_on_connect : bool, optional
+        If ``True``, zero the mirror when opening the connection
+        (SDK ``Reset`` + ``set_zeros_to_acts``).  Default ``True``.
+    reset_on_close : bool, optional
+        If ``True``, zero the mirror when the SDK object is destroyed
+        (``deinitialize``, normal exit, or Ctrl-C) via SDK
+        ``ResetOnClose``.  Default ``True``.  Set ``False`` to hold
+        the last shape on the electronics across script exits.
     """
 
     def __init__(
         self,
         nacts: _ot.Optional[int | str] = None,
         serial_number: _ot.Optional[str] = None,
+        *,
+        reset_on_connect: bool = True,
+        reset_on_close: bool = True,
     ):
         """
         Initialise the Alpao DM hardware connection.
@@ -644,10 +655,22 @@ class AlpaoDm(BaseAlpaoMirror, BaseDeformableMirror):
             Hardware serial number of the DM. If not provided, *nacts* must be
             given so that the serial number can be retrieved from the
             configuration file.
+        reset_on_connect : bool, optional
+            Zero the DM on connect. Default ``True``.
+        reset_on_close : bool, optional
+            Zero the DM on close / process exit. Default ``True``.
+            Set ``False`` to retain the last commanded shape.
+
         """
         self._logger = _SL(the_class=__class__)
-        super().__init__(serial_number, nacts)
-        self.set_zeros_to_acts()
+        super().__init__(
+            serial_number,
+            nacts,
+            reset_on_connect=reset_on_connect,
+            reset_on_close=reset_on_close,
+        )
+        if reset_on_connect:
+            self.set_zeros_to_acts()
         self.is_segmented = False
         try:
             dm_config = _rc.get_device_config("DEFORMABLE.MIRRORS", self._name)
