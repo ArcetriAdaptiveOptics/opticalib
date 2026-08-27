@@ -224,7 +224,7 @@ class Ingot(BaseWavefrontSensor):
         if output_type == "slopes":
             # Map gradients across normalized spatial matrices
             Sx, Sy = self._compute_slopes_from_pupils(the_output)
-            the_output = _np.vstack([Sx, Sy])
+            the_output = _np.ma.vstack([Sx, Sy])
 
         return the_output
 

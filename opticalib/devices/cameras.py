@@ -330,14 +330,14 @@ class GigaVision(BaseCamera):
         if len(frames) == 1:
             frames = frames[0]
         else:
-            from ..analyzer import create_cube as _cC
+            #from ..analyzer import create_cube as _cC
 
-            frames = _cC(frames)
+            #frames = _cC(frames)
 
             if multiframe_out_mode == "mean":
-                from numpy.ma import mean
+                from numpy import mean
 
-                frames = mean(frames, axis=2)
+                frames = mean(frames, axis=0).astype('uint16')
 
         return frames
 
