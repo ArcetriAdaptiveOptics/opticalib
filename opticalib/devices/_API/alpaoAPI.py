@@ -37,6 +37,7 @@ class BaseAlpaoMirror:
         self,
         serial_number: str | None,
         n_acts: int | str | None,
+        use_plico: bool = False
     ) -> None:
         """
         Initialise the mirror, connecting to the SDK and loading the
@@ -70,7 +71,10 @@ class BaseAlpaoMirror:
             "dm468": [8, 12, 16, 18, 20, 20, 22, 22, 24],
             "dm820": [10, 14, 18, 20, 22, 24, 26, 28, 28, 30, 30, 32],
         }
-        self._init_sdk(serial_number, n_acts)
+        if use_plico:
+            self._init_plico(n_acts)
+        else:
+            self._init_sdk(serial_number, n_acts)
         self.n_acts = int(self._sdk_dm.Get("NbOfActuator"))
         self._last_cmd: _t.ArrayLike = _np.zeros(self.n_acts)
         self._name = f"Alpao{self.n_acts}"
@@ -342,3 +346,25 @@ class BaseAlpaoMirror:
 
         self._sdk_dm = asdk.DM(serial_number)
         self._sdk_dm.Reset()
+
+    def _init_plico(
+        self, nacts: int | str | None
+    ) -> object:
+        try:
+            import plico_dm
+        except ModuleNotFoundError as e:
+            raise ModuleNotFoundError(
+                "The 'plico_dm' module could not be imported. "
+                "Ensure it is installed and available in the Python environment."
+            ) from e
+
+        if nacts is not None:
+            config = get_section_config("DEVICES", "DEFORMABLE.MIRRORS")[
+            self._name
+        ]
+            self.ip, self.port = config.get("ip"), config.get("port")
+        else:
+            raise ValueError("nacts must be provided.")
+        if all(v is None for v in (self.ip, self.port)):
+            raise ValueError("IP and port must be provided in the configuration for plico backend to work.")
+        return plico_dm.deformableMirror(self.ip, self.port)

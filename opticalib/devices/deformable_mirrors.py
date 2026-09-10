@@ -629,6 +629,7 @@ class AlpaoDm(BaseAlpaoMirror, BaseDeformableMirror):
         self,
         nacts: _ot.Optional[int | str] = None,
         serial_number: _ot.Optional[str] = None,
+        use_plico: bool = False
     ):
         """
         Initialise the Alpao DM hardware connection.
@@ -646,7 +647,7 @@ class AlpaoDm(BaseAlpaoMirror, BaseDeformableMirror):
             configuration file.
         """
         self._logger = _SL(the_class=__class__)
-        super().__init__(serial_number, nacts)
+        super().__init__(serial_number, nacts, use_plico)
         self.set_zeros_to_acts()
         self.is_segmented = False
         try:
