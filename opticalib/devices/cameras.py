@@ -369,3 +369,340 @@ class GigaVision(BaseCamera):
     def __repr__(self):
         arg1 = f"id={self.cam_id}" if self.cam_id is not None else f"ip={self.cam_ip}"
         return f"{self._name}({arg1}, exptime={self._exptime} us)"
+
+
+class CBlue(BaseCamera):
+    """
+    First Light C-BLUE camera interface via the ``pysilico`` client.
+
+    Parameters
+    ----------
+    name : str
+        Camera name as defined under ``DEVICES.CAMERAS`` in the configuration
+        file (expects ``host``, ``port``, and optionally ``fps`` / ``roi``).
+    """
+
+    # pysilico getStatus/getFrameRate default to GET_FRAME_FOR_DISPLAY_TIMEOUT
+    # (10 ms) on a PUB/SUB status socket — intermittent ZmqRpcTimeoutError under
+    # load. Match cascading_gui / snapshot_hardware (5 s).
+    _RPC_TIMEOUT_S = 5.0
+    _STATUS_RETRIES = 3
+
+    def __init__(self, name: str):
+        import pysilico as _pysilico
+
+        self._name = name
+        self._cam_config = _gcc(device_name=self._name)
+        self._logger = _sl(__class__)
+        self._pysilico = _pysilico
+
+        self.host = self._cam_config.get("host", "localhost")
+        self.port = int(self._cam_config.get("port", 7110))
+        self._fps = self._cam_config.get("fps", None)
+        self._roi = self._cam_config.get("roi", None) or {}
+        self._gain = self._cam_config.get("gain", None)
+        # Exposure in ms in YAML (same units as pysilico setExposureTime)
+        self._exptime_ms_cfg = self._cam_config.get("camera_base_exptime", None)
+
+        print(f"Setting up CBlue camera {self._name}")
+        print(f"Host: {self.host}")
+        print(f"Port: {self.port}")
+        print(f"FPS: {self._fps}")
+        print(f"ROI: {self._roi}")
+        print(f"Gain: {self._gain}")
+        print(f"Exposure: {self._exptime_ms_cfg}")
+
+        self._cam = None
+        self._exptime = None
+        self._dark_shape = None  # (rows, cols) of last set dark, or None
+        self._connect()
+
+    def _connect(self) -> None:
+        """Open the pysilico client and apply optional fps / ROI / gain / exposure."""
+        try:
+            self._cam = self._pysilico.camera(self.host, self.port)
+            if self._roi:
+                self._apply_roi(
+                    int(self._roi.get("offset_x", 0)),
+                    int(self._roi.get("offset_y", 0)),
+                    int(self._roi.get("cols", 1608)),
+                    int(self._roi.get("rows", 1104)),
+                )
+            if self._fps is not None:
+                self._cam.setParameter("fps", float(self._fps))
+                print(
+                    f"FPS set to {float(self._fps)} Hz"
+                )
+            if self._gain is not None:
+                self._cam.setParameter("gain", float(self._gain))
+            if self._exptime_ms_cfg is not None:
+                self.set_exptime(float(self._exptime_ms_cfg) * 1000.0)
+            else:
+                self._exptime = self.get_exptime()
+            self._logger.info(
+                f"Connected to CBlue '{self._name}' at {self.host}:{self.port}"
+            )
+        except Exception as e:
+            self.close()
+            raise RuntimeError(
+                f"Could not connect to CBlue camera {self._name} "
+                f"at {self.host}:{self.port}."
+            ) from e
+
+    def _get_status(self):
+        """Fetch camera status with a usable timeout and a few retries."""
+        last_err = None
+        for attempt in range(1, self._STATUS_RETRIES + 1):
+            try:
+                return self._cam.getStatus(timeoutInSec=self._RPC_TIMEOUT_S)
+            except Exception as e:
+                last_err = e
+                self._logger.warning(
+                    f"CBlue '{self._name}' getStatus failed "
+                    f"({attempt}/{self._STATUS_RETRIES}): {e}"
+                )
+                if attempt < self._STATUS_RETRIES:
+                    _time.sleep(0.1 * attempt)
+        raise RuntimeError(
+            f"CBlue '{self._name}' getStatus failed after "
+            f"{self._STATUS_RETRIES} attempts"
+        ) from last_err
+
+    def _frame_shape(self) -> tuple[int, int]:
+        """Return live ``(rows, cols)``.
+
+        Prefer the last-applied ROI (avoids racing the status PUB/SUB). Fall
+        back to ``getStatus`` with a multi-second timeout + retries.
+        """
+        if self._roi:
+            rows = int(self._roi.get("rows") or 0)
+            cols = int(self._roi.get("cols") or 0)
+            if rows > 0 and cols > 0:
+                return rows, cols
+        status = self._get_status()
+        return int(status.frameHeight), int(status.frameWidth)
+
+    def _apply_roi(self, offset_x: int, offset_y: int, cols: int, rows: int) -> None:
+        """Apply ROI with offset-first order expected by the C-BLUE server.
+
+        If a dark was previously set and its shape no longer matches the new
+        ROI, clear it (zero subtract) and warn — caller must re-acquire dark.
+        """
+        self._cam.setParameter("offset_x", 0)
+        self._cam.setParameter("offset_y", 0)
+        self._cam.setParameter("cols", int(cols))
+        self._cam.setParameter("rows", int(rows))
+        self._cam.setParameter("offset_x", int(offset_x))
+        self._cam.setParameter("offset_y", int(offset_y))
+        self._roi = {
+            "offset_x": int(offset_x),
+            "offset_y": int(offset_y),
+            "cols": int(cols),
+            "rows": int(rows),
+        }
+        new_shape = (int(rows), int(cols))
+        if self._dark_shape is not None and self._dark_shape != new_shape:
+            self._logger.warning(
+                f"ROI changed to {new_shape}; clearing dark "
+                f"(was {self._dark_shape}). Re-acquire dark before science."
+            )
+            self.clear_dark()
+
+    def set_dark(self, frame) -> None:
+        """Install a server-side dark frame (pysilico ``setDarkFrame``).
+
+        Parameters
+        ----------
+        frame : array-like
+            2-D dark image (rows, cols), matching the current ROI.
+        """
+        import numpy as _np
+        from pysilico.types.camera_frame import CameraFrame
+
+        arr = _np.asarray(frame)
+        if arr.ndim != 2:
+            raise ValueError(f"Dark must be 2-D, got shape {arr.shape}")
+        live = self._frame_shape()
+        if tuple(arr.shape) != live:
+            raise ValueError(
+                f"Dark shape {arr.shape} != live frame shape {live}"
+            )
+        dark_u16 = _np.clip(_np.rint(arr), 0, 65535).astype(_np.uint16)
+        self._cam.setDarkFrame(CameraFrame(dark_u16))
+        self._dark_shape = tuple(int(x) for x in dark_u16.shape)
+        self._logger.info(
+            f"Dark set on CBlue '{self._name}': "
+            f"{dark_u16.shape[1]}x{dark_u16.shape[0]}, mean={float(dark_u16.mean()):.1f}"
+        )
+
+    def get_dark(self):
+        """Return the current server dark as a float ndarray, or None."""
+        import numpy as _np
+
+        try:
+            dark = self._cam.getDarkFrame()
+        except Exception:
+            return None
+        if dark is None:
+            return None
+        arr = _np.asarray(dark.toNumpyArray(), dtype=_np.float64)
+        self._dark_shape = tuple(int(x) for x in arr.shape)
+        return arr
+
+    def clear_dark(self) -> None:
+        """Install a zero dark so server subtraction is a no-op (raw frames)."""
+        import numpy as _np
+
+        h, w = self._frame_shape()
+        self.set_dark(_np.zeros((h, w), dtype=_np.uint16))
+        # set_dark updates _dark_shape; treat zero-dark as "no science dark"
+        # but keep shape so ROI mismatch still works. Callers that need
+        # "no dark loaded" should set _dark_shape after acquire.
+        self._logger.info(f"Dark cleared (zero subtract) on CBlue '{self._name}'")
+
+    def reconnect(self, max_attempts: int = 2) -> None:
+        """
+        Attempt to reconnect to the pysilico camera server.
+
+        Parameters
+        ----------
+        max_attempts : int, optional
+            Maximum number of reconnection attempts. Default is 2.
+        """
+        attempt = 0
+        while attempt < max_attempts:
+            try:
+                self._logger.info(
+                    f"Attempting to reconnect to camera {self._name} "
+                    f"(attempt {attempt + 1}/{max_attempts})"
+                )
+                self.close()
+                _time.sleep(0.25)
+                self._connect()
+                self._logger.info(f"Successfully reconnected to camera {self._name}")
+                return
+            except Exception as e:
+                self._logger.warning(f"Reconnection attempt {attempt + 1} failed: {e}")
+                attempt += 1
+        raise RuntimeError(
+            f"Failed to reconnect to camera {self._name} after {max_attempts} attempts"
+        )
+
+    def close(self) -> None:
+        """Drop the pysilico client handle."""
+        self._cam = None
+
+    def __del__(self):
+        try:
+            self.close()
+        except Exception:
+            pass
+
+    def get_exptime(self) -> float:
+        """
+        Get the exposure time in micro-seconds.
+
+        Returns
+        -------
+        float
+            Exposure time in micro-seconds.
+        """
+        if self._exptime is None:
+            # pysilico reports exposure in milliseconds via exposureTime()
+            # (also uses the short getStatus default unless timeout is set)
+            self._exptime = (
+                float(self._cam.exposureTime(timeoutInSec=self._RPC_TIMEOUT_S))
+                * 1000.0
+            )
+        return self._exptime
+
+    def set_exptime(self, exptime_us: float) -> None:
+        """
+        Set the exposure time.
+
+        Parameters
+        ----------
+        exptime_us : float
+            Exposure time in micro-seconds (converted to ms for pysilico).
+        """
+        if self._exptime == exptime_us:
+            self._logger.info(
+                f"Exposure time is already set to {exptime_us} us, skipping."
+            )
+            return
+        self._logger.info(f"Setting exposure time to {exptime_us} us")
+        self._cam.setExposureTime(float(exptime_us) / 1000.0)
+        self._exptime = float(exptime_us)
+
+    def get_fps(self) -> float | None:
+        """Return the live acquisition frame rate in Hz (pysilico ``getFrameRate``)."""
+        if self._cam is None:
+            return None if self._fps is None else float(self._fps)
+        fps = float(self._cam.getFrameRate(timeoutInSec=self._RPC_TIMEOUT_S))
+        self._fps = fps
+        return fps
+
+    def set_fps(self, fps: float) -> None:
+        """
+        Set the camera frame rate via pysilico ``setParameter('fps', ...)``.
+
+        Same path as ``cascading_gui._set_fps`` / ``_reapply_fps``.
+
+        Parameters
+        ----------
+        fps : float
+            Frame rate in Hz.
+        """
+        self._logger.info(f"Setting frame rate to {fps} Hz")
+        self._cam.setParameter("fps", float(fps))
+        self._fps = float(fps)
+
+    def acquire_frames(
+        self,
+        nframes: int | None = None,
+        multiframe_out_mode: str = "mean",
+    ) -> _ot.ImageData | _ot.CubeData:
+        """
+        Acquire frames from the C-BLUE camera via pysilico.
+
+        Parameters
+        ----------
+        nframes : int | None
+            Number of frames to acquire. ``None`` acquires a single frame.
+        multiframe_out_mode : str
+            ``'mean'`` returns the averaged frame; ``'cube'`` returns a cube.
+
+        Returns
+        -------
+        ImageData | CubeData
+            Acquired frame(s).
+        """
+        import numpy as _np
+
+        n = 1 if nframes is None else int(nframes)
+        if n < 1:
+            raise ValueError("nframes must be >= 1")
+
+        frames = [
+            _np.asarray(self._cam.getFutureFrames(1).toNumpyArray(), dtype=_np.float64)
+            for _ in range(n)
+        ]
+
+        if n == 1:
+            return frames[0]
+
+        if multiframe_out_mode == "mean":
+            return _np.mean(_np.stack(frames, axis=0), axis=0)
+
+        if multiframe_out_mode == "cube":
+            from ..analyzer import create_cube as _cC
+
+            return _cC(frames)
+
+        raise ValueError("multiframe_out_mode must be 'mean' or 'cube'")
+
+    def __repr__(self) -> str:
+        return (
+            f"{self._name}(host={self.host}, port={self.port}, "
+            f"exptime={self._exptime} us)"
+        )

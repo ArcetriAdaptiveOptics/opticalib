@@ -23,6 +23,14 @@ DEVICES:
         - [0, 0]
         - [0, 0]
         - [0, 0]
+    PYRAMID:
+      camera: CAMERAS:CBlue
+      n_pupils: 4
+      pupils_file: '' # path to saved pupdata FITS; empty = detect when requested
+      detect_threshold: 30
+      thr_value: 0
+      norm: shlike # global | shlike | fixed
+      norm_factor: null # used when norm: fixed
 
   INTERFEROMETERS:
     PhaseCamX:
@@ -84,6 +92,17 @@ DEVICES:
     GigaVision: # example camera
       id: DEV_000F314DE425
       ip: 
+    CBlue: # First Light C-BLUE via pysilico
+      host: localhost
+      port: 7110
+      fps: 50 # Hz
+      camera_base_exptime: 18 # ms
+      gain: 0
+      roi:
+        offset_x: 0
+        offset_y: 0
+        cols: 1608
+        rows: 1104
   
 # The motor devices usually use the `plico_motor` interface, as their SDK is 
 # not implemented in Linux.
@@ -142,7 +161,7 @@ INFLUENCE.FUNCTIONS:
     template: [1, -1, 1]
     shuffle: false
     n_repetitions: 1
-    modal_base: zonal
+    modal_base: modal
 
 ## Stitching configuration ##
 # Here you can set the parameters for the stitching procedure.

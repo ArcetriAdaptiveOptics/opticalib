@@ -939,7 +939,7 @@ def get_iff_file_matrix(tn: str, info: dict[str, _ot.Any]) -> _ot.ArrayLike:
         _os.path.isdir(fold)
     else:
         fold = None
-    fileList = _osu.getFileList(
+    fileList = _osu.get_file_list(
         tn, fold="OPDImages" if fold is None else fold, key="image_"
     )
 

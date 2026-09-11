@@ -27,8 +27,8 @@ from .interferometer import PhaseCam, AccuFiz, Processer4D
 from .deformable_mirrors import (
   SplattDm, AlpaoDm, AdOpticaDm, DP, M4AU, PetalMirror
 )
-from .wfs import Ingot
-from .cameras import GigaVision
+from .wfs import Ingot, Pyramid
+from .cameras import GigaVision, CBlue
 
 __all__ = [
     "AdOpticaDm",
@@ -40,6 +40,8 @@ __all__ = [
     "DP",
     "M4AU",
     "GigaVision",
+    "CBlue",
     "Ingot",
+    "Pyramid",
     "PetalMirror",
 ]
