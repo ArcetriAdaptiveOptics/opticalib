@@ -52,6 +52,9 @@ class BasePetalMirror:
             self._check_servos()
             self._morning_routine()
 
+        self._pistonLimits = [0, 12]
+        self._tipLimits = [-200, 200]
+        self._tiltLimits = [-200, 200]
 
     @property
     def slave_ids(self):
@@ -180,6 +183,21 @@ class BasePetalMirror:
 
         self._check_axes()
         try:
+            # Check command limits for each segment before sending commands
+            for k in range(self.nSegments):
+                segcmd = cmd[k * 3 : k * 3 + 3]
+                if not (self._pistonLimits[0] <= segcmd[0] <= self._pistonLimits[1]):
+                    raise CommandError(
+                        f"Piston command for segment {k} out of limits: {segcmd[0]}"
+                    )
+                if not (self._tipLimits[0] <= segcmd[1] <= self._tipLimits[1]):
+                    raise CommandError(
+                        f"Tip command for segment {k} out of limits: {segcmd[1]}"
+                    )
+                if not (self._tiltLimits[0] <= segcmd[2] <= self._tiltLimits[1]):
+                    raise CommandError(
+                        f"Tilt command for segment {k} out of limits: {segcmd[2]}"
+                    )
             for k, dev in enumerate(self._devices):
                 self._logger.info(
                     f"Commanding position for segment {k} : {self._ip_addresses[k]}"

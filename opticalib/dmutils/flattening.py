@@ -326,6 +326,7 @@ class Flattening:
         _ = setshape_kwargs.pop("differential", None)
         self._logger.info(f"Applying flat command to the {self._dm._name}")
         self._dm.set_shape(deltacmd, differential=True, **setshape_kwargs)
+        cmd = self._dm.get_shape()  # TODO: check if this is correct for DP
 
         cmd = self._dm.get_shape()  # TODO: check if this is correct for DP
 
