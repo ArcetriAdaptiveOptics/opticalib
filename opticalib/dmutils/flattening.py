@@ -328,8 +328,6 @@ class Flattening:
         self._dm.set_shape(deltacmd, differential=True, **setshape_kwargs)
         cmd = self._dm.get_shape()  # TODO: check if this is correct for DP
 
-        cmd = self._dm.get_shape()  # TODO: check if this is correct for DP
-
         self._lastFlatImg = wfs.acquire_map(nframes)
 
         fold = None
