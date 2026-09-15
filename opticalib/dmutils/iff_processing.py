@@ -940,13 +940,13 @@ def get_iff_file_matrix(tn: str, info: dict[str, _ot.Any]) -> _ot.ArrayLike:
     else:
         fold = None
     try:
-        fileList = _osu.getFileList(
+        fileList = _osu.get_file_list(
             tn, fold="OPDImages" if fold is None else fold, key="image_"
         )
         if len(fileList) == 0:
             raise KeyError(f"No image files found with key `image_`")
     except KeyError as ke:
-        fileList = _osu.getFileList(
+        fileList = _osu.get_file_list(
             tn, fold="OPDImages" if fold is None else fold, key=".4D"
         )
         if len(fileList) == 0:
