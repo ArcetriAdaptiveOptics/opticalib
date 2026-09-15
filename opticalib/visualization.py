@@ -10,7 +10,7 @@ DM commands, and other relevant visualizations for optical data analysis.
 import numpy as np
 from matplotlib import pyplot as plt
 from .core import _types as _ot
-from .ground import osutils as _osu
+from .ground import osutils as _osu, roi as _roi
 
 
 def matshow(matrix: _ot.MatrixLike, **kwargs: dict[str, _ot.Any]):
@@ -234,6 +234,7 @@ def superimshow(
     xlabels: list[str] | str = None,
     ylabels: list[str] | str = None,
     set_axis_off: bool = False,
+    cut: bool = False,
     *mplargs: _ot.Any,
     **mplkwargs: dict[str, _ot.Any],
 ):
@@ -256,6 +257,9 @@ def superimshow(
         List of y-axis labels for each image. If not provided, the labels are 'Y [px]'.
     set_axis_off : bool, optional
         If True, the axes will be turned off. The default is False.
+    cut : bool, optional
+        If True, the images will be cut using the ROI defined in the `opticalib.ground.roi` module. 
+        The default is False.
     *mplargs
         Additional arguments to be passed to `imshow`.
     **mplkwargs
@@ -311,7 +315,10 @@ def superimshow(
         divider = make_axes_locatable(ax)
         cax = divider.append_axes("right", size="5%", pad=0.05)
         # Plot dell'immagine
-        im = ax.imshow(data[..., i], *mplargs, **mplkwargs)
+        img = data[..., i]
+        if cut:
+            img = _roi.img_cut(img)
+        im = ax.imshow(img, *mplargs, **mplkwargs)
         ax.set_title(titles[i])
         ax.set_xlabel(xlabel[i])
         ax.set_ylabel(ylabel[i])
