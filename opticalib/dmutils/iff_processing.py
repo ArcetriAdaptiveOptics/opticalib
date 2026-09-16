@@ -1225,7 +1225,7 @@ def _check_stacked_cubes(tnlist: str) -> dict[str, _ot.Any]:
     flag : dict
         Dictionary containing the flagging information about the stacked cube.
     """
-    _, _, modesVectList, rebin = _getCubeList(tnlist)
+    _, _, modesVectList, rebin = _get_cube_list(tnlist)
     nmodes = len(modesVectList[0])
     nvects = len(modesVectList)
     for i in range(nvects):
