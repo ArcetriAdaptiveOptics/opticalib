@@ -629,25 +629,45 @@ class AlpaoDm(BaseAlpaoMirror, BaseDeformableMirror):
         self,
         nacts: _ot.Optional[int | str] = None,
         serial_number: _ot.Optional[str] = None,
-        use_plico: bool = False
+        sdk_folder_path: str|None = None,
+        acfg_path: str|None = None,
+        use_plico: bool = False,
+        plico_ip: str|None = None,
+        plico_port: int|None = None,
     ):
         """
         Initialise the Alpao DM hardware connection.
-
+        
+        It can either be conencted directly though the AlpaoSDK, or via the 
+        ``plico_dm`` backend.
 
         Parameters
         ----------
         nacts : int or str, optional
             Number of actuators. If provided, it is used to look up the device
-            serial number in the configuration file when *serial_number* is not
-            given. If *serial_number* is provided, this argument is ignored.
+            in the configuration file, where ``serial_number``, ``sdk_folder_path``, 
+            and ``acfg_path`` must be defined.
         serial_number : str, optional
             Hardware serial number of the DM. If not provided, *nacts* must be
             given so that the serial number can be retrieved from the
             configuration file.
+        sdk_folder_path : str, optional
+            Path to the Alpao SDK folder. Required if *nacts* is used to look up the device.
+        acfg_path : str, optional
+            Path to the Alpao configuration file. Required if *nacts* is used to look up the device.
+        use_plico : bool, optional
+            Whether to use the Plico backend for the DM connection. Default is False.
+        plico_ip : str, optional
+            IP address for the Plico backend. Required if *use_plico* is True.
+        plico_port : int, optional
+            Port for the Plico backend. Required if *use_plico* is True.
         """
         self._logger = _SL(the_class=__class__)
-        super().__init__(serial_number, nacts, use_plico)
+        super().__init__(
+            nacts, 
+            (serial_number, sdk_folder_path, acfg_path),
+            (use_plico, plico_ip, plico_port)
+        )
         self.set_zeros_to_acts()
         self.is_segmented = False
         try:
