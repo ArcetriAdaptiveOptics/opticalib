@@ -420,4 +420,4 @@ class BaseAlpaoMirror:
             if self._reset_on_close:
                 self._sdk_dm.Reset()
         except Exception as e:
-            self._logger.error(f"Failed to reset DM on close: {e}"):
+            self._logger.error(f"Failed to reset DM on close: {e}")
