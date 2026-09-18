@@ -3,6 +3,21 @@ from opticalib.core.config import get_section_config
 from opticalib.core.exceptions import CommandError
 from opticalib.core import _types as _t
 
+import weakref
+
+def _shutdown_dm(dm, reset: bool, logger, name: str) -> None:
+    """Stop (and optionally Reset) a raw SDK handle. Module-level so it
+    holds no reference to the wrapper object."""
+    try:
+        dm.Stop()
+    except Exception as e:
+        logger.error(f"[{name}] Failed to Stop the DM on close: {e}")
+    if reset:
+        try:
+            dm.Reset()
+        except Exception as e:
+            logger.error(f"[{name}] Failed to Reset the DM on close: {e}")
+
 
 class BaseAlpaoMirror:
     """
@@ -77,8 +92,11 @@ class BaseAlpaoMirror:
         }
         self._name = f"Alpao{nacts}"
         self._resolve_init(sdk_params, plico_params)
+        self._is_plico = bool(plico_params[0])
 
-        self.n_acts = int(self._sdk_dm.Get("NbOfActuator"))
+        self.n_acts = int(
+            self._sdk_dm.Get("NbOfActuator")
+        ) if self._is_plico else self._plico_dm.get_number_of_actuators()
         
         if self.n_acts != int(nacts):
             import warnings
@@ -139,7 +157,10 @@ class BaseAlpaoMirror:
                 f"Command length {cmd.size} does not match the number "
                 f"of actuators ({self.n_acts})."
             )
-        self._sdk_dm.Send(cmd)
+        if self._is_plico:
+            self._plico_dm.set_shape(cmd)
+        else:
+            self._sdk_dm.Send(cmd)
         self._last_cmd = cmd.copy()
 
     def get_version(self) -> int:
@@ -151,20 +172,24 @@ class BaseAlpaoMirror:
         int
             Integer version code.
         """
-        return int(self._sdk_dm.Get("VersionInfo"))
+        if not self._is_plico:
+            return int(self._sdk_dm.Get("VersionInfo"))
+        else:
+            raise AttributeError("Version information is not available for PLICO devices.")
 
-    def deinitialize(self) -> None:
+    def close(self) -> None:
         """
-        Stop the DM and release hardware resources.
+        Stop the DM (and Reset it if ``reset_on_close``) and release the hardware
+        resources. 
 
         Should be called when the DM object is no longer needed to
         ensure a clean shutdown of the Alpao SDK connection.
         Does nothing if the SDK handle was never successfully created.
         """
-        if not hasattr(self, "_sdk_dm"):
-            return
-        self._sdk_dm.Stop()
-        self._sdk_dm.Reset()
+        finalizer = getattr(self, "_finalizer", None)
+        if finalizer is not None and finalizer.alive:
+            finalizer()
+        self._sdk_dm = None
 
     # ------------------------------------------------------------------
     # Higher-level helpers
@@ -295,7 +320,6 @@ class BaseAlpaoMirror:
                 )
             self._init_sdk(bax, sdkf, acfg)
 
-
     def _init_sdk(
         self,
         serial_number: str,
@@ -378,6 +402,14 @@ class BaseAlpaoMirror:
             ) from e
 
         self._sdk_dm = asdk.DM(serial_number)
+        self._finalizer = weakref.finalize(
+            self,
+            _shutdown_dm,
+            self._sdk_dm,
+            getattr(self, "_reset_on_close", False),
+            self._logger,
+            self._name,
+        )
         try:
             self._sdk_dm.Set("ResetOnClose", int(bool(self._reset_on_close)))
         except Exception as e:
@@ -402,22 +434,4 @@ class BaseAlpaoMirror:
                 "Ensure it is installed and available in the Python environment."
             ) from e
 
-        return plico_dm.deformableMirror(self._plico_ip, self._plico_port)
-    
-    def __close__(self):
-        """
-        Close gracefully the Alpao DM connection, taking in consideration the
-        ``reset_on_close`` property.
-        """
-        if not hasattr(self, '_sdk_dm') or self._sdk_dm is None:
-            return
-        try:
-            self._sdk_dm.Stop()
-        except Exception as e:
-            self._logger.error(f"Failed to Stop the DM: {e}")
-
-        try:
-            if self._reset_on_close:
-                self._sdk_dm.Reset()
-        except Exception as e:
-            self._logger.error(f"Failed to reset DM on close: {e}")
+        self._plico_dm = plico_dm.deformableMirror(self._plico_ip, self._plico_port)
