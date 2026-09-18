@@ -378,7 +378,12 @@ class BaseAlpaoMirror:
             ) from e
 
         self._sdk_dm = asdk.DM(serial_number)
-        self._sdk_dm.Reset()
+        try:
+            self._sdk_dm.Set("ResetOnClose", int(bool(self._reset_on_close)))
+        except Exception as e:
+            self._logger.error(f"Failed to set 'ResetOnClose' property: {e}")
+        if self._reset_on_startup:
+            self._sdk_dm.Reset()
 
     def _init_plico(self) -> object:
         """
@@ -390,7 +395,7 @@ class BaseAlpaoMirror:
             An instance of the Plico deformable mirror.
         """
         try:
-            import plico_dm
+            import plico_dm  # type: ignore
         except ModuleNotFoundError as e:
             raise ModuleNotFoundError(
                 "The 'plico_dm' module could not be imported. "
@@ -398,3 +403,21 @@ class BaseAlpaoMirror:
             ) from e
 
         return plico_dm.deformableMirror(self._plico_ip, self._plico_port)
+    
+    def __close__(self):
+        """
+        Close gracefully the Alpao DM connection, taking in consideration the
+        ``reset_on_close`` property.
+        """
+        if not hasattr(self, '_sdk_dm') or self._sdk_dm is None:
+            return
+        try:
+            self._sdk_dm.Stop()
+        except Exception as e:
+            self._logger.error(f"Failed to Stop the DM: {e}")
+
+        try:
+            if self._reset_on_close:
+                self._sdk_dm.Reset()
+        except Exception as e:
+            self._logger.error(f"Failed to reset DM on close: {e}"):

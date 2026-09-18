@@ -634,6 +634,9 @@ class AlpaoDm(BaseAlpaoMirror, BaseDeformableMirror):
         use_plico: bool = False,
         plico_ip: str|None = None,
         plico_port: int|None = None,
+        *,
+        reset_on_startup: bool = True,
+        reset_on_close: bool = False,
     ):
         """
         Initialise the Alpao DM hardware connection.
@@ -661,14 +664,21 @@ class AlpaoDm(BaseAlpaoMirror, BaseDeformableMirror):
             IP address for the Plico backend. Required if *use_plico* is True.
         plico_port : int, optional
             Port for the Plico backend. Required if *use_plico* is True.
+        reset_on_startup : bool, optional
+            Whether to reset the DM to zero position on startup. Default is True.
+        reset_on_close : bool, optional
+            Whether to reset the DM to zero position on close. Default is False.
         """
         self._logger = _SL(the_class=__class__)
+        self._reset_on_close = bool(reset_on_close)
+        self._reset_on_startup = bool(reset_on_startup)
         super().__init__(
             nacts, 
             (serial_number, sdk_folder_path, acfg_path),
             (use_plico, plico_ip, plico_port)
         )
-        self.set_zeros_to_acts()
+        if self._reset_on_startup:
+            self.set_zeros_to_acts()
         self.is_segmented = False
         try:
             dm_config = _rc.get_device_config("DEFORMABLE.MIRRORS", self._name)
