@@ -213,12 +213,13 @@ def push_pull_reduction_algorithm(
     Parameters
     ----------
     imagelist : list of ImageData | CubeData
-        List of images for the PushPull acquisition, organized according to the template.
+        List of images for the PushPull acquisition, organized according to the 
+        template.
     template: int | ArrayLike
         Template for the PushPull acquisition.
     normalization : float | int, optional
-        Normalization factor for the final image. If None, the normalization factor
-        is set to the template length minus one.
+        Normalization factor for the final image. If None, the normalization 
+        factor is set to the template length minus one.
 
     Returns
     -------

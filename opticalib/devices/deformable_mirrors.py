@@ -611,23 +611,27 @@ class AlpaoDm(BaseAlpaoMirror, BaseDeformableMirror):
     """
     Alpao Deformable Mirror interface.
 
-    Communicates with the hardware directly via the Alpao SDK
-    (``asdk`` module) through :class:`~opticalib.devices._API.alpaoAPI.BaseAlpaoMirror`.
+    Communicates with the hardware either directly via the Alpao SDK
+    (``asdk`` module) or through the ``plico_dm`` backend, via
+    :class:`~opticalib.devices._API.alpaoAPI.BaseAlpaoMirror`.
 
     Parameters
     ----------
-    nacts : int or str, optional
-        Number of actuators.  Used to look up the device serial number
-        in the configuration file when *serial_number* is not given.
+    nacts : int or str
+        Number of actuators of the DM. Required: it is used to resolve the
+        ``Alpao{nacts}`` block in the configuration file (where
+        ``serial_number``/``sdk_folder_path``/``acfg_path`` or
+        ``plico_ip``/``plico_port`` may be defined), and to validate the
+        actuator count reported back once connected.
     serial_number : str, optional
-        Hardware serial number of the DM (e.g. ``"BAXXX"``).
-        If ``None``, *nacts* must be provided so that the serial
-        number can be retrieved from the configuration file.
+        Hardware serial number of the DM (e.g. ``"BAXXX"``), for the native
+        SDK backend. If ``None``, it is read from the ``Alpao{nacts}``
+        configuration block. Ignored when *use_plico* is ``True``.
     """
 
     def __init__(
         self,
-        nacts: _ot.Optional[int | str] = None,
+        nacts: int | str = "DM",
         serial_number: _ot.Optional[str] = None,
         sdk_folder_path: str|None = None,
         acfg_path: str|None = None,
@@ -640,24 +644,28 @@ class AlpaoDm(BaseAlpaoMirror, BaseDeformableMirror):
     ):
         """
         Initialise the Alpao DM hardware connection.
-        
-        It can either be conencted directly though the AlpaoSDK, or via the 
+
+        It can either be connected directly through the Alpao SDK, or via the
         ``plico_dm`` backend.
 
         Parameters
         ----------
-        nacts : int or str, optional
-            Number of actuators. If provided, it is used to look up the device
-            in the configuration file, where ``serial_number``, ``sdk_folder_path``, 
-            and ``acfg_path`` must be defined.
+        nacts : int or str
+            Number of actuators. Required: it is used to look up the device
+            in the configuration file (block ``Alpao{nacts}``), where
+            ``serial_number``, ``sdk_folder_path`` and ``acfg_path`` (SDK
+            backend) or ``plico_ip`` and ``plico_port`` (plico backend) may
+            be defined.
         serial_number : str, optional
-            Hardware serial number of the DM. If not provided, *nacts* must be
-            given so that the serial number can be retrieved from the
-            configuration file.
+            Hardware serial number of the DM, for the native SDK backend. If
+            not provided, it is read from the ``Alpao{nacts}`` block of the
+            configuration file. Ignored when *use_plico* is ``True``.
         sdk_folder_path : str, optional
-            Path to the Alpao SDK folder. Required if *nacts* is used to look up the device.
+            Path to the Alpao SDK folder. Falls back to the ``Alpao{nacts}``
+            configuration block when not given.
         acfg_path : str, optional
-            Path to the Alpao configuration file. Required if *nacts* is used to look up the device.
+            Path to the Alpao configuration file. Required (directly or via
+            the ``Alpao{nacts}`` configuration block) for the SDK backend.
         use_plico : bool, optional
             Whether to use the Plico backend for the DM connection. Default is False.
         plico_ip : str, optional

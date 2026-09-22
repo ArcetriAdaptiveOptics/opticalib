@@ -21,11 +21,12 @@ def _shutdown_dm(dm, reset: bool, logger, name: str) -> None:
 
 class BaseAlpaoMirror:
     """
-    Base class for Alpao deformable mirrors using the Alpao SDK directly.
+    Base class for Alpao deformable mirrors, connecting either through the
+    native Alpao SDK or through the ``plico_dm`` backend.
 
-    Connects to the hardware via the Alpao SDK (``asdk`` module) and
-    provides actuator-coordinate helpers, command-integrity checking,
-    shape read/write, and configuration look-up.
+    Connects to the hardware via the Alpao SDK (``asdk`` module) or via
+    ``plico_dm``, and provides actuator-coordinate helpers, command-integrity
+    checking, shape read/write, and configuration look-up.
 
     The Alpao SDK has no built-in position readback, so the last
     commanded vector is cached internally and returned by
@@ -33,53 +34,70 @@ class BaseAlpaoMirror:
 
     Parameters
     ----------
-    serial_number : str or None
-        Hardware serial number of the DM (e.g. ``"BAXXX"``).  May be
-        ``None`` when *n_acts* is given and the serial number is stored
-        in the configuration file.
-    n_acts : int, str or None
-        Number of actuators.  Used to look up the DM configuration
-        when *serial_number* is ``None``.
+    nacts : int or str
+        Number of actuators of the DM. Used to build the device name
+        (``Alpao{nacts}``) under which ``serial_number``/``sdk_folder_path``/
+        ``acfg_path`` (SDK backend) or ``plico_ip``/``plico_port`` (plico
+        backend) are looked up in the configuration file, and to sanity-check
+        the actuator count reported back by the backend once connected.
+    sdk_params : tuple of (str or None, str or None, str or None)
+        ``(serial_number, sdk_folder_path, acfg_path)`` for the native SDK
+        backend. Each value falls back to the corresponding key of the
+        ``Alpao{nacts}`` configuration block when ``None``. Only used when
+        *plico_params* does not request the plico backend.
+    plico_params : tuple of (bool, str or None, int or None)
+        ``(use_plico, plico_ip, plico_port)``. When *use_plico* is ``True``,
+        the mirror connects through ``plico_dm`` instead of the native SDK,
+        using *plico_ip*/*plico_port* or the ``plico_ip``/``plico_port`` keys
+        of the ``Alpao{nacts}`` configuration block.
 
     Notes
     -----
     The ``asdk`` module is imported lazily inside :meth:`_init_sdk` so
     that the rest of the package can be used on systems where the
-    Alpao SDK is not installed.
+    Alpao SDK is not installed. Likewise, ``plico_dm`` is imported lazily
+    inside :meth:`_init_plico`.
     """
 
     def __init__(
         self,
-        nacts: int | str | None,
+        nacts: int | str,
         sdk_params: tuple[str | None, str | None, str | None] | None,
         plico_params: tuple[bool, str | None, int | None] | None,
     ) -> None:
         """
-        Initialise the mirror, connecting to the SDK and loading the
-        actuator layout.
+        Initialise the mirror, connecting to the SDK or ``plico_dm`` backend
+        and loading the actuator layout.
 
         Parameters
         ----------
-        serial_number : str or None
-            Hardware serial number.  ``None`` if *n_acts* is provided
-            and the serial number will be read from the config file.
-        nacts : int, str or None
-            Number of actuators.  ``None`` if *serial_number* is
-            provided directly.
-        plico_ip_port : tuple | list | dict[str,Any] | None, default None
-            Whether to initialize the mirror using the `plico_dm` backend: in that
-            case, provide IP and PORT though a tuple, list or dictionary.  If
-            ``None``, the standard Alpao SDK is used.
+        nacts : int or str
+            Number of actuators of the DM. Used to resolve the
+            ``Alpao{nacts}`` configuration block for whichever backend is
+            selected, and to validate the actuator count reported back once
+            connected (a :class:`RuntimeWarning` is emitted on mismatch).
+        sdk_params : tuple of (str or None, str or None, str or None)
+            ``(serial_number, sdk_folder_path, acfg_path)`` for the native
+            SDK backend. Ignored when the plico backend is requested. See
+            :meth:`_init_sdk`/:meth:`_resolve_init`.
+        plico_params : tuple of (bool, str or None, int or None)
+            ``(use_plico, plico_ip, plico_port)``. If *use_plico* is
+            ``True``, the ``plico_dm`` backend is used instead of the native
+            SDK. See :meth:`_init_plico`/:meth:`_resolve_init`.
 
         Raises
         ------
-        ValueError
-            If neither *serial_number* nor *nacts* is provided.
+        RuntimeError
+            If the required connection parameters for the selected backend
+            (``serial_number``/``acfg_path`` for the SDK backend, or
+            ``plico_ip``/``plico_port`` for the plico backend) are not
+            provided either at runtime or in the configuration file.
         ModuleNotFoundError
-            If the ``asdk`` module (Alpao SDK) is not installed.
+            If the ``asdk`` module (Alpao SDK) or the ``plico_dm`` module is
+            not installed, depending on the selected backend.
         Exception
-            Any hardware-level exception raised by ``asdk.DM()`` on
-            connection failure is propagated to the caller.
+            Any hardware-level exception raised by the underlying backend
+            on connection failure is propagated to the caller.
         """
         self._dmCoords = {
             "dm88": [6, 8, 10],
@@ -95,8 +113,8 @@ class BaseAlpaoMirror:
         self._is_plico = bool(plico_params[0])
 
         self.n_acts = int(
-            self._sdk_dm.Get("NbOfActuator")
-        ) if self._is_plico else self._plico_dm.get_number_of_actuators()
+            self._plico_dm.get_number_of_actuators()
+        ) if self._is_plico else int(self._sdk_dm.Get("NbOfActuator"))
         
         if self.n_acts != int(nacts):
             import warnings
