@@ -42,6 +42,10 @@ class BasePetalMirror:
             GCSDevice(gateway=gateway).gcsdevice for gateway in self._gateways
         ]
 
+        self._pistonLimits = [0, 12]
+        self._tipLimits = [-600, 600]
+        self._tiltLimits = [-600, 600]
+
         if not all([dev.connected for dev in self._devices]):
             self._logger.error("Some connection did not get established")
             raise RuntimeError("Some connection did not get established")
@@ -180,6 +184,21 @@ class BasePetalMirror:
 
         self._check_axes()
         try:
+            # Check command limits for each segment before sending commands
+            for k in range(self.nSegments):
+                segcmd = cmd[k * 3 : k * 3 + 3]
+                if not (self._pistonLimits[0] <= segcmd[0] <= self._pistonLimits[1]):
+                    raise CommandError(
+                        f"Piston command for segment {k} out of limits: {segcmd[0]}"
+                    )
+                if not (self._tipLimits[0] <= segcmd[1] <= self._tipLimits[1]):
+                    raise CommandError(
+                        f"Tip command for segment {k} out of limits: {segcmd[1]}"
+                    )
+                if not (self._tiltLimits[0] <= segcmd[2] <= self._tiltLimits[1]):
+                    raise CommandError(
+                        f"Tilt command for segment {k} out of limits: {segcmd[2]}"
+                    )
             for k, dev in enumerate(self._devices):
                 self._logger.info(
                     f"Commanding position for segment {k} : {self._ip_addresses[k]}"
@@ -300,6 +319,23 @@ class BasePetalMirror:
             self._logger.error(f"Error checking/enabling axes: {err}")
             self._had_error = True
             raise RuntimeError("Failed to check/enable axes") from err
+
+    def disable_servos(self):
+        """
+        Disables the servos for all segments.
+        """
+        for k, dev in enumerate(self._devices):
+            self._logger.info(f"Disabling servos for segment {k}")
+            dev.SVO({"1": 0, "2": 0, "3": 0})
+
+    def enable_servos(self):
+        """
+        Enables the servos for all segments.
+        """
+        for k, dev in enumerate(self._devices):
+            self._logger.info(f"Enabling servos for segment {k}")
+            dev.SVO({"1": 1, "2": 1, "3": 1})
+
 
     def __repr__(self):
         return f"PetalMirror(nSegments={self.nSegments}, nActsPerSegment={self.nActsPerSegment})"
