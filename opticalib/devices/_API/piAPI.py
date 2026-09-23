@@ -42,6 +42,10 @@ class BasePetalMirror:
             GCSDevice(gateway=gateway).gcsdevice for gateway in self._gateways
         ]
 
+        self._pistonLimits = [0, 12]
+        self._tipLimits = [-600, 600]
+        self._tiltLimits = [-600, 600]
+
         if not all([dev.connected for dev in self._devices]):
             self._logger.error("Some connection did not get established")
             raise RuntimeError("Some connection did not get established")
@@ -52,9 +56,6 @@ class BasePetalMirror:
             self._check_servos()
             self._morning_routine()
 
-        self._pistonLimits = [0, 12]
-        self._tipLimits = [-200, 200]
-        self._tiltLimits = [-200, 200]
 
     @property
     def slave_ids(self):
@@ -318,6 +319,23 @@ class BasePetalMirror:
             self._logger.error(f"Error checking/enabling axes: {err}")
             self._had_error = True
             raise RuntimeError("Failed to check/enable axes") from err
+
+    def disable_servos(self):
+        """
+        Disables the servos for all segments.
+        """
+        for k, dev in enumerate(self._devices):
+            self._logger.info(f"Disabling servos for segment {k}")
+            dev.SVO({"1": 0, "2": 0, "3": 0})
+
+    def enable_servos(self):
+        """
+        Enables the servos for all segments.
+        """
+        for k, dev in enumerate(self._devices):
+            self._logger.info(f"Enabling servos for segment {k}")
+            dev.SVO({"1": 1, "2": 1, "3": 1})
+
 
     def __repr__(self):
         return f"PetalMirror(nSegments={self.nSegments}, nActsPerSegment={self.nActsPerSegment})"

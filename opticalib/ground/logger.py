@@ -140,8 +140,17 @@ class SystemLogger:
         logging.Logger
             The root logger instance.
         """
+        # return set_up_logger(
+        #     "system.log",
+        #     logging_level=_l.INFO,
+        #     format="%(asctime)s -- [%(levelname)s] -- %(message)s",
+        # )
+        filename = "system.log"
+        if os.name == "nt":
+            filename = f"system_{os.getpid()}.log"
+
         return set_up_logger(
-            "system.log",
+            filename,
             logging_level=_l.INFO,
             format="%(asctime)s -- [%(levelname)s] -- %(message)s",
         )
