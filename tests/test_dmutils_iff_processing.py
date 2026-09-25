@@ -78,6 +78,50 @@ class TestSaveCube:
         # Rebinning should reduce size
         assert cube.shape[0] < 50
 
+    def test_save_cube_wfs(self, sample_iff_folder_structure, temp_dir, monkeypatch):
+        """Test that WFS data is saved as an interaction matrix instead of a cube."""
+        from opticalib.core.root import folders
+
+        tn, tn_folder = sample_iff_folder_structure
+
+        # Re-write the mode files as WFS acquisitions
+        for i in range(3):
+            mode_img = ma.masked_array(
+                np.random.randn(50, 50).astype(np.float32),
+                mask=np.zeros((50, 50), dtype=bool),
+            )
+            osutils.save_fits(
+                os.path.join(tn_folder, f"mode_{i:04d}.fits"),
+                mode_img,
+                overwrite=True,
+                header={"CAMTYPE": ("wfs", "type of optical sensor used")},
+            )
+
+        int_folder = os.path.join(temp_dir, "INTMatrices")
+        os.makedirs(int_folder, exist_ok=True)
+        monkeypatch.setattr(folders, "INTMAT_ROOT_FOLDER", int_folder)
+        monkeypatch.setattr(ifp, "_intMatFold", int_folder)
+        iff_folder = os.path.dirname(tn_folder)
+
+        def fake_get_file_list(tn_arg=None, fold=None, key=None):
+            folder = os.path.join(iff_folder, tn)
+            files = sorted(
+                os.path.join(folder, f)
+                for f in os.listdir(folder)
+                if key is None or key in f
+            )
+            return files
+
+        monkeypatch.setattr(osutils, "get_file_list", fake_get_file_list)
+
+        im = ifp.save_cube(tn)
+
+        assert im is not None
+        # One row per mode, one column per valid pupil pixel
+        assert np.squeeze(im).shape == (3, 50 * 50)
+        assert os.path.exists(os.path.join(int_folder, tn, "IM.fits"))
+        assert not os.path.exists(os.path.join(int_folder, tn, "IMCube.fits"))
+
 
 class TestStackCubes:
     """Test stack_cubes function."""

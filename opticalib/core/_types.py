@@ -408,4 +408,6 @@ def get_device_type(device: object) -> str:
         return "interf"
     elif isinstance_(device, "WFSDevice"):
         return "wfs"
+    elif isinstance_(device, "CameraDevice"):
+        return "camera"
     return device._name

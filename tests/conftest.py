@@ -124,6 +124,7 @@ def mock_dm():
     dm.nActsPerSegment = 50
     dm.mirrorModes = np.random.randn(100, 100).astype(np.float32)
     dm.name = "TestDM"
+    dm._name = "TestDM"
     dm.upload_cmd_history = Mock()
     dm.run_cmd_history = Mock()
     dm.get_shape = Mock(return_value=np.zeros(100))
@@ -136,6 +137,7 @@ def mock_interferometer():
     """Create a mock interferometer device."""
     interf = MagicMock()
     interf.name = "TestInterf"
+    interf._name = "TestInterf"
     interf.acquire_map = Mock(
         return_value=ma.masked_array(
             np.random.randn(200, 200).astype(np.float32),

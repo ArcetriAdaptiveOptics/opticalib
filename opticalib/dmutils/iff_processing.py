@@ -426,7 +426,7 @@ def save_cube(
     if rebin > 1:
         cube = _ip.cube_rebinner(cube, rebin)
     cube.header.update(header)
-    if cube.header["CAMTYPE"] == 'wfs':
+    if cube.header.get("CAMTYPE", "") == 'wfs':
         from ..ground.reconstructor import compute_interaction_matrix as cim
         header = cube.header.copy()
         cube = cim(cube)

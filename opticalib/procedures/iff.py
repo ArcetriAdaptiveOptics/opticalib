@@ -311,11 +311,14 @@ def _prepare_data2_save(info: dict[str, _ot.Any]) -> tuple[str, str]:
                 tvalue = _np.asarray(value)
             else:
                 tvalue = value
-            if key in ["shuffle", "n_repetitions"]:
+            if key in ["shuffle", "n_repetitions", "header"]:
                 continue
             else:
                 _osu.save_fits(
-                    _os.path.join(iffpath, f"{key}.fits"), tvalue, overwrite=True
+                    _os.path.join(iffpath, f"{key}.fits"),
+                    tvalue,
+                    overwrite=True,
+                    header=header,
                 )
     except KeyError as e:
         print(f"KeyError: {key}, {e}")
