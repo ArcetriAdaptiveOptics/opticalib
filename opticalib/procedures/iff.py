@@ -85,6 +85,11 @@ def iff_data_acquisition(
         n_repetitions=n_repetitions,
     )
     info = ifc.get_info_to_save()
+    info['header'] = {
+        "DM": (dm._name, 'deformable mirror used'),
+        "CAMTYPE": (_ot.get_device_type(wfs), "type of optical sensor used"),
+        "OPTCAM": (wfs._name, "optical sensor used"),
+    }
     tn, _ = _prepare_data2_save(info)
 
     _rif.copy_iff_config_file(tn)
@@ -215,6 +220,11 @@ def piston_data_acquisition(
     info["modes_list"] = modeslist
     info["index_list"] = modeslist
     info["shuffle"] = 0
+    info['header'] = {
+        "DM": (dm._name, 'deformable mirror used'),
+        "CAMTYPE": (_ot.get_device_type(wfs), "type of optical sensor used"),
+        "OPTCAM": (wfs._name, "optical sensor used"),
+    }
     tn, _ = _prepare_data2_save(info)
 
     _rif.copy_iff_config_file(tn)
@@ -291,10 +301,10 @@ def _prepare_data2_save(info: dict[str, _ot.Any]) -> tuple[str, str]:
     iffpath: str
         The path to the folder where the IFF data are saved
     """
-    tn = _osu.newtn()
-    iffpath = _os.path.join(_fn.IFFUNCTIONS_ROOT_FOLDER, tn)
-    if not _os.path.exists(iffpath):
-        _os.mkdir(iffpath)
+    iffpath, tn = _osu.create_data_folder(_fn.IFFUNCTIONS_ROOT_FOLDER, True)
+    
+    header = info.get("header", {})
+
     try:
         for key, value in info.items():
             if not isinstance(value, _np.ndarray):
