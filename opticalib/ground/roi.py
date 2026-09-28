@@ -106,7 +106,12 @@ def img_cut(img: _ot.ImageData):
     return cutImg
 
 
-def cube_master_mask(cube: _ot.CubeData, apply: bool = False) -> _ot.ImageData:
+def cube_master_mask(
+    cube: _ot.CubeData,
+    method: str = 'logor',
+    mean_threshold: float = 0.5,
+    apply: bool = False,
+) -> _ot.ImageData:
     """
     Generates a master mask for a cube by combining the masks of all individual frames.
 
@@ -114,13 +119,34 @@ def cube_master_mask(cube: _ot.CubeData, apply: bool = False) -> _ot.ImageData:
     ----------
     cube : np.ma.maskedArray
         The input cube where each slice along the last axis is a masked image.
+    method : str, optional
+        The method to use for generating the master mask. Default is 'logor'.
+        - ``logor``: ``logical_or`` of the cube's masks
+        - ``logand``: ``logical_and`` of the cube's masks
+        - ``mean`` : converts the masks into float and takes the mean across all
+            frames, then thresholds to create the master mask.
+    mean_threshold: float, optional
+        The threshold value to use when the method is 'mean'. Values above this 
+        threshold will be considered masked. Default is 0.5.
+    apply : bool, optional
+        If True, apply the master mask to the cube and return the masked cube. Default is False.
 
     Returns
     -------
     master_mask : np.ma.maskedArray
         The master mask that combines all individual masks in the cube.
     """
-    master_mask = _np.logical_or.reduce(
+    match method:
+        case 'logor':
+            func = _np.logical_or.reduce
+        case 'logand':
+            func = _np.logical_and.reduce
+        case 'mean':
+            func = lambda masks: _np.mean(masks, axis=0) > mean_threshold
+        case _:
+            raise ValueError(f"Unknown method: {method}")
+
+    master_mask = func(
         [cube[:, :, i].mask for i in range(cube.shape[2])]
     )
     if apply:
