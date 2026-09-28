@@ -148,6 +148,172 @@ class TestCubeMasterMask:
         np.testing.assert_array_equal(master_mask, mask)
 
 
+@pytest.fixture
+def overlapping_cube():
+    """
+    Non-square cube with 3 frames whose masks overlap differently, so each
+    pixel region is masked in a known number of frames.
+
+    - ``[:10, :10]``    masked in 3/3 frames
+    - ``[10:20, :10]``  masked in 2/3 frames
+    - ``[20:30, :10]``  masked in 1/3 frames
+    - elsewhere         masked in 0/3 frames
+    """
+    ny, nx, nf = 40, 60, 3
+    data = np.random.randn(ny, nx, nf).astype(np.float32)
+    masks = np.zeros((ny, nx, nf), dtype=bool)
+    masks[:10, :10, :] = True
+    masks[10:20, :10, :2] = True
+    masks[20:30, :10, 0] = True
+    return ma.masked_array(data, mask=masks)
+
+
+class TestCubeMasterMaskMethods:
+    """Test the ``method`` and ``mean_threshold`` options of cube_master_mask."""
+
+    @staticmethod
+    def _count(cube):
+        return np.sum(cube.mask, axis=2)
+
+    @pytest.mark.parametrize("method", ["logor", "logand", "mean"])
+    def test_output_shape_and_dtype(self, overlapping_cube, method):
+        """Every method returns a 2D boolean mask matching the frame shape."""
+        master_mask = roi.cube_master_mask(overlapping_cube, method=method)
+
+        assert master_mask.shape == overlapping_cube.shape[:2]
+        assert master_mask.dtype == bool
+
+    def test_default_method_is_logor(self, overlapping_cube):
+        """Omitting ``method`` is equivalent to ``method='logor'``."""
+        np.testing.assert_array_equal(
+            roi.cube_master_mask(overlapping_cube),
+            roi.cube_master_mask(overlapping_cube, method="logor"),
+        )
+
+    def test_logor_is_union(self, overlapping_cube):
+        """``logor`` masks pixels masked in at least one frame."""
+        master_mask = roi.cube_master_mask(overlapping_cube, method="logor")
+
+        np.testing.assert_array_equal(
+            master_mask, self._count(overlapping_cube) >= 1
+        )
+        assert np.all(master_mask[:30, :10])
+        assert not np.any(master_mask[30:, :])
+        assert not np.any(master_mask[:, 10:])
+
+    def test_logand_is_intersection(self, overlapping_cube):
+        """``logand`` masks only pixels masked in every frame."""
+        master_mask = roi.cube_master_mask(overlapping_cube, method="logand")
+
+        np.testing.assert_array_equal(
+            master_mask, self._count(overlapping_cube) == overlapping_cube.shape[2]
+        )
+        assert np.all(master_mask[:10, :10])
+        assert not np.any(master_mask[10:, :])
+
+    def test_logand_subset_of_logor(self, overlapping_cube):
+        """The intersection mask is always contained in the union mask."""
+        and_mask = roi.cube_master_mask(overlapping_cube, method="logand")
+        or_mask = roi.cube_master_mask(overlapping_cube, method="logor")
+
+        assert not np.any(and_mask & ~or_mask)
+
+    def test_mean_default_threshold_is_majority(self, overlapping_cube):
+        """With the default threshold (0.5), ``mean`` is a majority vote."""
+        master_mask = roi.cube_master_mask(overlapping_cube, method="mean")
+
+        assert np.all(master_mask[:10, :10])  # 3/3
+        assert np.all(master_mask[10:20, :10])  # 2/3
+        assert not np.any(master_mask[20:30, :10])  # 1/3
+        assert not np.any(master_mask[30:, :])  # 0/3
+        assert not np.any(master_mask[:, 10:])  # 0/3
+
+    @pytest.mark.parametrize(
+        "threshold, min_count",
+        [
+            (0.2, 1),  # 1/3 > 0.2
+            (0.5, 2),  # 2/3 > 0.5
+            (0.7, 3),  # 3/3 > 0.7
+        ],
+    )
+    def test_mean_custom_threshold(self, overlapping_cube, threshold, min_count):
+        """``mean_threshold`` controls how many frames must mask a pixel."""
+        master_mask = roi.cube_master_mask(
+            overlapping_cube, method="mean", mean_threshold=threshold
+        )
+
+        np.testing.assert_array_equal(
+            master_mask, self._count(overlapping_cube) >= min_count
+        )
+
+    def test_mean_threshold_is_strict(self):
+        """A pixel whose mean equals the threshold is not masked."""
+        data = np.random.randn(20, 30, 2).astype(np.float32)
+        masks = np.zeros((20, 30, 2), dtype=bool)
+        masks[:5, :5, 0] = True  # mean = 0.5 on this region
+        cube = ma.masked_array(data, mask=masks)
+
+        master_mask = roi.cube_master_mask(cube, method="mean", mean_threshold=0.5)
+        assert not np.any(master_mask)
+
+    def test_mean_threshold_zero_matches_logor(self, overlapping_cube):
+        """``mean`` with threshold 0 reproduces ``logor``."""
+        np.testing.assert_array_equal(
+            roi.cube_master_mask(overlapping_cube, method="mean", mean_threshold=0.0),
+            roi.cube_master_mask(overlapping_cube, method="logor"),
+        )
+
+    def test_mean_high_threshold_matches_logand(self, overlapping_cube):
+        """``mean`` with a threshold just below 1 reproduces ``logand``."""
+        np.testing.assert_array_equal(
+            roi.cube_master_mask(
+                overlapping_cube, method="mean", mean_threshold=1 - 1e-6
+            ),
+            roi.cube_master_mask(overlapping_cube, method="logand"),
+        )
+
+    def test_mean_threshold_one_masks_nothing(self, overlapping_cube):
+        """No mean can exceed 1, so threshold 1 yields an empty mask."""
+        master_mask = roi.cube_master_mask(
+            overlapping_cube, method="mean", mean_threshold=1.0
+        )
+        assert not np.any(master_mask)
+
+    @pytest.mark.parametrize("method", ["logor", "logand"])
+    def test_mean_threshold_ignored_by_logical_methods(
+        self, overlapping_cube, method
+    ):
+        """``mean_threshold`` has no effect on ``logor``/``logand``."""
+        np.testing.assert_array_equal(
+            roi.cube_master_mask(overlapping_cube, method=method, mean_threshold=0.0),
+            roi.cube_master_mask(overlapping_cube, method=method, mean_threshold=0.99),
+        )
+
+    @pytest.mark.parametrize("method", ["logor", "logand", "mean"])
+    def test_identical_frames_all_methods_agree(self, sample_cube, method):
+        """When all frames share the same mask, every method returns it."""
+        master_mask = roi.cube_master_mask(sample_cube, method=method)
+        np.testing.assert_array_equal(master_mask, sample_cube.mask[:, :, 0])
+
+    @pytest.mark.parametrize("method", ["or", "LOGOR", "median", ""])
+    def test_unknown_method_raises(self, overlapping_cube, method):
+        """An unsupported method raises ValueError."""
+        with pytest.raises(ValueError, match="Unknown method"):
+            roi.cube_master_mask(overlapping_cube, method=method)
+
+    @pytest.mark.parametrize("method", ["logor", "logand", "mean"])
+    def test_apply_sets_master_mask_on_every_frame(self, overlapping_cube, method):
+        """With ``apply=True`` the cube is returned with the master mask on all frames."""
+        expected = roi.cube_master_mask(overlapping_cube.copy(), method=method)
+
+        result = roi.cube_master_mask(overlapping_cube, method=method, apply=True)
+
+        assert isinstance(result, ma.MaskedArray)
+        assert result.shape == overlapping_cube.shape
+        for i in range(result.shape[2]):
+            np.testing.assert_array_equal(result.mask[:, :, i], expected)
+
+
 # class TestRemapOnNewMask:
 #     """Test remap_on_new_mask function."""
 

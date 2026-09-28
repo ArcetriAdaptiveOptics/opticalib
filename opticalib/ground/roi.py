@@ -108,7 +108,7 @@ def img_cut(img: _ot.ImageData):
 
 def cube_master_mask(
     cube: _ot.CubeData,
-    method: 'str' = 'logor',
+    method: str = 'logor',
     mean_threshold: float = 0.5,
     apply: bool = False,
 ) -> _ot.ImageData:
@@ -142,7 +142,7 @@ def cube_master_mask(
         case 'logand':
             func = _np.logical_and.reduce
         case 'mean':
-            func = lambda masks: _np.mean(masks, axis=-1) > mean_threshold
+            func = lambda masks: _np.mean(masks, axis=0) > mean_threshold
         case _:
             raise ValueError(f"Unknown method: {method}")
 
