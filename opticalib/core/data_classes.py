@@ -159,12 +159,18 @@ class IffData:
         self._modes = [None] * len(self._modesfl)
         self._cache: _OrderedDict[str, _ot.ImageData] = _OrderedDict()
 
+        cube = None
         try:
-            self._cube = _osu.load_fits(
-                _os.path.join(_fn.INTMAT_ROOT_FOLDER, self.tn, "IMCube.fits")
+            cube = _osu.load_fits(
+                _os.path.join(_fn.INTMAT_ROOT_FOLDER, self.tn, "IM.fits")
             )
         except FileNotFoundError:
-            self._cube = None
+            cube =  _osu.load_fits(
+                _os.path.join(_fn.INTMAT_ROOT_FOLDER, self.tn, "IMCube.fits")
+            )
+        finally:
+            self._cube = cube.copy()
+        del cube
 
     def _get_mode(self, index: int) -> _ot.ImageData:
         """
@@ -201,7 +207,7 @@ class IffData:
         return self._amplitude
 
     @property
-    def cube(self) -> _ot.ImageData:
+    def iff(self) -> _ot.ImageData:
         """
         Cube image.
         """
