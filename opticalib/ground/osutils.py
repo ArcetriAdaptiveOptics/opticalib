@@ -637,7 +637,7 @@ def update_fits_header(
         ) from exc
 
 
-def read_fits_header(filepath: str) -> _fits.Header:
+def read_fits_header(filepath: str, out: bool = True) -> _fits.Header:
     """
     Reads the header of a FITS file.
 
@@ -645,6 +645,8 @@ def read_fits_header(filepath: str) -> _fits.Header:
     ----------
     filepath : str
         Path to the FITS file.
+    out : bool, optional
+        If True, returns the header. If False, prints the header. Default is True.
 
     Returns
     -------
@@ -656,9 +658,11 @@ def read_fits_header(filepath: str) -> _fits.Header:
     FileNotFoundError
         If the specified FITS file does not exist.
     """
-    header = load_fits(filepath).header
+    header = _fits.getheader(filepath)
+    if out:
+        return header
     print(f"Header of {filepath}:")
-    print(header.__repr__())
+    print(header)
 
 
 def save_h5(
