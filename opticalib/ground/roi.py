@@ -1,17 +1,12 @@
 """
-Module: ROI
-===========
+Region of interest (ROI) — pupil masks, aperture shapes and image windows
+=========================================================================
 
-Author(s)
----------
-- Pietro Ferraiuolo
+Functions for generating regions of interest within detector frames:
+circular and annular pupils, segmented-mirror petal masks, and intensity
+threshold-based ROIs.  These are used by the simulator, the modal fitters
+and the flattening pipeline to define the analysis region.
 
-Module containing functions for region of interest (ROI) generation and other image utilities
-within the Opticalib framework.
-
-Author(s):
-----------
-- Pietro Ferraiuolo: pietro.ferraiuolo@inaf.it
 """
 
 import numpy as _np
@@ -57,7 +52,7 @@ def count_rois(img: _ot.ImageData, island_pixel_threshold: int = 100) -> int:
 
     Parameters
     ----------
-    img : np.ma.maskedArray
+    img : numpy.ma.MaskedArray
         The input masked image array.
     island_pixel_threshold : int
         Minimum number of pixels for an island to be considered a valid ROI.
@@ -87,12 +82,12 @@ def img_cut(img: _ot.ImageData):
 
     Parameters
     ----------
-    image : np.ma.maskedArray
+    image : numpy.ma.MaskedArray
         The original masked image array.
 
     Returns
     -------
-    cutImg = np.ma.maskedArray
+    cutImg : numpy.ma.MaskedArray
         The cut image within the bounding box of finite pixels.
     """
     # Find indices of finite (non-NaN) pixels
@@ -117,10 +112,11 @@ def cube_master_mask(
 
     Parameters
     ----------
-    cube : np.ma.maskedArray
+    cube : numpy.ma.MaskedArray
         The input cube where each slice along the last axis is a masked image.
     method : str, optional
         The method to use for generating the master mask. Default is 'logor'.
+
         - ``logor``: ``logical_or`` of the cube's masks
         - ``logand``: ``logical_and`` of the cube's masks
         - ``mean`` : converts the masks into float and takes the mean across all
@@ -133,7 +129,7 @@ def cube_master_mask(
 
     Returns
     -------
-    master_mask : np.ma.maskedArray
+    master_mask : numpy.ma.MaskedArray
         The master mask that combines all individual masks in the cube.
     """
     match method:

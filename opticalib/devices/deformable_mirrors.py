@@ -1,14 +1,14 @@
 """
-DEFORMABLE MIRRORS
-==================
-This module contains the classes for the high-level use of deformable mirrors.
+Deformable mirror drivers — Alpao, SPLATT, AdOptica, DP, M4AU and PetalMirror
+=============================================================================
 
-Author(s)
----------
-- Pietro Ferraiuolo : written in 2025
+High-level classes for deformable mirrors from various vendors.  Each
+class inherits from :class:`~opticalib.devices._API.base_devices.BaseDeformableMirror`,
+which provides configuration lookup, command clamping, logging and data
+filing — so only vendor-specific communication is implemented here.
 
-Description
------------
+Low-level SDK interaction is delegated to modules under
+``opticalib.devices._API``.
 
 """
 
@@ -685,7 +685,7 @@ class AlpaoDm(BaseAlpaoMirror, BaseDeformableMirror):
 
         Parameters
         ----------
-        cmd : np.array
+        cmd : numpy.ndarray
             Command to be applied to the actuators.
         differential : bool, optional
             If True, the command is applied differentially (added to the current shape).
@@ -715,7 +715,7 @@ class AlpaoDm(BaseAlpaoMirror, BaseDeformableMirror):
 
         Parameters
         ----------
-        tcmdhist : np.array
+        tcmdhist : numpy.ndarray
             Command history to be uploaded. Should be a 2D matrix of shape
             (nacts, nmodes).
         slave : bool | str, optional
@@ -820,7 +820,7 @@ class AlpaoDm(BaseAlpaoMirror, BaseDeformableMirror):
 
         Returns
         -------
-        np.array
+        numpy.ndarray
             Processed shape based on the command.
         """
         from matplotlib import pyplot as plt

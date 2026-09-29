@@ -1,15 +1,13 @@
 Configuration
 =============
 
-``opticalib`` uses a single YAML file, ``configuration.yaml``, to describe your
+OptiCalib uses a single YAML file, ``configuration.yaml``, to describe your
 experimental setup.  The file is generated automatically when you run
 ``calpy -f <path> --create`` and lives under ``<path>/SysConfig/``.
 
-The file is divided into the following top-level sections:
-
-.. contents::
-   :depth: 2
-   :local:
+The file is divided into the following top-level sections: ``SYSTEM``,
+``DEVICES``, ``PHASING``, ``INFLUENCE.FUNCTIONS``, ``STITCHING`` and
+``SYSTEM.ALIGNMENT``, each described below.
 
 ----
 
@@ -122,7 +120,7 @@ below.
 ``acfg_path`` : *str*
     Path to the directory holding the ``.acfg`` hardware-configuration
     file (e.g. ``BAX751.acfg``).  The SDK reads the device IP address and
-    port from this file; opticalib sets the ``ACECFG`` environment
+    port from this file; OptiCalib sets the ``ACECFG`` environment
     variable to this path automatically before opening the connection.
     Leave empty if ``ACECFG`` is already set externally.
 
@@ -178,7 +176,7 @@ Motor devices are typically controlled via the ``plico_motor`` interface, since 
 motorized ThorLabs instrumentation does not have Unix SDKs. Might not need it in a
 windows system, but it is yet to be implemented.
 A common use case is a tunable optical filter used in the
-:class:`~opticalib.phasing.SPL` phasing sensor.
+:class:`~opticalib.procedures.phasing.SPL` phasing sensor.
 
 .. code-block:: yaml
 
@@ -200,7 +198,7 @@ PHASING
 -------
 
 The ``PHASING`` section provides default parameters for the
-:class:`~opticalib.phasing.SPL` (Sensor for Phase Lag) system, which
+:class:`~opticalib.procedures.phasing.SPL` (Sensor for Phase Lag) system, which
 detects and measures the co-phasing of segmented mirrors using PSF images
 acquired by a camera through a tunable filter.
 
@@ -451,7 +449,7 @@ SYSTEM.ALIGNMENT
 ----------------
 
 The ``SYSTEM.ALIGNMENT`` section (key ``SYSTEM.ALIGNMENT``) configures the
-optical alignment procedure managed by :class:`~opticalib.alignment.Alignment`.
+optical alignment procedure managed by :class:`~opticalib.procedures.alignment.Alignment`.
 It describes the set of optomechanical devices (e.g. mirrors, stages) and the
 callable strings used to move and read them.
 
@@ -591,41 +589,91 @@ Configuration API
 -----------------
 
 The configuration file is read and written programmatically through
-:mod:`opticalib.core.read_config`.  The most commonly used functions are:
+:mod:`opticalib.core.config`, also reachable as ``opticalib.config``.
 
 .. code-block:: python
 
-    from opticalib.core import read_config
+    from opticalib.core import config
 
     # Load the full configuration dictionary
-    cfg = read_config.load_yaml_config()
+    cfg = config.load()
 
     # --- Device access ---
     # Get configuration for a named interferometer
-    interf_cfg = read_config.getInterfConfig('PhaseCam6110')
+    interf_cfg = config.get_interf_config('PhaseCam6110')
 
     # Get configuration for a named DM
-    dm_cfg = read_config.getDmConfig('Alpao820')
+    dm_cfg = config.get_dm_config('Alpao820')
 
     # Get configuration for a named camera
-    cam_cfg = read_config.getCamerasConfig('AVT_MANTA_5G')
+    cam_cfg = config.get_cameras_config('AVT_MANTA_5G')
+
+    # Get configuration for a named wavefront sensor
+    wfs_cfg = config.get_wfs_config('Ingot')
 
     # Generic device config lookup (any DEVICES sub-section)
-    raw = read_config.getDeviceConfig('MOTORS', 'TunableFilter')
+    raw = config.get_device_config('MOTORS', 'TunableFilter')
 
     # --- IFF access ---
-    # Get DM hardware parameters
-    dm_iff = read_config.getDmIffConfig()
-    nacts  = read_config.getNActs()
-    timing = read_config.getTiming()
+    # The whole INFLUENCE.FUNCTIONS section (pass key=None)
+    iff_all = config.get_iff_config(None)
 
-    # Get one IFF acquisition block ('TRIGGER', 'REGISTRATION', or 'IFFUNC')
-    iff_block = read_config.getIffConfig('IFFUNC')
+    # A single IFF block ('TRIGGER', 'REGISTRATION' or 'IFFUNC')
+    iff_block = config.get_iff_config('IFFUNC')
     # Returns: {zeros, modes, amplitude, template, modalBase, paddingZeros}
 
+    # DM hardware parameters
+    nacts  = config.get_n_acts()
+    timing = config.get_timing()
+    delay  = config.get_cmd_delay()
+
     # --- Phasing access ---
-    phasing_cfg = read_config.getPhasingConfig()
+    phasing_cfg = config.get_phasing_config()
 
     # --- Alignment and stitching access ---
-    align_cfg    = read_config.getAlignmentConfig()   # returns attribute-access object
-    stitching_cfg = read_config.getStitchingConfig()  # returns dict
+    align_cfg     = config.get_alignment_config()    # attribute-access object
+    stitching_cfg = config.get_stitching_config()    # dict
+
+    # --- Arbitrary section access ---
+    # Any section (and optional sub-section) by name
+    system = config.get_section_config('SYSTEM')
+    interf = config.get_section_config('DEVICES', 'INTERFEROMETER')
+
+    # --- Writing back ---
+    config.update_config_file('SYSTEM', 'data_path', '/data/experiment')
+    config.update_iff_config(tn, 'amplitude', 5e-8)
+    config.dump(cfg)                       # persist in place
+
+.. note::
+   Every ``get_*`` accessor that needs to know *which* configuration file to
+   read also accepts a ``bpath`` argument pointing at the ``SysConfig`` folder.
+   By default it uses the configuration root resolved at import time from the
+   ``AOCONF`` environment variable.
+
+.. warning::
+   The previous camelCase API (``read_config.getInterfConfig``,
+   ``read_config.getDmConfig``, ``read_config.getNActs``, ...) has been renamed
+   to the snake_case names shown above, and the module itself moved from
+   ``opticalib.core.read_config`` to :mod:`opticalib.core.config`.
+
+Procedure entry points
+~~~~~~~~~~~~~~~~~~~~~~
+
+Two further objects are configured by this file and are documented in the API
+reference:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 70
+
+   * - Section
+     - Consumed by
+   * - ``ALIGNMENT``
+     - :class:`opticalib.procedures.alignment.Alignment`
+   * - ``PHASING``
+     - :class:`opticalib.procedures.phasing.SPL`
+   * - ``STITCHING``
+     - :class:`opticalib.procedures.stitching.StitchAcquire` /
+       :class:`~opticalib.procedures.stitching.StitchAnalysis`
+   * - ``INFLUENCE.FUNCTIONS``
+     - :func:`opticalib.procedures.iff.iff_data_acquisition`

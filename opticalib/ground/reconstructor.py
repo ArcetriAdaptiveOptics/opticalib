@@ -1,11 +1,14 @@
 """
-Module containing the ComputeReconstructor class, which, from a dm calibration,
-computes the reconstruction matrix.
+Reconstructor — interaction matrix and reconstruction matrix computation
+========================================================================
 
-Author(s):
-----------
-- Marco Xompero : written in 2024
-- Pietro Ferraiuolo : modified in 2024
+Provides :class:`ComputeReconstructor`, the class that takes an
+influence-function calibration (a push-pull cube) and produces an
+interaction matrix with optional SVD-truncated reconstruction matrix.
+
+Also exposes the standalone :func:`compute_interaction_matrix` function
+for batch processing outside the class workflow.
+
 """
 
 import numpy as _np

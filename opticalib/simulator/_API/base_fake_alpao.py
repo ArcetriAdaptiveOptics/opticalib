@@ -53,7 +53,7 @@ class BaseFakeAlpao(ABC):
 
         Parameters
         ----------
-        command : np.array
+        command : numpy.ndarray
             Wavefront to which the DM will be applied.
 
         differential : bool
@@ -61,7 +61,7 @@ class BaseFakeAlpao(ABC):
 
         Returns
         -------
-        np.array
+        numpy.ndarray
             Modified wavefront.
         """
         raise NotImplementedError
@@ -73,7 +73,7 @@ class BaseFakeAlpao(ABC):
 
         Returns
         -------
-        np.array
+        numpy.ndarray
             Current shape of the DM.
         """
         raise NotImplementedError

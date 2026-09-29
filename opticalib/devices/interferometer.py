@@ -1,9 +1,12 @@
 """
-This module contains the high-level classes for the use of interferometer devices.
+Interferometer drivers — 4D Technology PhaseCam, AccuFiz and Processer
+======================================================================
 
-Author(s)
----------
-- Pietro Ferraiuolo : pietro.ferraiuolo@inaf.it
+High-level classes for 4D Technology interferometer models.  All share
+:class:`_4DInterferometer` as the common base, which implements the shared
+workflow: ``acquire_map`` (averaging, delay, rebinning), ``acquire_full_frame``,
+``capture`` and ``produce``.  Low-level protocol communication is delegated
+to ``opticalib.devices._API.i4dAPI``.
 
 """
 
@@ -169,14 +172,14 @@ class _4DInterferometer(BaseWavefrontSensor):
         #     masked_ima = _modeRebinner(masked_ima, rebin)
         return data
 
-    def capture(self, numberOfFrames: int, folder_name: str = None) -> str:
+    def capture(self, nframes: int, folder_name: str = None) -> str:
         """
         Acquires raw phasemaps with ther interferometer, with the set
         frequency.
 
         Parameters
         ----------
-        numberOfFrames: int
+        nframes: int
             Number of frames to acquire
         folder_name: str, optional
             Name of the folder where to saave.
@@ -193,10 +196,10 @@ class _4DInterferometer(BaseWavefrontSensor):
         print(folder_name)
 
         self._logger.info(
-            f"Capturing {numberOfFrames} frames into folder '{folder_name}'."
+            f"Capturing {nframes} frames into folder '{folder_name}'."
         )
         fold4d = _os.path.join(_Folds.CAPTURE_FOLDER_NAME_4D_PC, folder_name)
-        self._i4d.burstFramesToSpecificDirectory(fold4d, numberOfFrames)
+        self._i4d.burstFramesToSpecificDirectory(fold4d, nframes)
         self.save_configuration(_os.path.join(fold4d, "SoftwareSettings.4dini"))
         self.copy_4d_settings(
             _os.path.join(_Folds.CAPTURE_FOLDER_NAME_LOCAL_PC, folder_name),

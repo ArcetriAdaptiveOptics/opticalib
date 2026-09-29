@@ -116,7 +116,7 @@ class BasePetalMirror:
 
         Returns
         -------
-        np.ndarray
+        numpy.ndarray
             An array containing the positions of all actuators.
         """
         self._check_axes()
@@ -141,7 +141,7 @@ class BasePetalMirror:
 
         Returns
         -------
-        np.ndarray
+        numpy.ndarray
             An array containing the last command for all actuators.
         """
         self._check_axes()
@@ -267,6 +267,7 @@ class BasePetalMirror:
     def _enable_axes(self) -> None:
         """
         Enable axes.
+
         - GCS3: use EAX/qEAX.
         - GCS2 fallback: use SVO/qSVO (servo on).
         """

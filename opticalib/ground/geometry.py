@@ -28,7 +28,7 @@ def draw_circular_pupil(
 
     Returns
     -------
-    mask: np.ndarray
+    mask: numpy.ndarray
         A binary mask with the circular area set to False.
     """
     mask = np.ones(shape, dtype=bool)
@@ -51,14 +51,14 @@ def draw_polygonal_mask(
     ----------
     image_shape: tuple of ints
         The shape of the image (height, width).
-    vertices: np.ndarray
+    vertices: numpy.ndarray
         An array of shape (N, 2) containing the (x, y) coordinates of the polygon's vertices.
     masked: bool
         If True, flips the logic, and sets the polygonal area to True.
 
     Returns
     -------
-    mask: np.ndarray
+    mask: numpy.ndarray
         A binary mask with the polygonal area set to False.
     """
     mask = np.ones(shape, dtype=bool)
@@ -83,6 +83,7 @@ def find_circular_pupil(
         The input image in which to find the circular pupil.
     method: str
         The method used to find the circular pupil. Options are:
+
         - "COG" (Default);
         - "ImageMoments";
         - "RANSAC";
@@ -115,7 +116,7 @@ def get_circular_pupil_radii(
 
     Parameters
     ----------
-    mask : np.ndarray
+    mask : numpy.ndarray
         2D boolean array where True indicates pupil area.
     pixel_size : float
         Physical size of a pixel (e.g., mm/px) for scaling the output radii.
@@ -126,6 +127,7 @@ def get_circular_pupil_radii(
     -------
     dict[str, float | bool | tuple[float, float]]
         Dictionary containing:
+
         - 'center_xy_px': (cx, cy) center coordinates in pixels
         - 'outer_radius': estimated outer radius in physical units
         - 'outer_diameter': estimated outer diameter in physical units
@@ -202,21 +204,24 @@ def rotate_image(
 
     Parameters
     ----------
-    masked_img : np.ma.MaskedArray
+    masked_img : numpy.ma.MaskedArray
         2D masked array.
-    points : (N,2) ndarray
-        Pixel coordinates (row, col) or (y, x). Must match image indexing.
+    points : numpy.ndarray
+        An ``(N, 2)`` array of pixel coordinates (row, col) or (y, x).
+        Must match image indexing.
     angle_deg : float
         Counter-clockwise rotation angle in degrees.
-    center : (cy, cx) or None
-        Rotation center. If None uses image geometric center.
+    center : tuple[int, int] or None
+        Rotation center ``(cy, cx)``.  If None uses image geometric center.
     order : int
-        Interpolation order (0=nearest,1=linear). Higher -> slower.
+        Interpolation order (0=nearest, 1=linear).  Higher -> slower.
 
     Returns
     -------
-    rotated_img : np.ma.MaskedArray
-    rotated_points : (N,2) ndarray
+    rotated_img : numpy.ma.MaskedArray
+        The rotated masked image.
+    rotated_points : numpy.ndarray
+        The rotated ``(N, 2)`` array of pixel coordinates.
     """
     from scipy.ndimage import affine_transform
 
@@ -285,7 +290,7 @@ def draw_hexagonal_mask(
 
     Returns
     -------
-    mask: np.ndarray
+    mask: numpy.ndarray
         A binary mask with the hexagonal area set to False.
     """
     if not center:

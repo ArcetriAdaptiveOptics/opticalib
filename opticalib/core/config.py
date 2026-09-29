@@ -1,20 +1,16 @@
 """
-This module provides utilities for reading, writing, and updating YAML configuration files
-used in the opticalib system. It supports configuration management for devices such as
-deformable mirrors and interferometers, as well as acquisition and alignment settings.
+Configuration — YAML configuration file reader, writer and accessors
+====================================================================
 
-Features
---------
-- Load and dump YAML configuration files.
-- Retrieve and update configuration blocks for IFF acquisition, DM devices, and interferometers.
-- Copy configuration files for record keeping.
-- Parse and convert configuration values, including numpy arrays.
-- Access alignment and stitching settings as structured objects.
+Loads, queries, and updates the ``configuration.yaml`` file that
+describes the bench.  Provides typed accessors for every section:
+``SYSTEM``, ``DEVICES`` (interferometers, DMs, cameras, WFS, motors),
+``INFLUENCE.FUNCTIONS``, ``ALIGNMENT``, ``PHASING`` and ``STITCHING``.
 
-Author(s)
----------
-- Pietro Ferraiuolo: written in 2025
-- Runa Briguglio
+Most accessors also accept an explicit ``bpath`` to point at a specific
+``SysConfig`` folder, defaulting to the root resolved at import time from
+``AOCONF``.
+
 """
 
 import os as _os
@@ -278,6 +274,7 @@ def get_iff_config(key: str | None, bpath: str = _cfold):
     ----------
     key : str
         Key value of the block of information to read. Can be
+
             - 'TRIGGER'
             - 'REGISTRATION'
             - 'IFFUNC'
@@ -288,6 +285,7 @@ def get_iff_config(key: str | None, bpath: str = _cfold):
     -------
     info : dict
         A dictionary containing the configuration info:
+
             - zeros
             - modes
             - amplitude

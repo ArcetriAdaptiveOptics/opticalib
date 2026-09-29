@@ -1,7 +1,7 @@
-opticalib documentation
+OptiCalib documentation
 =======================
 
-**opticalib** is a Python package for adaptive optics laboratory instrumentation
+**OptiCalib** is a Python package for adaptive optics laboratory instrumentation
 control and deformable mirror (DM) calibration.  It provides:
 
 * Easy connections to interferometers (4D PhaseCam, AccuFiz) and deformable
@@ -27,6 +27,12 @@ control and deformable mirror (DM) calibration.  It provides:
    configuration
 
 .. toctree::
+   :maxdepth: 1
+   :caption: User Guide
+
+   user_guide/calpy
+
+.. toctree::
    :maxdepth: 2
    :caption: API Reference
 
@@ -37,5 +43,7 @@ control and deformable mirror (DM) calibration.  It provides:
    :caption: Development
 
    contributing
+   developer_guide/adding_a_device
+   developer_guide/documentation
    readme
 

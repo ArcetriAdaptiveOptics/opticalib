@@ -1,26 +1,15 @@
 """
-Module containing all the functions necessary to process the data acquired for
-the Influence Function measurements.
+Influence-function processing — push-pull reduction and cube assembly
+=====================================================================
 
-Author(s):
-----------
-- Pietro Ferraiuolo: pietro.ferraiuolo@inaf.it
-- Runa Briguglio: runa.briguglio@inaf.it
+Processes the raw frames acquired during an influence-function
+calibration: push-pull subtraction, piston removal, modal filtering,
+amplitude extraction, and cube assembly.  The main entry point is
+:func:`process`, keyed by tracking number.
 
-Example
--------
-```python
-tn1 = '20160516_114916'
-tn2 = '20160516_114917' # A copy of tn1 (simulated) data
-ifp.process(tn1, save=True)
-Cube saved in '/path/to/data/OPTData/INTMatrices/20160516_114916/IMcube.fits'
-ifp.process(tn2, save=True)
-Cube saved in '/path/to/data/OPTData/INTMatrices/20160516_114917/IMcube.fits'
-tnlist = [tn1, tn2]
-ifp.stack_cubes(tnlist)
-Stacked cube and matrices saved in '/path/to/data/OPTData/INTMatrices/'new_tn'/IMcube.fits'
-```
 """
+
+import os as _os
 
 import os as _os
 import numpy as _np
@@ -402,7 +391,7 @@ def save_cube(
         If not False, an int or a tuple of int must be passed as value, and
         the registration algorithm is performed on the images before stacking them
         into the cube. Default is False.
-    cube_header : dict | Header, optional
+    cube_header : dict | astropy.io.fits.Header, optional
         Header to be used for the cube. If None, a default header is created.
 
     Returns
@@ -639,6 +628,7 @@ def iff_redux(
 
     Notes on performance
     --------------------
+
     - I/O is overlapped with computation via a small prefetch window.
     - io_workers controls the number of threads used to prefetch mode blocks.
     - prefetch controls how many future modes to keep in-flight.
@@ -1153,6 +1143,7 @@ def _get_acq_par(tn: str) -> dict[str, _ot.ArrayLike | bool | int]:
     Returns
     -------
     dictionary containing the acquisition parameters:
+
     - amp_vector : float | ArrayLike
         Vector containg the amplitude of each commanded mode.
     - modes_vector : int | ArrayLike

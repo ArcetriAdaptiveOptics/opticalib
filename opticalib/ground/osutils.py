@@ -1,12 +1,10 @@
 """
-Module containing various utility functions for handling files and directories,
-especially related to tracking numbers and interferometric data, within the
-Opticalib framework.
+OS and file utilities — tracking numbers, FITS/HDF5 I/O and data management
+===========================================================================
 
-Author(s)
----------
-- Chiara Selmi:  written in 2019
-- Pietro Ferraiuolo: updated in 2025
+Helpers for file-system operations used throughout the library:
+tracking-number generation and discovery, FITS and HDF5 read/write,
+file listing, folder synchronisation, and data archiving.
 
 """
 
@@ -395,7 +393,7 @@ def get_kwargs(
     ----------
     possible_keys : tuple[str]
         Tuple containing all the possible names of a variable which can be passed
-        as a **kwargs argument.
+        as a ``**kwargs`` argument.
     default : _ot.Any
         The default value to assign the requested key if it doesn't exist.
     kwargs : dict[str,_ot.Any]
@@ -834,6 +832,7 @@ def get_h5file_info(filepath: str) -> dict[str, _ot.Any]:
     -------
     info: dict[str, Any]
         Dictionary containing:
+
         - 'keys': list of dataset names
         - 'n_keys': number of datasets
         - 'creation_date': tracking number when file was created
@@ -973,6 +972,7 @@ def _ensure_on_cpu(data: _ot.ArrayLike) -> _ot.ArrayLike:
     ----------
     data : ArrayLike
         Input data which may be on GPU or CPU. Handles:
+
         - numpy arrays / masked arrays (CPU)
         - xupy arrays / masked arrays (GPU)
         - FitsArray and FitsMaskedArray (CPU)
@@ -1020,13 +1020,14 @@ def _reduce_dtype_safely(
     Reduces the dtype of an array to save space, with safety checks.
 
     This function performs intelligent dtype reduction:
+
     - Checks if data range fits in smaller dtype
     - Estimates precision loss for floating point conversions
     - Preserves float64 if precision loss is significant
 
     Parameters
     ----------
-    data: np.ndarray
+    data: numpy.ndarray
         Input array to reduce precision
     preserve_float64: bool, optional
         If True, keeps float64 when conversion would cause significant
@@ -1034,10 +1035,11 @@ def _reduce_dtype_safely(
 
     Returns
     -------
-    reduced_data: np.ndarray
+    reduced_data: numpy.ndarray
         Array with reduced precision dtype
     info: dict[str, Any], optional
         Information about the conversion:
+
         - 'conversion': description of the conversion performed
         - 'precision_loss': estimated relative precision loss (for floats)
         - 'space_saving_ratio': ratio of reduced size to original

@@ -1,11 +1,12 @@
 """
-WaveFront Sensor (WFS) devices module
-=====================================
+Wavefront sensor drivers — INGO-T WFS and shared base
+======================================================
 
-Author(s):
-----------
-- Pietro Ferraiuolo : pietro.ferraiuolo@inaf.it
-- Tania Sofia Gomes Machado : tania.gomesmachado@inaf.it
+Drivers for wavefront sensors used on adaptive-optics benches.  The
+INGO-T WFS (Ingot) implements the :class:`~opticalib.core._types._WFSProtocol`
+interface and inherits from
+:class:`~opticalib.devices._API.base_devices.BaseWavefrontSensor`.
+
 """
 
 import numpy as _np
@@ -35,19 +36,6 @@ class Ingot(BaseWavefrontSensor):
         The camera device to use for acquiring images. Can be a string
         representing the camera name defined in the experiment's configuration
         file or an instance of an object compatible with the ``opticalib.CameraDevice``.
-
-    Methods
-    -------
-    acquire_detector(nframes) -> ImageData
-        Acquires raw un-processed detector data directly from the camera sensor.
-    acquire_pupils(frames, detect_pupils) -> CubeData
-        Acquires the Ingot WFS pupils from the camera frames.
-    acquire_map(nframes, output_type, detect_pupils) -> ImageData
-        Acquires data from the Ingot WFS, either pupils or slopes.
-    set_exptime(exposure_ms)
-        Sets the camera sensor exposure time in milliseconds.
-    get_exptime()
-        Gets the current camera exposure time in milliseconds.
     """
 
     def __init__(self, camera: str | _ot.CameraDevice):
