@@ -167,6 +167,23 @@ class PetalMirror(BasePetalMirror, BaseDeformableMirror):
             self.set_shape(s)
             return tn
 
+    def disable_servos(self):
+        """
+        Disables the servos for all segments.
+        """
+        for k, dev in enumerate(self._devices):
+            self._logger.info(f"Disabling servos for segment {k}")
+            dev.SVO({"1": 0, "2": 0, "3": 0})
+            dev.checkerror()
+
+    def enable_servos(self):
+        """
+        Enables the servos for all segments.
+        """
+        for k, dev in enumerate(self._devices):
+            self._logger.info(f"Enabling servos for segment {k}")
+            dev.SVO({"1": 1, "2": 1, "3": 1})
+            dev.checkerror()
 
 from ._API.micAPI import BaseAdOpticaDm
 
