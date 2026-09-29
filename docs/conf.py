@@ -99,9 +99,9 @@ _AOCONF = _bootstrap_aoconf()
 
 # -- Project information -----------------------------------------------------
 project = "OptiCalib"
-author = "P. Ferraiuolo, M. Xompero, R. Briguglio, A. Puglisi"
+author = "P. Ferraiuolo, M. Xompero, R. Briguglio, M. Menessini"
 current_year = datetime.now().year
-copyright = f"2024-{current_year}, {author}"  # noqa: A001 - Sphinx reserved name
+copyright = f"2025-{current_year}, {author}"  # noqa: A001 - Sphinx reserved name
 
 try:
     from opticalib.__version__ import __version__ as release
