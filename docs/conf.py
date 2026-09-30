@@ -249,9 +249,13 @@ autodoc_mock_imports = [
     "Microgate",    # Microgate controller SDK (vendor)
     "pipython",     # Physik Instrumente motor SDK
     "plico_motor",  # Arcetri motor server client
-    "PyQt5",        # GUI only (opticalib.gui)
+    "pyqtgraph",    # GUI only (opticalib.gui)
     "Pyro4",        # SPLATT DM remote objects
+    "PySide6",      # GUI only (opticalib.gui)
+    "qtawesome",    # GUI only (opticalib.gui)
     "qtconsole",    # GUI only (opticalib.gui)
+    "qtpy",         # GUI only (opticalib.gui)
+    "shiboken6",    # GUI only (opticalib.gui)
     "torch",        # heavy CUDA dependency of xupy
     "vmbpy",        # Allied Vision Vimba SDK bindings
     "xupy",         # CPU/GPU numpy duality layer

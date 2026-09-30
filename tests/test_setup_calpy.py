@@ -5,6 +5,9 @@ both in development (source checkout) and in installed wheel packages.
 """
 
 import os
+import sys
+
+import pytest
 from pathlib import Path
 
 import setup_calpy
@@ -72,3 +75,35 @@ class TestUpdateEnvVar:
         cfg.write_text("SYSTEM: {}\n", encoding="utf-8")
         candidate = str(exp / "configuration.yaml")
         assert setup_calpy._prefer_sysconfig(candidate) == str(cfg)
+
+
+class TestLaunchGui:
+    """``calpy --gui`` fails with a clear message instead of crashing."""
+
+    @pytest.fixture
+    def linux(self, monkeypatch):
+        monkeypatch.setattr(setup_calpy.sys, "platform", "linux")
+        for var in ("QT_QPA_PLATFORM", "DISPLAY", "WAYLAND_DISPLAY"):
+            monkeypatch.delenv(var, raising=False)
+
+    def test_no_display(self, linux, capsys) -> None:
+        assert "no graphical display" in setup_calpy._gui_display_problem()
+        with pytest.raises(SystemExit) as exit_info:
+            setup_calpy._launch_gui(None)
+        assert exit_info.value.code == 1
+        assert "ssh -X" in capsys.readouterr().out
+
+    @pytest.mark.parametrize("var", ["DISPLAY", "WAYLAND_DISPLAY", "QT_QPA_PLATFORM"])
+    def test_display_available(self, linux, monkeypatch, var) -> None:
+        monkeypatch.setenv(var, ":0")
+        assert setup_calpy._gui_display_problem() is None
+
+    def test_missing_dependencies(self, linux, monkeypatch, capsys) -> None:
+        monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
+        # A None entry in sys.modules makes the import raise ImportError.
+        monkeypatch.setitem(sys.modules, "opticalib.gui", None)
+        with pytest.raises(SystemExit) as exit_info:
+            setup_calpy._launch_gui(None)
+        assert exit_info.value.code == 1
+        out = capsys.readouterr().out
+        assert "PySide6-Essentials" in out and "PyQt5" not in out

@@ -14,5 +14,11 @@ tqdm
 matplotlib
 xupy
 numpy
-PyQt5
 qtconsole
+PyYAML
+PySide6-Essentials
+QtPy
+ipykernel
+jupyter_client
+pyqtgraph
+qtawesome

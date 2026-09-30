@@ -85,16 +85,55 @@ def _launch_gui(config_path: Optional[str] = None) -> None:
         Absolute path to the ``configuration.yaml`` file to load, or
         *None* to use the opticalib default.
     """
+    problem = _gui_display_problem()
+    if problem is not None:
+        print(f"Error: {problem}")
+        sys.exit(1)
     try:
         from opticalib.gui import launch_gui
     except ImportError as exc:
         print(
             f"Error: could not import the CalpyGUI module ({exc}).\n"
-            "Make sure PyQt5 and qtconsole are installed:\n"
-            "  pip install PyQt5 qtconsole"
+            "Make sure the GUI dependencies are installed:\n"
+            f"  pip install {' '.join(GUI_REQUIREMENTS)}"
         )
         sys.exit(1)
     launch_gui(config_path=config_path)
+
+
+#: Packages needed by the CalpyGUI graphical interface.
+GUI_REQUIREMENTS = (
+    "PySide6-Essentials",
+    "QtPy",
+    "qtconsole",
+    "ipykernel",
+    "pyqtgraph",
+    "qtawesome",
+)
+
+
+def _gui_display_problem() -> Optional[str]:
+    """
+    Detect a missing display before Qt aborts the process.
+
+    On Linux, Qt terminates the interpreter (it cannot be caught) when no
+    display server is reachable, e.g. over SSH without X forwarding.
+
+    Returns
+    -------
+    str or None
+        A description of the problem, or ``None`` if the GUI can start.
+    """
+    if not sys.platform.startswith("linux"):
+        return None
+    if os.environ.get("QT_QPA_PLATFORM"):
+        return None
+    if os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"):
+        return None
+    return (
+        "no graphical display found (neither DISPLAY nor WAYLAND_DISPLAY is set).\n"
+        "Run calpy --gui from a desktop session, or use 'ssh -X' to forward the display."
+    )
 
 
 def _resolve_config_path(path: str) -> str:

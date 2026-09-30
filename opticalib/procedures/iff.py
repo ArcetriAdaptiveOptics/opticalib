@@ -23,7 +23,7 @@ from opticalib.core import config as _rif, exceptions as _oe
 def iff_data_acquisition(
     dm: _ot.DeformableMirrorDevice,
     wfs: _ot.InterferometerDevice | _ot.WFSDevice,
-    modesList: _ot.Optional[_ot.ArrayLike] = None,
+    modeslist: _ot.Optional[_ot.ArrayLike] = None,
     amplitude: _ot.Optional[float | _ot.ArrayLike] = None,
     template: _ot.Optional[_ot.ArrayLike] = None,
     modalbase: _ot.Optional[str] = None,
@@ -45,7 +45,7 @@ def iff_data_acquisition(
         The inizialized deformable mirror object
     wfs: InterferometerDevice | WFSDevice
         The initialized wavefront sensor object to take measurements
-    modesList: ArrayLike , optional
+    modeslist: ArrayLike , optional
         list of modes index to be measured, relative to the command matrix to be used
     amplitude: float | ArrayLike, optional
         command amplitude
@@ -79,7 +79,7 @@ def iff_data_acquisition(
     """
     ifc = _ifa.IFFCapturePreparation(dm)
     tch = ifc.create_timed_cmd_history(
-        modesList=modesList,
+        modeslist=modeslist,
         modesAmp=amplitude,
         template=template,
         shuffle=shuffle,
@@ -105,7 +105,7 @@ def iff_data_acquisition(
                 "n_repetitions",
                 "modal_base",
             ],
-            [modesList, amplitude, template, shuffle, n_repetitions, modalbase],
+            [modeslist, amplitude, template, shuffle, n_repetitions, modalbase],
         )
     )
     pars2update = {k: v for k, v in pars2update.items() if v is not None}

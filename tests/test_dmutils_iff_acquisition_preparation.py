@@ -71,9 +71,9 @@ class TestIFFCapturePreparation:
         """Test creating timed command history with custom modes."""
         mock_get_iff_config.return_value = self._iff_config()
         prep = ifa.IFFCapturePreparation(mock_dm)
-        tch = prep.create_timed_cmd_history(modesList=[1, 2, 3, 4, 5])
+        tch = prep.create_timed_cmd_history(modeslist=[1, 2, 3, 4, 5])
         assert tch is not None
-        assert prep._modesList is not None
+        assert prep._modeslist is not None
 
     @patch("opticalib.dmutils.iff_preparation._rif.get_iff_config")
     def test_create_timed_cmd_history_with_shuffle(self, mock_get_iff_config, mock_dm):
@@ -81,7 +81,7 @@ class TestIFFCapturePreparation:
         mock_get_iff_config.return_value = self._iff_config()
         prep = ifa.IFFCapturePreparation(mock_dm)
         modes = np.arange(mock_dm.n_acts)
-        tch = prep.create_timed_cmd_history(modesList=modes, shuffle=True)
+        tch = prep.create_timed_cmd_history(modeslist=modes, shuffle=True)
         assert tch is not None
         assert prep._shuffle is True
 
@@ -196,12 +196,12 @@ class TestIFFCapturePreparation:
 
         # Test n_repetitions = 0
         with pytest.raises(ValueError, match="n_repetitions must be >= 1"):
-            prep.create_cmd_matrix_history(modesList=np.arange(5), n_repetitions=0)
+            prep.create_cmd_matrix_history(modeslist=np.arange(5), n_repetitions=0)
 
         # Test n_repetitions = -1
         with pytest.raises(ValueError, match="n_repetitions must be >= 1"):
-            prep.create_cmd_matrix_history(modesList=np.arange(5), n_repetitions=-1)
+            prep.create_cmd_matrix_history(modeslist=np.arange(5), n_repetitions=-1)
 
         # Test n_repetitions = -10
         with pytest.raises(ValueError, match="n_repetitions must be >= 1"):
-            prep.create_cmd_matrix_history(modesList=np.arange(5), n_repetitions=-10)
+            prep.create_cmd_matrix_history(modeslist=np.arange(5), n_repetitions=-10)
