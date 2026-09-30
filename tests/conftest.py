@@ -300,7 +300,7 @@ def qapp(tmp_path_factory):
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
     import opticalib.gui  # noqa: F401  (selects the default Qt binding)
 
-    pytest.importorskip("qtpy.QtWidgets")
+    pytest.importorskip("qtpy.QtWidgets", exc_type=ImportError)
     from qtpy.QtCore import QSettings
     from qtpy.QtWidgets import QApplication
 

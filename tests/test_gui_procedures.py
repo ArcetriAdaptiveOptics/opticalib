@@ -7,8 +7,8 @@ the generated calls can be checked without a kernel.
 
 import pytest
 
-pytest.importorskip("qtconsole")
-pytest.importorskip("qtawesome")
+pytest.importorskip("qtconsole", exc_type=ImportError)
+pytest.importorskip("qtawesome", exc_type=ImportError)
 
 
 class FakeContext:

@@ -15,10 +15,10 @@ import textwrap
 
 import pytest
 
-pytest.importorskip("qtconsole")
-pytest.importorskip("ipykernel")
-pytest.importorskip("pyqtgraph")
-pytest.importorskip("qtawesome")
+pytest.importorskip("qtconsole", exc_type=ImportError)
+pytest.importorskip("ipykernel", exc_type=ImportError)
+pytest.importorskip("pyqtgraph", exc_type=ImportError)
+pytest.importorskip("qtawesome", exc_type=ImportError)
 
 _SCRIPT = textwrap.dedent(
     r"""

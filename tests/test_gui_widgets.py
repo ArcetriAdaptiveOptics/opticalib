@@ -9,9 +9,9 @@ import re
 import numpy as np
 import pytest
 
-pytest.importorskip("qtconsole")
-pytest.importorskip("qtawesome")
-pytest.importorskip("pyqtgraph")
+pytest.importorskip("qtconsole", exc_type=ImportError)
+pytest.importorskip("qtawesome", exc_type=ImportError)
+pytest.importorskip("pyqtgraph", exc_type=ImportError)
 
 
 def _png(color: str = "red") -> bytes:

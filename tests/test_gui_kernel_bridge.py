@@ -11,7 +11,7 @@ import itertools
 
 import pytest
 
-pytest.importorskip("qtconsole")
+pytest.importorskip("qtconsole", exc_type=ImportError)
 
 
 class FakeKernelClient:

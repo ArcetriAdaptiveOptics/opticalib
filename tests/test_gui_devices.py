@@ -5,8 +5,8 @@ Tests for the CalpyGUI device registry and device panel
 
 import pytest
 
-pytest.importorskip("qtconsole")
-pytest.importorskip("qtawesome")
+pytest.importorskip("qtconsole", exc_type=ImportError)
+pytest.importorskip("qtawesome", exc_type=ImportError)
 
 from opticalib.gui.widgets import device_panel as dp  # noqa: E402
 from opticalib.gui.widgets import device_registry as reg  # noqa: E402

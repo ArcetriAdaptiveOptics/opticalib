@@ -6,8 +6,8 @@ import os
 
 import pytest
 
-pytest.importorskip("qtconsole")
-pytest.importorskip("qtawesome")
+pytest.importorskip("qtconsole", exc_type=ImportError)
+pytest.importorskip("qtawesome", exc_type=ImportError)
 
 from opticalib.gui.widgets import config_editor as ce  # noqa: E402
 

@@ -4,8 +4,8 @@ Tests for the CalpyGUI activity panel (opticalib.gui.activity.ActivityCenter).
 
 import pytest
 
-pytest.importorskip("qtconsole")
-pytest.importorskip("qtawesome")
+pytest.importorskip("qtconsole", exc_type=ImportError)
+pytest.importorskip("qtawesome", exc_type=ImportError)
 
 
 @pytest.fixture

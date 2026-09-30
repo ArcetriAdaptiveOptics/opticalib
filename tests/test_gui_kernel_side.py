@@ -186,7 +186,7 @@ class TestBridgeHelpers:
 
     @pytest.fixture(autouse=True)
     def _kernel_module(self, qapp):
-        pytest.importorskip("qtconsole")
+        pytest.importorskip("qtconsole", exc_type=ImportError)
         from opticalib.gui import kernel
 
         self.kernel = kernel
