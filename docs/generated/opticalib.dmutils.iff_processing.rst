@@ -10,7 +10,7 @@ opticalib.dmutils.iff\_processing
    
       add_mode_to_cube
       cube_roi_processing
-      filter_zernike_cube
+      remove_zernike_from_iff
       find_frame_offset
       get_iff_file_matrix
       get_reg_file_matrix

@@ -548,14 +548,14 @@ def add_mode_to_cube(
     _osu.save_fits(modesvec_path, new_modesvec, overwrite=True)
 
 
-def filter_zernike_cube(
+def remove_zernike_from_iff(
     tn: str,
     zern_modes: _ot.Optional[list[int]] = None,
     mode: str = "global",
     save: bool = True,
 ) -> tuple[_ot.CubeData, str]:
     """
-    Function which filters out the desired zernike modes from a cube.
+    Function which filters out the desired zernike modes from an IFF cube.
 
     Parameters
     ----------
@@ -650,9 +650,13 @@ def iff_redux(
     N, M, T = fileMat.shape
     
     if len(template) != T:
-        raise ValueError("Template length must match the third dimension of ``fileMat`` for push-pull analysis.")
+        raise ValueError(
+            "Template length must match the third dimension of ``fileMat`` for push-pull analysis."
+        )
     if int(n_repetitions) != N:
-        raise ValueError("Number of repetitions must match the first dimention of ``fileMat``.")
+        raise ValueError(
+            "Number of repetitions must match the first dimention of ``fileMat``."
+        )
 
     if _np.size(ampVect) == 1:
         ampVect = _np.full(M, ampVect, dtype=_np.float32)
