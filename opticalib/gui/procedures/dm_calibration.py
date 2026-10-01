@@ -224,7 +224,7 @@ class DeformableMirrorCalibrationWindow(ProcedureWindow):
                     ExprParam("zernikes", "Zernike modes", "[1, 2, 3]"),
                     VarParam("out", "Store the tracking number in", "tn_filtered"),
                 ],
-                lambda v: f"_, {v['out']} = ifp.filter_zernike_cube({v['tn']}, zern_modes={v['zernikes']}, save=True)",
+                lambda v: f"_, {v['out']} = ifp.remove_zernike_from_iff({v['tn']}, zern_modes={v['zernikes']}, save=True)",
                 outputs={"intmat_tn": "{out}"},
             ),
             Step(
