@@ -265,7 +265,11 @@ class Alignment:
             print(logMsg)
         return pos
 
-    def load_fitting_surface(self, filepath: str|None = None, surf: _ot.ImageLike|None = None) -> None:
+    def load_fitting_surface(
+        self,
+        filepath: str|None = None,
+        surf: _ot.ImageData|None = None
+    ) -> None:
         """
         This function let you load the mask to use for zernike fitting. In the case of
         M$, for example, here the calibrated parabola is loaded, so that zernike modes are
