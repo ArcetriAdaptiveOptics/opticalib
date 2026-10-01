@@ -27,7 +27,7 @@ _SCRIPT = textwrap.dedent(
     from qtpy.QtCore import QEventLoop, QSettings
     from qtpy.QtWidgets import QApplication, QMessageBox
 
-    settings_dir, config_path = sys.argv[1], sys.argv[2]
+    settings_dir, config_path, other_experiment = sys.argv[1], sys.argv[2], sys.argv[3]
     for fmt in (QSettings.Format.NativeFormat, QSettings.Format.IniFormat):
         QSettings.setPath(fmt, QSettings.Scope.UserScope, settings_dir)
     app = QApplication(sys.argv)
@@ -74,6 +74,18 @@ _SCRIPT = textwrap.dedent(
     ns = query({n: f"{n!r} in globals()" for n in names})
     result["names"] = sorted(n for n in names if ns.get(n) is True)
     result["aoconf"] = query({"a": "__import__('os').environ['AOCONF']"}).get("a")
+
+    # Switch to another experiment in place, then back.
+    task = window.switch_experiment(other_experiment, confirm=False)
+    pump(lambda: task.is_final, 60)
+    pump(lambda: window.data_browser._base.startswith(other_experiment), 30)
+    switched = query({"a": "__import__('os').environ['AOCONF']", "f": "folders.BASE_DATA_PATH"})
+    result["switch"] = [task.state, switched.get("a"), switched.get("f"), window.windowTitle(),
+                        window.data_browser._base, window.bridge.config_path]
+    task = window.switch_experiment(config_path, confirm=False)
+    pump(lambda: task.is_final, 60)
+    result["switch_back"] = query({"a": "__import__('os').environ['AOCONF']"}).get("a")
+    result["recent"] = window.recent_experiments()
 
     task = window._run(
         "import numpy as np\n"
@@ -149,6 +161,10 @@ def test_gui_end_to_end(tmp_path):
     with open(TEMPLATE_CONF_FILE) as f:
         template = f.read()
     config_path.write_text(template.replace("data_path: ''", f"data_path: '{data_path}'", 1))
+    other = tmp_path / "ExpB"
+    other_config = other / "SysConfig" / "configuration.yaml"
+    other_config.parent.mkdir(parents=True)
+    other_config.write_text(template.replace("data_path: ''", f"data_path: '{other}'", 1))
     script = tmp_path / "smoke.py"
     script.write_text(_SCRIPT)
     settings_dir = tmp_path / "settings"
@@ -161,7 +177,7 @@ def test_gui_end_to_end(tmp_path):
         XDG_CONFIG_HOME=str(tmp_path / "xdg"),
     )
     proc = subprocess.run(
-        [sys.executable, str(script), str(settings_dir), str(config_path)],
+        [sys.executable, str(script), str(settings_dir), str(config_path), str(other)],
         capture_output=True,
         text=True,
         env=env,
@@ -184,6 +200,10 @@ def test_gui_end_to_end(tmp_path):
     assert r["docks_after_reset"] == expected_docks
     assert r["names"] == sorted(["opt", "folders", "zern", "osu", "az", "sim", "ifp", "ifm", "oplt", "_gui"])
     assert r["aoconf"] == str(config_path)
+    # In-place experiment switch: the kernel and the GUI follow.
+    assert r["switch"] == ["done", str(other_config), str(other), "CalpyGUI – ExpB", str(other), str(other_config)]
+    assert r["switch_back"] == str(config_path)
+    assert r["recent"][:2] == [str(config_path), str(other_config)]
     assert r["task"] == "done"
     assert ["figure", "ramp"] in r["plots"] and ["data", "img"] in r["plots"]
     assert "img" in r["workspace"] and "np" not in r["workspace"]

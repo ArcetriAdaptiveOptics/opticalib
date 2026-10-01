@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <!-- OptiCalib icon: an optical aperture showing interference fringes.
+       No clipping (not supported by Qt's SVG Tiny renderer): the fringes,
+       slightly off-centre like a tilted wavefront, stay inside the rim. -->
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#26324d"/>
+      <stop offset="1" stop-color="#15171c"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.40" cy="0.38" r="0.70">
+      <stop offset="0" stop-color="#9db8ff"/>
+      <stop offset="1" stop-color="#3867d6"/>
+    </radialGradient>
+  </defs>
+  <rect x="8" y="8" width="240" height="240" rx="52" fill="url(#tile)"/>
+  <circle cx="128" cy="128" r="86" fill="#0f1320"/>
+  <g fill="none" stroke="url(#glow)" stroke-width="10">
+    <circle cx="120" cy="118" r="28"/>
+    <circle cx="120" cy="118" r="50"/>
+    <circle cx="120" cy="118" r="72"/>
+  </g>
+  <circle cx="120" cy="118" r="9" fill="#9db8ff"/>
+  <circle cx="128" cy="128" r="86" fill="none" stroke="#e5e8ef" stroke-opacity="0.92" stroke-width="8"/>
+  <circle cx="190" cy="66" r="13" fill="#3fcf8e"/>
+</svg>

@@ -76,6 +76,16 @@ the same run.
   - Launch the Qt GUI for that experiment
 * - `calpy --gui`
   - Launch the Qt GUI with the default configuration
+* - `calpy --install-launcher [-f <path>]`
+  - Create the **OptiCalib** desktop launcher of the GUI: a `.desktop` entry in
+    the applications menu and on the desktop (Linux), or Desktop and Start-menu
+    shortcuts to `OptiCalib.exe` (Windows). With `-f`, the launcher opens that
+    experiment
+* - `calpy --uninstall-launcher [-f <path>]`
+  - Remove the launcher created by `--install-launcher`
+* - `OptiCalib [-f <path>]`
+  - Same as `calpy [-f <path>] --gui`, without a terminal window (on Windows,
+    `OptiCalib.exe` is created by `pip install`)
 ```
 
 `<path>` may be a directory or a direct path to a `.yaml` file. A relative path
@@ -357,6 +367,14 @@ you do in the GUI is reproducible from a script.
 * - Console
   - The IPython console.
 ```
+
+To work on another experiment, use *File → Open experiment…* (`Ctrl+O`, pick
+the experiment folder), *File → Open configuration file…*, *File → Recent
+experiments*, or the folder button next to the configuration path in the
+status bar. The session switches in place with
+`opticalib.set_configuration_file()`, shown in the console, and the panels
+follow the new experiment; devices already connected keep the configuration
+they were created with, so reconnect them.
 
 The kernel runs in a separate process, so the window stays responsive while
 a command runs. Running and queued operations are listed in a floating

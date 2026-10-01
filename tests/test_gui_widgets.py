@@ -325,3 +325,28 @@ def test_kernel_side_backend(monkeypatch):
     state = json.loads(kernel_side.backend())
     assert set(state) == {"on_gpu", "available"}
     assert isinstance(state["on_gpu"], bool) and isinstance(state["available"], bool)
+
+
+class TestExperiments:
+    """Resolving the experiment opened by File → Open experiment."""
+
+    def test_resolve_experiment(self, qapp, tmp_path):
+        from opticalib.gui.app import resolve_experiment
+
+        sysconfig = tmp_path / "ExpA" / "SysConfig" / "configuration.yaml"
+        sysconfig.parent.mkdir(parents=True)
+        sysconfig.write_text("SYSTEM: {}\n")
+        flat = tmp_path / "ExpB" / "configuration.yaml"
+        flat.parent.mkdir()
+        flat.write_text("SYSTEM: {}\n")
+        assert resolve_experiment(str(tmp_path / "ExpA")) == str(sysconfig)
+        assert resolve_experiment(str(tmp_path / "ExpB")) == str(flat)
+        assert resolve_experiment(str(flat)) == str(flat)
+        with pytest.raises(FileNotFoundError):
+            resolve_experiment(str(tmp_path / "Nothing"))
+
+    def test_experiment_name_skips_sysconfig(self, qapp):
+        from opticalib.gui.app import _get_experiment_name
+
+        assert _get_experiment_name("/data/ExpA/SysConfig/configuration.yaml") == "ExpA"
+        assert _get_experiment_name("/data/ExpB/configuration.yaml") == "ExpB"

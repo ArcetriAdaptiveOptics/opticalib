@@ -45,10 +45,11 @@ if getattr(qtpy, "QT5", False) is True:  # "is True": qtpy is mocked in the docs
     )
 
 from qtpy.QtCore import QSettings, Qt, QTimer, Signal
-from qtpy.QtGui import QAction, QActionGroup, QColor, QKeySequence
+from qtpy.QtGui import QAction, QActionGroup, QColor, QIcon, QKeySequence
 from qtpy.QtWidgets import (
     QApplication,
     QDockWidget,
+    QFileDialog,
     QGraphicsDropShadowEffect,
     QHBoxLayout,
     QLabel,
@@ -65,7 +66,7 @@ from .plugins import PLUGIN_WINDOWS, PluginPanel
 from .procedures.base import ProcedureContext
 from .theme import SETTINGS_APP, SETTINGS_ORG, THEME_MODES, console_style_sheet, theme
 from .widgets.common import DockTitleBar, ElidedLabel
-from .widgets.config_editor import ConfigEditorDialog
+from .widgets.config_editor import ConfigEditorDialog, validate_config_text
 from .widgets.data_browser import DataBrowser, load_array_file
 from .widgets.device_panel import DevicePanel
 from .widgets.plot_viewer import PlotViewer, load_npz_view
@@ -73,6 +74,9 @@ from .widgets.workspace import WorkspaceView
 
 #: Version of the saved dock layout; bump it when the docks change.
 LAYOUT_VERSION = 2
+
+#: Application icon (also used by the OptiCalib desktop launchers).
+ICON_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "resources", "opticalib.png")
 
 # Re-bind ``_gui`` in the kernel if the user deleted it (e.g. ``%reset``).
 _REINSTALL_GUI = (
@@ -91,7 +95,8 @@ def _get_experiment_name(config_path: str) -> str:
     Derive a human-readable experiment name from the config file path.
 
     Uses the name of the directory that contains the configuration file
-    (usually the experiment folder).
+    (the experiment folder; ``SysConfig`` is skipped, as in the layout created
+    by ``calpy --create``).
 
     Parameters
     ----------
@@ -103,7 +108,43 @@ def _get_experiment_name(config_path: str) -> str:
     str
         Experiment/folder name, or an empty string when unavailable.
     """
-    return os.path.basename(os.path.dirname(os.path.abspath(config_path)))
+    folder = os.path.dirname(os.path.abspath(config_path))
+    if os.path.basename(folder) == "SysConfig":
+        folder = os.path.dirname(folder)
+    return os.path.basename(folder)
+
+
+def resolve_experiment(path: str) -> str:
+    """
+    Return the configuration file of an experiment.
+
+    Parameters
+    ----------
+    path : str
+        A configuration file, or an experiment folder containing
+        ``SysConfig/configuration.yaml`` (the ``calpy --create`` layout) or
+        ``configuration.yaml``.
+
+    Returns
+    -------
+    str
+        Absolute path of the configuration file.
+
+    Raises
+    ------
+    FileNotFoundError
+        If no configuration file is found.
+    """
+    path = os.path.abspath(os.path.expanduser(path))
+    if os.path.isfile(path):
+        return path
+    for candidate in (
+        os.path.join(path, "SysConfig", "configuration.yaml"),
+        os.path.join(path, "configuration.yaml"),
+    ):
+        if os.path.isfile(candidate):
+            return candidate
+    raise FileNotFoundError(f"No configuration file found in {path}")
 
 
 def _resolve_init_file() -> Optional[str]:
@@ -316,6 +357,8 @@ class CalpyGUI(QMainWindow):
         self._config_path: str = os.path.abspath(config_path)
         self._experiment = _get_experiment_name(self._config_path) or "opticalib"
         self.setWindowTitle(f"CalpyGUI – {self._experiment}")
+        if os.path.isfile(ICON_FILE):
+            self.setWindowIcon(QIcon(ICON_FILE))
         self.resize(1600, 950)
 
         self._tmp_dir = tempfile.mkdtemp(prefix="calpygui-")
@@ -351,6 +394,7 @@ class CalpyGUI(QMainWindow):
         theme().changed.connect(self._apply_theme)
         self._apply_theme()
 
+        self._remember_experiment(self._config_path)
         self._show_overlay()
         QTimer.singleShot(0, self.bridge.start)
 
@@ -490,6 +534,14 @@ class CalpyGUI(QMainWindow):
         bar = self.menuBar()
 
         file_menu = bar.addMenu("&File")
+        open_experiment = file_menu.addAction(
+            theme().icon("folder-open-outline"), "Open experiment…", self._choose_experiment
+        )
+        open_experiment.setShortcut(QKeySequence.StandardKey.Open)
+        file_menu.addAction("Open configuration file…", self._choose_configuration_file)
+        self._recent_menu = file_menu.addMenu(theme().icon("history"), "Recent experiments")
+        self._recent_menu.aboutToShow.connect(self._fill_recent_menu)
+        file_menu.addSeparator()
         self._action_config = file_menu.addAction("Edit configuration…", self._view_config)
         self._action_config.setShortcut(QKeySequence("Ctrl+,"))
         file_menu.addSeparator()
@@ -560,12 +612,18 @@ class CalpyGUI(QMainWindow):
         version.setProperty("muted", True)
         self.backend_button = BackendButton()
         self.backend_button.switch_requested.connect(self._switch_backend)
+        self._btn_switch_experiment = QToolButton()
+        self._btn_switch_experiment.setAutoRaise(True)
+        self._btn_switch_experiment.setToolTip("Switch to another experiment (Ctrl+O)")
+        self._btn_switch_experiment.clicked.connect(self._choose_experiment)
         status.addPermanentWidget(self.backend_button)
+        status.addPermanentWidget(self._btn_switch_experiment)
         status.addPermanentWidget(self._config_label)
         status.addPermanentWidget(version)
 
     def _apply_theme(self) -> None:
         """Update the parts that are not styled by the style sheet."""
+        self._btn_switch_experiment.setIcon(theme().icon("folder-swap-outline", "text_muted"))
         t = theme()
         self._btn_interrupt.setIcon(t.icon("stop-circle-outline"))
         self._btn_restart.setIcon(t.icon("restart"))
@@ -815,6 +873,129 @@ class CalpyGUI(QMainWindow):
         )
 
     # ------------------------------------------------------------------
+    # Experiments
+    # ------------------------------------------------------------------
+
+    #: Number of experiments remembered in File → Recent experiments.
+    MAX_RECENT = 8
+
+    @property
+    def config_path(self) -> str:
+        """The configuration file of the current experiment."""
+        return self._config_path
+
+    def _choose_experiment(self) -> None:
+        """Ask for an experiment folder and switch to it."""
+        start = os.path.dirname(os.path.dirname(self._config_path))
+        folder = QFileDialog.getExistingDirectory(self, "Open experiment", start)
+        if folder:
+            self.switch_experiment(folder)
+
+    def _choose_configuration_file(self) -> None:
+        """Ask for a configuration file and switch to it."""
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Open configuration file", os.path.dirname(self._config_path),
+            "Configuration (*.yaml *.yml)",
+        )
+        if path:
+            self.switch_experiment(path)
+
+    def recent_experiments(self) -> List[str]:
+        """Configuration files of the recent experiments (newest first)."""
+        value = self._settings.value("recent/experiments", [])
+        if isinstance(value, str):
+            value = [value]
+        return [p for p in (value or []) if isinstance(p, str) and os.path.isfile(p)]
+
+    def _remember_experiment(self, config_path: str) -> None:
+        recent = [p for p in self.recent_experiments() if os.path.normpath(p) != os.path.normpath(config_path)]
+        self._settings.setValue("recent/experiments", [config_path] + recent[: self.MAX_RECENT - 1])
+
+    def _fill_recent_menu(self) -> None:
+        menu = self._recent_menu
+        menu.clear()
+        recent = self.recent_experiments()
+        if not recent:
+            menu.addAction("No recent experiments").setEnabled(False)
+            return
+        for path in recent:
+            action = menu.addAction(f"{_get_experiment_name(path)}  —  {path}")
+            action.setCheckable(True)
+            action.setChecked(os.path.normpath(path) == os.path.normpath(self._config_path))
+            action.triggered.connect(lambda checked=False, p=path: self.switch_experiment(p))
+        menu.addSeparator()
+        menu.addAction("Clear list", lambda: self._settings.remove("recent/experiments"))
+
+    def switch_experiment(self, path: str, confirm: bool = True) -> Optional[Task]:
+        """
+        Switch the session to another experiment, without restarting.
+
+        The kernel runs ``opticalib.set_configuration_file`` (visible in the
+        console); when it succeeds the GUI follows: window title, status bar,
+        devices, data folders, procedure windows and the environment of the
+        next kernel restarts.  Devices already connected keep the
+        configuration they were created with.
+
+        Parameters
+        ----------
+        path : str
+            Experiment folder or configuration file.
+        confirm : bool, optional
+            Ask before switching.
+
+        Returns
+        -------
+        Task or None
+            The switching task, or ``None`` if nothing was switched.
+        """
+        try:
+            config_path = resolve_experiment(path)
+            with open(config_path, "r") as f:
+                error = validate_config_text(f.read())
+        except OSError as exc:
+            QMessageBox.warning(self, "Open experiment", str(exc))
+            return None
+        if error is not None:
+            QMessageBox.warning(self, "Open experiment", f"Invalid configuration file:\n{config_path}\n\n{error}")
+            return None
+        if os.path.normpath(config_path) == os.path.normpath(self._config_path):
+            return None
+        name = _get_experiment_name(config_path)
+        if confirm:
+            connected = [i["name"] for i in self.workspace_view.items if i.get("kind") in ("dm", "interferometer", "wfs", "camera")]
+            message = f"Switch to the experiment '{name}'?\n\n{config_path}"
+            if connected:
+                message += (
+                    "\n\nConnected devices (" + ", ".join(connected) + ") keep the configuration "
+                    "they were created with: reconnect them to use the new one."
+                )
+            answer = QMessageBox.question(self, "Open experiment", message)
+            if answer != QMessageBox.StandardButton.Yes:
+                return None
+        return self._run(
+            f"import opticalib\nopticalib.set_configuration_file({config_path!r})",
+            f"Switching to the experiment {name}",
+            on_done=lambda task, p=config_path: self._apply_experiment(p),
+            on_error=lambda task: QMessageBox.warning(
+                self, "Open experiment",
+                f"The experiment could not be loaded:\n{(task.error or {}).get('evalue', '')}",
+            ),
+        )
+
+    def _apply_experiment(self, config_path: str) -> None:
+        """Make the GUI follow the experiment the kernel switched to."""
+        self._config_path = config_path
+        self._experiment = _get_experiment_name(config_path) or "opticalib"
+        self.setWindowTitle(f"CalpyGUI – {self._experiment}")
+        self._config_label.setText(config_path)
+        self._config_label.setToolTip(f"{config_path}\nClick to edit the configuration")
+        self.bridge.set_config_path(config_path)
+        self.device_panel.set_config_path(config_path)
+        self._remember_experiment(config_path)
+        self._refresh_folders()
+        self._refresh_workspace()
+
+    # ------------------------------------------------------------------
     # Plugins
     # ------------------------------------------------------------------
 
@@ -918,6 +1099,10 @@ def launch_gui(config_path: Optional[str] = None) -> None:
     app = QApplication.instance() or QApplication(sys.argv)
     app.setApplicationName("CalpyGUI")
     app.setApplicationDisplayName("CalpyGUI")
+    # Lets Linux desktops match the window to the OptiCalib launcher.
+    app.setDesktopFileName("OptiCalib")
+    if os.path.isfile(ICON_FILE):
+        app.setWindowIcon(QIcon(ICON_FILE))
     theme().apply(app)
     window = CalpyGUI(config_path=config_path)
     window.show()

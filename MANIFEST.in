@@ -4,4 +4,5 @@ include opticalib/core/_configurations/configuration.yaml
 include setup_calpy.py
 include opticalib/__init_script__/initCalpy.py
 include opticalib/simulator/_API/alpao_conf.yaml
+recursive-include opticalib/gui/resources *.svg *.png *.ico
 recursive-include labott *.py

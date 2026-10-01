@@ -427,6 +427,33 @@ class KernelBridge(QObject):
     # Lifecycle
     # ------------------------------------------------------------------
 
+    @property
+    def config_path(self) -> str:
+        """The configuration file exported to the kernel as ``AOCONF``."""
+        return self._config_path
+
+    def set_config_path(self, config_path: str) -> None:
+        """
+        Use another configuration file for the kernel environment.
+
+        Updates ``AOCONF`` for the next (re)starts of the kernel; the running
+        kernel is switched separately, with
+        ``opticalib.set_configuration_file``.
+
+        Parameters
+        ----------
+        config_path : str
+            The configuration file.
+        """
+        self._config_path = config_path
+        if self._km is not None:
+            try:
+                self._km.update_env(env={"AOCONF": config_path})
+            except AttributeError:  # jupyter_client < 8.5
+                launch = getattr(self._km, "_launch_args", None)
+                if isinstance(launch, dict) and isinstance(launch.get("env"), dict):
+                    launch["env"]["AOCONF"] = config_path
+
     def kernel_env(self) -> Dict[str, str]:
         """
         Return the environment of the kernel process.
