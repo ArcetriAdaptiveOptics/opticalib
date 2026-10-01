@@ -118,11 +118,12 @@ class BaseAlpaoMirror:
         
         if self.n_acts != int(nacts):
             import warnings
-            warnings.warn(
-                f"Number of actuators reported by the SDK ({self.n_acts}) "
-                f"does not match the called number ({nacts}). Verify your BAX files",
-                RuntimeWarning, skip_file_prefixes=["opticalib/"]
-            )
+warnings.warn(
+    f"Number of actuators reported by the SDK ({self.n_acts}) "
+    f"does not match the called number ({nacts}). Verify your BAX files",
+    RuntimeWarning,
+    stacklevel=2,
+)
         
         self._last_cmd: _t.ArrayLike = _np.zeros(self.n_acts)
         self.act_coord = self._init_act_coord()
