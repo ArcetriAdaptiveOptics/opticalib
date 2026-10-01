@@ -130,7 +130,7 @@ class PetalMirror(BaseFakePTL):
 
     def run_cmd_history(
         self,
-        wfs: _t.Optional[_t.InterferometerDevice|_t.WFSDevice] = None,
+        wfs: _t.Optional[_t.InterferometerDevice | _t.WFSDevice] = None,
         save: str = None,
         rebin: int = 1,
         differential: bool = True,
@@ -589,7 +589,7 @@ class DP(BaseFakeDp):
 
     def run_cmd_history(
         self,
-        wfs: _t.Optional[_t.InterferometerDevice|_t.WFSDevice] = None,
+        wfs: _t.Optional[_t.InterferometerDevice | _t.WFSDevice] = None,
         save: str = None,
         rebin: int = 1,
         modal: bool = False,
@@ -792,7 +792,7 @@ class M4AU(BaseFakeM4):
 
     def run_cmd_history(
         self,
-        wfs: _t.Optional[_t.InterferometerDevice|_t.WFSDevice] = None,
+        wfs: _t.Optional[_t.InterferometerDevice | _t.WFSDevice] = None,
         save: str = None,
         rebin: int = 1,
         modal: bool = False,

@@ -61,11 +61,14 @@ DEVICES:
   DEFORMABLE.MIRRORS:
     AlpaoXXX:
       # AlpaoDM serial number, BAX<YYY>
-      serialNumber: 
+      serial_number: 
       # Parent folder containing Lib64/ (e.g. .../Linux/Samples/Python3)
       sdk_folder_path: 
       # Folder containing the .acfg hardware config file (sets ACECFG env var)
       acfg_path: 
+      # IP and PORT needed for the plico_dm backend
+      plico_ip: 
+      plico_port: 
       diameter: 
       slave_ids: []
       border_ids: []

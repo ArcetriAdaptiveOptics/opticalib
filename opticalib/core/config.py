@@ -63,9 +63,9 @@ _IFSECTIONS = ["TRIGGER", "REGISTRATION", "IFFUNC"]
 
 def _paths_equal(a: str, b: str) -> bool:
     """Return True when *a* and *b* refer to the same path (OS-normalized)."""
-    return _os.path.normcase(_os.path.normpath(_os.path.abspath(a))) == _os.path.normcase(
-        _os.path.normpath(_os.path.abspath(b))
-    )
+    return _os.path.normcase(
+        _os.path.normpath(_os.path.abspath(a))
+    ) == _os.path.normcase(_os.path.normpath(_os.path.abspath(b)))
 
 
 def _is_under(path: str, parent: str) -> bool:

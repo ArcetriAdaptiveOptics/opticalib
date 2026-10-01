@@ -51,7 +51,9 @@ class Alignment:
     def __init__(
         self,
         mechanical_devices: list[_ot.GenericDevice],
-        acquisition_devices: list[_ot.InterferometerDevice|_ot.CameraDevice|_ot.WFSDevice],
+        acquisition_devices: list[
+            _ot.InterferometerDevice | _ot.CameraDevice | _ot.WFSDevice
+        ],
         calibtn: _ot.Optional[str] = None,
     ):
         """
@@ -266,9 +268,7 @@ class Alignment:
         return pos
 
     def load_fitting_surface(
-        self,
-        filepath: str|None = None,
-        surf: _ot.ImageData|None = None
+        self, filepath: str | None = None, surf: _ot.ImageData | None = None
     ) -> None:
         """
         This function let you load the mask to use for zernike fitting. In the case of

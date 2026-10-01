@@ -3,14 +3,30 @@ from opticalib.core.config import get_section_config
 from opticalib.core.exceptions import CommandError
 from opticalib.core import _types as _t
 
+import weakref
+
+def _shutdown_dm(dm, reset: bool, logger, name: str) -> None:
+    """Stop (and optionally Reset) a raw SDK handle. Module-level so it
+    holds no reference to the wrapper object."""
+    try:
+        dm.Stop()
+    except Exception as e:
+        logger.error(f"[{name}] Failed to Stop the DM on close: {e}")
+    if reset:
+        try:
+            dm.Reset()
+        except Exception as e:
+            logger.error(f"[{name}] Failed to Reset the DM on close: {e}")
+
 
 class BaseAlpaoMirror:
     """
-    Base class for Alpao deformable mirrors using the Alpao SDK directly.
+    Base class for Alpao deformable mirrors, connecting either through the
+    native Alpao SDK or through the ``plico_dm`` backend.
 
-    Connects to the hardware via the Alpao SDK (``asdk`` module) and
-    provides actuator-coordinate helpers, command-integrity checking,
-    shape read/write, and configuration look-up.
+    Connects to the hardware via the Alpao SDK (``asdk`` module) or via
+    ``plico_dm``, and provides actuator-coordinate helpers, command-integrity
+    checking, shape read/write, and configuration look-up.
 
     The Alpao SDK has no built-in position readback, so the last
     commanded vector is cached internally and returned by
@@ -18,49 +34,70 @@ class BaseAlpaoMirror:
 
     Parameters
     ----------
-    serial_number : str or None
-        Hardware serial number of the DM (e.g. ``"BAXXX"``).  May be
-        ``None`` when *n_acts* is given and the serial number is stored
-        in the configuration file.
-    n_acts : int, str or None
-        Number of actuators.  Used to look up the DM configuration
-        when *serial_number* is ``None``.
+    nacts : int or str
+        Number of actuators of the DM. Used to build the device name
+        (``Alpao{nacts}``) under which ``serial_number``/``sdk_folder_path``/
+        ``acfg_path`` (SDK backend) or ``plico_ip``/``plico_port`` (plico
+        backend) are looked up in the configuration file, and to sanity-check
+        the actuator count reported back by the backend once connected.
+    sdk_params : tuple of (str or None, str or None, str or None)
+        ``(serial_number, sdk_folder_path, acfg_path)`` for the native SDK
+        backend. Each value falls back to the corresponding key of the
+        ``Alpao{nacts}`` configuration block when ``None``. Only used when
+        *plico_params* does not request the plico backend.
+    plico_params : tuple of (bool, str or None, int or None)
+        ``(use_plico, plico_ip, plico_port)``. When *use_plico* is ``True``,
+        the mirror connects through ``plico_dm`` instead of the native SDK,
+        using *plico_ip*/*plico_port* or the ``plico_ip``/``plico_port`` keys
+        of the ``Alpao{nacts}`` configuration block.
 
     Notes
     -----
     The ``asdk`` module is imported lazily inside :meth:`_init_sdk` so
     that the rest of the package can be used on systems where the
-    Alpao SDK is not installed.
+    Alpao SDK is not installed. Likewise, ``plico_dm`` is imported lazily
+    inside :meth:`_init_plico`.
     """
 
     def __init__(
         self,
-        serial_number: str | None,
-        n_acts: int | str | None,
-        use_plico: bool = False
+        nacts: int | str,
+        sdk_params: tuple[str | None, str | None, str | None] | None,
+        plico_params: tuple[bool, str | None, int | None] | None,
     ) -> None:
         """
-        Initialise the mirror, connecting to the SDK and loading the
-        actuator layout.
+        Initialise the mirror, connecting to the SDK or ``plico_dm`` backend
+        and loading the actuator layout.
 
         Parameters
         ----------
-        serial_number : str or None
-            Hardware serial number.  ``None`` if *n_acts* is provided
-            and the serial number will be read from the config file.
-        n_acts : int, str or None
-            Number of actuators.  ``None`` if *serial_number* is
-            provided directly.
+        nacts : int or str
+            Number of actuators of the DM. Used to resolve the
+            ``Alpao{nacts}`` configuration block for whichever backend is
+            selected, and to validate the actuator count reported back once
+            connected (a :class:`RuntimeWarning` is emitted on mismatch).
+        sdk_params : tuple of (str or None, str or None, str or None)
+            ``(serial_number, sdk_folder_path, acfg_path)`` for the native
+            SDK backend. Ignored when the plico backend is requested. See
+            :meth:`_init_sdk`/:meth:`_resolve_init`.
+        plico_params : tuple of (bool, str or None, int or None)
+            ``(use_plico, plico_ip, plico_port)``. If *use_plico* is
+            ``True``, the ``plico_dm`` backend is used instead of the native
+            SDK. See :meth:`_init_plico`/:meth:`_resolve_init`.
 
         Raises
         ------
-        ValueError
-            If neither *serial_number* nor *nacts* is provided.
+        RuntimeError
+            If the required connection parameters for the selected backend
+            (``serial_number``/``acfg_path`` for the SDK backend, or
+            ``plico_ip``/``plico_port`` for the plico backend) are not
+            provided either at runtime or in the configuration file.
         ModuleNotFoundError
-            If the ``asdk`` module (Alpao SDK) is not installed.
+            If the ``asdk`` module (Alpao SDK) or the ``plico_dm`` module is
+            not installed, depending on the selected backend.
         Exception
-            Any hardware-level exception raised by ``asdk.DM()`` on
-            connection failure is propagated to the caller.
+            Any hardware-level exception raised by the underlying backend
+            on connection failure is propagated to the caller.
         """
         self._dmCoords = {
             "dm88": [6, 8, 10],
@@ -71,13 +108,24 @@ class BaseAlpaoMirror:
             "dm468": [8, 12, 16, 18, 20, 20, 22, 22, 24],
             "dm820": [10, 14, 18, 20, 22, 24, 26, 28, 28, 30, 30, 32],
         }
-        if use_plico:
-            self._init_plico(n_acts)
-        else:
-            self._init_sdk(serial_number, n_acts)
-        self.n_acts = int(self._sdk_dm.Get("NbOfActuator"))
+        self._name = f"Alpao{nacts}"
+        self._resolve_init(sdk_params, plico_params)
+        self._is_plico = bool(plico_params[0])
+
+        self.n_acts = int(
+            self._plico_dm.get_number_of_actuators()
+        ) if self._is_plico else int(self._sdk_dm.Get("NbOfActuator"))
+        
+        if self.n_acts != int(nacts):
+            import warnings
+            warnings.warn(
+                f"Number of actuators reported by the SDK ({self.n_acts}) "
+                f"does not match the called number ({nacts}). Verify your BAX files",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+
         self._last_cmd: _t.ArrayLike = _np.zeros(self.n_acts)
-        self._name = f"Alpao{self.n_acts}"
         self.act_coord = self._init_act_coord()
         self.diameter = get_section_config("DEVICES", "DEFORMABLE.MIRRORS")[
             self._name
@@ -128,7 +176,10 @@ class BaseAlpaoMirror:
                 f"Command length {cmd.size} does not match the number "
                 f"of actuators ({self.n_acts})."
             )
-        self._sdk_dm.Send(cmd)
+        if self._is_plico:
+            self._plico_dm.set_shape(cmd)
+        else:
+            self._sdk_dm.Send(cmd)
         self._last_cmd = cmd.copy()
 
     def get_version(self) -> int:
@@ -140,20 +191,24 @@ class BaseAlpaoMirror:
         int
             Integer version code.
         """
-        return int(self._sdk_dm.Get("VersionInfo"))
+        if not self._is_plico:
+            return int(self._sdk_dm.Get("VersionInfo"))
+        else:
+            raise AttributeError("Version information is not available for PLICO devices.")
 
-    def deinitialize(self) -> None:
+    def close(self) -> None:
         """
-        Stop the DM and release hardware resources.
+        Stop the DM (and Reset it if ``reset_on_close``) and release the hardware
+        resources. 
 
         Should be called when the DM object is no longer needed to
         ensure a clean shutdown of the Alpao SDK connection.
         Does nothing if the SDK handle was never successfully created.
         """
-        if not hasattr(self, "_sdk_dm"):
-            return
-        self._sdk_dm.Stop()
-        self._sdk_dm.Reset()
+        finalizer = getattr(self, "_finalizer", None)
+        if finalizer is not None and finalizer.alive:
+            finalizer()
+        self._sdk_dm = None
 
     # ------------------------------------------------------------------
     # Higher-level helpers
@@ -254,10 +309,41 @@ class BaseAlpaoMirror:
         self.act_coord = _np.array([cx, cy])
         return self.act_coord
 
+    def _resolve_init(
+        self,
+        sdk_params: tuple[str|None, str|None, str|None],
+        plico_params: tuple[str|None, str|None, int|None]
+    ):
+        sn, sdk_fold, acfg_p = sdk_params
+        plico, plico_ip, plico_port = plico_params
+
+        config = get_section_config(
+            "DEVICES", "DEFORMABLE.MIRRORS"
+        ).get(self._name, {})
+
+        if plico:
+            self._plico_ip = config.get("plico_ip", plico_ip)
+            self._plico_port = config.get("plico_port", plico_port)
+            if all([self._plico_ip is None, self._plico_port is None]):
+                raise RuntimeError(
+                    "For the 'plico_dm' backend IP and PORT must be either provided at runtime or specified in the configuration file."
+                )
+            self._init_plico()
+        else:
+            bax = config.get("serial_number", sn)
+            sdkf = config.get("sdk_folder_path", sdk_fold)
+            acfg = config.get("acfg_path", acfg_p)
+            if any([bax is None, acfg is None]):
+                raise RuntimeError(
+                    "For the 'asdk' backend, 'serial number' and 'ACFG' path must be either provided at runtime or specified in the configuration file."
+                )
+            self._init_sdk(bax, sdkf, acfg)
+
     def _init_sdk(
         self,
-        serial_number: str | None,
-        nacts: int | str | None,
+        serial_number: str,
+        sdk_folder_path: str,
+        acfg_path: str,
     ) -> None:
         """
         Connect to the Alpao SDK and store the raw DM handle.
@@ -278,11 +364,12 @@ class BaseAlpaoMirror:
 
         Parameters
         ----------
-        serial_number : str or None
+        serial_number : str
             Hardware serial number supplied directly by the caller.
-        nacts : int, str or None
-            Number of actuators used to look up the configuration when
-            *serial_number* is ``None``.
+        sdk_folder_path : str
+            Path to the SDK folder containing Lib64/ (e.g. .../Linux/Samples/Python3).
+        acfg_path : str
+            Path to the .acfg hardware configuration file (sets ACECFG environment variable).
 
         Raises
         ------
@@ -297,32 +384,22 @@ class BaseAlpaoMirror:
         import sys
         from ...core.root import CONFIGURATION_FOLDER
 
-        if serial_number is None and nacts is None:
-            raise RuntimeError("Either 'serial_number' or 'nacts' must be provided.")
-
-        # Config lookup is only possible when nacts is known.
-        config: dict = {}
-        if nacts is not None:
-            name = f"Alpao{int(nacts)}"
-            config = get_section_config("DEVICES", "DEFORMABLE.MIRRORS")[name]
-            serial_number = config.get("serialNumber", serial_number)
-
         self.serial_number = serial_number
-        sdkp = config.get("sdk_folder_path", None)
-        acfg = config.get("acfg_path", None)
+        self.sdk_folder_path = sdk_folder_path
+        self.acfg_path = acfg_path
 
         # Set the ACECFG environment variable so the native libasdk.so can
         # locate the .acfg hardware-configuration file (contains IP, port,
         # etc.).  If not set here the caller must have ACECFG in the
         # environment already.
-        if acfg is not None:
-            os.environ["ACECFG"] = acfg
+        if self.acfg_path is not None:
+            os.environ["ACECFG"] = self.acfg_path
 
         try:
-            sdk_path = sdkp or os.path.join(CONFIGURATION_FOLDER, "alpao_sdk")
+            sdk_path = self.sdk_folder_path or os.path.join(CONFIGURATION_FOLDER, "alpao_sdk")
 
-            if sdkp is not None and not os.path.exists(sdkp):
-                sdk_path = os.path.join(CONFIGURATION_FOLDER, sdkp)
+            if self.sdk_folder_path is not None and not os.path.exists(self.sdk_folder_path):
+                sdk_path = os.path.join(CONFIGURATION_FOLDER, self.sdk_folder_path)
 
             if not os.path.exists(sdk_path):
                 raise FileNotFoundError(
@@ -334,7 +411,6 @@ class BaseAlpaoMirror:
                 )
 
             sys.path.insert(0, sdk_path)
-
             from Lib64 import asdk  # type: ignore
 
         except ModuleNotFoundError as e:
@@ -345,26 +421,37 @@ class BaseAlpaoMirror:
             ) from e
 
         self._sdk_dm = asdk.DM(serial_number)
-        self._sdk_dm.Reset()
-
-    def _init_plico(
-        self, nacts: int | str | None
-    ) -> object:
+        self._finalizer = weakref.finalize(
+            self,
+            _shutdown_dm,
+            self._sdk_dm,
+            getattr(self, "_reset_on_close", False),
+            self._logger,
+            self._name,
+        )
         try:
-            import plico_dm
+            self._sdk_dm.Set("ResetOnClose", int(bool(self._reset_on_close)))
+        except Exception as e:
+            self._logger.error(f"Failed to set 'ResetOnClose' property: {e}")
+        if self._reset_on_startup:
+            self._sdk_dm.Reset()
+
+    def _init_plico(self) -> object:
+        """
+        Initialize the Plico deformable mirror interface.
+
+        Returns
+        -------
+        object
+            An instance of the Plico deformable mirror.
+        """
+        try:
+            import plico_dm  # type: ignore
         except ModuleNotFoundError as e:
             raise ModuleNotFoundError(
                 "The 'plico_dm' module could not be imported. "
                 "Ensure it is installed and available in the Python environment."
             ) from e
 
-        if nacts is not None:
-            config = get_section_config("DEVICES", "DEFORMABLE.MIRRORS")[
-            self._name
-        ]
-            self.ip, self.port = config.get("ip"), config.get("port")
-        else:
-            raise ValueError("nacts must be provided.")
-        if all(v is None for v in (self.ip, self.port)):
-            raise ValueError("IP and port must be provided in the configuration for plico backend to work.")
-        return plico_dm.deformableMirror(self.ip, self.port)
+        self.serial_number = None
+        self._plico_dm = plico_dm.deformableMirror(self._plico_ip, self._plico_port)

@@ -267,6 +267,7 @@ def array_str_formatter(array: ArrayLike | list[ArrayLike]) -> str | list[str]:
 ## Custom `isinstance` checks ##
 ################################
 
+
 class InstanceCheck:
     """
     A class to check if an object is an instance of a specific type.
@@ -442,6 +443,7 @@ isinstance_ = InstanceCheck.isinstance_
 ######################
 ## Helper Functions ##
 ######################
+
 
 def get_device_type(device: object) -> str:
     if isinstance_(device, "InterferometerDevice"):

@@ -14,9 +14,7 @@ deformable mirrors, INGO-T WFS, and Allied Vision GigE cameras.
 """
 
 from .interferometer import PhaseCam, AccuFiz, Processer4D
-from .deformable_mirrors import (
-  SplattDm, AlpaoDm, AdOpticaDm, DP, M4AU, PetalMirror
-)
+from .deformable_mirrors import SplattDm, AlpaoDm, AdOpticaDm, DP, M4AU, PetalMirror
 from .wfs import Ingot
 from .cameras import GigaVision
 

@@ -5,10 +5,10 @@ from pipython.pidevice.interfaces.pisocket import PISocket
 from opticalib.core import config as _rc
 from opticalib.core.exceptions import CommandError
 
-_CMDLIMITS = { # temporary limits to overcome the hardware connection refusal
-    0: [0,12],
-    1: [-200,200],
-    2: [-200,200],
+_CMDLIMITS = {  # temporary limits to overcome the hardware connection refusal
+    0: [0, 12],
+    1: [-200, 200],
+    2: [-200, 200],
 }
 
 
@@ -57,7 +57,6 @@ class BasePetalMirror:
             self._logger.info("All connections to petal mirror segments established")
             self._check_servos()
             self._morning_routine()
-
 
     @property
     def slave_ids(self):
@@ -199,7 +198,7 @@ class BasePetalMirror:
             self._logger.error(f"Error sending mirror command: {err}")
             self._had_error = True
             raise RuntimeError("Failed to send mirror command") from err
-    
+
     def _check_cmd_integrity(self, cmd: _ot.ArrayLike) -> None:
         """
         Check the integrity of the command array.
@@ -230,10 +229,8 @@ class BasePetalMirror:
         pos = self._read_act_position()
         try:
             if not self._had_morning_routine:
-                self._logger.info(
-                    f"Warming up the segments piezos."
-                )
-                routine = [0,6,12,6]*4
+                self._logger.info(f"Warming up the segments piezos.")
+                routine = [0, 6, 12, 6] * 4
                 for c in routine:
                     for dev in self._devices:
                         dev.MOV({"1": c})
