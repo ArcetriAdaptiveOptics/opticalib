@@ -453,5 +453,5 @@ class BaseAlpaoMirror:
                 "Ensure it is installed and available in the Python environment."
             ) from e
 
-self.serial_number = None
-self._plico_dm = plico_dm.deformableMirror(self._plico_ip, self._plico_port)
+        self.serial_number = None
+        self._plico_dm = plico_dm.deformableMirror(self._plico_ip, self._plico_port)
