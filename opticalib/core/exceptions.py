@@ -1,5 +1,13 @@
 """
-This module defines custom exceptions used in the opticalib system.
+Custom exceptions — OptiCalib error hierarchy
+=============================================
+
+Exception classes for predictable error conditions: missing devices,
+failed configuration lookups, singular matrices, timeouts, and invalid
+command vectors.  All inherit from Python's built-in :class:`Exception`
+so they can be caught with a single ``except opticalib.core.exceptions.*``
+clause if needed.
+
 """
 
 

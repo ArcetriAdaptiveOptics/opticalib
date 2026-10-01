@@ -5,6 +5,12 @@ from pipython.pidevice.interfaces.pisocket import PISocket
 from opticalib.core import config as _rc
 from opticalib.core.exceptions import CommandError
 
+_CMDLIMITS = {  # temporary limits to overcome the hardware connection refusal
+    0: [0, 12],
+    1: [-200, 200],
+    2: [-200, 200],
+}
+
 
 class BasePetalMirror:
     """
@@ -51,7 +57,6 @@ class BasePetalMirror:
             self._logger.info("All connections to petal mirror segments established")
             self._check_servos()
             self._morning_routine()
-
 
     @property
     def slave_ids(self):
@@ -116,7 +121,7 @@ class BasePetalMirror:
 
         Returns
         -------
-        np.ndarray
+        numpy.ndarray
             An array containing the positions of all actuators.
         """
         self._check_axes()
@@ -141,7 +146,7 @@ class BasePetalMirror:
 
         Returns
         -------
-        np.ndarray
+        numpy.ndarray
             An array containing the last command for all actuators.
         """
         self._check_axes()
@@ -179,6 +184,7 @@ class BasePetalMirror:
             cmd = cmd.copy() + self._get_last_cmd()
 
         self._check_axes()
+        self._check_cmd_integrity(cmd)
         try:
             for k, dev in enumerate(self._devices):
                 self._logger.info(
@@ -193,6 +199,25 @@ class BasePetalMirror:
             self._had_error = True
             raise RuntimeError("Failed to send mirror command") from err
 
+    def _check_cmd_integrity(self, cmd: _ot.ArrayLike) -> None:
+        """
+        Check the integrity of the command array.
+
+        Parameters
+        ----------
+        cmd: _ot.ArrayLike
+            An array of commands for the actuators.
+
+        Raises
+        ------
+        CommandError
+            If any command is outside the allowed limits.
+        """
+        for k in self.nSegments:
+            for ax, c in enumerate(cmd[k * 3 : k * 3 + 3]):
+                if not (_CMDLIMITS[ax][0] <= c <= _CMDLIMITS[ax][1]):
+                    raise CommandError(f"Command for actuator {ax} out of bounds: {c}")
+
     def _morning_routine(self) -> None:
         """
         On system startup, this will warm up the piezos by moving the piston
@@ -204,10 +229,8 @@ class BasePetalMirror:
         pos = self._read_act_position()
         try:
             if not self._had_morning_routine:
-                self._logger.info(
-                    f"Warming up the segments piezos."
-                )
-                routine = [0,6,12,6]*4
+                self._logger.info(f"Warming up the segments piezos.")
+                routine = [0, 6, 12, 6] * 4
                 for c in routine:
                     for dev in self._devices:
                         dev.MOV({"1": c})
@@ -267,6 +290,7 @@ class BasePetalMirror:
     def _enable_axes(self) -> None:
         """
         Enable axes.
+
         - GCS3: use EAX/qEAX.
         - GCS2 fallback: use SVO/qSVO (servo on).
         """

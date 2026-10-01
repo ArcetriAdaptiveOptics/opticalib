@@ -40,15 +40,6 @@ def _apply_slaving(
 class PetalMirror(BaseFakePTL):
     """
     Simulator for the petal deformable mirror.
-
-    Methods
-    -------
-    set_shape(command, differential=False, modal=False)
-        Applies the given command to the deformable mirror.
-    get_shape()
-        Returns the current amplitudes commanded to the dm's actuators.
-    visualize_shape(cmd=None)
-        Visualizes the command amplitudes on the mirror's actuators.
     """
 
     def __init__(self, **kwargs: dict[str, _t.Any]):
@@ -68,7 +59,7 @@ class PetalMirror(BaseFakePTL):
 
         Returns
         -------
-        np.array
+        numpy.ndarray
             List of slave actuator IDs.
         """
         return self._slaveIds
@@ -80,7 +71,7 @@ class PetalMirror(BaseFakePTL):
 
         Returns
         -------
-        np.array
+        numpy.ndarray
             List of border actuator IDs.
         """
         return self._borderIds
@@ -103,7 +94,7 @@ class PetalMirror(BaseFakePTL):
 
         Parameters
         ----------
-        command : np.array
+        command : numpy.ndarray
             Command to be applied to the deformable mirror.
 
         differential : bool
@@ -122,7 +113,7 @@ class PetalMirror(BaseFakePTL):
 
         Returns
         -------
-        np.array
+        numpy.ndarray
             Current amplitudes commanded to the dm's actuators.
         """
         return self._n2modes(self._actPos.copy()) / np.tile(self._unit_calib, 6)
@@ -139,7 +130,7 @@ class PetalMirror(BaseFakePTL):
 
     def run_cmd_history(
         self,
-        wfs: _t.Optional[_t.InterferometerDevice|_t.WFSDevice] = None,
+        wfs: _t.Optional[_t.InterferometerDevice | _t.WFSDevice] = None,
         save: str = None,
         rebin: int = 1,
         differential: bool = True,
@@ -208,7 +199,7 @@ class PetalMirror(BaseFakePTL):
 
         Returns
         -------
-        np.array
+        numpy.ndarray
             Processed shape based on the command.
         """
         if cmd is None:
@@ -244,7 +235,7 @@ class AlpaoDm(BaseFakeAlpao):
 
         Returns
         -------
-        np.array
+        numpy.ndarray
             List of slave actuator IDs.
         """
         return self._slaveIds
@@ -256,7 +247,7 @@ class AlpaoDm(BaseFakeAlpao):
 
         Returns
         -------
-        np.array
+        numpy.ndarray
             List of border actuator IDs.
         """
         return self._borderIds
@@ -274,7 +265,7 @@ class AlpaoDm(BaseFakeAlpao):
 
         Parameters
         ----------
-        command : np.array
+        command : numpy.ndarray
             Command to be applied to the deformable mirror.
 
         differential : bool
@@ -294,7 +285,7 @@ class AlpaoDm(BaseFakeAlpao):
 
         Returns
         -------
-        np.array
+        numpy.ndarray
             Current amplitudes commanded to the dm's actuators.
         """
         return self._actPos.copy()
@@ -393,7 +384,7 @@ class AlpaoDm(BaseFakeAlpao):
 
         Returns
         -------
-        np.array
+        numpy.ndarray
             Processed shape based on the command.
         """
         plt.figure(figsize=(7, 6))
@@ -431,7 +422,7 @@ class AlpaoDm(BaseFakeAlpao):
 
         Parameters
         ----------
-        cmd : np.array
+        cmd : numpy.ndarray
             Command to be processed by the deformable mirror.
         diff : bool
             If True, process the command differentially.
@@ -440,7 +431,7 @@ class AlpaoDm(BaseFakeAlpao):
 
         Returns
         -------
-        np.array
+        numpy.ndarray
             Processed shape based on the command.
         """
         if modal:
@@ -461,6 +452,7 @@ class AlpaoDm(BaseFakeAlpao):
         ----------
         **kwargs : dict, optional
             Additional keyword arguments for customization.
+
             - zernike : int ,
                 Zernike mode to be removed from the wavefront.
             - surf : bool ,
@@ -471,7 +463,7 @@ class AlpaoDm(BaseFakeAlpao):
 
         Returns
         -------
-        wf : np.array
+        wf : numpy.ndarray
             Phase map of the interferometer.
         """
         zernike = kwargs.get("zernike", None)
@@ -496,7 +488,7 @@ class AlpaoDm(BaseFakeAlpao):
 
         Returns
         -------
-        np.array
+        numpy.ndarray
             Random shape for the deformable mirror.
         """
         try:
@@ -534,19 +526,6 @@ class AlpaoDm(BaseFakeAlpao):
 class DP(BaseFakeDp):
     """
     Simulator for the AdOptica Deformable Prototype (DP).
-
-    Methods
-    -------
-    set_shape(command, differential=False, modal=False)
-        Applies the given command to the deformable mirror.
-    get_shape()
-        Returns the current amplitudes commanded to the dm's actuators.
-    upload_cmd_history(cmdhist)
-        Upload the command history to the deformable mirror memory.
-    run_cmd_history(wfs=None, save=None, rebin=1, modal=False, differential=True, delay=0)
-        Runs the command history on the deformable mirror.
-    visualize_shape(cmd=None)
-        Visualizes the command amplitudes on the mirror's actuators.
     """
 
     def __init__(self, **kwargs: dict[str, _t.Any]):
@@ -573,7 +552,7 @@ class DP(BaseFakeDp):
 
         Parameters
         ----------
-        command : np.array
+        command : numpy.ndarray
             Command to be applied to the deformable mirror.
 
         differential : bool
@@ -592,7 +571,7 @@ class DP(BaseFakeDp):
 
         Returns
         -------
-        np.array
+        numpy.ndarray
             Current amplitudes commanded to the dm's actuators.
         """
         cmd = np.concatenate((self._actPos[0], self._actPos[1]))
@@ -610,7 +589,7 @@ class DP(BaseFakeDp):
 
     def run_cmd_history(
         self,
-        wfs: _t.Optional[_t.InterferometerDevice|_t.WFSDevice] = None,
+        wfs: _t.Optional[_t.InterferometerDevice | _t.WFSDevice] = None,
         save: str = None,
         rebin: int = 1,
         modal: bool = False,
@@ -677,7 +656,7 @@ class DP(BaseFakeDp):
 
         Returns
         -------
-        np.array
+        numpy.ndarray
             Processed shape based on the command.
         """
         size = kwargs.pop("s", (120 * 97) / self.n_acts)
@@ -734,7 +713,7 @@ class M4AU(BaseFakeM4):
 
         Parameters
         ----------
-        command : np.array
+        command : numpy.ndarray
             Command to be applied to the deformable mirror.
 
         differential : bool
@@ -753,7 +732,7 @@ class M4AU(BaseFakeM4):
 
         Returns
         -------
-        np.array
+        numpy.ndarray
             Current amplitudes commanded to the dm's actuators.
         """
         return self._actPos.copy()
@@ -770,7 +749,7 @@ class M4AU(BaseFakeM4):
 
         Returns
         -------
-        np.array
+        numpy.ndarray
             Processed shape based on the command.
         """
         size = kwargs.pop("s", (120 * 97) / self.n_acts)
@@ -813,7 +792,7 @@ class M4AU(BaseFakeM4):
 
     def run_cmd_history(
         self,
-        wfs: _t.Optional[_t.InterferometerDevice|_t.WFSDevice] = None,
+        wfs: _t.Optional[_t.InterferometerDevice | _t.WFSDevice] = None,
         save: str = None,
         rebin: int = 1,
         modal: bool = False,

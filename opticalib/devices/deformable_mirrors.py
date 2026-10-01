@@ -1,14 +1,14 @@
 """
-DEFORMABLE MIRRORS
-==================
-This module contains the classes for the high-level use of deformable mirrors.
+Deformable mirror drivers — Alpao, SPLATT, AdOptica, DP, M4AU and PetalMirror
+=============================================================================
 
-Author(s)
----------
-- Pietro Ferraiuolo : written in 2025
+High-level classes for deformable mirrors from various vendors.  Each
+class inherits from :class:`~opticalib.devices._API.base_devices.BaseDeformableMirror`,
+which provides configuration lookup, command clamping, logging and data
+filing — so only vendor-specific communication is implemented here.
 
-Description
------------
+Low-level SDK interaction is delegated to modules under
+``opticalib.devices._API``.
 
 """
 
@@ -166,6 +166,24 @@ class PetalMirror(BasePetalMirror, BaseDeformableMirror):
             # Return to starting position
             self.set_shape(s)
             return tn
+
+    def disable_servos(self):
+        """
+        Disables the servos for all segments.
+        """
+        for k, dev in enumerate(self._devices):
+            self._logger.info(f"Disabling servos for segment {k}")
+            dev.SVO({"1": 0, "2": 0, "3": 0})
+            dev.checkerror()
+
+    def enable_servos(self):
+        """
+        Enables the servos for all segments.
+        """
+        for k, dev in enumerate(self._devices):
+            self._logger.info(f"Enabling servos for segment {k}")
+            dev.SVO({"1": 1, "2": 1, "3": 1})
+            dev.checkerror()
 
 
 from ._API.micAPI import BaseAdOpticaDm
@@ -484,7 +502,7 @@ class DP(AdOpticaDm):
         ------
         dict
             A dictionary that will be populated with buffer results
-            
+
 
         Example
         -------
@@ -611,44 +629,82 @@ class AlpaoDm(BaseAlpaoMirror, BaseDeformableMirror):
     """
     Alpao Deformable Mirror interface.
 
-    Communicates with the hardware directly via the Alpao SDK
-    (``asdk`` module) through :class:`~opticalib.devices._API.alpaoAPI.BaseAlpaoMirror`.
+    Communicates with the hardware either directly via the Alpao SDK
+    (``asdk`` module) or through the ``plico_dm`` backend, via
+    :class:`~opticalib.devices._API.alpaoAPI.BaseAlpaoMirror`.
 
     Parameters
     ----------
-    nacts : int or str, optional
-        Number of actuators.  Used to look up the device serial number
-        in the configuration file when *serial_number* is not given.
+    nacts : int or str
+        Number of actuators of the DM. Required: it is used to resolve the
+        ``Alpao{nacts}`` block in the configuration file (where
+        ``serial_number``/``sdk_folder_path``/``acfg_path`` or
+        ``plico_ip``/``plico_port`` may be defined), and to validate the
+        actuator count reported back once connected.
     serial_number : str, optional
-        Hardware serial number of the DM (e.g. ``"BAXXX"``).
-        If ``None``, *nacts* must be provided so that the serial
-        number can be retrieved from the configuration file.
+        Hardware serial number of the DM (e.g. ``"BAXXX"``), for the native
+        SDK backend. If ``None``, it is read from the ``Alpao{nacts}``
+        configuration block. Ignored when *use_plico* is ``True``.
     """
 
     def __init__(
         self,
-        nacts: _ot.Optional[int | str] = None,
+        nacts: int | str,
         serial_number: _ot.Optional[str] = None,
-        use_plico: bool = False
+        sdk_folder_path: str | None = None,
+        acfg_path: str | None = None,
+        use_plico: bool = False,
+        plico_ip: str | None = None,
+        plico_port: int | None = None,
+        *,
+        reset_on_startup: bool = True,
+        reset_on_close: bool = False,
     ):
         """
         Initialise the Alpao DM hardware connection.
 
+        It can either be connected directly through the Alpao SDK, or via the
+        ``plico_dm`` backend.
 
         Parameters
         ----------
-        nacts : int or str, optional
-            Number of actuators. If provided, it is used to look up the device
-            serial number in the configuration file when *serial_number* is not
-            given. If *serial_number* is provided, this argument is ignored.
+        nacts : int or str
+            Number of actuators. Required: it is used to look up the device
+            in the configuration file (block ``Alpao{nacts}``), where
+            ``serial_number``, ``sdk_folder_path`` and ``acfg_path`` (SDK
+            backend) or ``plico_ip`` and ``plico_port`` (plico backend) may
+            be defined.
         serial_number : str, optional
-            Hardware serial number of the DM. If not provided, *nacts* must be
-            given so that the serial number can be retrieved from the
-            configuration file.
+            Hardware serial number of the DM, for the native SDK backend. If
+            not provided, it is read from the ``Alpao{nacts}`` block of the
+            configuration file. Ignored when *use_plico* is ``True``.
+        sdk_folder_path : str, optional
+            Path to the Alpao SDK folder. Falls back to the ``Alpao{nacts}``
+            configuration block when not given.
+        acfg_path : str, optional
+            Path to the Alpao configuration file. Required (directly or via
+            the ``Alpao{nacts}`` configuration block) for the SDK backend.
+        use_plico : bool, optional
+            Whether to use the Plico backend for the DM connection. Default is False.
+        plico_ip : str, optional
+            IP address for the Plico backend. Required if *use_plico* is True.
+        plico_port : int, optional
+            Port for the Plico backend. Required if *use_plico* is True.
+        reset_on_startup : bool, optional
+            Whether to reset the DM to zero position on startup. Default is True.
+        reset_on_close : bool, optional
+            Whether to reset the DM to zero position on close. Default is False.
         """
         self._logger = _SL(the_class=__class__)
-        super().__init__(serial_number, nacts, use_plico)
-        self.set_zeros_to_acts()
+        self._reset_on_close = bool(reset_on_close)
+        self._reset_on_startup = bool(reset_on_startup)
+        super().__init__(
+            nacts,
+            (serial_number, sdk_folder_path, acfg_path),
+            (use_plico, plico_ip, plico_port),
+        )
+        if self._reset_on_startup:
+            self.set_zeros_to_acts()
         self.is_segmented = False
         try:
             dm_config = _rc.get_device_config("DEFORMABLE.MIRRORS", self._name)
@@ -685,7 +741,7 @@ class AlpaoDm(BaseAlpaoMirror, BaseDeformableMirror):
 
         Parameters
         ----------
-        cmd : np.array
+        cmd : numpy.ndarray
             Command to be applied to the actuators.
         differential : bool, optional
             If True, the command is applied differentially (added to the current shape).
@@ -715,7 +771,7 @@ class AlpaoDm(BaseAlpaoMirror, BaseDeformableMirror):
 
         Parameters
         ----------
-        tcmdhist : np.array
+        tcmdhist : numpy.ndarray
             Command history to be uploaded. Should be a 2D matrix of shape
             (nacts, nmodes).
         slave : bool | str, optional
@@ -820,7 +876,7 @@ class AlpaoDm(BaseAlpaoMirror, BaseDeformableMirror):
 
         Returns
         -------
-        np.array
+        numpy.ndarray
             Processed shape based on the command.
         """
         from matplotlib import pyplot as plt

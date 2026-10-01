@@ -1,0 +1,220 @@
+######################################
+## Configuration file for Opticalib ##
+######################################
+#
+# ---------------------------------------------------------------------------
+# DOCS BUILD STUB -- do not use on a real optical bench.
+#
+# Verbatim copy of opticalib/core/_configurations/configuration.yaml, kept here
+# because that file is listed in .gitignore and therefore absent from a fresh
+# clone (which is exactly what Read the Docs builds from).
+#
+# opticalib/core/root.py opens the configuration file at *import time*
+# (root.py:147), so without a readable template ``import opticalib`` raises
+# FileNotFoundError and every autodoc page comes out empty.
+#
+# docs/conf.py copies this file to a temporary directory, points
+# SYSTEM.data_path at it, and exports the result as AOCONF before importing
+# opticalib.  Keeping data_path empty here means the build never writes into
+# the developer's ~/.opticalib.
+#
+# If the shipped template changes, refresh this copy:
+#   cp opticalib/core/_configurations/configuration.yaml \
+#      docs/_stubs/configuration.yaml
+# ---------------------------------------------------------------------------
+
+SYSTEM:
+  data_path: ''
+
+## Devices configuration ##
+# In this section you can add the configuration of your devices.
+# Follow the examples provided below, as they show the type of
+# devices implemented as of now.
+DEVICES:
+  # In the wavefront sensor section can be defined any Wavefront sensor used to
+  # acquire phase maps.
+  WFS: 
+    INGOT:
+      camera: CAMERAS:GigaVision
+      camera_base_exptime: 2000 #in ms
+      camera_binning: 2
+      subapertures: 258
+      n_pupils: 3
+      pupils_centers:
+        - [0, 0]
+        - [0, 0]
+        - [0, 0]
+
+  INTERFEROMETERS:
+    PhaseCamX:
+      ip: 
+      port: 
+      Paths:
+        settings: 
+        copied_settings: 
+        capture_4dpc: 
+        produce_4dpc: 
+        produce: 
+        capture: 
+    AccuFizX:
+      ip: 
+      port: 
+      Paths:
+        settings: 
+        copied_settings: 
+        capture_4dpc: 
+        produce_4dpc: 
+        produce: 
+        capture: 
+    4DProcesser1:
+      ip: 
+      port:
+      Paths:
+        settings:        
+        copied_settings: 
+        capture_4dpc: 
+        produce_4dpc: 
+        produce: 
+        capture: 
+  
+  # The deformable mirrors section can be used to define wavefront correctors of
+  # the system, such as DMs, SLMs, etc.
+  DEFORMABLE.MIRRORS:
+    AlpaoXXX:
+      # AlpaoDM serial number, BAX<YYY>
+      serialNumber: 
+      # Parent folder containing Lib64/ (e.g. .../Linux/Samples/Python3)
+      sdk_folder_path: 
+      # Folder containing the .acfg hardware config file (sets ACECFG env var)
+      acfg_path: 
+      diameter: 
+      slave_ids: []
+      border_ids: []
+    PetalDM:
+      ip0: 
+      ip1: 
+      ip2: 
+      ip3: 
+      ip4: 
+      ip5: 
+      slave_ids: []
+      border_ids: []
+
+  # The cameras section can be used to define any kind of scientific CCD 
+  CAMERAS:
+    GigaVision: # example camera
+      id: DEV_000F314DE425
+      ip: 
+  
+# The motor devices usually use the `plico_motor` interface, as their SDK is 
+# not implemented in Linux.
+  MOTORS:
+    TunableFilter:
+      ip: 
+      port: 
+    
+
+# Here you can specify what you expect to see in the frame of a SPL phasing sensor
+# which is usually a camera plus a tunable filter (to be defined in the DEVICES
+# section)
+PHASING:
+  camera: CAMERAS:GigaVision
+  filter: MOTORS:TunableFilter
+  expected_psfs: 6
+  psfs_angles: [0, -60, 60, -120, 120, 180] # degrees, w.r.t. the horizontal axis of the camera
+  expected_psfs_pos: # expected coordinates of the PSFs, ordered as the angles. This is to better identify the correct centroids.
+  - []
+  - []
+  - []
+  - []
+  - []
+  - []
+  initial_crop_half_size: 150 # pixels, to be used for the first PSF detection, then refined with a photometric centroid detection
+  crop_half_size: [75, 23] # pixels, final crop. If list, is y,x
+  min_px_threshold: 30  # minimum number of pixels above the threshold to consider a PSF as detected
+  sigma_threshold: 2.0  # number of sigma above the background to use as threshold for the detection
+
+## Influence functions configuration ##
+# Here you can set the parameters for the influence functions
+# data acquisition and processing.
+INFLUENCE.FUNCTIONS:
+  timing: 1
+  sequential_delay: 0.0
+  triggered_mode: # if not using triggerMode, put false and comment next 2 lines (for Microgate DMs)
+    frequency: 5.
+    cmd_delay: 0.0
+  TRIGGER:
+    trailing_zeros: 0
+    modes_list: []
+    amplitude: 0.05
+    template: []
+    modal_base: hadamard
+  REGISTRATION:
+    trailing_zeros: 0
+    modes_list: []
+    amplitude: 0.1
+    template: []
+    modal_base: zonal
+  IFFUNC:
+    trailing_zeros: 0
+    padding_zeros: 5
+    modes_list: np.arange(0,88,1)
+    amplitude: 0.05
+    template: [1, -1, 1]
+    shuffle: false
+    n_repetitions: 1
+    modal_base: zonal
+
+## Stitching configuration ##
+# Here you can set the parameters for the stitching procedure.
+STITCHING:
+  pixel_scale: 0.09095 # mm/px
+  alpha: 0 # degrees
+  starting_coords: [0, 0] # motors position in mm
+  home_coords: [0, 0] # motors position in mm
+
+## System alignment configuration ##
+# Here you can set the parameters for the system optical 
+# alignment procedure.
+# Filled, as example, with M4 OTT configuration
+SYSTEM.ALIGNMENT:
+  names:
+  - Parabola
+  - Reference Mirror
+  - M4 Exapode
+
+  devices_move_calls:
+  - parabola.setPosition
+  - referenceMirror.setPosition
+  - m4Exapode.setPosition
+
+  devices_read_calls:
+  - parabola.getPosition
+  - referenceMirror.getPosition
+  - m4Exapode.getPosition
+
+  ccd_acquisition:
+  - acquire_map
+
+  devices_dof: 6
+
+  dof:
+  - [2, 3, 4]        # Parabola DoF
+  - [3, 4]           # Reference Mirror DoF
+  - [3, 4]           # M4 Exapode DoF
+
+  slices:
+    # Parabola
+  - start: 0
+    stop: 3
+    # Reference Mirror
+  - start: 3
+    stop: 5
+    # M4 Exapode
+  - start: 5
+    stop: 7
+
+  zernike_to_use: [1, 2, 3, 6, 7]
+  push_pull_template: [1, -2, 1]
+  commandMatrix: ottCmdMat.fits
+  fitting_surface: ''

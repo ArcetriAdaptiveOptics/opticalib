@@ -1,53 +1,22 @@
 """
-Modal Decomposer Library
-========================
-This module provides functions and utilities for generating Modal Surfaces.
+Modal decomposition — Zernike, Karhunen–Loève and RBF fitting
+=============================================================
 
-Author(s)
----------
-- Tim van Werkhoven (t.i.m.vanwerkhoven@xs4all.nl) : Original Author,  Created in 2011-10-12
-- Pietro Ferraiuolo (pietro.ferraiuolo@inaf.it) : Adapted in 2024 / Modified in 2025
-- Matteo Menessini  (matteo.menessini@inaf.it) : Enhancement in 2025
+Fitters that decompose a wavefront map onto a modal basis.  Three
+implementations are provided:
 
-Example
--------
-Example usage of the ZernikeFitter class:
+* :class:`ZernikeFitter` — classic Zernike polynomial fitting
+* :class:`KLFitter` — Karhunen–Loève basis (optimal for atmospheric
+  statistics)
+* :class:`RBFitter` — radial-basis-function fitting for irregular
+  actuator grids
 
-.. code-block:: python
+All fitters share :class:`_ModeFitter` as the abstract base, offering a
+uniform ``fit()`` interface.
 
-    from opticalib.ground.modal_decomposer import ZernikeFitter
-    from opticalib.ground.geometry import draw_circular_pupil
+Based on original code by Tim van Werkhoven (2011); adapted and extended
+for OptiCalib.
 
-    # Create a sample wavefront image (e.g., 256x256 pixels)
-    size = 256
-    radius = size / 2
-
-    # Create a circular pupil mask
-    pupil_mask = draw_circular_pupil((size,size), radius)
-
-    # Generate a simulated wavefront with some aberrations
-    # Adding defocus (Z4) and astigmatism (Z5, Z6)
-    wavefront = np.random.normal(0, 0.1, (size, size))
-    wavefront = np.ma.masked_array(wavefront, mask=pupil_mask)
-
-    # Initialize the Zernike fitter with a circular pupil
-    fitter = ZernikeFitter(fit_mask=pupil_mask)
-
-    # Fit Zernike modes 1-10 to the wavefront
-    modes_to_fit = list(range(1, 11))
-    coefficients, fitting_matrix = fitter.fit(wavefront, modes_to_fit)
-
-    print(f"Fitted Zernike coefficients: {coefficients}")
-
-    # Remove tip-tilt (modes 2 and 3) from the wavefront
-    corrected_wavefront = fitter.remove_zernike(wavefront, zernike_index_vector=[2, 3])
-
-    # Generate a pure Zernike surface (e.g., coma, mode 7)
-    coma_surface = fitter.make_surface(modes_indices=[7])
-
-    # Fit modes on multiple ROIs and get global average
-    roi_coefficients = fitter.fit_on_roi(wavefront, modes2fit=[1, 2, 3], mode='global')
-    print(f"ROI-averaged coefficients: {roi_coefficients}")
 """
 
 import xupy as _xp
@@ -89,6 +58,7 @@ class _ModeFitter(ABC):
         ----------
         fit_mask : ImageData | circular_mask | MaskData, optional
             Mask to be used for fitting. Can be:
+
             - ImageData : A masked array from which a circular_mask is estimated.
             - circular_mask : A pre-defined circular_mask object.
             - MaskData : A boolean mask array.
@@ -165,6 +135,7 @@ class _ModeFitter(ABC):
         ----------
         fit_mask : ImageData | circular_mask | MaskData, optional
             Mask to be used for fitting. Can be:
+
             - ImageData : A masked array from which a circular_mask is estimated.
             - circular_mask : A pre-defined circular_mask object.
             - MaskData : A boolean mask array.
@@ -249,6 +220,7 @@ class _ModeFitter(ABC):
             List containing the index of modes to be fitted.
         mode : str, optional
             Mode of fitting.
+
             - `global` will return the mean of the fitted coefficient of each ROI.
             - `local` will return the vector of fitted coefficient for each ROI.
 
@@ -285,6 +257,7 @@ class _ModeFitter(ABC):
     ) -> _t.ImageData:
         """
         Generate a modal surface map, from:
+
         - the modal generator, if only the modes indices are provided;
         - an input image, if provided, to compute the modal coefficients;
         - the modal coefficients, if provided.
@@ -308,6 +281,7 @@ class _ModeFitter(ABC):
         mode : str, optional
             If more than one ROI is detected, it's the mode of ROI fitting.
             Options are:
+
             - `full-aperture` : generate the surface on the full aperture pupil (as if no ROIs were present)
             - `global` : will be created a surface from the mean of the modal coefficients of each fitted ROI
             - `local` : will return a surface in which each roi has its own modal surface reconstructed inside
@@ -316,6 +290,7 @@ class _ModeFitter(ABC):
 
         **kwargs : dict, optional
             Additional arguments.
+
             - coeffs : ArrayLike
                 Pre-computed modal coefficients to generate the surface.
             - mat : MatrixLike
@@ -478,10 +453,13 @@ class _ModeFitter(ABC):
         zernike_index_vector : list[int], optional
             List of mode indices to be removed.
         make_surface_kwargs : dict
-            Additional keyword arguments to be passed to the `make_surface` method.
+            Additional keyword arguments to be passed to the `make_surface`
+            method:
+
             mode : str
                 If more than one ROI is found in the fitting mask, this parameter
                 controls how the modes are computed:
+
                 - `global` will compute the mean of the fitted coefficient of each ROI
                 - `local` will compute the fitted coefficient for each ROI
 
@@ -729,6 +707,7 @@ class ZernikeFitter(_ModeFitter):
         mode : str
             If more than one ROI is found in the fitting mask, this parameter
             controls how the modes are computed:
+
             - `global` will compute the mean of the fitted coefficient of each ROI
             - `local` will compute the fitted coefficient for each ROI
 

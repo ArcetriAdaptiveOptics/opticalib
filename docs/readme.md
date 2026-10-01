@@ -1,6 +1,6 @@
 # About
 
-This site documents the `opticalib` Python library — an adaptive optics toolkit
+This site documents the OptiCalib Python library — an adaptive optics toolkit
 for deformable mirror calibration and interferometer control.
 
 The docs are generated from the source code docstrings using
@@ -9,13 +9,23 @@ The docs are generated from the source code docstrings using
 
 **Where to go:**
 
-| Goal | Section |
-|------|---------|
-| Install the package | [Installation](installation) |
-| Learn by example | [Quick Start](quickstart) |
-| Configure hardware | [Configuration](configuration) |
-| Browse the full API | [API Reference](api) |
-| Contribute | [Contributing](contributing) |
+```{list-table}
+:header-rows: 1
+:widths: 40 60
+
+* - Goal
+  - Section
+* - Install the package
+  - {doc}`installation`
+* - Learn by example
+  - {doc}`quickstart`
+* - Configure hardware
+  - {doc}`configuration`
+* - Browse the full API
+  - {doc}`api`
+* - Contribute
+  - {doc}`contributing`
+```
 
 Contribute by improving docstrings in the source code or by opening a pull
 request on [GitHub](https://github.com/ArcetriAdaptiveOptics/opticalib).

@@ -1,11 +1,13 @@
 """
-This module contains the necessary high/user-leve functions to acquire the IFF data,
-given a deformable mirror and an interferometer.
+Influence-function acquisition — full push-pull measurement orchestration
+=========================================================================
 
-Author(s):
-----------
-- Pietro Ferraiuolo: pietro.ferraiuolo@inaf.it
-- Runa Briguglio: runa.briguglio@inaf.it
+High-level functions for acquiring influence-function (IFF) and piston
+data.  These orchestrate the complete measurement loop: command history
+preparation, DM actuation, interferometer capture and data filing.
+
+The two main entry points are :func:`iff_data_acquisition` (per-actuator
+push-pull) and :func:`piston_data_acquisition` (piston-only reference).
 
 """
 
@@ -85,8 +87,8 @@ def iff_data_acquisition(
         n_repetitions=n_repetitions,
     )
     info = ifc.get_info_to_save()
-    info['header'] = {
-        "DM": (dm._name, 'deformable mirror used'),
+    info["header"] = {
+        "DM": (dm._name, "deformable mirror used"),
         "CAMTYPE": (_ot.get_device_type(wfs), "type of optical sensor used"),
         "OPTCAM": (wfs._name, "optical sensor used"),
     }
@@ -220,8 +222,8 @@ def piston_data_acquisition(
     info["modes_list"] = modeslist
     info["index_list"] = modeslist
     info["shuffle"] = 0
-    info['header'] = {
-        "DM": (dm._name, 'deformable mirror used'),
+    info["header"] = {
+        "DM": (dm._name, "deformable mirror used"),
         "CAMTYPE": (_ot.get_device_type(wfs), "type of optical sensor used"),
         "OPTCAM": (wfs._name, "optical sensor used"),
     }
@@ -283,6 +285,7 @@ def _prepare_data2_save(info: dict[str, _ot.Any]) -> tuple[str, str]:
     """
     Manages the creation of the folder to save the IFF data and saves
     the info dictionary in it, which comprehends:
+
     - the command history
     - the command amplitudes
     - the modes list
@@ -302,7 +305,7 @@ def _prepare_data2_save(info: dict[str, _ot.Any]) -> tuple[str, str]:
         The path to the folder where the IFF data are saved
     """
     iffpath, tn = _osu.create_data_folder(_fn.IFFUNCTIONS_ROOT_FOLDER, True)
-    
+
     header = info.get("header", {})
 
     try:

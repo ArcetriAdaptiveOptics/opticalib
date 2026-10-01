@@ -1,17 +1,12 @@
 """
-Module: ROI
-===========
+Region of interest (ROI) — pupil masks, aperture shapes and image windows
+=========================================================================
 
-Author(s)
----------
-- Pietro Ferraiuolo
+Functions for generating regions of interest within detector frames:
+circular and annular pupils, segmented-mirror petal masks, and intensity
+threshold-based ROIs.  These are used by the simulator, the modal fitters
+and the flattening pipeline to define the analysis region.
 
-Module containing functions for region of interest (ROI) generation and other image utilities
-within the Opticalib framework.
-
-Author(s):
-----------
-- Pietro Ferraiuolo: pietro.ferraiuolo@inaf.it
 """
 
 import numpy as _np
@@ -57,7 +52,7 @@ def count_rois(img: _ot.ImageData, island_pixel_threshold: int = 100) -> int:
 
     Parameters
     ----------
-    img : np.ma.maskedArray
+    img : numpy.ma.MaskedArray
         The input masked image array.
     island_pixel_threshold : int
         Minimum number of pixels for an island to be considered a valid ROI.
@@ -87,12 +82,12 @@ def img_cut(img: _ot.ImageData):
 
     Parameters
     ----------
-    image : np.ma.maskedArray
+    image : numpy.ma.MaskedArray
         The original masked image array.
 
     Returns
     -------
-    cutImg = np.ma.maskedArray
+    cutImg : numpy.ma.MaskedArray
         The cut image within the bounding box of finite pixels.
     """
     # Find indices of finite (non-NaN) pixels
@@ -106,23 +101,48 @@ def img_cut(img: _ot.ImageData):
     return cutImg
 
 
-def cube_master_mask(cube: _ot.CubeData, apply: bool = False) -> _ot.ImageData:
+def cube_master_mask(
+    cube: _ot.CubeData,
+    method: str = "logor",
+    mean_threshold: float = 0.5,
+    apply: bool = False,
+) -> _ot.ImageData:
     """
     Generates a master mask for a cube by combining the masks of all individual frames.
 
     Parameters
     ----------
-    cube : np.ma.maskedArray
+    cube : numpy.ma.MaskedArray
         The input cube where each slice along the last axis is a masked image.
+    method : str, optional
+        The method to use for generating the master mask. Default is 'logor'.
+
+        - ``logor``: ``logical_or`` of the cube's masks
+        - ``logand``: ``logical_and`` of the cube's masks
+        - ``mean`` : converts the masks into float and takes the mean across all
+            frames, then thresholds to create the master mask.
+    mean_threshold: float, optional
+        The threshold value to use when the method is 'mean'. Values above this
+        threshold will be considered masked. Default is 0.5.
+    apply : bool, optional
+        If True, apply the master mask to the cube and return the masked cube. Default is False.
 
     Returns
     -------
-    master_mask : np.ma.maskedArray
+    master_mask : numpy.ma.MaskedArray
         The master mask that combines all individual masks in the cube.
     """
-    master_mask = _np.logical_or.reduce(
-        [cube[:, :, i].mask for i in range(cube.shape[2])]
-    )
+    match method:
+        case "logor":
+            func = _np.logical_or.reduce
+        case "logand":
+            func = _np.logical_and.reduce
+        case "mean":
+            func = lambda masks: _np.mean(masks, axis=0) > mean_threshold
+        case _:
+            raise ValueError(f"Unknown method: {method}")
+
+    master_mask = func([cube[:, :, i].mask for i in range(cube.shape[2])])
     if apply:
         cube.mask = _np.broadcast_to(master_mask[:, :, None], cube.shape)
         return cube

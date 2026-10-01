@@ -59,6 +59,7 @@ class BaseFakePTL:
         ----------
         **kwargs : dict, optional
             Additional keyword arguments for customization.
+
             - zernike : int ,
                 Zernike mode to be removed from the wavefront.
             - surf : bool ,
@@ -69,7 +70,7 @@ class BaseFakePTL:
 
         Returns
         -------
-        wf : np.array
+        wf : numpy.ndarray
             Phase map of the interferometer.
         """
         zernike = kwargs.get("zernike", None)
@@ -94,7 +95,7 @@ class BaseFakePTL:
 
         Parameters
         ----------
-        cmd : np.array
+        cmd : numpy.ndarray
             Command to be processed by the deformable mirror.
         diff : bool
             If True, process the command differentially.
@@ -268,12 +269,12 @@ class BaseFakePTL:
 
         Parameters
         ----------
-        act_cmd : np.array
+        act_cmd : numpy.ndarray
             Actuator command to be converted.
 
         Returns
         -------
-        np.array
+        numpy.ndarray
             Modal command corresponding to the input actuator command.
         """
         modal_cmd = []

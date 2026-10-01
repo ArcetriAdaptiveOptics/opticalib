@@ -1,32 +1,20 @@
 """
-DEVICES module
-==============
-2025
+Devices — hardware drivers for optical bench instruments
+========================================================
 
-Author(s):
-----------
-- Pietro Ferraiuolo: pietro.ferraiuolo@inaf.it
-- Runa Briguglio: runa.briguglio@inaf.it
+Hardware drivers for interferometers, deformable mirrors, wavefront
+sensors, and cameras.  Every concrete class satisfies one of the
+:doc:`device protocols <../reference/typings>`, so higher-level code
+never needs to know which vendor it is talking to.
 
-Description:
-------------
-This module contains the classes for interfacing the devices used in optical
-benches, or in general optical devices.
+Supported hardware includes 4D Technology PhaseCam / AccuFiz / Processer
+interferometers, Alpao, SPLATT, AdOptica, DP, M4AU and PetalMirror
+deformable mirrors, INGO-T WFS, and Allied Vision GigE cameras.
 
-Contents:
----------
-- deformable_mirrors.py: Contains classes for different deformable mirrors.
-  The definitions and low level interfaces to these devices are handled in the
-  `_API` submodule.
-- interferometer.py: Contains classes for different interferometers. The
-  definitions and low level interfaces to these devices are handled in the
-  `_API` submodule.
 """
 
 from .interferometer import PhaseCam, AccuFiz, Processer4D
-from .deformable_mirrors import (
-  SplattDm, AlpaoDm, AdOpticaDm, DP, M4AU, PetalMirror
-)
+from .deformable_mirrors import SplattDm, AlpaoDm, AdOpticaDm, DP, M4AU, PetalMirror
 from .wfs import Ingot
 from .cameras import GigaVision
 

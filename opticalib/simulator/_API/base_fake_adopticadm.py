@@ -21,6 +21,27 @@ join = os.path.join
 
 
 class BaseFakeM4:
+    """
+    Shared behaviour of the simulated ELT M4 Actuator Unit (M4AU).
+
+    Holds the mirror geometry and the actuator-to-pixel mapping, and turns a
+    command vector into a synthetic wavefront.  Subclasses -- notably
+    :class:`opticalib.simulator.fake_dms.M4AU` -- provide the device-protocol
+    entry points (``set_shape``, ``get_shape``, ...) on top of this.
+
+    The actuator coordinates and the mirror mask are loaded from the bundled
+    simulated-data files on construction; if the interaction and Zernike
+    matrices are missing they are recomputed once and cached on disk.
+
+    Attributes
+    ----------
+    mirrorModes : numpy.ndarray
+        Command matrix mapping modal coefficients to actuator commands.
+    ff : numpy.ndarray
+        Feed-forward matrix of the simulated mirror.
+    n_acts : int
+        Number of actuators.
+    """
 
     def __init__(self):
         """The constuctor"""
@@ -81,7 +102,7 @@ class BaseFakeM4:
 
         Parameters
         ----------
-        cmd : np.array
+        cmd : numpy.ndarray
             Command to be processed by the deformable mirror.
 
         diff : bool
@@ -89,7 +110,7 @@ class BaseFakeM4:
 
         Returns
         -------
-        np.array
+        numpy.ndarray
             Processed shape based on the command.
         """
         if not len(cmd) == self.n_acts:
@@ -169,6 +190,7 @@ class BaseFakeM4:
         ----------
         **kwargs : dict, optional
             Additional keyword arguments for customization.
+
             - zernike : int ,
                 Zernike mode to be removed from the wavefront.
             - surf : bool ,
@@ -179,7 +201,7 @@ class BaseFakeM4:
 
         Returns
         -------
-        wf : np.array
+        wf : numpy.ndarray
             Phase map of the interferometer.
         """
         zernike = kwargs.get("zernike", None)
@@ -200,6 +222,34 @@ class BaseFakeM4:
 
 
 class BaseFakeDp:
+    """
+    Shared behaviour of the simulated AdOptica Deformable Prototype (DP).
+
+    The DP is a *slaved* mirror: a subset of its actuators cannot be commanded
+    directly and follow their neighbours through a feed-forward matrix.  This
+    base loads the command and feed-forward matrices from the bundled simulated
+    data, builds the pupil mask and actuator coordinates, and synthesises a
+    wavefront from a command vector taking the slaving into account.
+
+    Subclasses -- notably :class:`opticalib.simulator.fake_dms.DP` -- provide the
+    device-protocol entry points (``set_shape``, ``get_shape``,
+    ``upload_cmd_history``, ``run_cmd_history``) on top of this.
+
+    Parameters
+    ----------
+    force_recompute : bool, optional
+        Recompute the Zernike, interaction and reconstruction matrices even if
+        cached copies already exist on disk.
+
+    Attributes
+    ----------
+    mirrorModes : numpy.ndarray
+        Command matrix mapping modal coefficients to actuator commands.
+    ff : numpy.ndarray
+        Feed-forward matrix used to derive the slaved actuator commands.
+    n_acts : int
+        Number of actuators.
+    """
 
     def __init__(self, force_recompute: bool = False):
         """The constuctor"""
@@ -249,6 +299,7 @@ class BaseFakeDp:
         ----------
         **kwargs : dict, optional
             Additional keyword arguments for customization.
+
             - zernike : int ,
                 Zernike mode to be removed from the wavefront.
             - surf : bool ,
@@ -259,7 +310,7 @@ class BaseFakeDp:
 
         Returns
         -------
-        wf : np.array
+        wf : numpy.ndarray
             Phase map of the interferometer.
         """
         zernike = kwargs.get("zernike", None)
@@ -299,7 +350,7 @@ class BaseFakeDp:
 
         Parameters
         ----------
-        cmd : np.array
+        cmd : numpy.ndarray
             Command to be processed by the deformable mirror.
 
         diff : bool
@@ -307,7 +358,7 @@ class BaseFakeDp:
 
         Returns
         -------
-        np.array
+        numpy.ndarray
             Processed shape based on the command.
         """
         # cmd = self._applyCSCalibration(cmd)

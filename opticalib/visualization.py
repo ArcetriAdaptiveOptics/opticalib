@@ -1,10 +1,16 @@
 """
-VISUALIZATION
-=============
+Visualization — Matplotlib conveniences for adaptive-optics data
+================================================================
 
-This module contains visualization utilities for plotting and displaying data
-within the interested opticalib framework. This includes wavefront maps, plotting
-DM commands, and other relevant visualizations for optical data analysis.
+Thin wrappers around Matplotlib for the plots that come up constantly on
+an adaptive-optics bench: phase maps as masked images
+(:func:`matshow`, :func:`myimshow`), DM command vectors as mirror-shaped
+surfaces (:func:`surfshow`, :func:`cmdplot`), and superimposed pupil
+overlays (:func:`superimshow`).
+
+All functions return the Matplotlib artists they create, so you can keep
+customising the figure.
+
 """
 
 import numpy as np
@@ -258,7 +264,7 @@ def superimshow(
     set_axis_off : bool, optional
         If True, the axes will be turned off. The default is False.
     cut : bool, optional
-        If True, the images will be cut using the ROI defined in the `opticalib.ground.roi` module. 
+        If True, the images will be cut using the ROI defined in the `opticalib.ground.roi` module.
         The default is False.
     *mplargs
         Additional arguments to be passed to `imshow`.

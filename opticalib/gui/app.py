@@ -999,7 +999,7 @@ class CalpyGUI(QMainWindow):
     ----------
     config_path : str or None
         Path to the ``configuration.yaml`` file to load.  When *None* the
-        default opticalib path (set via the ``AOCONF`` environment variable,
+        default OptiCalib path (set via the ``AOCONF`` environment variable,
         or the package template) is used.
     """
 
@@ -1525,7 +1525,7 @@ def launch_gui(config_path: Optional[str] = None) -> None:
     ----------
     config_path : str or None
         Path to the ``configuration.yaml`` file.  When *None* the default
-        path resolved by opticalib at import time is used (either the
+        path resolved by OptiCalib at import time is used (either the
         ``AOCONF`` environment variable or the package template file).
     """
     app = QApplication.instance() or QApplication(sys.argv)

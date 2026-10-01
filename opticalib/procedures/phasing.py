@@ -12,6 +12,7 @@ from ..core.config import get_section_config as _gsc
 
 _splconf = _gsc("PHASING")
 
+
 def _get_tunable_filter():
     """
     initiate the tunable filter with standard parameters
@@ -23,7 +24,9 @@ def _get_tunable_filter():
 
     return motor(ip, port, axis=0)
 
+
 _FILTER_BANDWIDTH_MODE = {"narrow": 8, "medium": 4, "wide": 2, "black": 1}
+
 
 class SPL:
     """
@@ -266,12 +269,14 @@ class SPL:
             Base exposure time of the camera in seconds
         filter_mode: str, optional
             The tunable filter working mode. For acquisition can be:
+
             - `narrow`
             - `medium`
             - `wide`
         lambda_vector : ArrayLike, optional
             Wavelengths vector, of wavelengths between 400 and 700 nm. If None,
             a default vector is used:
+
             - from 400 to 700 with 20 nm step
 
             By default None.
@@ -474,6 +479,7 @@ class SPL:
         method: str
             The method to use for computing the photometric centroid in the cropped PSF images.
             Can be:
+
             - 'lsf_peaks': find the peaks of the line spread function along `x` and `y` axis
             - "com": center of mass (`photutils.centroids.centroid_com`)
             - '2dg': 2D Gaussian fit (`photutils.centroids.centroid_2dg`)
@@ -750,13 +756,14 @@ class SPL:
         method : str
             The method to use for the centroid detection.
             Can be:
+
             - 'lsf_peaks': find the peaks of the line spread function along
-            `x` and `y` axis, and take their intersection as centroid.
+              `x` and `y` axis, and take their intersection as centroid.
             - "com": center of mass (`photutils.centroids.centroid_com`)
             - '2dg': 2D Gaussian fit (`photutils.centroids.centroid_2dg`)
-            - any custom callable method passed: the method should take as input
-            a 2D array (the cropped PSF) and return a tuple of (x, y) coordinates
-            of the centroid.
+            - any custom callable method passed: the method should take as
+              input a 2D array (the cropped PSF) and return a tuple of
+              (x, y) coordinates of the centroid.
 
         Returns
         -------
@@ -940,6 +947,7 @@ class SPL:
             The radius of the neighborhood to consider for healing. By default, 2.
         method : str
             The method to use for healing the bad pixels. Can be:
+
             - 'median'
             - 'mean'
             - 'gaussian'

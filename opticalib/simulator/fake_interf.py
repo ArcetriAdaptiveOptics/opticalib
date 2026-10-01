@@ -180,7 +180,7 @@ class Fake4DInterf:
 
         Returns
         -------
-        np.array
+        numpy.ndarray
             Phase map of the interferometer.
         """
         self._logger.info(
@@ -213,12 +213,12 @@ class Fake4DInterf:
 
         Parameters
         ----------
-        img : np.array
+        img : numpy.ndarray
             Image to be converted to a full frame.
 
         Returns
         -------
-        full_frame : np.array
+        full_frame : numpy.ndarray
             Full frame image.
         """
         if img is None:
@@ -249,7 +249,7 @@ class Fake4DInterf:
 
         Returns
         -------
-        np.array
+        numpy.ndarray
             Full frame phase map of the interferometer.
         """
         return self.into_full_frame(self.acquire_map(**kwargs))
@@ -264,7 +264,7 @@ class Fake4DInterf:
 
         Parameters
         ----------
-        modes : np.array
+        modes : numpy.ndarray
             Modes to be filtered out.
         """
         self._logger.info(f"Toggling shape removal: removing modes {modes}")

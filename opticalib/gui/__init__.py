@@ -1,9 +1,10 @@
 """
-GUI module for opticalib / calpy
+GUI module for OptiCalib / calpy
 =================================
 
-Provides the :class:`CalpyGUI` main window and the :func:`launch_gui`
-convenience function that starts the Qt application.
+Provides the :class:`~opticalib.gui.app.CalpyGUI` main window and the
+:func:`~opticalib.gui.app.launch_gui` convenience function that starts the Qt
+application.
 
 Typical usage
 -------------

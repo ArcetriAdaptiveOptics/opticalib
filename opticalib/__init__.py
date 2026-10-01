@@ -8,7 +8,7 @@ Author(s)
 
 Description
 -----------
-`opticalib` is a package for the control of laboratory instrumentations, like
+OptiCalib is a package for the control of laboratory instrumentations, like
 Interferometers and Deformable Mirrors. It also provides tools for the
 analysis of wavefronts and images.
 

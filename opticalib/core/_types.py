@@ -1,19 +1,32 @@
 """
-TYPINGS module
-==============
-2025
+Type System — structural type aliases and device protocols for OptiCalib
+========================================================================
 
-Author(s)
----------
-- Pietro Ferraiuolo : pietro.ferraiuolo@inaf.it
+OptiCalib is deliberately *hardware agnostic*.  Instead of coupling
+algorithms to concrete classes, this module defines **structural type
+aliases** and **Protocol classes** that describe the *shape* and
+*capabilities* an object must have.
 
-Description
------------
-This module defines custom type aliases and protocols for type hinting
-within the `opticalib` package. It includes protocols for matrix-like
-objects, image data, cube data, interferometer devices, and deformable
-mirror devices. Additionally, it provides a custom `isinstance_` function
-to check if an object conforms to these protocols.
+Two complementary layers:
+
+**Data aliases** — ``MatrixLike``, ``MaskData``, ``ImageData``,
+``CubeData``, ``FitsData`` — capture what array-shaped payloads look like
+(dimensionality, presence of a mask, FITS serialisability).  Every alias
+is a :class:`~typing.TypeVar` bound to a :class:`~typing.Protocol`, so
+static type checkers verify compatibility without any inheritance
+relationship.
+
+**Device protocols** — ``InterferometerDevice``, ``WFSDevice``,
+``CameraDevice``, ``DeformableMirrorDevice`` and their ``Fake*``
+counterparts — specify the *methods* a device must expose.  Any object
+that structurally matches the protocol can be passed where the alias is
+expected, whether it is a real driver, a simulator, or a test double.
+
+The module is re-exported publicly as ``opticalib.typings``.
+
+Because the aliases are structural (not nominal), ``isinstance(x,
+ImageData)`` does **not** work.  Use :func:`isinstance_` instead — it
+dispatches to the correct runtime check for the given name.
 
 """
 
@@ -39,7 +52,10 @@ if TYPE_CHECKING:
 #################################
 ## DATA TYPES AND TYPE ALIASES ##
 #################################
+#: A reconstructor object used to convert raw interferometer frames into
+#: phase maps, or ``None`` when no reconstruction is needed.
 Reconstructor: TypeAlias = Union["ComputeReconstructor", None]
+#: Any plain Python number, i.e. an ``int``, a ``float`` or a ``complex``.
 Number: TypeAlias = Union[int, float, complex]
 
 
@@ -82,10 +98,21 @@ class _CubeProtocol(Protocol):
     def __array__(self) -> ArrayLike: ...
 
 
+#: A generic 2-D matrix, i.e. any object with a ``shape`` that can be
+#: indexed, such as a ``numpy.ndarray`` or a nested list. Used for command matrices,
+#: command histories and other plain numeric tables.
 MatrixLike = TypeVar("MatrixLike", bound=_MatrixProtocol)
+#: A 2-D boolean (or integer 0/1) mask, typically marking which pixels lie
+#: outside the pupil or region of interest.
 MaskData = TypeVar("MaskData", bound=_MatrixProtocol)
+#: A single 2-D image with a mask attached, such as a phase map returned by
+#: an interferometer. In practice this is a ``numpy.ma.MaskedArray``.
 ImageData = TypeVar("ImageData", bound=_ImageDataProtocol)
+#: A 3-D stack of masked images, with shape ``(ny, nx, n_frames)``, such as
+#: the set of influence functions measured for a deformable mirror.
 CubeData = TypeVar("CubeData", bound=_CubeProtocol)
+#: An array (masked or not) that can be saved to and loaded from a FITS file,
+#: e.g. a :class:`~opticalib.core.fitsarray.FitsArray`.
 FitsData = TypeVar("FitsData", _FitsArrayProtocol, _FitsMaskedArrayProtocol)
 
 
@@ -118,8 +145,13 @@ class _WFSProtocol(Protocol):
     def acquire_detector(self, **kwargs: dict[str, Any]) -> ImageData: ...
 
 
+#: Any interferometer, real or simulated, that can acquire phase maps and
+#: capture/produce raw frame sequences.
 InterferometerDevice = TypeVar("InterferometerDevice", bound=_InterfProtocol)
+#: Any camera that can acquire frames and get/set its exposure time.
 CameraDevice = TypeVar("CameraDevice", bound=_CameraProtocol)
+#: Any wavefront sensor that can acquire phase maps, pupil images and raw
+#: detector frames.
 WFSDevice = TypeVar("WFSDevice", bound=_WFSProtocol)
 
 
@@ -162,14 +194,22 @@ class _FakeInterfProtocol(_InterfProtocol, Protocol):
     def toggle_shape_removal(self, modes: list[int]) -> None: ...
 
 
+#: Any deformable mirror, real or simulated, that can apply a shape, read it
+#: back, and run a timed history of commands.
 DeformableMirrorDevice = TypeVar("DeformableMirrorDevice", bound=_DMProtocol)
+#: A simulated deformable mirror. It is a ``DeformableMirrorDevice`` that
+#: also exposes its internal mask, Zernike generator and computed wavefront.
 FakeDeformableMirrorDevice = TypeVar(
     "FakeDeformableMirrorDevice", bound=_FakeDMProtocol
 )
+#: A simulated interferometer. It is an ``InterferometerDevice`` that also
+#: offers live-view controls (surface view, noise, shape removal, ...).
 FakeInterferometerDevice = TypeVar(
     "FakeInterferometerDevice", bound=_FakeInterfProtocol
 )
 
+#: Any device object, with no required methods. Used where a function works
+#: with whichever instrument it is given.
 GenericDevice = TypeVar("GenericDevice")
 
 #######################
@@ -226,6 +266,7 @@ def array_str_formatter(array: ArrayLike | list[ArrayLike]) -> str | list[str]:
 ################################
 ## Custom `isinstance` checks ##
 ################################
+
 
 class InstanceCheck:
     """
@@ -402,6 +443,7 @@ isinstance_ = InstanceCheck.isinstance_
 ######################
 ## Helper Functions ##
 ######################
+
 
 def get_device_type(device: object) -> str:
     if isinstance_(device, "InterferometerDevice"):
