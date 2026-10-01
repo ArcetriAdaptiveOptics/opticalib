@@ -18,9 +18,9 @@ def map_stitching(
 
     Parameters
     ----------
-    image_vector : np.ndarray
+    image_vector : numpy.ndarray
         3D array of images to be stitched, shape (N, H, W).
-    fullmask : np.ndarray
+    fullmask : numpy.ndarray
         2D array representing the full mask, shape (H, W).
     zern2fit : list
         List of Zernike indices to fit.
@@ -29,7 +29,7 @@ def map_stitching(
 
     Returns
     -------
-    np.ndarray
+    numpy.ndarray
         2D array of the stitched image after removing specified Zernike terms.
     """
     print("Computing Zernike basis...", end="\r", flush=True)

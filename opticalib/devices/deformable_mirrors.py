@@ -1,14 +1,14 @@
 """
-DEFORMABLE MIRRORS
-==================
-This module contains the classes for the high-level use of deformable mirrors.
+Deformable mirror drivers — Alpao, SPLATT, AdOptica, DP, M4AU and PetalMirror
+=============================================================================
 
-Author(s)
----------
-- Pietro Ferraiuolo : written in 2025
+High-level classes for deformable mirrors from various vendors.  Each
+class inherits from :class:`~opticalib.devices._API.base_devices.BaseDeformableMirror`,
+which provides configuration lookup, command clamping, logging and data
+filing — so only vendor-specific communication is implemented here.
 
-Description
------------
+Low-level SDK interaction is delegated to modules under
+``opticalib.devices._API``.
 
 """
 
@@ -167,6 +167,23 @@ class PetalMirror(BasePetalMirror, BaseDeformableMirror):
             self.set_shape(s)
             return tn
 
+    def disable_servos(self):
+        """
+        Disables the servos for all segments.
+        """
+        for k, dev in enumerate(self._devices):
+            self._logger.info(f"Disabling servos for segment {k}")
+            dev.SVO({"1": 0, "2": 0, "3": 0})
+            dev.checkerror()
+
+    def enable_servos(self):
+        """
+        Enables the servos for all segments.
+        """
+        for k, dev in enumerate(self._devices):
+            self._logger.info(f"Enabling servos for segment {k}")
+            dev.SVO({"1": 1, "2": 1, "3": 1})
+            dev.checkerror()
 
 from ._API.micAPI import BaseAdOpticaDm
 
@@ -723,7 +740,7 @@ class AlpaoDm(BaseAlpaoMirror, BaseDeformableMirror):
 
         Parameters
         ----------
-        cmd : np.array
+        cmd : numpy.ndarray
             Command to be applied to the actuators.
         differential : bool, optional
             If True, the command is applied differentially (added to the current shape).
@@ -753,7 +770,7 @@ class AlpaoDm(BaseAlpaoMirror, BaseDeformableMirror):
 
         Parameters
         ----------
-        tcmdhist : np.array
+        tcmdhist : numpy.ndarray
             Command history to be uploaded. Should be a 2D matrix of shape
             (nacts, nmodes).
         slave : bool | str, optional
@@ -858,7 +875,7 @@ class AlpaoDm(BaseAlpaoMirror, BaseDeformableMirror):
 
         Returns
         -------
-        np.array
+        numpy.ndarray
             Processed shape based on the command.
         """
         from matplotlib import pyplot as plt

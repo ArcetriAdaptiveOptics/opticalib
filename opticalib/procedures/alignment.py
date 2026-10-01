@@ -1,82 +1,12 @@
 """
-ALIGNMENT module
-================
-2024
+Alignment — beam centring and rotation correction on the detector
+==================================================================
 
-Author(s):
-----------
-- Pietro Ferraiuolo : pietro.ferraiuolo@inaf.it
-
-Description
------------
-This module provides the `Alignment` class and related functions for performing
-alignment procedures, including calibration and correction.
-
-How to Use it
--------------
-This module contains the class `Alignment`, which manages, alone, both the calibration
-and the correction of the alignment of the system. The class is initialized with the
-mechanical and acquisition devices used for alignment. These devices, which, for example, in
-the case of the M4 project are the OTT and the interferometer, are passed as arguments
-and configured through the `configuration.yaml` file, under the `ALIGNMENT` section.
-
-Usage Example
--------------
-Given the OTT (with Parabola, Reference Mirror and M4 Hexapode) as mechanical device
-and the interferometer as acquisition device, we can initialize the class as follows:
-
-.. code-block:: python
-
-    from opticalib.alignment import Alignment
-    align = Alignment(ott, interf)
-    # At this point the alignment is ready to be calibrated, given the command amplitude
-    amps = [0,7, 10, 10, 6, 6, 4, 4] # example, verosimilar, amplitudes
-    align.calibrate_alignment(amps)
-    [...]
-    "Ready for Alignment..."
-
-At this point, the calibration is complete and an ``InteractionMatrix.fits`` file
-was created, saved and stored in the Alignment class. It is ready to compute
-and apply corrections.
-
-.. code-block:: python
-
-    modes2correct = [3,4] # Reference Mirror DoF
-    zern2correct = [0,1] # tip & tilt
-    align.correct_alignment(modes2correct, zern2correct, apply=True)
-
-If we already have an ``InteractionMatrix.fits`` file, we can load it and apply
-corrections based off the loaded calibration. All to do is to load the calibration
-to the class:
-
-.. code-block:: python
-
-    tn_cal = '20241122_160000' # example, tracking number
-    align.load_calibration(tn_cal) # load the calibration
-    align.correct_alignment(modes2correct, zern2correct, apply=True)
-
-It can also be instanced with a calibration:
-
-.. code-block:: python
-
-    tn_cal = '20241122_160000' # example, tracking number
-    align = Alignment(ott, interf, calibtn=tn_cal)
-    align.correct_alignment(modes2correct, zern2correct, apply=True)
-
-Notes
------
-Note that the calibration process can be done uploading to the class
-a ``calibrated cavity``, so that a different algorithm for the Zernike fitting is
-performed. This can be done through the ``load_fitting_surface`` method.
-
-.. code-block:: python
-
-    cavity_tn = '20241122_160000' # example, tracking number
-    align.load_fitting_surface(cavity_tn) # load the calibrated cavity
-
-When working with segmented system (e.g. a segmented mirror), the Zernike modes
-shall be computed as global coefficients, which are basically the average of the
-local amplitude measured on each of the segment.
+The :class:`Alignment` class manages the optical alignment of the bench:
+calibration of the mechanical degrees of freedom (tip/tilt/rotation of
+motors and stages) and closed-loop correction using interferometer
+feedback.  Configuration is read from the ``ALIGNMENT`` section of
+``configuration.yaml``.
 
 """
 
@@ -115,17 +45,6 @@ class Alignment:
         The interaction matrix, initialized as None.
     recMat : numpy.ndarray or None
         The reconstruction matrix, initialized as None.
-
-    Methods
-    -------
-    correct_alignment(modes2correct, zern2correct, tn=None, apply=False, n_frames=15)
-        Corrects the alignment of the system based on Zernike coefficients.
-    calibrate_alignment(cmdAmp, n_frames=15, template=None, n_repetitions=1, save=True)
-        Calibrates the alignment of the system using the provided command amplitude and template.
-    read_positions(show=True)
-        Reads the current positions of the devices.
-    reload_calibrated_parabola(tn)
-        Reloads the calibrated parabola from the given tracking number.
 
     """
 
@@ -346,7 +265,11 @@ class Alignment:
             print(logMsg)
         return pos
 
-    def load_fitting_surface(self, filepath: str) -> None:
+    def load_fitting_surface(
+        self,
+        filepath: str|None = None,
+        surf: _ot.ImageData|None = None
+    ) -> None:
         """
         This function let you load the mask to use for zernike fitting. In the case of
         M$, for example, here the calibrated parabola is loaded, so that zernike modes are
@@ -355,18 +278,18 @@ class Alignment:
 
         Parameters
         ----------
-        filepath : str
+        filepath : str, optional
             The file path to the parabola file.
-
-        Returns
-        -------
-        str
-            A message indicating the successful loading of the file.
+        surf : ImageLike, optional
+            The surface to be used for zernike fitting.
         """
-        self._logger.info(f"Loading fitting surface from '{filepath}'")
-        surf = _osu.load_fits(filepath)
-        self._surface = surf
-        print(f"Fitting surface '{filepath}' loaded")
+        if filepath is not None:
+            self._logger.info(f"Loading fitting surface from '{filepath}'")
+            surface = _osu.load_fits(filepath)
+        if surf is not None:
+            surface = surf.copy()
+            print(f"Fitting surface loaded")
+        self._surface = surface
 
     def load_calibration(self, tn: str) -> None:
         """

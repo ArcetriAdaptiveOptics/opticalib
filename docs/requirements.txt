@@ -1,10 +1,30 @@
-sphinx>=8.0
-furo>=2024.1.29
-myst-parser>=4.0.0
-sphinx-autodoc-typehints>=2.1.0
+# ============================================================================
+# Documentation build requirements (also used by .readthedocs.yaml)
+#
+# Two groups:
+#   1. Sphinx toolchain -- themes and extensions.
+#   2. Runtime dependencies that ``import opticalib`` needs at *import time*,
+#      so that autodoc can introspect real signatures.
+#
+# Deliberately EXCLUDED (mocked instead, see ``autodoc_mock_imports`` in
+# docs/conf.py): xupy/torch/cupy (CUDA), vmbpy, Pyro4, pipython, plico_motor,
+# PyQt5, qtconsole, and the Alpao/Microgate vendor SDKs.  None of them are
+# available -- or useful -- in a documentation build environment.
+# ============================================================================
 
-# Runtime deps needed by autodoc-imported modules in RTD builds.
-# Keep this list RTD-safe: avoid hardware/vendor-specific dependencies.
+# --- 1. Sphinx toolchain -----------------------------------------------------
+sphinx>=8.1
+furo>=2024.8.6
+myst-parser>=4.0
+linkify-it-py>=2.0          # required by the MyST "linkify" extension
+sphinx-autodoc-typehints>=2.5
+sphinx-copybutton>=0.5
+sphinx-design>=0.6
+sphinx-sitemap>=2.6
+sphinxext-opengraph>=0.9
+sphinx-notfound-page>=1.0
+
+# --- 2. Runtime imports reachable from ``import opticalib`` ------------------
 numpy>=1.26
 scipy>=1.11
 matplotlib>=3.8
@@ -16,3 +36,10 @@ photutils>=1.11
 ruamel.yaml>=0.18
 PyYAML>=6.0
 tqdm>=4.66
+IPython>=8.0
+
+# arte provides CircularMask / ZernikeGenerator used by opticalib.ground.
+# It is pure Python and installs without a CUDA toolchain, so it is installed
+# rather than mocked -- this yields accurate signatures in the API reference.
+arte>=0.24
+

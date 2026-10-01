@@ -24,7 +24,7 @@ def get_alpao_coords_mask(
 
     Returns
     -------
-    np.array
+    numpy.ndarray
         Array of coordinates of the actuators.
     """
     dms = cl(_alpao_list)[f"DM{nacts}"]
@@ -90,7 +90,7 @@ def generate_zernike_matrix(modes: int | list[int], mask: _t.MaskData):
 
     Returns
     -------
-    np.ndarray
+    numpy.ndarray
         Matrix of Zernike polynomials projected on the mask.
     """
     valixpx = np.sum(mask == 0)
@@ -130,7 +130,7 @@ def get_petalmirror_mask_and_coords(
     -------
     mask : _t.MaskData
         Petal-shaped boolean mask.
-    coords : np.ndarray
+    coords : numpy.ndarray
         Coordinates of the centers of the segments in the petal-shaped mask.
     """
     if central_segment_radius is None:

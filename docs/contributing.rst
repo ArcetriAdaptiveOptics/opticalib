@@ -1,7 +1,7 @@
 Contributing
 ============
 
-We welcome contributions to ``opticalib``!  Please follow these guidelines to
+We welcome contributions to OptiCalib!  Please follow these guidelines to
 keep the codebase consistent and maintainable.
 
 Getting started

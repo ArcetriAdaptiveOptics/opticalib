@@ -1,14 +1,14 @@
 """
-SLAVING
-=======
+Slaving — actuator-slaving command redistribution
+==================================================
 
-This module provides functions to compute the command vector and interaction
-matrix of a deformable mirror with slaved actuators.
+Functions for computing slaved command vectors and interaction matrices.
+When a deformable mirror has mechanically slaved actuators (actuators
+that are physically tied to another), these utilities redistribute a
+command vector from the master actuators to the full actuator set while
+respecting the slaving geometry (e.g. zero-force or rigid-body
+mimicking).
 
-Slaving is a technique used to control a deformable mirror with a reduced number
-of command channels, by defining some actuators as "slaved" to others. The
-slaved actuators are commanded to achieve a certain behavior, such as minimizing
-the force applied by the master actuators or achieving a zero-force configuration.
 """
 
 import xupy as _xp
@@ -29,12 +29,14 @@ def compute_slave_cmd(
     ----------
     dm : opticalib.DeformableMirror
         Deformable mirror object with slaved actuators. Must have the properties:
+
         - slave_ids : List of indices of the slaved actuators.
         - ff : Feed-Forward matrix of the deformable mirror.
     cmd : opticalib.ArrayLike
         Command vector for master actuators.
     method : str, optional
         Method to compute the master-to-slave matrix. Options are:
+
         - 'zero-force' : zero-force slaving, in which the slave actuators are
             commanded a position which needs zero force to be used (may require
             nearby actuators to apply more force)
@@ -94,6 +96,7 @@ def compute_slaved_command_matrix(
         Original command matrix.
     method : str, optional
         Method to compute the master-to-slave matrix. Options are:
+
         - 'zero-force' : zero-force slaving, in which the slave actuators are
             commanded a position which needs zero force to be used (may require
             nearby actuators to apply more force)
@@ -132,6 +135,7 @@ def compute_slaved_im(
         matrix.
     method : str, optional
         Method to compute the master-to-slave matrix. Options are:
+
         - None: Creates an IM with the same number of rows as the original one,
             controlling only the master actuators.
         - 'zero-force' : zero-force slaving, in which the slave actuators are
@@ -193,10 +197,12 @@ def compute_slaved_mat(
         Original matrix to be slaved.
 
         Works on:
+
         - `FeedForward` (nactuators, nactuators)
         - `IFF` (nactuators, npixels)
     method : str, optional
         Method to compute the master-to-slave matrix. Options are:
+
         - 'zero-force' : zero-force slaving, in which the slave actuators are
             commanded a position which needs zero force to be used (may require
             nearby actuators to apply more force)
@@ -355,6 +361,7 @@ def _minimum_rms_slaving(
     and updates the command vector accordingly.
 
     With this method, the actuators are deviden in three groups:
+
     - slave actuators: actuators that are slaved (`s`)
     - border actuators: master actuators in a given area surrounding the border between master and slaved actuators (`b`)
     - master actuators: The rest of the master actuator (`m`)
@@ -433,6 +440,7 @@ def _get_slaving_matrix(
     ----------
     method : str
         Method to compute the master-to-slave matrix. Options are:
+
         - 'zero-force' : zero-force slaving
         - 'minimum-rms' : minimum-RMS-force slaving.
     FF : MatrixLike
@@ -489,6 +497,7 @@ def _get_decomposed_ffwd(
         Indices of the border actuators.
     method : str, optional
         Method to compute the master-to-slave matrix. Options are:
+
         - 'zero-force' : zero-force slaving
         - 'minimum-rms' : minimum-RMS-force slaving.
 

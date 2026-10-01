@@ -1,21 +1,14 @@
 """
-Module: images_processing
-=========================
+Analyzer — offline image, cube and signal processing
+=====================================================
 
-Author(s)
----------
-- Pietro Ferraiuolo
+Offline analysis of acquired data: single-frame reduction, cube-level
+processing (push-pull, rebin, piston unwrap), spectral analysis (PSD,
+periodograms, Fourier filtering) and time-series diagnostics.
 
-Description
------------
+These are pure functions — they take arrays in and give arrays (or
+numbers) out, with no device access and no persisted state.
 
-This module provides utilities to process masked optical phase maps and
-image cubes, including piston unwrapping, push-pull reduction, rebinning,
-Zernike-mode removal, Fourier-domain filtering, and power spectral density
-analysis.
-
-The functions are designed to operate on Opticalib typing aliases and
-``fitsarray``-compatible masked arrays used across the analysis pipeline.
 """
 
 import xupy as _xp
@@ -263,6 +256,7 @@ def create_cube(fl_or_il: list[str], register: bool = False) -> _ot.CubeData:
     ----------
     fl_or_il : list of str
         Either:
+
         - the list of image file paths;
         - a list of ImageData.
     register : int or tuple, optional

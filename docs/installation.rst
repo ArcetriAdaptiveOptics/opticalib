@@ -4,7 +4,7 @@ Installation
 Requirements
 ------------
 
-``opticalib`` requires **Python 3.10** or newer.  The package depends on several
+OptiCalib requires **Python 3.10** or newer.  The package depends on several
 scientific Python libraries that are listed in ``requirements.txt`` at the root
 of the repository.  All of them are installed automatically when you use
 ``pip``.

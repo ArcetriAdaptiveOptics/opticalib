@@ -1,16 +1,10 @@
 """
-CAMERAS
-=======
-2026
+Camera drivers — Allied Vision GigE cameras via Vimba SDK
+==========================================================
 
-This module contains the classes for the high-level use of cameras.
-
-Author(s)
----------
-- Pietro Ferraiuolo : pietro.ferraiuolo@inaf.it
-
-Description
------------
+High-level wrapper for Allied Vision cameras using the Vimba SDK
+(via ``vmbpy``).  Provides ``acquire_frames``, exposure-time control
+and frame retrieval.
 
 """
 
@@ -31,7 +25,7 @@ class GigaVision(BaseCamera):
         """
         Class which interfaces AVT cameras using the VimbaXPy API.
 
-        Parameters:
+        Parameters
         -----------
         name : str
             The name of the camera to be used, as defined in the configuration
@@ -249,6 +243,7 @@ class GigaVision(BaseCamera):
                 'async' (asynchronous).
         allocation_mode : vmbpy.AllocationMode
                 The allocation mode for asynchronous acquisition. Options are:
+
                 - 0 (vmbpy.AllocationMode.AnnounceFrame): buffer allocated
                   by `vmbpy`
                 - 1 (vmbpy.AllocationMode.AllocAndAnnounceFrame): buffer
@@ -345,7 +340,7 @@ class GigaVision(BaseCamera):
         """
         Sets the base timeout for camera operations.
 
-        Parameters:
+        Parameters
         -----------
         timeout_ms : int
             The base timeout in milliseconds.

@@ -1,7 +1,17 @@
 """
-this module is at the heart of the package, as it defines its folder structure
-and the configuration file reader and writer. Also, it is fundamental for the
-`calpy` custom entry point functionalities.
+Experiment root — folder layout, configuration file bootstrap and imports
+=========================================================================
+
+This module is at the heart of the package.  It defines the on-disk data
+folder tree (created by :func:`create_folder_tree`), exposes the pre-built
+``folders`` namespace, and reads the 4D interferometer settings from
+``AppSettings.ini`` via :class:`ConfSettingReader4D`.
+
+Import-time side effects: reading ``AOCONF``, opening the configuration
+file and creating the folder tree.  Set ``AOCONF`` before importing
+``opticalib``, or use the ``calpy`` entry point which handles it
+automatically.
+
 """
 
 import os as _os
@@ -213,6 +223,7 @@ def sim_data_file(dmname: str, filename: str, nacts: int = None) -> str:
         The name of the deformable mirror.
     filename : str
         The name of the file. Can be
+
         - 'IF' : Influence functions cube
         - 'IM' : Interaction matrix
         - 'RM' : Reconstruction matrix
@@ -334,35 +345,12 @@ class ConfSettingReader4D:
     """
     Class which reads an interferometer configuration settings file '4DSettings.ini'
 
-    Methods
-    -------
-    get_frame_rate() :
-        Gets the camera frame rate in Hz.
+    How to Use
+    ----------
+    After initializing the class with a file path, just call methods on the
+    defined object:
 
-    getImageWidthInPixels() :
-        Get the width of the frame in pixel units.
-
-    get_image_height_in_pixels() :
-        Get the height of the frame in pixel units.
-
-    get_offset_x() :
-        Get the frame offset in x-axis.
-
-    get_offset_y() :
-        Get the frame offset in y-axis.
-
-    get_pixel_format() :
-        Get the format of the pixels.
-
-    get_user_setting_file_path() :
-        Get the path of the configuration file.
-
-    How to Use it
-    -------------
-    After initializing the class with a file path, just call methods on the defined
-    object
-
-    >>> cr = ConfSettingReader(file_path)
+    >>> cr = ConfSettingReader4D(file_path)
     >>> cr.get_image_widht_in_pixels()
     2000
     >>> cr.get_image_height_in_pixels()
@@ -478,7 +466,7 @@ def set_configuration_file(config_path: str) -> None:
     """
     Dynamically set a new configuration file and reload all runtime modules.
 
-    This function allows changing the opticalib configuration at runtime by
+    This function allows changing the OptiCalib configuration at runtime by
     updating the AOCONF environment variable and reloading all modules that
     depend on the configuration. This ensures the entire package points to
     the new configuration file and data structure.
@@ -497,6 +485,7 @@ def set_configuration_file(config_path: str) -> None:
     Notes
     -----
     This function updates the configuration by:
+
     - Modifying the AOCONF environment variable
     - Reloading the opticalib.core.root module
     - Reloading the opticalib.core.config module

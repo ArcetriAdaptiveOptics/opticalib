@@ -1,11 +1,12 @@
 """
-This module contains the IFFCapturePreparation class, a class which serves as a
-preparator for the Influence Function acquisition, creating the timed command
-matrix history that will be ultimately used.
+Influence-function capture planning — command matrix generation
+===============================================================
 
-Author(s):
-----------
-- Pietro Ferraiuolo: pietro.ferraiuolo@inaf.it
+Prepares the timed command history for an influence-function acquisition.
+:class:`IFFCapturePreparation` generates the push-pull actuator command
+sequence, including amplifier vectors, timing, modal templates and
+zero-padding, using parameters from
+:func:`~opticalib.core.config.get_iff_config`.
 
 """
 
@@ -31,37 +32,12 @@ class IFFCapturePreparation:
     >>> dm = AlpaoDm(88)
     >>> ifa = IFFCapturePreparation(dm)
 
-    Methods
-    -------
-    create_timed_cmd_history
-
-        Creates the final timed command matrix history. Takes 4 positional optional
-        arguments, which will be read from a configuration file if not passed
-
-    createCmdMatrixhistory
-
-        Takes the modal base loaded into the class (which can be updated using
-        the sub-method _update_modal_base) and returns the wanted command matrix
-        with the dedired modes and amplitudes, which can be either passed on as
-        arguments or read automatically from a configuration file.
-
-        >>> # As example, wanting to update the modal base using a zonal one
-        >>> ifa._update_modal_base('zonal')
-        'Using zonal modes'
-
-    create_aux_cmd_history
-
-        Creates the auxiliary command matrix to attach to the command matrix
-        history. This auxiliary matrix comprehends the trigger padding and the
-        registration padding schemes. the parameters on how to create these
-        schemes is written in a configuration file.
-
-    get_info_to_save
-
-        A function that returns a dictionary containing all the useful information
-        to save, such as the command matrix used, the used mode list, the indexing
-        the amplitudes, the used tamplate and the shuffle option.
-
+    Notes
+    -----
+    Every argument of :meth:`create_timed_cmd_history` that is not supplied
+    explicitly is read from the ``INFLUENCE.FUNCTIONS`` section of the
+    configuration file.  Use :meth:`get_info_to_save` to retrieve exactly the
+    settings that were used, so they can be archived with the acquired data.
     """
 
     def __init__(self, dm: _ot.DeformableMirrorDevice):

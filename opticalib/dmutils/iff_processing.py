@@ -1,42 +1,15 @@
 """
-Module containing all the functions necessary to process the data acquired for
-the Influence Function measurements.
+Influence-function processing — push-pull reduction and cube assembly
+=====================================================================
 
-Author(s):
-----------
-- Pietro Ferraiuolo: pietro.ferraiuolo@inaf.it
-- Runa Briguglio: runa.briguglio@inaf.it
+Processes the raw frames acquired during an influence-function
+calibration: push-pull subtraction, piston removal, modal filtering,
+amplitude extraction, and cube assembly.  The main entry point is
+:func:`process`, keyed by tracking number.
 
-High-level Functions
---------------------
-process(tn, registration=False, roi=None, save=False, rebin=1)
-    Function that processes the data contained in the OPDImages/tn folder. By
-    performing the differential algorithm, it produces fits images for each
-    commanded mode into the IFFunctions/tn folder, and creates a cube from these
-    into INTMatrices/tn. If 'registration is not False', upon createing the cube,
-    the registration algorithm is performed.
-
-stack_cubes(tnlist)
-    Function that, given as imput a tracking number list containing cubes data,
-    will stack the found cubes into a new one with a new tracking number, into
-    INTMatrices/new_tn. A 'flag.txt' file will be created to give more information
-    on the process.
-
-Example
--------
-
-```python
-tn1 = '20160516_114916'
-tn2 = '20160516_114917' # A copy of tn1 (simulated) data
-ifp.process(tn1, save=True)
-Cube saved in '/path/to/data/OPTData/INTMatrices/20160516_114916/IMcube.fits'
-ifp.process(tn2, save=True)
-Cube saved in '/path/to/data/OPTData/INTMatrices/20160516_114917/IMcube.fits'
-tnlist = [tn1, tn2]
-ifp.stack_cubes(tnlist)
-Stacked cube and matrices saved in '/path/to/data/OPTData/INTMatrices/'new_tn'/IMcube.fits'
-```
 """
+
+import os as _os
 
 import os as _os
 import numpy as _np
@@ -67,7 +40,6 @@ _REGACTS_FILE = "registration_modes.fits"
 _INDEXLIST_FILE = "index_list.fits"
 _CUBE_FILE = "IMCube.fits"
 _COORD_FILE = ""  # TODO
-
 
 @_expand_list_arguments(["tn"])
 def process(
@@ -419,7 +391,7 @@ def save_cube(
         If not False, an int or a tuple of int must be passed as value, and
         the registration algorithm is performed on the images before stacking them
         into the cube. Default is False.
-    cube_header : dict | Header, optional
+    cube_header : dict | astropy.io.fits.Header, optional
         Header to be used for the cube. If None, a default header is created.
 
     Returns
@@ -443,8 +415,14 @@ def save_cube(
     if rebin > 1:
         cube = _ip.cube_rebinner(cube, rebin)
     cube.header.update(header)
+    if cube.header.get("CAMTYPE", "") == 'wfs':
+        from ..ground.reconstructor import compute_interaction_matrix as cim
+        header = cube.header.copy()
+        cube = cim(cube)
+        cube_path = _os.path.join(new_fold, _CUBE_FILE.replace("Cube", ""))
+    else:
+        cube_path = _os.path.join(new_fold, _CUBE_FILE)
     # Saving the cube
-    cube_path = _os.path.join(new_fold, _CUBE_FILE)
     _osu.save_fits(cube_path, cube, overwrite=True)
     # Copying the cmdMatrix and the modes_vector into the INTMAT Folder
     _copy_from_iff_to_im(name=_MATRIX_FILE, tn=tn)
@@ -650,6 +628,7 @@ def iff_redux(
 
     Notes on performance
     --------------------
+
     - I/O is overlapped with computation via a small prefetch window.
     - io_workers controls the number of threads used to prefetch mode blocks.
     - prefetch controls how many future modes to keep in-flight.
@@ -659,9 +638,20 @@ def iff_redux(
     fold = _os.path.join(_ifFold, tn)
 
     N, M, T = fileMat.shape
+    
+    if len(template) != T:
+        raise ValueError("Template length must match the third dimension of ``fileMat`` for push-pull analysis.")
+    if int(n_repetitions) != N:
+        raise ValueError("Number of repetitions must match the first dimention of ``fileMat``.")
 
     if _np.size(ampVect) == 1:
         ampVect = _np.full(M, ampVect, dtype=_np.float32)
+    
+    base_header = _osu.read_fits_header(fileMat[0, 0, 0])
+    base_header.update({
+        "TEMPLATE": (T, "push-pull length"),
+        "NREP": (N, "averaged repetitions"),
+    })
 
     # Updated helper: now follows tensor logic:
     def _read_block(rep_idx: int, mode_idx: int) -> list[_ot.ImageData]:
@@ -694,7 +684,7 @@ def iff_redux(
         ):
             _schedule_mode(mode_idx + prefetch + 1)
 
-            sum_data = None
+            sum_data: _ot.ImageData = None
             union_mask = None
 
             for rep_idx in range(N):
@@ -714,16 +704,16 @@ def iff_redux(
 
             mode_img = _np.ma.masked_array(sum_data / n_repetitions, mask=union_mask)
 
+            base_header.update({
+                "MODEID": (int(modeList[mode_idx]), "mode id"),
+                "AMP": (float(ampVect[mode_idx]), "mode amplitude")
+            })
+
             _osu.save_fits(
                 _os.path.join(fold, f"mode_{int(modeList[mode_idx]):05d}.fits"),
                 mode_img,
                 overwrite=True,
-                header={
-                    "MODEID": (int(modeList[mode_idx]), "mode id"),
-                    "AMP": (float(ampVect[mode_idx]), "mode amplitude"),
-                    "TEMPLATE": (len(template), "push-pull length"),
-                    "NREP": (int(n_repetitions), "averaged repetitions"),
-                },
+                header=base_header,
             )
 
 
@@ -1153,6 +1143,7 @@ def _get_acq_par(tn: str) -> dict[str, _ot.ArrayLike | bool | int]:
     Returns
     -------
     dictionary containing the acquisition parameters:
+
     - amp_vector : float | ArrayLike
         Vector containg the amplitude of each commanded mode.
     - modes_vector : int | ArrayLike

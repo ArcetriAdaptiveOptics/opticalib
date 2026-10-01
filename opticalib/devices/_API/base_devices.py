@@ -60,7 +60,7 @@ class BaseDeformableMirror(ABC):
 
         Parameters
         ----------
-        tcmdhist : np.array
+        tcmdhist : numpy.ndarray
             Command history to be uploaded. Should be a 2D matrix of shape
             (nacts, nmodes).
         slave : bool | str, optional

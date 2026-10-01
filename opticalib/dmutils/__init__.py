@@ -1,24 +1,13 @@
 """
-DMUTILS subpackage
-==================
-2024
+DM Utilities — deformable-mirror calibration helpers
+====================================================
 
-Author(s):
-----------
-- Pietro Ferraiuolo: pietro.ferraiuolo@inaf.it
-- Runa Briguglio: runa.briguglio@inaf.it
+Stateless and semi-stateless helpers for deformable-mirror calibration:
+planning an influence-function capture, reducing the acquired data,
+running a flattening loop, and slaving one mirror to another.
 
-Description:
-------------
-This subpackage contains all the utility modules concerning a Deformable Mirror,
-which are its calibration and flattening.
-
-Contents:
----------
-- `iff_preparation.py`: Module for preparing the acquisition of the Influence Functions.
-- `iff_processing.py`: Module for processing the Influence Functions.
-- `procedures/iff.py`: high level module for managing the acquisition of IFFs.
-- `flattening.py`: module containing the procedures for flattening a DM.
+For the *multi-step, stateful* orchestration of a full calibration run,
+see :mod:`opticalib.procedures`.
 
 """
 
