@@ -190,9 +190,9 @@ class TestStackCubes:
 
 
 class TestFilterZernikeCube:
-    """Test filter_zernike_cube function."""
+    """Test remove_zernike_from_iff function."""
 
-    def test_filter_zernike_cube_basic(self, sample_int_matrix_folder):
+    def test_remove_zernike_from_iff_basic(self, sample_int_matrix_folder):
         """Test filtering Zernike modes from cube."""
         import shutil
 
@@ -207,7 +207,7 @@ class TestFilterZernikeCube:
                 except:
                     pass
 
-        ffcube, new_tn = ifp.filter_zernike_cube(tn, zern_modes=[1, 2, 3], save=True)
+        ffcube, new_tn = ifp.remove_zernike_from_iff(tn, zern_modes=[1, 2, 3], save=True)
 
         assert ffcube is not None
         assert isinstance(ffcube, ma.MaskedArray)
@@ -216,7 +216,7 @@ class TestFilterZernikeCube:
         new_tn_folder = os.path.join(os.path.dirname(tn_folder), new_tn)
         assert os.path.exists(os.path.join(new_tn_folder, "IMCube.fits"))
 
-    def test_filter_zernike_cube_custom_modes(self, sample_int_matrix_folder):
+    def test_remove_zernike_from_iff_custom_modes(self, sample_int_matrix_folder):
         """Test filtering custom Zernike modes."""
         import shutil
 
@@ -231,12 +231,12 @@ class TestFilterZernikeCube:
                 except:
                     pass
 
-        ffcube, new_tn = ifp.filter_zernike_cube(tn, zern_modes=[1, 2, 3, 4], save=True)
+        ffcube, new_tn = ifp.remove_zernike_from_iff(tn, zern_modes=[1, 2, 3, 4], save=True)
 
         assert ffcube is not None
         assert new_tn is not None
 
-    def test_filter_zernike_cube_no_save(self, sample_int_matrix_folder):
+    def test_remove_zernike_from_iff_no_save(self, sample_int_matrix_folder):
         """Test filtering without saving."""
         import shutil
 
@@ -251,7 +251,7 @@ class TestFilterZernikeCube:
                 except:
                     pass
 
-        ffcube, new_tn = ifp.filter_zernike_cube(tn, zern_modes=[1, 2, 3], save=False)
+        ffcube, new_tn = ifp.remove_zernike_from_iff(tn, zern_modes=[1, 2, 3], save=False)
 
         assert ffcube is not None
         assert new_tn is not None

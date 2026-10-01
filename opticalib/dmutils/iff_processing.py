@@ -539,7 +539,7 @@ def add_mode_to_cube(
     _osu.save_fits(modesvec_path, new_modesvec, overwrite=True)
 
 
-def filter_zernike_cube(
+def remove_zernike_from_iff(
     tn: str,
     zern_modes: _ot.Optional[list[int]] = None,
     mode: str = "global",
