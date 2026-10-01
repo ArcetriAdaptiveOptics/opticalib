@@ -648,7 +648,7 @@ class AlpaoDm(BaseAlpaoMirror, BaseDeformableMirror):
 
     def __init__(
         self,
-        nacts: int | str = "DM",
+nacts: int | str,
         serial_number: _ot.Optional[str] = None,
         sdk_folder_path: str|None = None,
         acfg_path: str|None = None,
