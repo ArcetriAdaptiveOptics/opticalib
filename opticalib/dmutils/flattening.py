@@ -59,7 +59,7 @@ class Flattening:
         self,
         tn: str,
         dm: _ot.Optional[_ot.DeformableMirrorDevice] = None,
-        wfs: _ot.Optional[_ot.InterferometerDevice|_ot.WFSDevice] = None,
+        wfs: _ot.Optional[_ot.InterferometerDevice | _ot.WFSDevice] = None,
     ) -> None:
         """The Constructor"""
         self.tn = tn
@@ -299,7 +299,10 @@ class Flattening:
             )
             header["DMNAME"] = (self._dm._name, "deformable mirror name")
             header["OPTCAM"] = (wfs._name, "optical sensor used")
-            header["CAMTYPE"] = (_ot.get_device_type(wfs), "type of optical sensor used")
+            header["CAMTYPE"] = (
+                _ot.get_device_type(wfs),
+                "type of optical sensor used",
+            )
             modes2flat = (
                 _np.arange(modes2flat) if isinstance(modes2flat, int) else modes2flat
             )

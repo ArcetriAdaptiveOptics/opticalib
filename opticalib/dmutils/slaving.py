@@ -163,9 +163,7 @@ def compute_slaved_im(
         _, _, vt = _xp.linalg.svd(ffwd)
         zim = vt.T @ im  # zonal interaction matrix
     else:
-        raise ValueError(
-            "Either a zonal or modal interaction matrix must be provided."
-        )
+        raise ValueError("Either a zonal or modal interaction matrix must be provided.")
 
     if method is not None:
         return compute_slaved_mat(dm, zim, method=method)

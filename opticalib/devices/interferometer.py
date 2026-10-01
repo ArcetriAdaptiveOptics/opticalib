@@ -195,9 +195,7 @@ class _4DInterferometer(BaseWavefrontSensor):
             folder_name = _osu.newtn()
         print(folder_name)
 
-        self._logger.info(
-            f"Capturing {nframes} frames into folder '{folder_name}'."
-        )
+        self._logger.info(f"Capturing {nframes} frames into folder '{folder_name}'.")
         fold4d = _os.path.join(_Folds.CAPTURE_FOLDER_NAME_4D_PC, folder_name)
         self._i4d.burstFramesToSpecificDirectory(fold4d, nframes)
         self.save_configuration(_os.path.join(fold4d, "SoftwareSettings.4dini"))

@@ -185,6 +185,7 @@ class PetalMirror(BasePetalMirror, BaseDeformableMirror):
             dev.SVO({"1": 1, "2": 1, "3": 1})
             dev.checkerror()
 
+
 from ._API.micAPI import BaseAdOpticaDm
 
 
@@ -501,7 +502,7 @@ class DP(AdOpticaDm):
         ------
         dict
             A dictionary that will be populated with buffer results
-            
+
 
         Example
         -------
@@ -648,13 +649,13 @@ class AlpaoDm(BaseAlpaoMirror, BaseDeformableMirror):
 
     def __init__(
         self,
-nacts: int | str,
+        nacts: int | str,
         serial_number: _ot.Optional[str] = None,
-        sdk_folder_path: str|None = None,
-        acfg_path: str|None = None,
+        sdk_folder_path: str | None = None,
+        acfg_path: str | None = None,
         use_plico: bool = False,
-        plico_ip: str|None = None,
-        plico_port: int|None = None,
+        plico_ip: str | None = None,
+        plico_port: int | None = None,
         *,
         reset_on_startup: bool = True,
         reset_on_close: bool = False,
@@ -698,9 +699,9 @@ nacts: int | str,
         self._reset_on_close = bool(reset_on_close)
         self._reset_on_startup = bool(reset_on_startup)
         super().__init__(
-            nacts, 
+            nacts,
             (serial_number, sdk_folder_path, acfg_path),
-            (use_plico, plico_ip, plico_port)
+            (use_plico, plico_ip, plico_port),
         )
         if self._reset_on_startup:
             self.set_zeros_to_acts()

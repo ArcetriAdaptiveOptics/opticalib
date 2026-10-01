@@ -23,22 +23,27 @@ import gc
 _IMFOLD = _fn.INTMAT_ROOT_FOLDER
 _IFFOLD = _fn.IFFUNCTIONS_ROOT_FOLDER
 
-def compute_interaction_matrix(iff_cube: _ot.CubeData | str, pupil_mask: _ot.MaskData|None = None, get_svd: bool = False):
+
+def compute_interaction_matrix(
+    iff_cube: _ot.CubeData | str,
+    pupil_mask: _ot.MaskData | None = None,
+    get_svd: bool = False,
+):
     """
     Standalone function for computing the interaction matric of an IFF calibration
     using the ``master_mask`` as the global pupil.
-    
+
     Parameters
     ----------
     iff_cube: _ot.CubeData or str
         The influence Functions cube of the acquire modes, or, equivalently, the
-        Tracking Number of the ``IFFunction`` folder containingthe processed 
+        Tracking Number of the ``IFFunction`` folder containingthe processed
         modes.
     pupil_mask : _ot.MaskData, optional
         The mask to be used as the global pupil. If None, the master mask of the
         cube will be used.
     get_svd : bool, optional
-        If True, also return the singular value decomposition (SVD) of the 
+        If True, also return the singular value decomposition (SVD) of the
         interaction matrix.
 
     Returns
@@ -53,18 +58,13 @@ def compute_interaction_matrix(iff_cube: _ot.CubeData | str, pupil_mask: _ot.Mas
         The right singular vectors of the interaction matrix (only if get_svd is True).
     """
     from .roi import cube_master_mask
-    
+
     # Implementation of the function goes here
     if isinstance(iff_cube, str):
-        iff_cube = _osu.load_cube_from_filelist(iff_cube, fold=_IFFOLD, key='mode_')
+        iff_cube = _osu.load_cube_from_filelist(iff_cube, fold=_IFFOLD, key="mode_")
     master_mask = pupil_mask if pupil_mask is not None else cube_master_mask(iff_cube)
     im = _np.array(
-        [
-            [
-                (iff_cube[:, :, i].data)[master_mask == 0]
-                for i in range(iff_cube.shape[2])
-            ]
-        ]
+        [[(iff_cube[:, :, i].data)[master_mask == 0] for i in range(iff_cube.shape[2])]]
     )
     out = [im]
     if get_svd:
