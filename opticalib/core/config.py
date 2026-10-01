@@ -165,6 +165,59 @@ def dump_yaml_config(config: dict[str, _Any], path: str | None = None) -> None:
     dump(config, path)
 
 
+class DeviceSection(dict):
+    """
+    Devices of a ``DEVICES`` subsection, with case-insensitive name lookup.
+
+    Device classes look up their entry by a fixed or derived name (``Ingot``
+    reads ``'INGOT'``, ``PhaseCam('6110')`` reads ``'PhaseCam6110'``).  An
+    exact name always wins; otherwise a name matching a single entry
+    regardless of case is accepted, so an entry written ``Ingot`` or
+    ``phasecam6110`` is still found.  Names that match several entries
+    differing only by case raise a ``KeyError`` instead of guessing.
+    """
+
+    def resolve(self, name: _Any) -> _Any:
+        """
+        Return the entry key matching *name* (or *name* itself when none does).
+
+        Parameters
+        ----------
+        name : Any
+            Requested device name.
+
+        Returns
+        -------
+        Any
+            The key to use for the lookup.
+
+        Raises
+        ------
+        KeyError
+            If *name* matches several entries differing only by case.
+        """
+        if not isinstance(name, str) or dict.__contains__(self, name):
+            return name
+        matches = [k for k in self if isinstance(k, str) and k.lower() == name.lower()]
+        if len(matches) > 1:
+            raise KeyError(
+                f"Device name {name!r} is ambiguous: entries {matches} differ only by case."
+            )
+        return matches[0] if matches else name
+
+    def __getitem__(self, name: _Any) -> _Any:
+        return dict.__getitem__(self, self.resolve(name))
+
+    def __contains__(self, name: object) -> bool:
+        try:
+            return dict.__contains__(self, self.resolve(name))
+        except KeyError:  # ambiguous: several entries match, so it is there
+            return True
+
+    def get(self, name: _Any, default: _Any = None) -> _Any:
+        return dict.get(self, self.resolve(name), default)
+
+
 def _get_section_config(
     section: str,
     sub_section: str | None = None,
@@ -198,7 +251,10 @@ def _get_section_config(
             f"Configuration subsection `{sub_section}` not found in section "
             f"`{section}`."
         )
-    return section_config[sub_section]
+    sub_config = section_config[sub_section]
+    if section == "DEVICES" and isinstance(sub_config, dict):
+        return DeviceSection(sub_config)
+    return sub_config
 
 
 def get_section_config(section: str, sub_section: str | None = None) -> dict[str, _Any]:

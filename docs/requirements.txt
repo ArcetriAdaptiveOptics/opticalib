@@ -8,7 +8,8 @@
 #
 # Deliberately EXCLUDED (mocked instead, see ``autodoc_mock_imports`` in
 # docs/conf.py): xupy/torch/cupy (CUDA), vmbpy, Pyro4, pipython, plico_motor,
-# PyQt5, qtconsole, and the Alpao/Microgate vendor SDKs.  None of them are
+# the GUI stack (PySide6, qtpy, qtconsole, pyqtgraph, qtawesome), and the
+# Alpao/Microgate vendor SDKs.  None of them are
 # available -- or useful -- in a documentation build environment.
 # ============================================================================
 

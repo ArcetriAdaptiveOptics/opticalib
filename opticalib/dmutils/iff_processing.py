@@ -307,8 +307,8 @@ def cube_roi_processing(
     load_path = _os.path.join(_fn.INTMAT_ROOT_FOLDER, tn)
 
     cube = _osu.load_fits(_os.path.join(load_path, "IMCube.fits")).transpose(2, 0, 1)
-    cmdmat = _osu.load_fits(_os.path.join(load_path, "cmdMatrix.fits"))
-    modesvec = _osu.load_fits(_os.path.join(load_path, "modesVector.fits"))
+    cmdmat = _osu.load_fits(_os.path.join(load_path, _MATRIX_FILE))
+    modesvec = _osu.load_fits(_os.path.join(load_path, _MODES_FILE))
 
     zfitter = _zern.ZernikeFitter(fitting_mask)
 
@@ -363,9 +363,9 @@ def cube_roi_processing(
         _os.makedirs(save_path)
 
     _osu.save_fits(_os.path.join(save_path, "IMCube.fits"), newcube, overwrite=True)
-    _osu.save_fits(_os.path.join(save_path, "cmdMatrix.fits"), cmdmat, overwrite=True)
+    _osu.save_fits(_os.path.join(save_path, _MATRIX_FILE), cmdmat, overwrite=True)
     _osu.save_fits(
-        _os.path.join(save_path, "modesVector.fits"), modesvec, overwrite=True
+        _os.path.join(save_path, _MODES_FILE), modesvec, overwrite=True
     )
 
     return newtn
@@ -998,7 +998,7 @@ def _modes_matrix_reorganization(
     # Shuffled case
     N, M, T = modesMat.shape
 
-    # indexList[i, j] stores the original position (in the requested modesList) of the
+    # indexList[i, j] stores the original position (in the requested modeslist) of the
     # mode that was placed at position j during repetition i of the shuffled acquisition
     shuffled_modes = _np.asarray(
         info["FILES"]["modes_list"].reshape((N, M)), dtype=int
@@ -1226,7 +1226,7 @@ def _check_stacked_cubes(tnlist: str) -> dict[str, _ot.Any]:
     flag : dict
         Dictionary containing the flagging information about the stacked cube.
     """
-    _, _, modesVectList, rebin = _get_cube_list(tnlist)
+    _, _, modesVectList, _, rebin = _get_cube_list(tnlist)
     nmodes = len(modesVectList[0])
     nvects = len(modesVectList)
     for i in range(nvects):

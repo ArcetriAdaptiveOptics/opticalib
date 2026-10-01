@@ -76,3 +76,20 @@ Common fixtures are defined in `conftest.py`:
 - Some tests may require specific dependencies (e.g., matplotlib for interactive plots)
 - Tests are designed to be independent and can run in any order
 
+### GUI tests (`test_gui_*.py`)
+
+- They run without a display (`QT_QPA_PLATFORM=offscreen`, set by `conftest.py`),
+  but Qt still needs the OpenGL/EGL system libraries. On Debian/Ubuntu:
+
+  ```bash
+  sudo apt-get install libegl1 libgl1 libxkbcommon0 libfontconfig1 libdbus-1-3
+  ```
+
+- When Qt cannot be loaded (missing libraries or packages), the GUI tests are
+  skipped, with the reason (e.g. `libEGL.so.1: cannot open shared object file`)
+  shown by `pytest -rs`.
+- Qt settings are redirected to a temporary folder by the `qapp` fixture, so the
+  tests never touch the user's configuration.
+- `test_gui_app.py` starts the whole application with a real IPython kernel in a
+  subprocess (marked `integration`, about 15 s).
+

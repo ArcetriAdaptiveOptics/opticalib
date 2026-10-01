@@ -67,7 +67,7 @@ dm = opt.AlpaoDm(820)       # set in the configuration file
 # an Influence Function by just doing
 
 tn = dmutils.iff_module.iffDataAcquisition(dm, interf) # Optional paramenters
-# are `modesList, modesAmplitude, template`, which if not specified are 
+# are `modeslist, modesAmplitude, template`, which if not specified are 
 # read from the configuration file
 ```
 

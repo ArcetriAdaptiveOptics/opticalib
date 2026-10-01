@@ -40,11 +40,17 @@ setup(
             "core/_configurations/configuration.yaml",
             "simulator/_API/alpao_conf.yaml",
             "__init_script__/initCalpy.py",
+            "gui/resources/*",
         ]
     },
     entry_points={
         "console_scripts": [
             "calpy=setup_calpy:main",
+        ],
+        # GUI launcher without a console window: pip generates OptiCalib.exe
+        # on Windows (and an OptiCalib script elsewhere).
+        "gui_scripts": [
+            "OptiCalib=setup_calpy:gui_main",
         ],
     },
 )

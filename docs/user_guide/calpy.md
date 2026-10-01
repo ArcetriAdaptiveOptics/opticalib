@@ -76,6 +76,16 @@ the same run.
   - Launch the Qt GUI for that experiment
 * - `calpy --gui`
   - Launch the Qt GUI with the default configuration
+* - `calpy --install-launcher [-f <path>]`
+  - Create the **OptiCalib** desktop launcher of the GUI: a `.desktop` entry in
+    the applications menu and on the desktop (Linux), or Desktop and Start-menu
+    shortcuts to `OptiCalib.exe` (Windows). With `-f`, the launcher opens that
+    experiment
+* - `calpy --uninstall-launcher [-f <path>]`
+  - Remove the launcher created by `--install-launcher`
+* - `OptiCalib [-f <path>]`
+  - Same as `calpy [-f <path>] --gui`, without a terminal window (on Windows,
+    `OptiCalib.exe` is created by `pip install`)
 ```
 
 `<path>` may be a directory or a direct path to a `.yaml` file. A relative path
@@ -309,8 +319,8 @@ runs offline:
 ```{code-block} python
 from opticalib.simulator import AlpaoDm, Fake4DInterf
 
-dm     = AlpaoDm(nacts=97)
-interf = Fake4DInterf()
+dm     = AlpaoDm(n_acts=97)
+interf = Fake4DInterf(dm)
 
 wf = interf.acquire_map()
 wf.shape
@@ -318,6 +328,97 @@ wf.shape
 
 This is the recommended way to develop analysis scripts, write regression
 tests, and produce documentation figures.
+
+(user-guide-calpy-gui)=
+
+## The graphical interface
+
+`calpy --gui` (or `calpy -f <path> --gui`) opens the same session in a window:
+the IPython console is the one described above, surrounded by panels that
+generate and run code in it. Every action is echoed in the console, so what
+you do in the GUI is reproducible from a script.
+
+```{list-table}
+:header-rows: 1
+:widths: 22 78
+
+* - Panel
+  - What it does
+* - Plots
+  - Figures created in the console appear here automatically, and are
+    updated in place when they change (also inside loops, on `plt.pause`).
+    `_gui.view(array, "title")` opens an image, a cube (frames along the last
+    axis) or a 1-D array in an interactive viewer with zoom, levels, colormap
+    and pixel read-out.
+* - Devices
+  - One card per entry of the `DEVICES` section, plus the simulators.
+    *Connect* runs the constructor in the console; the card follows the
+    variable (`dm`, `interf`, ...) and offers quick actions once connected.
+* - Workspace
+  - The variables of the session; double-click an array to view it.
+* - Data
+  - The opticalib data folders, one node per tracking number; new tracking
+    numbers appear by themselves. Double-click a file to preview it.
+* - Procedures
+  - One window per bench procedure (DM calibration, timeseries, stitching,
+    alignment, segments phasing), organised in steps. Each step shows the
+    code it will run; steps that move hardware ask for confirmation, and
+    results such as tracking numbers pre-fill the next steps.
+* - Console
+  - The IPython console.
+```
+
+To work on another experiment, use *File → Open experiment…* (`Ctrl+O`, pick
+the experiment folder), *File → Open configuration file…*, *File → Recent
+experiments*, or the folder button next to the configuration path in the
+status bar. The session switches in place with
+`opticalib.set_configuration_file()`, shown in the console, and the panels
+follow the new experiment; devices already connected keep the configuration
+they were created with, so reconnect them.
+
+The kernel runs in a separate process, so the window stays responsive while
+a command runs. Running and queued operations are listed in a floating
+*Activity* panel (drag it by its header; it pins to the nearest corner and
+can be locked or collapsed), and the status bar shows the kernel state with
+*Interrupt* and *Restart* buttons. The *GPU* label in the status bar shows the
+xupy array backend of the session: bright green on the GPU (CuPy), dim green
+on the CPU (NumPy), grey when no GPU is available. Click it to switch
+(`xp.use_gpu()` / `xp.use_cpu()`); arrays created before the switch are not
+converted.
+
+### How a configuration entry becomes a device
+
+The class that connects a `DEVICES` entry is chosen, in order, from:
+
+1. an explicit `class:` key in the entry;
+2. the entry name, ignoring case (`phasecam6110` → `PhaseCam`,
+   `Ingot` → `Ingot`);
+3. the section default (`CAMERAS` → `GigaVision`, `WFS` → `Ingot`).
+
+```{code-block} yaml
+DEVICES:
+  INTERFEROMETERS:
+    MainInterferometer:
+      class: PhaseCam      # not deducible from the name
+      ip: 192.168.0.10
+      port: 8011
+```
+
+Entries that cannot be connected in one click (empty template fields, an
+unknown class, a name the class does not read) show *Needs setup* with the
+reason. *Set up…* opens a dialog to choose the class and the variable name,
+preview and edit the command, and optionally save the `class:` key in the
+entry (only that line is added; comments are preserved).
+
+Device classes look up their entry by name: `Ingot` reads `INGOT`,
+`PetalMirror` reads `PetalDM`, `PhaseCam("6110")` reads `PhaseCam6110`. The
+lookup ignores case, so `Ingot` or `phasecam6110` work too, in the GUI and in
+scripts.
+
+```{note}
+The GUI needs a graphical display. Over SSH use `ssh -X`; `calpy --gui`
+prints an explanation instead of crashing when no display is available.
+```
 
 ## Running calpy non-interactively
 

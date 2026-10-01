@@ -441,3 +441,58 @@ class TestGetStitchingConfig:
 
         assert config["overlap"] == 0.1
         assert config["method"] == "test_method"
+
+
+class TestCaseInsensitiveDeviceLookup:
+    """Device entries are found regardless of the case of their name."""
+
+    CONFIG = {
+        "SYSTEM": {"data_path": ""},
+        "DEVICES": {
+            "WFS": {"Ingot": {"camera": "CAMERAS:GigaVision"}},
+            "INTERFEROMETERS": {"phasecam6110": {"ip": "1.2.3.4", "port": 8011}},
+            "CAMERAS": {"Cam": {"id": 1}, "cam": {"id": 2}, "Other": {"id": 3}},
+        },
+    }
+
+    @pytest.fixture
+    def config_file(self, temp_dir, monkeypatch):
+        path = os.path.join(temp_dir, "configuration.yaml")
+        with open(path, "w") as f:
+            yaml.safe_dump(self.CONFIG, f)
+        monkeypatch.setattr(read_config, "_cfile", path)
+        return path
+
+    def test_fixed_name_lookup(self, config_file):
+        # Ingot always reads the entry "INGOT".
+        assert read_config.get_device_config("WFS", "INGOT") == {"camera": "CAMERAS:GigaVision"}
+
+    def test_derived_name_lookup(self, config_file):
+        # PhaseCam("6110") reads the entry "PhaseCam6110" with a plain [] lookup.
+        section = read_config.get_section_config("DEVICES", "INTERFEROMETERS")
+        assert section["PhaseCam6110"]["port"] == 8011
+        assert "PHASECAM6110" in section
+        assert section.get("phaseCAM6110")["ip"] == "1.2.3.4"
+        assert read_config.get_interf_config("PhaseCam6110")["port"] == 8011
+
+    def test_exact_name_wins(self, config_file):
+        assert read_config.get_cameras_config("cam") == {"id": 2}
+        assert read_config.get_cameras_config("Cam") == {"id": 1}
+
+    def test_ambiguous_name(self, config_file):
+        section = read_config.get_section_config("DEVICES", "CAMERAS")
+        with pytest.raises(KeyError, match="ambiguous"):
+            section["CAM"]
+        assert "CAM" in section
+
+    def test_missing_name(self, config_file):
+        section = read_config.get_section_config("DEVICES", "CAMERAS")
+        with pytest.raises(KeyError):
+            section["Missing"]
+        assert section.get("Missing") is None
+        assert "Missing" not in section
+        with pytest.raises(DeviceNotFoundError):
+            read_config.get_device_config("CAMERAS", "Missing")
+
+    def test_other_sections_unchanged(self, config_file):
+        assert type(read_config.get_section_config("SYSTEM")) is dict
