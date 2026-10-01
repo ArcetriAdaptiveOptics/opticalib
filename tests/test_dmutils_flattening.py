@@ -120,7 +120,7 @@ class TestFlattening:
         assert isinstance(S, np.ndarray)
         assert isinstance(Vt, np.ndarray)
 
-    @patch("opticalib.dmutils.flattening._ifp.filter_zernike_cube")
+    @patch("opticalib.dmutils.flattening._ifp.remove_zernike_from_iff")
     @patch("opticalib.dmutils.flattening.Flattening._load_cmd_mat")
     @patch("opticalib.dmutils.flattening.Flattening._load_reconstructor")
     def test_filter_int_cube(self, mock_rec, mock_cmd, mock_filter, sample_int_matrix_folder):
@@ -158,7 +158,7 @@ class TestFlattening:
         result = f.filter_int_cube(zernModes=[1, 2, 3])
 
         assert result is f  # Should return self
-        # Verify that filter_zernike_cube was called
+        # Verify that remove_zernike_from_iff was called
         mock_filter.assert_called_once_with(tn, [1, 2, 3], mode='global')
 
     def test_load_new_tn(self, sample_int_matrix_folder):

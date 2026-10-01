@@ -174,7 +174,7 @@ class IffData:
                 _os.path.join(_fn.INTMAT_ROOT_FOLDER, self.tn, "IM.fits")
             )
         except FileNotFoundError:
-            cube =  _osu.load_fits(
+            cube = _osu.load_fits(
                 _os.path.join(_fn.INTMAT_ROOT_FOLDER, self.tn, "IMCube.fits")
             )
         finally:

@@ -51,7 +51,9 @@ class Alignment:
     def __init__(
         self,
         mechanical_devices: list[_ot.GenericDevice],
-        acquisition_devices: list[_ot.InterferometerDevice|_ot.CameraDevice|_ot.WFSDevice],
+        acquisition_devices: list[
+            _ot.InterferometerDevice | _ot.CameraDevice | _ot.WFSDevice
+        ],
         calibtn: _ot.Optional[str] = None,
     ):
         """
@@ -265,7 +267,9 @@ class Alignment:
             print(logMsg)
         return pos
 
-    def load_fitting_surface(self, filepath: str) -> None:
+    def load_fitting_surface(
+        self, filepath: str | None = None, surf: _ot.ImageData | None = None
+    ) -> None:
         """
         This function let you load the mask to use for zernike fitting. In the case of
         M$, for example, here the calibrated parabola is loaded, so that zernike modes are
@@ -274,18 +278,18 @@ class Alignment:
 
         Parameters
         ----------
-        filepath : str
+        filepath : str, optional
             The file path to the parabola file.
-
-        Returns
-        -------
-        str
-            A message indicating the successful loading of the file.
+        surf : ImageLike, optional
+            The surface to be used for zernike fitting.
         """
-        self._logger.info(f"Loading fitting surface from '{filepath}'")
-        surf = _osu.load_fits(filepath)
-        self._surface = surf
-        print(f"Fitting surface '{filepath}' loaded")
+        if filepath is not None:
+            self._logger.info(f"Loading fitting surface from '{filepath}'")
+            surface = _osu.load_fits(filepath)
+        if surf is not None:
+            surface = surf.copy()
+            print(f"Fitting surface loaded")
+        self._surface = surface
 
     def load_calibration(self, tn: str) -> None:
         """

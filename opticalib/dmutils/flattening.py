@@ -59,7 +59,7 @@ class Flattening:
         self,
         tn: str,
         dm: _ot.Optional[_ot.DeformableMirrorDevice] = None,
-        wfs: _ot.Optional[_ot.InterferometerDevice|_ot.WFSDevice] = None,
+        wfs: _ot.Optional[_ot.InterferometerDevice | _ot.WFSDevice] = None,
     ) -> None:
         """The Constructor"""
         self.tn = tn
@@ -299,7 +299,10 @@ class Flattening:
             )
             header["DMNAME"] = (self._dm._name, "deformable mirror name")
             header["OPTCAM"] = (wfs._name, "optical sensor used")
-            header["CAMTYPE"] = (_ot.get_device_type(wfs), "type of optical sensor used")
+            header["CAMTYPE"] = (
+                _ot.get_device_type(wfs),
+                "type of optical sensor used",
+            )
             modes2flat = (
                 _np.arange(modes2flat) if isinstance(modes2flat, int) else modes2flat
             )
@@ -543,7 +546,7 @@ class Flattening:
             self._oldCube = self._intCube.copy()
             zern2fit = zernModes if zernModes is not None else [1, 2, 3]
             self._logger.info(f"Filtering cube of zernike modes {zern2fit}...")
-            self._intCube, new_tn = _ifp.filter_zernike_cube(
+            self._intCube, new_tn = _ifp.remove_zernike_from_iff(
                 self.tn, zern2fit, mode=mode
             )
             self.load_new_tn(new_tn)

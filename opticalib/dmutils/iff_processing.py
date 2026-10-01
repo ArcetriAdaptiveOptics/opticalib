@@ -41,6 +41,7 @@ _INDEXLIST_FILE = "index_list.fits"
 _CUBE_FILE = "IMCube.fits"
 _COORD_FILE = ""  # TODO
 
+
 @_expand_list_arguments(["tn"])
 def process(
     tn: str | list[str],
@@ -415,8 +416,9 @@ def save_cube(
     if rebin > 1:
         cube = _ip.cube_rebinner(cube, rebin)
     cube.header.update(header)
-    if cube.header.get("CAMTYPE", "") == 'wfs':
+    if cube.header.get("CAMTYPE", "") == "wfs":
         from ..ground.reconstructor import compute_interaction_matrix as cim
+
         header = cube.header.copy()
         cube = cim(cube)
         cube_path = _os.path.join(new_fold, _CUBE_FILE.replace("Cube", ""))
@@ -537,7 +539,7 @@ def add_mode_to_cube(
     _osu.save_fits(modesvec_path, new_modesvec, overwrite=True)
 
 
-def filter_zernike_cube(
+def remove_zernike_from_iff(
     tn: str,
     zern_modes: _ot.Optional[list[int]] = None,
     mode: str = "global",
@@ -638,20 +640,26 @@ def iff_redux(
     fold = _os.path.join(_ifFold, tn)
 
     N, M, T = fileMat.shape
-    
+
     if len(template) != T:
-        raise ValueError("Template length must match the third dimension of ``fileMat`` for push-pull analysis.")
+        raise ValueError(
+            "Template length must match the third dimension of ``fileMat`` for push-pull analysis."
+        )
     if int(n_repetitions) != N:
-        raise ValueError("Number of repetitions must match the first dimention of ``fileMat``.")
+        raise ValueError(
+            "Number of repetitions must match the first dimention of ``fileMat``."
+        )
 
     if _np.size(ampVect) == 1:
         ampVect = _np.full(M, ampVect, dtype=_np.float32)
-    
+
     base_header = _osu.read_fits_header(fileMat[0, 0, 0])
-    base_header.update({
-        "TEMPLATE": (T, "push-pull length"),
-        "NREP": (N, "averaged repetitions"),
-    })
+    base_header.update(
+        {
+            "TEMPLATE": (T, "push-pull length"),
+            "NREP": (N, "averaged repetitions"),
+        }
+    )
 
     # Updated helper: now follows tensor logic:
     def _read_block(rep_idx: int, mode_idx: int) -> list[_ot.ImageData]:
@@ -704,10 +712,12 @@ def iff_redux(
 
             mode_img = _np.ma.masked_array(sum_data / n_repetitions, mask=union_mask)
 
-            base_header.update({
-                "MODEID": (int(modeList[mode_idx]), "mode id"),
-                "AMP": (float(ampVect[mode_idx]), "mode amplitude")
-            })
+            base_header.update(
+                {
+                    "MODEID": (int(modeList[mode_idx]), "mode id"),
+                    "AMP": (float(ampVect[mode_idx]), "mode amplitude"),
+                }
+            )
 
             _osu.save_fits(
                 _os.path.join(fold, f"mode_{int(modeList[mode_idx]):05d}.fits"),

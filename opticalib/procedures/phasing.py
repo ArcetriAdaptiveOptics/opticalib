@@ -12,6 +12,7 @@ from ..core.config import get_section_config as _gsc
 
 _splconf = _gsc("PHASING")
 
+
 def _get_tunable_filter():
     """
     initiate the tunable filter with standard parameters
@@ -23,7 +24,9 @@ def _get_tunable_filter():
 
     return motor(ip, port, axis=0)
 
+
 _FILTER_BANDWIDTH_MODE = {"narrow": 8, "medium": 4, "wide": 2, "black": 1}
+
 
 class SPL:
     """

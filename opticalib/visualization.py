@@ -264,7 +264,7 @@ def superimshow(
     set_axis_off : bool, optional
         If True, the axes will be turned off. The default is False.
     cut : bool, optional
-        If True, the images will be cut using the ROI defined in the `opticalib.ground.roi` module. 
+        If True, the images will be cut using the ROI defined in the `opticalib.ground.roi` module.
         The default is False.
     *mplargs
         Additional arguments to be passed to `imshow`.
