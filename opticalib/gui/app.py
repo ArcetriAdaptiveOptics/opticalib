@@ -32,7 +32,7 @@ import os
 import shutil
 import sys
 import tempfile
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import qtpy
 
@@ -55,6 +55,7 @@ from qtpy.QtWidgets import (
     QLabel,
     QMainWindow,
     QMessageBox,
+    QProgressBar,
     QTabBar,
     QToolButton,
     QWidget,
@@ -240,6 +241,124 @@ class KernelStatus(QWidget):
                 label += f" · {format_elapsed(elapsed)}"
         color = theme().tokens[token]
         self._label.setText(f"<span style='color:{color}'>●</span> {label}")
+
+
+class RamBar(QWidget):
+    """
+    Status-bar gauge of the memory used by the kernel.
+
+    The bar shows the memory of the kernel process as a share of the
+    machine's RAM; it turns orange, then red, when the whole system runs low
+    on memory.  Readings come from the operating system (``psutil``) in the
+    GUI process every :attr:`INTERVAL_MS`, so the kernel is never involved.
+    Without ``psutil`` the widget stays hidden.
+
+    Parameters
+    ----------
+    pid : callable
+        Returns the process ID of the kernel (or ``None``).
+    parent : QWidget, optional
+        Parent widget.
+    """
+
+    #: Refresh period.
+    INTERVAL_MS = 2000
+    #: System memory use (fraction) above which the bar turns orange / red.
+    WARNING, CRITICAL = 0.85, 0.95
+
+    def __init__(self, pid: Callable[[], Optional[int]], parent: Optional[QWidget] = None) -> None:
+        """Create the gauge (hidden until the first reading)."""
+        super().__init__(parent)
+        try:
+            import psutil
+        except ImportError:  # pragma: no cover - psutil comes with ipykernel
+            psutil = None
+        self._psutil = psutil
+        self._pid = pid
+        self._process = None
+        self._label = QLabel("RAM")
+        self._label.setProperty("muted", True)
+        self._bar = QProgressBar()
+        self._bar.setRange(0, 1000)
+        self._bar.setTextVisible(False)
+        self._bar.setFixedSize(70, 6)
+        self._value = QLabel()
+        self._value.setProperty("muted", True)
+        row = QHBoxLayout(self)
+        row.setContentsMargins(6, 0, 6, 0)
+        row.setSpacing(5)
+        row.addWidget(self._label)
+        row.addWidget(self._bar)
+        row.addWidget(self._value)
+        self._level: Optional[str] = None  # set by the first reading
+        self.hide()
+        if psutil is not None:
+            self._timer = QTimer(self)
+            self._timer.setInterval(self.INTERVAL_MS)
+            self._timer.timeout.connect(self.refresh)
+            self._timer.start()
+            theme().changed.connect(self._apply_level)
+
+    @staticmethod
+    def format_bytes(value: float) -> str:
+        """``1536 MB`` → ``'1.5 GB'``."""
+        for unit in ("B", "KB", "MB", "GB", "TB"):
+            if value < 1024 or unit == "TB":
+                return f"{value:.0f} {unit}" if unit in ("B", "KB") else f"{value:.1f} {unit}"
+            value /= 1024
+        return f"{value:.1f} TB"  # pragma: no cover
+
+    def refresh(self) -> None:
+        """Read the memory of the kernel and of the system."""
+        psutil = self._psutil
+        pid = self._pid()
+        if psutil is None or pid is None:
+            self.hide()
+            return
+        try:
+            if self._process is None or self._process.pid != pid:
+                self._process = psutil.Process(pid)
+            kernel = self._process.memory_info().rss
+            system = psutil.virtual_memory()
+            gui = psutil.Process().memory_info().rss
+        except (psutil.Error, OSError):
+            self._process = None
+            self.hide()
+            return
+        self.set_reading(kernel, system.total, system.percent / 100.0, gui)
+
+    def set_reading(self, kernel: int, total: int, system_used: float, gui: int = 0) -> None:
+        """
+        Show a reading.
+
+        Parameters
+        ----------
+        kernel : int
+            Memory of the kernel process [bytes].
+        total : int
+            RAM of the machine [bytes].
+        system_used : float
+            Fraction of the RAM used by the whole system.
+        gui : int, optional
+            Memory of the GUI process [bytes].
+        """
+        fmt = self.format_bytes
+        self._bar.setValue(int(1000 * kernel / total) if total else 0)
+        self._value.setText(f"{fmt(kernel)} / {fmt(total)}")
+        self.setToolTip(
+            f"Kernel memory: {fmt(kernel)}\n"
+            f"GUI memory: {fmt(gui)}\n"
+            f"System: {system_used:.0%} of {fmt(total)} in use"
+        )
+        level = "critical" if system_used >= self.CRITICAL else "warning" if system_used >= self.WARNING else ""
+        if level != self._level:
+            self._level = level
+            self._apply_level()
+        self.show()
+
+    def _apply_level(self) -> None:
+        token = {"warning": "warning", "critical": "danger"}.get(self._level, "accent")
+        self._bar.setStyleSheet(f"QProgressBar::chunk {{ background: {theme().tokens[token]}; }}")
 
 
 class BackendButton(QToolButton):
@@ -616,6 +735,8 @@ class CalpyGUI(QMainWindow):
         self._btn_switch_experiment.setAutoRaise(True)
         self._btn_switch_experiment.setToolTip("Switch to another experiment (Ctrl+O)")
         self._btn_switch_experiment.clicked.connect(self._choose_experiment)
+        self.ram_bar = RamBar(lambda: self.bridge.kernel_pid)
+        status.addPermanentWidget(self.ram_bar)
         status.addPermanentWidget(self.backend_button)
         status.addPermanentWidget(self._btn_switch_experiment)
         status.addPermanentWidget(self._config_label)

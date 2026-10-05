@@ -413,6 +413,13 @@ class KernelBridge(QObject):
         return self._km
 
     @property
+    def kernel_pid(self) -> Optional[int]:
+        """Process ID of the running kernel (``None`` if not running)."""
+        process = getattr(getattr(self._km, "provisioner", None), "process", None)
+        pid = getattr(process, "pid", None)
+        return pid if isinstance(pid, int) else None
+
+    @property
     def pending_tasks(self) -> List[Task]:
         """Queued and running GUI tasks."""
         running = [t for t in self._tasks_by_msg.values() if not t.is_final]
