@@ -920,7 +920,7 @@ class CalpyGUI(QMainWindow):
         """Switch the xupy backend of the kernel (arrays created later)."""
         target = "gpu" if to_gpu else "cpu"
         self._run(
-            f"import xupy as xp\nxp.use_{target}()",
+            #f"import xupy as xp\nxp.use_{target}()", ## No need, as initCalpy imports xp
             f"Switching xupy to the {target.upper()}",
         )
 
