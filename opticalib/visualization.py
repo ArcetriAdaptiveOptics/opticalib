@@ -171,6 +171,53 @@ def cmdplot(cmd: _ot.ArrayLike, **kwargs: dict[str, _ot.Any]):
 
     return fig, ax, l
 
+def coordplot(coord: _ot.ArrayLike, **kwargs: dict[str, _ot.Any]):
+    """
+    Plot a set of coordinates as a 2D scatter plot.
+
+    Parameters
+    ----------
+    coord : array-like
+        2D array representing the coordinates to be displayed. Each row should
+        correspond to a point, with the first column as the x-coordinate and the
+        second column as the y-coordinate.
+    **kwargs
+        Additional keyword arguments to be passed to `scatter`, as well as some
+        additions:
+
+        - title: str, optional
+            Title of the plot. Default is "Coordinates".
+        - xlabel: str, optional
+            Label for the x-axis. Default is "X [px]".
+        - ylabel: str, optional
+            Label for the y-axis. Default is "Y [px]".
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        The figure object.
+    ax : matplotlib.axes.Axes
+        The axes object.
+    sc : matplotlib.collections.PathCollection
+        The scatter plot object returned by scatter.
+    """
+    title = kwargs.pop("title", "Coordinates")
+    xlabel = kwargs.pop("xlabel", "X [px]")
+    ylabel = kwargs.pop("ylabel", "Y [px]")
+    c = _osu.get_kwargs(("color", "c"), default="black", pop=True, kwargs=kwargs)
+
+    if coord.shape[1] != 2:
+        coord = coord.T
+
+    Y, X = coord[:, 0], coord[:, 1]
+    fig, ax = plt.subplots()
+    sc = ax.scatter(X, Y, color=c, **kwargs)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_title(title)
+
+    return fig, ax, sc
+
 
 def myimshow(
     image: np.ndarray,
