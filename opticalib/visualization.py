@@ -205,16 +205,25 @@ def coordplot(coord: _ot.ArrayLike, **kwargs: dict[str, _ot.Any]):
     xlabel = kwargs.pop("xlabel", "X [px]")
     ylabel = kwargs.pop("ylabel", "Y [px]")
     c = _osu.get_kwargs(("color", "c"), default="black", pop=True, kwargs=kwargs)
+    use_colorbar = False
+
+    if not isinstance(c, str):
+        c = np.asarray(c)
+        if not c.shape == (coord.shape[0],):
+            raise ValueError("Color array must have the same length as the number of coordinates.")
+        use_colorbar = True
 
     if coord.shape[1] != 2:
         coord = coord.T
 
     Y, X = coord[:, 0], coord[:, 1]
     fig, ax = plt.subplots()
-    sc = ax.scatter(X, Y, color=c, **kwargs)
+    sc = ax.scatter(X, Y, c=c, **kwargs)
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
     ax.set_title(title)
+    if use_colorbar:
+        plt.colorbar(sc, ax=ax)
 
     return fig, ax, sc
 
