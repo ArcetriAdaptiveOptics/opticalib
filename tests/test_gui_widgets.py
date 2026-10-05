@@ -317,6 +317,53 @@ class TestBackendButton:
         assert not button.isEnabled() and "No GPU available" in button.toolTip()
 
 
+class TestRamBar:
+    """The status-bar gauge of the kernel memory."""
+
+    def test_format_bytes(self, qapp):
+        from opticalib.gui.app import RamBar
+
+        assert RamBar.format_bytes(512) == "512 B"
+        assert RamBar.format_bytes(2048) == "2 KB"
+        assert RamBar.format_bytes(1536 * 1024**2) == "1.5 GB"
+        assert RamBar.format_bytes(3 * 1024**4) == "3.0 TB"
+
+    def test_reading_and_levels(self, qapp):
+        from opticalib.gui.app import RamBar
+        from opticalib.gui.theme import theme
+
+        gb = 1024**3
+        tokens = theme().tokens
+        bar = RamBar(lambda: None)
+        bar.set_reading(2 * gb, 16 * gb, 8 * gb, gb)
+        # Whole-system use, split into this session (kernel + GUI) and the rest.
+        assert bar._gauge.kernel == pytest.approx(0.1875) and bar._gauge.others == pytest.approx(0.3125)
+        assert bar._value.text() == "8.0 GB / 16.0 GB"
+        tip = bar.toolTip()
+        assert "In use: 8.0 GB of 16.0 GB (50%)" in tip and "Kernel: 2.0 GB" in tip
+        assert "Other processes: 5.0 GB" in tip and "Available: 8.0 GB" in tip
+        _, kernel, others = bar._gauge.colors
+        assert kernel.name() == tokens["accent"] and others.name() == tokens["text_muted"]
+        bar.set_reading(2 * gb, 16 * gb, int(14.4 * gb))
+        assert bar._gauge.colors[2].name() == tokens["warning"]
+        bar.set_reading(2 * gb, 16 * gb, int(15.5 * gb))
+        assert bar._gauge.colors[2].name() == tokens["danger"]
+        assert bar._gauge.colors[1].name() == tokens["accent"]
+        bar._gauge.grab()  # paints without errors
+
+    def test_hidden_without_kernel(self, qapp):
+        from opticalib.gui.app import RamBar
+
+        pid = [None]
+        bar = RamBar(lambda: pid[0])
+        bar.refresh()
+        assert bar.isHidden()
+        pid[0] = os.getpid()  # any live process will do
+        bar.refresh()
+        assert not bar.isHidden() and "/" in bar._value.text()
+        bar._timer.stop()
+
+
 def test_kernel_side_backend(monkeypatch):
     import json
 
