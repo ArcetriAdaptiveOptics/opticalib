@@ -11,11 +11,12 @@ import os
 from typing import Callable, List, Optional, Tuple
 
 import yaml
-from qtpy.QtCore import QRegularExpression, Qt, QTimer
+from qtpy.QtCore import QEvent, QRect, QRegularExpression, QSize, Qt, QTimer
 from qtpy.QtGui import (
     QFont,
     QFontDatabase,
     QKeySequence,
+    QPainter,
     QShortcut,
     QSyntaxHighlighter,
     QTextCharFormat,
@@ -28,6 +29,7 @@ from qtpy.QtWidgets import (
     QMessageBox,
     QPlainTextEdit,
     QPushButton,
+    QTextEdit,
     QVBoxLayout,
     QWidget,
 )
@@ -125,6 +127,8 @@ def validate_config_text(text: str) -> Optional[str]:
     except yaml.YAMLError as exc:
         mark = getattr(exc, "problem_mark", None)
         problem = getattr(exc, "problem", None) or str(exc)
+        if "'\\t'" in problem:
+            problem += " (indent with spaces: YAML does not allow tabs)"
         if mark is not None:
             return f"Line {mark.line + 1}, column {mark.column + 1}: {problem}"
         return f"Invalid YAML syntax: {problem}"
@@ -133,6 +137,195 @@ def validate_config_text(text: str) -> Optional[str]:
     if not isinstance(config.get("SYSTEM"), dict):
         return "The configuration must contain a 'SYSTEM' section."
     return None
+
+
+class _LineNumberArea(QWidget):
+    """Gutter of a :class:`CodeEditor` showing the line numbers."""
+
+    def __init__(self, editor: "CodeEditor") -> None:
+        """Attach the gutter to ``editor``."""
+        super().__init__(editor)
+        self._editor = editor
+
+    def sizeHint(self) -> QSize:  # noqa: N802 - Qt override
+        """Width of the widest line number."""
+        return QSize(self._editor.line_number_width(), 0)
+
+    def paintEvent(self, event) -> None:  # noqa: N802 - Qt override
+        """Draw the numbers of the visible lines."""
+        self._editor.paint_line_numbers(event)
+
+
+class CodeEditor(QPlainTextEdit):
+    """
+    Plain-text editor with line numbers and soft tabs.
+
+    *Tab* inserts spaces up to the next indentation stop (YAML forbids tab
+    characters), *Shift+Tab* removes one level, both acting on every
+    selected line when the selection spans several; *Backspace* in the
+    indentation removes one level.  Tab characters in pasted text are
+    expanded to spaces.
+
+    Parameters
+    ----------
+    indent : int, optional
+        Width of one indentation level, in spaces.
+    parent : QWidget, optional
+        Parent widget.
+    """
+
+    def __init__(self, indent: int = 2, parent: Optional[QWidget] = None) -> None:
+        """Create the editor and its line-number gutter."""
+        super().__init__(parent)
+        self.indent = indent
+        self._gutter = _LineNumberArea(self)
+        self.blockCountChanged.connect(self._update_margins)
+        self.updateRequest.connect(self._update_gutter)
+        self.cursorPositionChanged.connect(self._highlight_current_line)
+        theme().changed.connect(self._on_theme_changed)
+        self._update_margins()
+        self._highlight_current_line()
+
+    # -- line numbers -------------------------------------------------------
+
+    def line_number_width(self) -> int:
+        """Width of the gutter, in pixels."""
+        digits = len(str(max(1, self.blockCount())))
+        return 12 + self.fontMetrics().horizontalAdvance("9") * max(digits, 2)
+
+    def _update_margins(self, *_) -> None:
+        self.setViewportMargins(self.line_number_width(), 0, 0, 0)
+
+    def _update_gutter(self, rect: QRect, dy: int) -> None:
+        if dy:
+            self._gutter.scroll(0, dy)
+        else:
+            self._gutter.update(0, rect.y(), self._gutter.width(), rect.height())
+        if rect.contains(self.viewport().rect()):
+            self._update_margins()
+
+    def changeEvent(self, event) -> None:  # noqa: N802 - Qt override
+        """Resize the gutter when the font changes."""
+        super().changeEvent(event)
+        if event.type() == QEvent.Type.FontChange:
+            self._update_margins()
+            self.resizeEvent(None)
+
+    def resizeEvent(self, event) -> None:  # noqa: N802 - Qt override
+        """Keep the gutter as tall as the editor."""
+        if event is not None:
+            super().resizeEvent(event)
+        area = self.contentsRect()
+        self._gutter.setGeometry(QRect(area.left(), area.top(), self.line_number_width(), area.height()))
+
+    def paint_line_numbers(self, event) -> None:
+        """Paint the gutter (called by :class:`_LineNumberArea`)."""
+        t = theme()
+        painter = QPainter(self._gutter)
+        painter.fillRect(event.rect(), t.color("surface_alt"))
+        painter.setFont(self.font())
+        current = self.textCursor().blockNumber()
+        width = self._gutter.width() - 6
+        height = self.fontMetrics().height()
+        block = self.firstVisibleBlock()
+        top = round(self.blockBoundingGeometry(block).translated(self.contentOffset()).top())
+        bottom = top + round(self.blockBoundingRect(block).height())
+        while block.isValid() and top <= event.rect().bottom():
+            if block.isVisible() and bottom >= event.rect().top():
+                number = block.blockNumber()
+                painter.setPen(t.color("text" if number == current else "text_muted"))
+                painter.drawText(0, top, width, height, Qt.AlignmentFlag.AlignRight, str(number + 1))
+            block = block.next()
+            top = bottom
+            bottom = top + round(self.blockBoundingRect(block).height())
+        painter.end()
+
+    def _highlight_current_line(self) -> None:
+        selections = []
+        if not self.isReadOnly():
+            selection = QTextEdit.ExtraSelection()
+            selection.format.setBackground(theme().color("surface_alt"))
+            selection.format.setProperty(QTextCharFormat.Property.FullWidthSelection, True)
+            selection.cursor = self.textCursor()
+            selection.cursor.clearSelection()
+            selections.append(selection)
+        self.setExtraSelections(selections)
+        self._gutter.update()
+
+    def _on_theme_changed(self) -> None:
+        self._highlight_current_line()
+
+    # -- soft tabs ----------------------------------------------------------
+
+    def keyPressEvent(self, event) -> None:  # noqa: N802 - Qt override
+        """Turn Tab / Shift+Tab / Backspace into indentation edits."""
+        key = event.key()
+        if self.isReadOnly():
+            super().keyPressEvent(event)
+        elif key == Qt.Key.Key_Backtab or (key == Qt.Key.Key_Tab and event.modifiers() & Qt.KeyboardModifier.ShiftModifier):
+            self._shift_lines(-1)
+        elif key == Qt.Key.Key_Tab:
+            if self._spans_lines():
+                self._shift_lines(1)
+            else:
+                column = self.textCursor().positionInBlock()
+                self.insertPlainText(" " * (self.indent - column % self.indent))
+        elif key == Qt.Key.Key_Backspace and self._in_indentation():
+            cursor = self.textCursor()
+            column = cursor.positionInBlock()
+            cursor.movePosition(
+                QTextCursor.MoveOperation.Left, QTextCursor.MoveMode.KeepAnchor, (column - 1) % self.indent + 1
+            )
+            cursor.removeSelectedText()
+        else:
+            super().keyPressEvent(event)
+
+    def insertFromMimeData(self, source) -> None:  # noqa: N802 - Qt override
+        """Paste with tab characters expanded to spaces."""
+        if source.hasText():
+            self.insertPlainText(source.text().expandtabs(self.indent))
+        else:
+            super().insertFromMimeData(source)
+
+    def _spans_lines(self) -> bool:
+        cursor = self.textCursor()
+        doc = self.document()
+        return cursor.hasSelection() and (
+            doc.findBlock(cursor.selectionStart()).blockNumber() != doc.findBlock(cursor.selectionEnd()).blockNumber()
+        )
+
+    def _in_indentation(self) -> bool:
+        cursor = self.textCursor()
+        if cursor.hasSelection() or cursor.positionInBlock() == 0:
+            return False
+        before = cursor.block().text()[: cursor.positionInBlock()]
+        return before.strip(" ") == ""
+
+    def _shift_lines(self, direction: int) -> None:
+        """Indent (+1) or dedent (-1) the lines touched by the cursor."""
+        cursor = self.textCursor()
+        doc = self.document()
+        first = doc.findBlock(cursor.selectionStart())
+        last = doc.findBlock(cursor.selectionEnd())
+        if cursor.hasSelection() and last != first and cursor.selectionEnd() == last.position():
+            last = last.previous()  # a selection ending at a line start excludes that line
+        edit = QTextCursor(doc)
+        edit.beginEditBlock()
+        block = first
+        while block.isValid():
+            edit.setPosition(block.position())
+            if direction > 0:
+                if block.text().strip():
+                    edit.insertText(" " * self.indent)
+            else:
+                text = block.text()
+                count = min(len(text) - len(text.lstrip(" ")), self.indent)
+                edit.movePosition(QTextCursor.MoveOperation.Right, QTextCursor.MoveMode.KeepAnchor, count)
+                edit.removeSelectedText()
+            if block == last:
+                break
+            block = block.next()
+        edit.endEditBlock()
 
 
 class ConfigEditorDialog(QDialog):
@@ -174,12 +367,11 @@ class ConfigEditorDialog(QDialog):
         path_label.setProperty("muted", True)
         path_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
 
-        self._text_edit = QPlainTextEdit()
+        self._text_edit = CodeEditor(indent=2)
         font = QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont)
         font.setPointSizeF(max(font.pointSizeF(), 10.5))
         self._text_edit.setFont(font)
         self._text_edit.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
-        self._text_edit.setTabStopDistance(self._text_edit.fontMetrics().horizontalAdvance(" ") * 2)
         self._highlighter = YamlHighlighter(self._text_edit.document())
         try:
             with open(config_path, "r") as f:

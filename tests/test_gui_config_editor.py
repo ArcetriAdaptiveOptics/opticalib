@@ -146,3 +146,87 @@ class TestConfigEditorDialog:
         finally:
             theme().set_mode(mode)
         assert before != after
+
+
+def test_tab_error_is_explained():
+    error = ce.validate_config_text("SYSTEM:\n\tdata_path: ''\n")
+    assert error.startswith("Line 2") and "indent with spaces" in error
+
+
+class TestCodeEditor:
+    """Line numbers and soft tabs of the editor."""
+
+    @staticmethod
+    def _key(editor, key, modifiers=None):
+        from qtpy.QtCore import Qt
+        from qtpy.QtGui import QKeyEvent
+        from qtpy.QtCore import QEvent
+
+        modifiers = modifiers or Qt.KeyboardModifier.NoModifier
+        editor.keyPressEvent(QKeyEvent(QEvent.Type.KeyPress, key, modifiers))
+
+    @staticmethod
+    def _cursor_at(editor, line, column):
+        from qtpy.QtGui import QTextCursor
+
+        cursor = QTextCursor(editor.document().findBlockByNumber(line))
+        cursor.movePosition(QTextCursor.MoveOperation.Right, n=column)
+        editor.setTextCursor(cursor)
+
+    def test_tab_inserts_spaces(self, qapp):
+        from qtpy.QtCore import Qt
+
+        editor = ce.CodeEditor(indent=2)
+        editor.setPlainText("SYSTEM:\nkey: 1\n")
+        self._cursor_at(editor, 1, 0)
+        self._key(editor, Qt.Key.Key_Tab)
+        assert editor.toPlainText() == "SYSTEM:\n  key: 1\n"
+        self._cursor_at(editor, 1, 1)  # to the next indentation stop
+        self._key(editor, Qt.Key.Key_Tab)
+        assert editor.toPlainText() == "SYSTEM:\n   key: 1\n"  # one space, up to column 2
+        assert "\t" not in editor.toPlainText()
+        assert ce.validate_config_text(editor.toPlainText()) is None
+
+    def test_backspace_and_shift_tab_dedent(self, qapp):
+        from qtpy.QtCore import Qt
+
+        editor = ce.CodeEditor(indent=2)
+        editor.setPlainText("SYSTEM:\n    key: 1\n")
+        self._cursor_at(editor, 1, 4)
+        self._key(editor, Qt.Key.Key_Backspace)
+        assert editor.toPlainText() == "SYSTEM:\n  key: 1\n"
+        self._key(editor, Qt.Key.Key_Backtab)
+        assert editor.toPlainText() == "SYSTEM:\nkey: 1\n"
+
+    def test_block_indent(self, qapp):
+        from qtpy.QtCore import Qt
+        from qtpy.QtGui import QTextCursor
+
+        editor = ce.CodeEditor(indent=2)
+        editor.setPlainText("a: 1\nb: 2\n\nc: 3\n")
+        cursor = editor.textCursor()
+        cursor.setPosition(0)
+        cursor.setPosition(editor.document().findBlockByNumber(3).position(), QTextCursor.MoveMode.KeepAnchor)
+        editor.setTextCursor(cursor)  # lines 1-3; the selection ends at the start of line 4
+        self._key(editor, Qt.Key.Key_Tab)
+        assert editor.toPlainText() == "  a: 1\n  b: 2\n\nc: 3\n"
+        self._key(editor, Qt.Key.Key_Backtab)
+        assert editor.toPlainText() == "a: 1\nb: 2\n\nc: 3\n"
+
+    def test_paste_expands_tabs(self, qapp):
+        from qtpy.QtCore import QMimeData
+
+        editor = ce.CodeEditor(indent=2)
+        data = QMimeData()
+        data.setText("SYSTEM:\n\tdata_path: ''\n")
+        editor.insertFromMimeData(data)
+        assert editor.toPlainText() == "SYSTEM:\n  data_path: ''\n"
+
+    def test_line_numbers(self, qapp):
+        editor = ce.CodeEditor()
+        editor.resize(400, 300)
+        editor.setPlainText("\n".join(f"k{i}: {i}" for i in range(150)))
+        width = editor.line_number_width()
+        assert editor.viewportMargins().left() == width
+        assert width > editor.fontMetrics().horizontalAdvance("999")
+        editor.grab()  # paints the gutter without errors
