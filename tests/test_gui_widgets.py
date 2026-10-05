@@ -333,15 +333,23 @@ class TestRamBar:
         from opticalib.gui.theme import theme
 
         gb = 1024**3
+        tokens = theme().tokens
         bar = RamBar(lambda: None)
-        bar.set_reading(2 * gb, 16 * gb, 0.5, gb)
-        assert bar._bar.value() == 125 and bar._value.text() == "2.0 GB / 16.0 GB"
-        assert "Kernel memory: 2.0 GB" in bar.toolTip() and "50% of 16.0 GB" in bar.toolTip()
-        assert theme().tokens["accent"] in bar._bar.styleSheet()
-        bar.set_reading(2 * gb, 16 * gb, 0.9)
-        assert theme().tokens["warning"] in bar._bar.styleSheet()
-        bar.set_reading(2 * gb, 16 * gb, 0.97)
-        assert theme().tokens["danger"] in bar._bar.styleSheet()
+        bar.set_reading(2 * gb, 16 * gb, 8 * gb, gb)
+        # Whole-system use, split into this session (kernel + GUI) and the rest.
+        assert bar._gauge.kernel == pytest.approx(0.1875) and bar._gauge.others == pytest.approx(0.3125)
+        assert bar._value.text() == "8.0 GB / 16.0 GB"
+        tip = bar.toolTip()
+        assert "In use: 8.0 GB of 16.0 GB (50%)" in tip and "Kernel: 2.0 GB" in tip
+        assert "Other processes: 5.0 GB" in tip and "Available: 8.0 GB" in tip
+        _, kernel, others = bar._gauge.colors
+        assert kernel.name() == tokens["accent"] and others.name() == tokens["text_muted"]
+        bar.set_reading(2 * gb, 16 * gb, int(14.4 * gb))
+        assert bar._gauge.colors[2].name() == tokens["warning"]
+        bar.set_reading(2 * gb, 16 * gb, int(15.5 * gb))
+        assert bar._gauge.colors[2].name() == tokens["danger"]
+        assert bar._gauge.colors[1].name() == tokens["accent"]
+        bar._gauge.grab()  # paints without errors
 
     def test_hidden_without_kernel(self, qapp):
         from opticalib.gui.app import RamBar

@@ -384,9 +384,10 @@ can be locked or collapsed), and the status bar shows the kernel state with
 xupy array backend of the session: bright green on the GPU (CuPy), dim green
 on the CPU (NumPy), grey when no GPU is available. Click it to switch
 (`xp.use_gpu()` / `xp.use_cpu()`); arrays created before the switch are not
-converted. Next to it, the *RAM* bar shows the memory used by the kernel out
-of the machine's total; it turns orange, then red, when the whole system is
-above 85% and 95% memory use (hover it for kernel, GUI and system figures).
+converted. Next to it, the *RAM* bar shows the memory in use on the whole
+machine, split into this session, kernel plus GUI (accent colour), and everything else; the second
+segment turns orange, then red, above 85% and 95% use (hover it for the kernel,
+GUI, other-process and available figures).
 
 ### How a configuration entry becomes a device
 

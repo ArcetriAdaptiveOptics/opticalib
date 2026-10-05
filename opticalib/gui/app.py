@@ -44,8 +44,8 @@ if getattr(qtpy, "QT5", False) is True:  # "is True": qtpy is mocked in the docs
         f"QT_API=pyside6 before starting."
     )
 
-from qtpy.QtCore import QSettings, Qt, QTimer, Signal
-from qtpy.QtGui import QAction, QActionGroup, QColor, QIcon, QKeySequence
+from qtpy.QtCore import QRectF, QSettings, Qt, QTimer, Signal
+from qtpy.QtGui import QAction, QActionGroup, QColor, QIcon, QKeySequence, QPainter, QPainterPath
 from qtpy.QtWidgets import (
     QApplication,
     QDockWidget,
@@ -55,7 +55,7 @@ from qtpy.QtWidgets import (
     QLabel,
     QMainWindow,
     QMessageBox,
-    QProgressBar,
+    QSizePolicy,
     QTabBar,
     QToolButton,
     QWidget,
@@ -243,15 +243,47 @@ class KernelStatus(QWidget):
         self._label.setText(f"<span style='color:{color}'>●</span> {label}")
 
 
+class _RamGauge(QWidget):
+    """Horizontal bar with two stacked segments: this session, then the rest."""
+
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
+        """Create an empty gauge."""
+        super().__init__(parent)
+        self.setFixedSize(150, 8)
+        self.kernel = 0.0  # fractions of the total RAM: kernel + GUI
+        self.others = 0.0
+        self.colors = (QColor(), QColor(), QColor())  # track, kernel, others
+
+    def paintEvent(self, event) -> None:
+        """Draw the track, then the kernel and the other segments."""
+        track, kernel, others = self.colors
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setPen(Qt.PenStyle.NoPen)
+        rect = QRectF(self.rect())
+        radius = rect.height() / 2
+        clip = QPainterPath()
+        clip.addRoundedRect(rect, radius, radius)
+        painter.setClipPath(clip)
+        painter.fillRect(rect, track)
+        width = rect.width()
+        k = width * min(max(self.kernel, 0.0), 1.0)
+        o = min(width * max(self.others, 0.0), width - k)
+        painter.fillRect(QRectF(0, 0, k, rect.height()), kernel)
+        painter.fillRect(QRectF(k, 0, o, rect.height()), others)
+        painter.end()
+
+
 class RamBar(QWidget):
     """
-    Status-bar gauge of the memory used by the kernel.
+    Status-bar gauge of the machine's memory.
 
-    The bar shows the memory of the kernel process as a share of the
-    machine's RAM; it turns orange, then red, when the whole system runs low
-    on memory.  Readings come from the operating system (``psutil``) in the
-    GUI process every :attr:`INTERVAL_MS`, so the kernel is never involved.
-    Without ``psutil`` the widget stays hidden.
+    The bar shows the RAM in use on the whole machine, split in two
+    segments: this session, kernel plus GUI (accent colour), and every
+    other process.  The second segment turns orange, then red, when
+    memory use approaches the limit.  Readings come from the operating
+    system (``psutil``) in the GUI process every :attr:`INTERVAL_MS`, so the
+    kernel is never involved.  Without ``psutil`` the widget stays hidden.
 
     Parameters
     ----------
@@ -278,19 +310,17 @@ class RamBar(QWidget):
         self._process = None
         self._label = QLabel("RAM")
         self._label.setProperty("muted", True)
-        self._bar = QProgressBar()
-        self._bar.setRange(0, 1000)
-        self._bar.setTextVisible(False)
-        self._bar.setFixedSize(70, 6)
+        self._gauge = _RamGauge()
         self._value = QLabel()
         self._value.setProperty("muted", True)
         row = QHBoxLayout(self)
         row.setContentsMargins(6, 0, 6, 0)
-        row.setSpacing(5)
-        row.addWidget(self._label)
-        row.addWidget(self._bar)
-        row.addWidget(self._value)
-        self._level: Optional[str] = None  # set by the first reading
+        row.setSpacing(6)
+        for widget in (self._label, self._gauge, self._value):
+            row.addWidget(widget, 0, Qt.AlignmentFlag.AlignVCenter)
+        self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
+        self._level = ""
+        self._apply_level()
         self.hide()
         if psutil is not None:
             self._timer = QTimer(self)
@@ -325,9 +355,9 @@ class RamBar(QWidget):
             self._process = None
             self.hide()
             return
-        self.set_reading(kernel, system.total, system.percent / 100.0, gui)
+        self.set_reading(kernel, system.total, system.total - system.available, gui)
 
-    def set_reading(self, kernel: int, total: int, system_used: float, gui: int = 0) -> None:
+    def set_reading(self, kernel: int, total: int, used: int, gui: int = 0) -> None:
         """
         Show a reading.
 
@@ -337,28 +367,38 @@ class RamBar(QWidget):
             Memory of the kernel process [bytes].
         total : int
             RAM of the machine [bytes].
-        system_used : float
-            Fraction of the RAM used by the whole system.
+        used : int
+            RAM in use on the whole machine, kernel included [bytes].
         gui : int, optional
             Memory of the GUI process [bytes].
         """
         fmt = self.format_bytes
-        self._bar.setValue(int(1000 * kernel / total) if total else 0)
-        self._value.setText(f"{fmt(kernel)} / {fmt(total)}")
+        kernel = min(kernel, used)
+        calpy = min(kernel + gui, used)  # this session: kernel + GUI
+        fraction = used / total if total else 0.0
+        self._gauge.kernel = calpy / total if total else 0.0
+        self._gauge.others = (used - calpy) / total if total else 0.0
+        self._gauge.update()
+        self._value.setText(f"{fmt(used)} / {fmt(total)}")
         self.setToolTip(
-            f"Kernel memory: {fmt(kernel)}\n"
-            f"GUI memory: {fmt(gui)}\n"
-            f"System: {system_used:.0%} of {fmt(total)} in use"
+            f"In use: {fmt(used)} of {fmt(total)} ({fraction:.0%})\n"
+            f"Kernel: {fmt(kernel)}\n"
+            f"GUI: {fmt(gui)}\n"
+            f"Other processes: {fmt(max(used - kernel - gui, 0))}\n"
+            f"Available: {fmt(max(total - used, 0))}"
         )
-        level = "critical" if system_used >= self.CRITICAL else "warning" if system_used >= self.WARNING else ""
+        level = "critical" if fraction >= self.CRITICAL else "warning" if fraction >= self.WARNING else ""
         if level != self._level:
             self._level = level
             self._apply_level()
         self.show()
 
     def _apply_level(self) -> None:
-        token = {"warning": "warning", "critical": "danger"}.get(self._level, "accent")
-        self._bar.setStyleSheet(f"QProgressBar::chunk {{ background: {theme().tokens[token]}; }}")
+        tokens = theme().tokens
+        others = {"warning": "warning", "critical": "danger"}.get(self._level, "text_muted")
+        self._gauge.colors = (QColor(tokens["surface_hover"]), QColor(tokens["accent"]), QColor(tokens[others]))
+        self._value.setStyleSheet(f"color: {tokens[others]};" if self._level else "")
+        self._gauge.update()
 
 
 class BackendButton(QToolButton):
@@ -736,7 +776,14 @@ class CalpyGUI(QMainWindow):
         self._btn_switch_experiment.setToolTip("Switch to another experiment (Ctrl+O)")
         self._btn_switch_experiment.clicked.connect(self._choose_experiment)
         self.ram_bar = RamBar(lambda: self.bridge.kernel_pid)
-        status.addPermanentWidget(self.ram_bar)
+        # Centred in the free space between the left and the right widgets.
+        slot = QWidget()
+        row = QHBoxLayout(slot)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.addStretch(1)
+        row.addWidget(self.ram_bar)
+        row.addStretch(1)
+        status.addWidget(slot, 1)
         status.addPermanentWidget(self.backend_button)
         status.addPermanentWidget(self._btn_switch_experiment)
         status.addPermanentWidget(self._config_label)
