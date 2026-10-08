@@ -3,7 +3,7 @@ import xupy as xp
 from tqdm import tqdm, trange
 from .modal_decomposer import ZernikeFitter
 from ..core import _types as t
-from ..core._xpcompat import compute_float
+from ..core._types import compute_float
 
 
 def map_stitching(
