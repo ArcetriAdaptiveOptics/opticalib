@@ -119,7 +119,11 @@ class Param(QObject):
         edit = self._hint_edit()
         if edit is not None:
             edit.setPlaceholderText(text)
-            edit.setToolTip("\n".join(filter(None, [self.help, f"Default from the configuration: {text}"])))
+            edit.setToolTip(
+                "\n".join(
+                    filter(None, [self.help, f"Default from the configuration: {text}"])
+                )
+            )
 
     def _hint_edit(self):
         """The line edit showing the default hint (``None`` if there is none)."""
@@ -161,10 +165,16 @@ class Param(QObject):
 class IntParam(Param):
     """Integer value, in a spin box."""
 
-    def __init__(self, name, label, default=0, minimum=0, maximum=10**9, **kwargs) -> None:
+    def __init__(
+        self, name, label, default=0, minimum=0, maximum=10**9, **kwargs
+    ) -> None:
         """Create the parameter."""
         super().__init__(name, label, **kwargs)
-        self.default, self.minimum, self.maximum = int(default), int(minimum), int(maximum)
+        self.default, self.minimum, self.maximum = (
+            int(default),
+            int(minimum),
+            int(maximum),
+        )
 
     def _make_widget(self) -> QWidget:
         box = QSpinBox()
@@ -189,7 +199,9 @@ class IntParam(Param):
 class FloatParam(Param):
     """Float value typed as text (scientific notation accepted, e.g. ``7e-8``)."""
 
-    def __init__(self, name, label, default=0.0, minimum=None, maximum=None, **kwargs) -> None:
+    def __init__(
+        self, name, label, default=0.0, minimum=None, maximum=None, **kwargs
+    ) -> None:
         """Create the parameter."""
         super().__init__(name, label, **kwargs)
         self.default, self.minimum, self.maximum = default, minimum, maximum
@@ -264,7 +276,9 @@ class ChoiceParam(Param):
         The choices; values are rendered with ``repr``.
     """
 
-    def __init__(self, name, label, choices: Sequence[Tuple[Any, str]], default=None, **kwargs) -> None:
+    def __init__(
+        self, name, label, choices: Sequence[Tuple[Any, str]], default=None, **kwargs
+    ) -> None:
         """Create the parameter."""
         super().__init__(name, label, **kwargs)
         self.choices = list(choices)
@@ -274,7 +288,9 @@ class ChoiceParam(Param):
         combo = QComboBox()
         for value, text in self.choices:
             combo.addItem(text, value)
-        index = next((i for i, (v, _) in enumerate(self.choices) if v == self.default), 0)
+        index = next(
+            (i for i, (v, _) in enumerate(self.choices) if v == self.default), 0
+        )
         combo.setCurrentIndex(index)
         combo.currentIndexChanged.connect(lambda *_: self.changed.emit())
         return combo
@@ -389,7 +405,9 @@ class DeviceParam(Param):
         Preferred variable name (e.g. ``'dm'``).
     """
 
-    def __init__(self, name, label, kinds: Sequence[str], default: str = "", **kwargs) -> None:
+    def __init__(
+        self, name, label, kinds: Sequence[str], default: str = "", **kwargs
+    ) -> None:
         """Create the parameter."""
         super().__init__(name, label, **kwargs)
         self.kinds = tuple(kinds)
@@ -400,8 +418,12 @@ class DeviceParam(Param):
         combo.setEditable(True)
         combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         combo.setMinimumContentsLength(24)
-        combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
-        combo.lineEdit().setPlaceholderText("None" if self.optional else "connect a device first")
+        combo.setSizeAdjustPolicy(
+            QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
+        )
+        combo.lineEdit().setPlaceholderText(
+            "None" if self.optional else "connect a device first"
+        )
         combo.currentTextChanged.connect(lambda *_: self.changed.emit())
         return combo
 
@@ -420,9 +442,17 @@ class DeviceParam(Param):
             if item.get("kind") in self.kinds:
                 combo.addItem(f"{item['name']}", item["name"])
                 combo.setItemData(
-                    combo.count() - 1, f"{item['name']}: {item.get('type', '')}", Qt.ItemDataRole.ToolTipRole
+                    combo.count() - 1,
+                    f"{item['name']}: {item.get('type', '')}",
+                    Qt.ItemDataRole.ToolTipRole,
                 )
-        choice = current if current else (self.default if self.default in names else (names[0] if names else ""))
+        choice = (
+            current
+            if current
+            else (
+                self.default if self.default in names else (names[0] if names else "")
+            )
+        )
         combo.setEditText(choice)
         combo.blockSignals(False)
         self.changed.emit()
@@ -480,7 +510,9 @@ class TnParam(Param):
         produced it (e.g. ``'iff_tn'``).
     """
 
-    def __init__(self, name, label, folder_attr: str = "", state_key: str = "", **kwargs) -> None:
+    def __init__(
+        self, name, label, folder_attr: str = "", state_key: str = "", **kwargs
+    ) -> None:
         """Create the parameter."""
         super().__init__(name, label, **kwargs)
         self.folder_attr = folder_attr
@@ -490,7 +522,9 @@ class TnParam(Param):
         box = QWidget()
         self._combo = QComboBox()
         self._combo.setEditable(True)
-        self._combo.lineEdit().setPlaceholderText("None" if self.optional else "YYYYMMDD_HHMMSS")
+        self._combo.lineEdit().setPlaceholderText(
+            "None" if self.optional else "YYYYMMDD_HHMMSS"
+        )
         self._combo.currentTextChanged.connect(lambda *_: self.changed.emit())
         refresh = QToolButton()
         refresh.setIcon(theme().icon("refresh"))
@@ -522,7 +556,9 @@ class TnParam(Param):
         if not folder or not os.path.isdir(folder):
             return
         try:
-            tns = sorted((e.name for e in os.scandir(folder) if e.is_dir()), reverse=True)
+            tns = sorted(
+                (e.name for e in os.scandir(folder) if e.is_dir()), reverse=True
+            )
         except OSError:
             return
         current = self._combo.currentText()
@@ -567,7 +603,9 @@ class TnListParam(Param):
         Minimum number of tracking numbers.
     """
 
-    def __init__(self, name, label, folder_attr: str = "", minimum: int = 1, **kwargs) -> None:
+    def __init__(
+        self, name, label, folder_attr: str = "", minimum: int = 1, **kwargs
+    ) -> None:
         """Create the parameter."""
         super().__init__(name, label, **kwargs)
         self.folder_attr = folder_attr
@@ -596,11 +634,17 @@ class TnListParam(Param):
 
     def available(self) -> List[str]:
         """Tracking numbers found on disk, newest first."""
-        folder = self.context.folder(self.folder_attr) if self.context is not None and self.folder_attr else ""
+        folder = (
+            self.context.folder(self.folder_attr)
+            if self.context is not None and self.folder_attr
+            else ""
+        )
         if not folder or not os.path.isdir(folder):
             return []
         try:
-            return sorted((e.name for e in os.scandir(folder) if e.is_dir()), reverse=True)
+            return sorted(
+                (e.name for e in os.scandir(folder) if e.is_dir()), reverse=True
+            )
         except OSError:
             return []
 
@@ -611,7 +655,9 @@ class TnListParam(Param):
         if not tns:
             menu.addAction("No tracking numbers found").setEnabled(False)
         for tn in tns[:50]:
-            menu.addAction(tn).triggered.connect(lambda checked=False, t=tn: self.append(t))
+            menu.addAction(tn).triggered.connect(
+                lambda checked=False, t=tn: self.append(t)
+            )
 
     def append(self, tn: str) -> None:
         """Add *tn* at the end of the list."""

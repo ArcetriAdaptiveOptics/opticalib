@@ -99,48 +99,104 @@ class DeviceClass:
 #: Known device classes.
 DEVICE_CLASSES: List[DeviceClass] = [
     DeviceClass(
-        "PhaseCam", "INTERFEROMETERS", ("phasecam",), "suffix", "PhaseCam{suffix}",
-        (("ip", "port"),), description="4D Twyman-Green PhaseCam interferometer",
+        "PhaseCam",
+        "INTERFEROMETERS",
+        ("phasecam",),
+        "suffix",
+        "PhaseCam{suffix}",
+        (("ip", "port"),),
+        description="4D Twyman-Green PhaseCam interferometer",
     ),
     DeviceClass(
-        "AccuFiz", "INTERFEROMETERS", ("accufiz",), "suffix", "AccuFiz{suffix}",
-        (("ip", "port"),), description="4D AccuFiz Fizeau interferometer",
+        "AccuFiz",
+        "INTERFEROMETERS",
+        ("accufiz",),
+        "suffix",
+        "AccuFiz{suffix}",
+        (("ip", "port"),),
+        description="4D AccuFiz Fizeau interferometer",
     ),
     DeviceClass(
-        "Processer4D", "INTERFEROMETERS", ("4dprocesser",), "suffix", "4DProcesser{suffix}",
-        (("ip", "port"),), description="4D processing virtual machine (no acquisition)",
+        "Processer4D",
+        "INTERFEROMETERS",
+        ("4dprocesser",),
+        "suffix",
+        "4DProcesser{suffix}",
+        (("ip", "port"),),
+        description="4D processing virtual machine (no acquisition)",
     ),
     DeviceClass(
-        "AlpaoDm", "DEFORMABLE.MIRRORS", ("alpao",), "alpao", "Alpao{suffix}",
-        (("serialNumber",),), description="Alpao deformable mirror",
+        "AlpaoDm",
+        "DEFORMABLE.MIRRORS",
+        ("alpao",),
+        "alpao",
+        "Alpao{suffix}",
+        (("serialNumber",),),
+        description="Alpao deformable mirror",
     ),
     DeviceClass(
-        "PetalMirror", "DEFORMABLE.MIRRORS", ("petaldm", "petal"), "none", "PetalDM",
-        tuple((f"ip{i}",) for i in range(6)), description="PI petal mirror",
+        "PetalMirror",
+        "DEFORMABLE.MIRRORS",
+        ("petaldm", "petal"),
+        "none",
+        "PetalDM",
+        tuple((f"ip{i}",) for i in range(6)),
+        description="PI petal mirror",
     ),
     DeviceClass(
-        "SplattDm", "DEFORMABLE.MIRRORS", ("splatt",), "none", "Splatt",
-        (("ip", "port"),), description="SPLATT deformable mirror",
+        "SplattDm",
+        "DEFORMABLE.MIRRORS",
+        ("splatt",),
+        "none",
+        "Splatt",
+        (("ip", "port"),),
+        description="SPLATT deformable mirror",
     ),
     DeviceClass(
-        "DP", "DEFORMABLE.MIRRORS", ("adopticadp", "dp"), "none", "AdOpticaDP",
-        optional_config=True, description="AdOptica Demonstration Prototype",
+        "DP",
+        "DEFORMABLE.MIRRORS",
+        ("adopticadp", "dp"),
+        "none",
+        "AdOpticaDP",
+        optional_config=True,
+        description="AdOptica Demonstration Prototype",
     ),
     DeviceClass(
-        "M4AU", "DEFORMABLE.MIRRORS", ("m4au",), "none", "M4AU",
-        optional_config=True, description="M4 adaptive unit",
+        "M4AU",
+        "DEFORMABLE.MIRRORS",
+        ("m4au",),
+        "none",
+        "M4AU",
+        optional_config=True,
+        description="M4 adaptive unit",
     ),
     DeviceClass(
-        "AdOpticaDm", "DEFORMABLE.MIRRORS", ("adopticadm", "adoptica"), "none", None,
+        "AdOpticaDm",
+        "DEFORMABLE.MIRRORS",
+        ("adopticadm", "adoptica"),
+        "none",
+        None,
         description="Generic AdOptica deformable mirror",
     ),
     DeviceClass(
-        "GigaVision", "CAMERAS", ("gigavision", "avt"), "name", "*",
-        (("id",), ("ip",)), default=True, description="Allied Vision GigE camera",
+        "GigaVision",
+        "CAMERAS",
+        ("gigavision", "avt"),
+        "name",
+        "*",
+        (("id",), ("ip",)),
+        default=True,
+        description="Allied Vision GigE camera",
     ),
     DeviceClass(
-        "Ingot", "WFS", ("ingot",), "camera", "INGOT",
-        (("camera",),), default=True, description="INGOT wavefront sensor",
+        "Ingot",
+        "WFS",
+        ("ingot",),
+        "camera",
+        "INGOT",
+        (("camera",),),
+        default=True,
+        description="INGOT wavefront sensor",
     ),
 ]
 
@@ -269,7 +325,11 @@ class DeviceEntry:
     @property
     def ready(self) -> bool:
         """Whether the entry can be connected without changes."""
-        return self.device_class is not None and self.args is not None and not self.problems
+        return (
+            self.device_class is not None
+            and self.args is not None
+            and not self.problems
+        )
 
     @property
     def var_name(self) -> str:
@@ -283,7 +343,7 @@ def _suffix(name: str, device_class: DeviceClass) -> Optional[str]:
     lower = name.lower()
     for alias in sorted(device_class.aliases, key=len, reverse=True):
         if lower.startswith(alias):
-            return name[len(alias):].strip()
+            return name[len(alias) :].strip()
     return None
 
 
@@ -297,7 +357,9 @@ def _match_by_name(section: str, name: str) -> Optional[DeviceClass]:
     return best[1]
 
 
-def _constructor_args(device_class: DeviceClass, name: str, conf: Dict[str, Any]) -> Optional[str]:
+def _constructor_args(
+    device_class: DeviceClass, name: str, conf: Dict[str, Any]
+) -> Optional[str]:
     suffix = _suffix(name, device_class) or ""
     style = device_class.args
     if style == "none":
@@ -334,9 +396,13 @@ def _entry_read(device_class: DeviceClass, name: str) -> Optional[str]:
 def _argument_hint(device_class: DeviceClass) -> str:
     return {
         "suffix": (
-            f"name the entry {device_class.reads.replace('{suffix}', '<model>')} "
-            f"(e.g. {device_class.reads.replace('{suffix}', '6110')})"
-        ) if device_class.reads else "",
+            (
+                f"name the entry {device_class.reads.replace('{suffix}', '<model>')} "
+                f"(e.g. {device_class.reads.replace('{suffix}', '6110')})"
+            )
+            if device_class.reads
+            else ""
+        ),
         "alpao": "name the entry Alpao<number of actuators> (e.g. Alpao820) or fill in serialNumber",
         "camera": "fill in 'camera: CAMERAS:<camera name>'",
     }.get(device_class.args, "")
@@ -391,21 +457,32 @@ def resolve_entry(section: str, name: str, conf: Any) -> DeviceEntry:
         )
 
     entry.reads = _entry_read(device_class, entry.name)
-    if entry.args is not None and entry.reads is not None and entry.reads.lower() != entry.name.lower():
-        message = f"{device_class.name} reads the entry '{entry.reads}', not '{entry.name}'"
+    if (
+        entry.args is not None
+        and entry.reads is not None
+        and entry.reads.lower() != entry.name.lower()
+    ):
+        message = (
+            f"{device_class.name} reads the entry '{entry.reads}', not '{entry.name}'"
+        )
         if device_class.optional_config:
             entry.notes.append(message + "; its settings here are ignored.")
         else:
             entry.problems.append(message + ": rename this entry.")
 
     if device_class.required:
-        groups = [[f for f in group if _is_empty(conf.get(f))] for group in device_class.required]
+        groups = [
+            [f for f in group if _is_empty(conf.get(f))]
+            for group in device_class.required
+        ]
         best = min(groups, key=len)
         if best:
             entry.missing = best
-            alternatives = " or ".join(
-                ", ".join(group) for group in device_class.required
-            ) if len(device_class.required) > 1 else ", ".join(best)
+            alternatives = (
+                " or ".join(", ".join(group) for group in device_class.required)
+                if len(device_class.required) > 1
+                else ", ".join(best)
+            )
             entry.problems.append(f"Missing: {alternatives}.")
     return entry
 
@@ -513,7 +590,9 @@ def _block_end(lines: List[str], start: int, indent: int) -> int:
     return len(lines)
 
 
-def _find_child(lines: List[str], key: str, start: int, end: int, parent_indent: int) -> Tuple[int, int]:
+def _find_child(
+    lines: List[str], key: str, start: int, end: int, parent_indent: int
+) -> Tuple[int, int]:
     """Return (line index, indent) of *key* directly under a parent block."""
     child_indent = None
     for i in range(start, end):
@@ -557,10 +636,18 @@ def locate_entry(lines: List[str], section: str, name: str) -> Tuple[int, int]:
     """
     devices_i, devices_indent = _find_child(lines, "DEVICES", 0, len(lines), -1)
     section_i, section_indent = _find_child(
-        lines, section, devices_i + 1, _block_end(lines, devices_i, devices_indent), devices_indent
+        lines,
+        section,
+        devices_i + 1,
+        _block_end(lines, devices_i, devices_indent),
+        devices_indent,
     )
     return _find_child(
-        lines, name, section_i + 1, _block_end(lines, section_i, section_indent), section_indent
+        lines,
+        name,
+        section_i + 1,
+        _block_end(lines, section_i, section_indent),
+        section_indent,
     )
 
 
@@ -595,7 +682,9 @@ def set_entry_class(config_path: str, section: str, name: str, class_name: str) 
     entry_i, entry_indent = locate_entry(lines, section, name)
     value, comment = _split_comment(_parse_line(lines[entry_i])[2])
     if value not in ("", "{}", "null", "~"):
-        raise ValueError(f"The entry '{name}' is written inline; add 'class: {class_name}' by hand.")
+        raise ValueError(
+            f"The entry '{name}' is written inline; add 'class: {class_name}' by hand."
+        )
     if value:
         # "Name: {}" -> "Name:" (keeping a trailing comment)
         head = lines[entry_i][: lines[entry_i].index(":", entry_indent) + 1]
@@ -624,12 +713,16 @@ def set_entry_class(config_path: str, section: str, name: str, class_name: str) 
         check = yaml.safe_load(text)
         written = check["DEVICES"][section][name]["class"]
     except (yaml.YAMLError, KeyError, TypeError) as exc:
-        raise ValueError(f"Could not add the class to the configuration entry: {exc}") from exc
+        raise ValueError(
+            f"Could not add the class to the configuration entry: {exc}"
+        ) from exc
     if written != class_name:
         raise ValueError("Could not add the class to the configuration entry.")
     # Atomic replacement: a crash while writing never truncates the file.
     folder = os.path.dirname(os.path.abspath(config_path))
-    fd, tmp_path = tempfile.mkstemp(prefix=".configuration-", suffix=".yaml", dir=folder)
+    fd, tmp_path = tempfile.mkstemp(
+        prefix=".configuration-", suffix=".yaml", dir=folder
+    )
     try:
         with os.fdopen(fd, "w") as f:
             f.write(text)

@@ -131,7 +131,9 @@ def kwargs_code(values: Dict[str, str], *names: str) -> str:
     str
         E.g. ``"nframes=5, delay=1.0"``.
     """
-    return ", ".join(f"{name}={values[name]}" for name in names if values[name] != "None")
+    return ", ".join(
+        f"{name}={values[name]}" for name in names if values[name] != "None"
+    )
 
 
 @dataclass
@@ -175,7 +177,9 @@ class Step:
     template: Callable[[Dict[str, str]], str]
     outputs: Dict[str, str] = field(default_factory=dict)
     confirm: Optional[str] = None
-    after: Optional[Callable[["ProcedureWindow", Dict[str, Any], Dict[str, str]], None]] = None
+    after: Optional[
+        Callable[["ProcedureWindow", Dict[str, Any], Dict[str, str]], None]
+    ] = None
     section: str = ""
 
     def param(self, name: str) -> Param:
@@ -235,7 +239,11 @@ class ProcedureWindow(QMainWindow):
     #: evaluates to ``False`` in the kernel, the warning is shown on top.
     CHECKS: List[tuple] = []
 
-    def __init__(self, context: Optional[ProcedureContext] = None, parent: Optional[QWidget] = None) -> None:
+    def __init__(
+        self,
+        context: Optional[ProcedureContext] = None,
+        parent: Optional[QWidget] = None,
+    ) -> None:
         """Build the window."""
         super().__init__(parent)
         self.setWindowTitle(self.TITLE)
@@ -318,7 +326,9 @@ class ProcedureWindow(QMainWindow):
         self._btn_copy = QPushButton("Copy code")
         self._btn_copy.clicked.connect(self._copy_code)
         self._btn_stop = QPushButton("Stop")
-        self._btn_stop.setToolTip("Interrupt the running step (like Ctrl+C in the console)")
+        self._btn_stop.setToolTip(
+            "Interrupt the running step (like Ctrl+C in the console)"
+        )
         self._btn_stop.clicked.connect(self._stop)
         self._btn_run = QPushButton("Run step")
         self._btn_run.setProperty("accent", True)
@@ -446,7 +456,9 @@ class ProcedureWindow(QMainWindow):
             code = step.code()
         except ParamError as exc:
             self._code.setPlainText("")
-            self._error.setText(f"<span style='color:{theme().tokens['warning']}'>{exc}</span>")
+            self._error.setText(
+                f"<span style='color:{theme().tokens['warning']}'>{exc}</span>"
+            )
             self._btn_run.setEnabled(False)
             return
         self._code.setPlainText(code)
@@ -494,7 +506,9 @@ class ProcedureWindow(QMainWindow):
                     key = f"{step.key}__{param.name}"
                     # JSON-encoded, so the reply stays a string (the bridge would
                     # otherwise decode e.g. "0.05" into a float).
-                    expressions[key] = f"__import__('json').dumps({KERNEL_SIDE}.describe({param.config_default}))"
+                    expressions[key] = (
+                        f"__import__('json').dumps({KERNEL_SIDE}.describe({param.config_default}))"
+                    )
         if expressions:
             self.context.query(expressions, self._on_config_defaults)
 
@@ -542,7 +556,9 @@ class ProcedureWindow(QMainWindow):
             The warnings.
         """
         color = theme().tokens["warning"]
-        self._warnings.setText("<br>".join(f"<span style='color:{color}'>⚠ {m}</span>" for m in messages))
+        self._warnings.setText(
+            "<br>".join(f"<span style='color:{color}'>⚠ {m}</span>" for m in messages)
+        )
         self._warnings.setVisible(bool(messages))
 
     # ------------------------------------------------------------------
@@ -630,17 +646,27 @@ class ProcedureWindow(QMainWindow):
         self._refresh_buttons()
         return task
 
-    def _on_step_done(self, step: Step, started: float, outputs: Dict[str, str], values: Dict[str, str]) -> None:
+    def _on_step_done(
+        self,
+        step: Step,
+        started: float,
+        outputs: Dict[str, str],
+        values: Dict[str, str],
+    ) -> None:
         elapsed = format_elapsed(time.monotonic() - started)
         if not outputs:
             self._finish_step(step, {}, elapsed, values)
             return
         self.context.query(
             {key: f"repr({expr})" for key, expr in outputs.items()},
-            lambda results, s=step, e=elapsed, v=values: self._finish_step(s, results, e, v),
+            lambda results, s=step, e=elapsed, v=values: self._finish_step(
+                s, results, e, v
+            ),
         )
 
-    def _finish_step(self, step: Step, results: Dict[str, Any], elapsed: str, values: Dict[str, str]) -> None:
+    def _finish_step(
+        self, step: Step, results: Dict[str, Any], elapsed: str, values: Dict[str, str]
+    ) -> None:
         import ast
 
         state_values: Dict[str, Any] = {}
@@ -648,13 +674,19 @@ class ProcedureWindow(QMainWindow):
             if isinstance(text, Exception):
                 continue
             try:
-                state_values[key] = ast.literal_eval(text) if isinstance(text, str) else text
+                state_values[key] = (
+                    ast.literal_eval(text) if isinstance(text, str) else text
+                )
             except (ValueError, SyntaxError):
                 state_values[key] = text
         for key, value in state_values.items():
             self.set_state(key, value)
         shown = ", ".join(f"{k} = {v!r}" for k, v in state_values.items())
-        self._log_line("check-circle", "success", f"{step.title} ({elapsed}){': ' + shown if shown else ''}")
+        self._log_line(
+            "check-circle",
+            "success",
+            f"{step.title} ({elapsed}){': ' + shown if shown else ''}",
+        )
         self._set_status(step, "done")
         self._task = None
         self._refresh_buttons()
@@ -665,7 +697,8 @@ class ProcedureWindow(QMainWindow):
         error = task.error or {}
         elapsed = format_elapsed(time.monotonic() - started)
         self._log_line(
-            "alert-circle", "danger",
+            "alert-circle",
+            "danger",
             f"{step.title} failed ({elapsed}): {error.get('ename', 'Error')}: {error.get('evalue', '')}",
         )
         self._set_status(step, "error")
@@ -682,7 +715,11 @@ class ProcedureWindow(QMainWindow):
         self._log.insertItem(0, item)
 
     def _stop(self) -> None:
-        if self._task is not None and not self._task.is_final and self.context is not None:
+        if (
+            self._task is not None
+            and not self._task.is_final
+            and self.context is not None
+        ):
             self.context.interrupt()
 
     def _copy_code(self) -> None:

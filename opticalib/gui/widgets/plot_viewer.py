@@ -43,7 +43,16 @@ from qtpy.QtWidgets import (
 from ..theme import theme
 
 #: Colormaps offered for data items (pyqtgraph names).
-COLORMAPS = ["viridis", "inferno", "magma", "plasma", "cividis", "turbo", "CET-L1", "CET-D1"]
+COLORMAPS = [
+    "viridis",
+    "inferno",
+    "magma",
+    "plasma",
+    "cividis",
+    "turbo",
+    "CET-L1",
+    "CET-D1",
+]
 #: Size of the thumbnails in the gallery strip.
 THUMB_SIZE = QSize(96, 72)
 
@@ -152,9 +161,17 @@ def _thumbnail_for_data(data: np.ndarray) -> QPixmap:
     lo, hi = np.nanpercentile(frame, [1, 99])
     scaled = np.nan_to_num((frame - lo) / (hi - lo if hi > lo else 1.0), nan=0.0)
     img8 = np.ascontiguousarray((np.clip(scaled, 0, 1) * 255).astype(np.uint8))
-    image = QImage(img8.data, img8.shape[1], img8.shape[0], img8.strides[0], QImage.Format.Format_Grayscale8)
+    image = QImage(
+        img8.data,
+        img8.shape[1],
+        img8.shape[0],
+        img8.strides[0],
+        QImage.Format.Format_Grayscale8,
+    )
     return QPixmap.fromImage(image.copy()).scaled(
-        THUMB_SIZE, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation
+        THUMB_SIZE,
+        Qt.AspectRatioMode.KeepAspectRatio,
+        Qt.TransformationMode.SmoothTransformation,
     )
 
 
@@ -258,7 +275,9 @@ class DataView(QWidget):
         if data.ndim == 1:
             self._plot.clear()
             color = theme().tokens["accent"]
-            self._plot.plot(np.arange(data.size), data, pen=self._pg.mkPen(color, width=1.6))
+            self._plot.plot(
+                np.arange(data.size), data, pen=self._pg.mkPen(color, width=1.6)
+            )
             self._plot.setTitle(title)
             self._plot.showGrid(x=True, y=True, alpha=0.25)
             self._stack.setCurrentWidget(self._plot)
@@ -269,7 +288,9 @@ class DataView(QWidget):
             lo, hi = np.percentile(finite, [0.5, 99.5])
             levels = (float(lo), float(hi if hi > lo else lo + 1))
         if data.ndim == 3:
-            self._image.setImage(data, xvals=np.arange(data.shape[0]), levels=levels, autoRange=True)
+            self._image.setImage(
+                data, xvals=np.arange(data.shape[0]), levels=levels, autoRange=True
+            )
         else:
             self._image.setImage(data, levels=levels, autoRange=True)
         self.set_colormap(self._cmap)
@@ -377,7 +398,9 @@ class PlotWindow(QMainWindow):
 
     closed = Signal(object)
 
-    def __init__(self, item: PlotItem, colormap: str, parent: Optional[QWidget] = None) -> None:
+    def __init__(
+        self, item: PlotItem, colormap: str, parent: Optional[QWidget] = None
+    ) -> None:
         """Create the window for *item*."""
         super().__init__(parent)
         self.setWindowTitle(item.title)
@@ -430,8 +453,12 @@ class PlotViewer(QWidget):
         self._cmap.currentTextChanged.connect(self._on_colormap)
         self._btn_fit = self._tool("fit-to-screen-outline", "Reset zoom", self._fit)
         self._btn_save = self._tool("content-save-outline", "Save…", self.save_current)
-        self._btn_pop = self._tool("open-in-new", "Open in a separate window", self.pop_out_current)
-        self._btn_remove = self._tool("delete-outline", "Remove this plot", self.remove_current)
+        self._btn_pop = self._tool(
+            "open-in-new", "Open in a separate window", self.pop_out_current
+        )
+        self._btn_remove = self._tool(
+            "delete-outline", "Remove this plot", self.remove_current
+        )
         self._btn_clear = self._tool("broom", "Remove all plots", self.clear)
         bar = QHBoxLayout(toolbar)
         bar.setContentsMargins(10, 6, 8, 6)
@@ -443,7 +470,13 @@ class PlotViewer(QWidget):
         bar.addWidget(self._counter)
         bar.addStretch()
         bar.addWidget(self._cmap)
-        for button in (self._btn_fit, self._btn_save, self._btn_pop, self._btn_remove, self._btn_clear):
+        for button in (
+            self._btn_fit,
+            self._btn_save,
+            self._btn_pop,
+            self._btn_remove,
+            self._btn_clear,
+        ):
             bar.addWidget(button)
 
         # Views
@@ -575,7 +608,11 @@ class PlotViewer(QWidget):
         )
         pixmap = QPixmap()
         pixmap.loadFromData(item.png)
-        thumb = pixmap.scaled(THUMB_SIZE, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+        thumb = pixmap.scaled(
+            THUMB_SIZE,
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        )
         return self._put(item, thumb)
 
     def add_data(self, data: Any, title: str, source: str = "") -> PlotItem:
@@ -686,9 +723,14 @@ class PlotViewer(QWidget):
         if not key:
             return
         item = self._items[key]
-        safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in item.title)[:60] or "plot"
+        safe = (
+            "".join(c if c.isalnum() or c in "-_" else "_" for c in item.title)[:60]
+            or "plot"
+        )
         if item.kind == "figure":
-            path, _ = QFileDialog.getSaveFileName(self, "Save figure", f"{safe}.png", "PNG image (*.png)")
+            path, _ = QFileDialog.getSaveFileName(
+                self, "Save figure", f"{safe}.png", "PNG image (*.png)"
+            )
             if path:
                 with open(path, "wb") as f:
                     f.write(item.png or b"")
@@ -756,7 +798,12 @@ class PlotViewer(QWidget):
         is_data = item is not None and item.kind == "data"
         self._btn_prev.setEnabled(has and row > 0)
         self._btn_next.setEnabled(has and row < n - 1)
-        for button in (self._btn_save, self._btn_pop, self._btn_remove, self._btn_clear):
+        for button in (
+            self._btn_save,
+            self._btn_pop,
+            self._btn_remove,
+            self._btn_clear,
+        ):
             button.setEnabled(has)
         self._btn_fit.setEnabled(is_data)
         self._cmap.setVisible(is_data and item.data is not None and item.data.ndim >= 2)

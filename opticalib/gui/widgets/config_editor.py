@@ -216,7 +216,9 @@ class CodeEditor(QPlainTextEdit):
         if event is not None:
             super().resizeEvent(event)
         area = self.contentsRect()
-        self._gutter.setGeometry(QRect(area.left(), area.top(), self.line_number_width(), area.height()))
+        self._gutter.setGeometry(
+            QRect(area.left(), area.top(), self.line_number_width(), area.height())
+        )
 
     def paint_line_numbers(self, event) -> None:
         """Paint the gutter (called by :class:`_LineNumberArea`)."""
@@ -228,13 +230,17 @@ class CodeEditor(QPlainTextEdit):
         width = self._gutter.width() - 6
         height = self.fontMetrics().height()
         block = self.firstVisibleBlock()
-        top = round(self.blockBoundingGeometry(block).translated(self.contentOffset()).top())
+        top = round(
+            self.blockBoundingGeometry(block).translated(self.contentOffset()).top()
+        )
         bottom = top + round(self.blockBoundingRect(block).height())
         while block.isValid() and top <= event.rect().bottom():
             if block.isVisible() and bottom >= event.rect().top():
                 number = block.blockNumber()
                 painter.setPen(t.color("text" if number == current else "text_muted"))
-                painter.drawText(0, top, width, height, Qt.AlignmentFlag.AlignRight, str(number + 1))
+                painter.drawText(
+                    0, top, width, height, Qt.AlignmentFlag.AlignRight, str(number + 1)
+                )
             block = block.next()
             top = bottom
             bottom = top + round(self.blockBoundingRect(block).height())
@@ -245,7 +251,9 @@ class CodeEditor(QPlainTextEdit):
         if not self.isReadOnly():
             selection = QTextEdit.ExtraSelection()
             selection.format.setBackground(theme().color("surface_alt"))
-            selection.format.setProperty(QTextCharFormat.Property.FullWidthSelection, True)
+            selection.format.setProperty(
+                QTextCharFormat.Property.FullWidthSelection, True
+            )
             selection.cursor = self.textCursor()
             selection.cursor.clearSelection()
             selections.append(selection)
@@ -262,7 +270,10 @@ class CodeEditor(QPlainTextEdit):
         key = event.key()
         if self.isReadOnly():
             super().keyPressEvent(event)
-        elif key == Qt.Key.Key_Backtab or (key == Qt.Key.Key_Tab and event.modifiers() & Qt.KeyboardModifier.ShiftModifier):
+        elif key == Qt.Key.Key_Backtab or (
+            key == Qt.Key.Key_Tab
+            and event.modifiers() & Qt.KeyboardModifier.ShiftModifier
+        ):
             self._shift_lines(-1)
         elif key == Qt.Key.Key_Tab:
             if self._spans_lines():
@@ -274,7 +285,9 @@ class CodeEditor(QPlainTextEdit):
             cursor = self.textCursor()
             column = cursor.positionInBlock()
             cursor.movePosition(
-                QTextCursor.MoveOperation.Left, QTextCursor.MoveMode.KeepAnchor, (column - 1) % self.indent + 1
+                QTextCursor.MoveOperation.Left,
+                QTextCursor.MoveMode.KeepAnchor,
+                (column - 1) % self.indent + 1,
             )
             cursor.removeSelectedText()
         else:
@@ -291,7 +304,8 @@ class CodeEditor(QPlainTextEdit):
         cursor = self.textCursor()
         doc = self.document()
         return cursor.hasSelection() and (
-            doc.findBlock(cursor.selectionStart()).blockNumber() != doc.findBlock(cursor.selectionEnd()).blockNumber()
+            doc.findBlock(cursor.selectionStart()).blockNumber()
+            != doc.findBlock(cursor.selectionEnd()).blockNumber()
         )
 
     def _in_indentation(self) -> bool:
@@ -307,8 +321,14 @@ class CodeEditor(QPlainTextEdit):
         doc = self.document()
         first = doc.findBlock(cursor.selectionStart())
         last = doc.findBlock(cursor.selectionEnd())
-        if cursor.hasSelection() and last != first and cursor.selectionEnd() == last.position():
-            last = last.previous()  # a selection ending at a line start excludes that line
+        if (
+            cursor.hasSelection()
+            and last != first
+            and cursor.selectionEnd() == last.position()
+        ):
+            last = (
+                last.previous()
+            )  # a selection ending at a line start excludes that line
         edit = QTextCursor(doc)
         edit.beginEditBlock()
         block = first
@@ -320,7 +340,11 @@ class CodeEditor(QPlainTextEdit):
             else:
                 text = block.text()
                 count = min(len(text) - len(text.lstrip(" ")), self.indent)
-                edit.movePosition(QTextCursor.MoveOperation.Right, QTextCursor.MoveMode.KeepAnchor, count)
+                edit.movePosition(
+                    QTextCursor.MoveOperation.Right,
+                    QTextCursor.MoveMode.KeepAnchor,
+                    count,
+                )
                 edit.removeSelectedText()
             if block == last:
                 break
@@ -434,8 +458,12 @@ class ConfigEditorDialog(QDialog):
             return False
         block = self._text_edit.document().findBlockByNumber(index)
         cursor = QTextCursor(block)
-        cursor.movePosition(QTextCursor.MoveOperation.Right, QTextCursor.MoveMode.MoveAnchor, indent)
-        cursor.movePosition(QTextCursor.MoveOperation.Right, QTextCursor.MoveMode.KeepAnchor, len(name))
+        cursor.movePosition(
+            QTextCursor.MoveOperation.Right, QTextCursor.MoveMode.MoveAnchor, indent
+        )
+        cursor.movePosition(
+            QTextCursor.MoveOperation.Right, QTextCursor.MoveMode.KeepAnchor, len(name)
+        )
         self._text_edit.setTextCursor(cursor)
         self._text_edit.centerCursor()
         self._text_edit.setFocus()

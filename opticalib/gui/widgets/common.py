@@ -99,7 +99,9 @@ class DockTitleBar(QWidget):
         self._label.setProperty("muted", True)
         self._float = QToolButton()
         self._float.setAutoRaise(True)
-        self._float.setToolTip("Detach the panel into its own window (or double-click the bar)")
+        self._float.setToolTip(
+            "Detach the panel into its own window (or double-click the bar)"
+        )
         self._float.clicked.connect(lambda: dock.setFloating(not dock.isFloating()))
         self._close = QToolButton()
         self._close.setAutoRaise(True)
@@ -133,5 +135,10 @@ class DockTitleBar(QWidget):
         from ..theme import theme
 
         t = theme()
-        self._float.setIcon(t.icon("dock-window" if not self._dock.isFloating() else "dock-left", "text_muted"))
+        self._float.setIcon(
+            t.icon(
+                "dock-window" if not self._dock.isFloating() else "dock-left",
+                "text_muted",
+            )
+        )
         self._close.setIcon(t.icon("close", "text_muted"))

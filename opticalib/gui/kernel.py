@@ -498,7 +498,9 @@ class KernelBridge(QObject):
             km.start_kernel(env=self.kernel_env())
         except Exception as exc:
             self._set_state("dead")
-            self.bootstrap_step.emit("kernel", "error", f"The kernel could not start: {exc}")
+            self.bootstrap_step.emit(
+                "kernel", "error", f"The kernel could not start: {exc}"
+            )
             return
         km.add_restart_callback(self._on_kernel_dead, "dead")
         self._km = km
@@ -586,7 +588,9 @@ class KernelBridge(QObject):
             self._km.restart_kernel(now=True)
         except Exception as exc:
             self._set_state("dead")
-            self.bootstrap_step.emit("kernel", "error", f"The kernel could not restart: {exc}")
+            self.bootstrap_step.emit(
+                "kernel", "error", f"The kernel could not restart: {exc}"
+            )
             return
         self.console.reset(clear=True)
         self._connect_client()
@@ -678,7 +682,10 @@ class KernelBridge(QObject):
             Statements executed before evaluating the expressions.
         """
         if self._kc is None:
-            _safe_call(callback, {k: RuntimeError("The kernel is not running.") for k in expressions})
+            _safe_call(
+                callback,
+                {k: RuntimeError("The kernel is not running.") for k in expressions},
+            )
             return
         self._send_query(_Query(callback, expressions, code))
 
@@ -730,7 +737,8 @@ class KernelBridge(QObject):
             self._bootstrapping = False
             self._set_state("dead")
             self.bootstrap_step.emit(
-                "kernel", "error",
+                "kernel",
+                "error",
                 f"The kernel did not answer within {self.STARTUP_TIMEOUT:.0f} s. "
                 "Try Kernel → Restart.",
             )
@@ -761,7 +769,9 @@ class KernelBridge(QObject):
 
     def _on_install_done(self, results: Dict[str, Any]) -> None:
         if results.get("ok") is not True:
-            self._bootstrap_failed("opticalib", results.get("ok", "no reply from the kernel"))
+            self._bootstrap_failed(
+                "opticalib", results.get("ok", "no reply from the kernel")
+            )
             return
         self.bootstrap_step.emit("opticalib", "done", "")
         self.bootstrap_step.emit("calpy", "running", "")
@@ -797,7 +807,9 @@ class KernelBridge(QObject):
         self._finish_bootstrap()
 
     def _finish_bootstrap(self) -> None:
-        self.query({"ok": "True"}, lambda r: None, code=f"{KERNEL_SIDE}.mark_baseline()")
+        self.query(
+            {"ok": "True"}, lambda r: None, code=f"{KERNEL_SIDE}.mark_baseline()"
+        )
         self._bootstrapping = False
         self._ready = True
         self.ready.emit()
@@ -823,11 +835,17 @@ class KernelBridge(QObject):
         try:
             self.console.execute(task.code)
         except Exception as exc:
-            task._finish("error", {"ename": type(exc).__name__, "evalue": str(exc), "traceback": []})
+            task._finish(
+                "error",
+                {"ename": type(exc).__name__, "evalue": str(exc), "traceback": []},
+            )
         finally:
             self._dispatching = None
         if task.msg_id is None and not task.is_final:  # the console refused it
-            task._finish("error", {"ename": "RuntimeError", "evalue": "not executed", "traceback": []})
+            task._finish(
+                "error",
+                {"ename": "RuntimeError", "evalue": "not executed", "traceback": []},
+            )
             QTimer.singleShot(0, self._dispatch)
 
     def _on_request_sent(self, msg_id: str, hidden: bool) -> None:
@@ -948,7 +966,9 @@ class KernelBridge(QObject):
             keys = list(query.expressions) or ["ok"]
             _safe_call(query.callback, {k: error for k in keys})
             return
-        _safe_call(query.callback, _parse_user_expressions(content.get("user_expressions", {})))
+        _safe_call(
+            query.callback, _parse_user_expressions(content.get("user_expressions", {}))
+        )
 
     def _watchdog_check(self) -> None:
         """
@@ -965,15 +985,19 @@ class KernelBridge(QObject):
             return
         now = time.monotonic()
         stalled_queries = [
-            (msg_id, q) for msg_id, q in self._queries.items()
+            (msg_id, q)
+            for msg_id, q in self._queries.items()
             if msg_id not in self._acknowledged and now - q.sent_at > self.REQUEST_STALL
         ]
         stalled_visible = [
-            msg_id for msg_id in self._inflight_visible
+            msg_id
+            for msg_id in self._inflight_visible
             if msg_id not in self._acknowledged
             and now - self._visible_sent_at.get(msg_id, now) > self.REQUEST_STALL
         ]
-        acknowledged_visible = [m for m in self._inflight_visible if m in self._acknowledged]
+        acknowledged_visible = [
+            m for m in self._inflight_visible if m in self._acknowledged
+        ]
         if acknowledged_visible or not (stalled_queries or stalled_visible):
             return
         self._reconnects = [t for t in self._reconnects if now - t < 60] + [now]

@@ -158,7 +158,9 @@ class WorkspaceView(QWidget):
                     icon = "grid"
                 elif entry.get("kind") == "other":
                     icon = "variable"
-                child.setIcon(0, t.icon(icon, "accent" if group == "devices" else "text_muted"))
+                child.setIcon(
+                    0, t.icon(icon, "accent" if group == "devices" else "text_muted")
+                )
                 node.addChild(child)
                 shown += 1
                 if entry["name"] == selected:
@@ -189,7 +191,9 @@ class WorkspaceView(QWidget):
         menu = QMenu(self)
         if entry.get("kind") == "array":
             menu.addAction(t.icon("image-outline"), "Show in viewer").triggered.connect(
-                lambda: self.run_requested.emit(f"_gui.view({name}, {name!r})", f"Show {name}")
+                lambda: self.run_requested.emit(
+                    f"_gui.view({name}, {name!r})", f"Show {name}"
+                )
             )
         menu.addAction(t.icon("console"), "Print").triggered.connect(
             lambda: self.run_requested.emit(f"print({name})", f"Print {name}")

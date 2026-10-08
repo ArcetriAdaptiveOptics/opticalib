@@ -86,7 +86,9 @@ class PluginPanel(QWidget):
             text.setProperty("muted", True)
             text.setWordWrap(True)
             button = QPushButton("Open")
-            button.clicked.connect(lambda checked=False, n=name: self._selection_callback(n))
+            button.clicked.connect(
+                lambda checked=False, n=name: self._selection_callback(n)
+            )
             texts = QVBoxLayout()
             texts.setSpacing(0)
             texts.addWidget(title)

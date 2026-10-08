@@ -27,9 +27,16 @@ import os as _os
 # Prefer PySide6 unless the user explicitly selected another Qt binding,
 # and make pyqtgraph use the same binding as qtpy (mixing bindings crashes).
 _os.environ.setdefault("QT_API", "pyside6")
-_PYQTGRAPH_LIBS = {"pyside6": "PySide6", "pyqt6": "PyQt6", "pyqt5": "PyQt5", "pyside2": "PySide2"}
+_PYQTGRAPH_LIBS = {
+    "pyside6": "PySide6",
+    "pyqt6": "PyQt6",
+    "pyqt5": "PyQt5",
+    "pyside2": "PySide2",
+}
 if _os.environ["QT_API"].lower() in _PYQTGRAPH_LIBS:
-    _os.environ.setdefault("PYQTGRAPH_QT_LIB", _PYQTGRAPH_LIBS[_os.environ["QT_API"].lower()])
+    _os.environ.setdefault(
+        "PYQTGRAPH_QT_LIB", _PYQTGRAPH_LIBS[_os.environ["QT_API"].lower()]
+    )
 
 __all__ = ["CalpyGUI", "launch_gui"]
 

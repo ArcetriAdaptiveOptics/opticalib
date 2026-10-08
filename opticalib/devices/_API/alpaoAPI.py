@@ -5,6 +5,7 @@ from opticalib.core import _types as _t
 
 import weakref
 
+
 def _shutdown_dm(dm, reset: bool, logger, name: str) -> None:
     """Stop (and optionally Reset) a raw SDK handle. Module-level so it
     holds no reference to the wrapper object."""
@@ -112,12 +113,15 @@ class BaseAlpaoMirror:
         self._resolve_init(sdk_params, plico_params)
         self._is_plico = bool(plico_params[0])
 
-        self.n_acts = int(
-            self._plico_dm.get_number_of_actuators()
-        ) if self._is_plico else int(self._sdk_dm.Get("NbOfActuator"))
-        
+        self.n_acts = (
+            int(self._plico_dm.get_number_of_actuators())
+            if self._is_plico
+            else int(self._sdk_dm.Get("NbOfActuator"))
+        )
+
         if self.n_acts != int(nacts):
             import warnings
+
             warnings.warn(
                 f"Number of actuators reported by the SDK ({self.n_acts}) "
                 f"does not match the called number ({nacts}). Verify your BAX files",
@@ -194,12 +198,14 @@ class BaseAlpaoMirror:
         if not self._is_plico:
             return int(self._sdk_dm.Get("VersionInfo"))
         else:
-            raise AttributeError("Version information is not available for PLICO devices.")
+            raise AttributeError(
+                "Version information is not available for PLICO devices."
+            )
 
     def close(self) -> None:
         """
         Stop the DM (and Reset it if ``reset_on_close``) and release the hardware
-        resources. 
+        resources.
 
         Should be called when the DM object is no longer needed to
         ensure a clean shutdown of the Alpao SDK connection.
@@ -311,15 +317,13 @@ class BaseAlpaoMirror:
 
     def _resolve_init(
         self,
-        sdk_params: tuple[str|None, str|None, str|None],
-        plico_params: tuple[str|None, str|None, int|None]
+        sdk_params: tuple[str | None, str | None, str | None],
+        plico_params: tuple[str | None, str | None, int | None],
     ):
         sn, sdk_fold, acfg_p = sdk_params
         plico, plico_ip, plico_port = plico_params
 
-        config = get_section_config(
-            "DEVICES", "DEFORMABLE.MIRRORS"
-        ).get(self._name, {})
+        config = get_section_config("DEVICES", "DEFORMABLE.MIRRORS").get(self._name, {})
 
         if plico:
             self._plico_ip = config.get("plico_ip", plico_ip)
@@ -396,9 +400,13 @@ class BaseAlpaoMirror:
             os.environ["ACECFG"] = self.acfg_path
 
         try:
-            sdk_path = self.sdk_folder_path or os.path.join(CONFIGURATION_FOLDER, "alpao_sdk")
+            sdk_path = self.sdk_folder_path or os.path.join(
+                CONFIGURATION_FOLDER, "alpao_sdk"
+            )
 
-            if self.sdk_folder_path is not None and not os.path.exists(self.sdk_folder_path):
+            if self.sdk_folder_path is not None and not os.path.exists(
+                self.sdk_folder_path
+            ):
                 sdk_path = os.path.join(CONFIGURATION_FOLDER, self.sdk_folder_path)
 
             if not os.path.exists(sdk_path):

@@ -171,6 +171,7 @@ def cmdplot(cmd: _ot.ArrayLike, **kwargs: dict[str, _ot.Any]):
 
     return fig, ax, l
 
+
 def coordplot(coord: _ot.ArrayLike, **kwargs: dict[str, _ot.Any]):
     """
     Plot a set of coordinates as a 2D scatter plot.
@@ -210,7 +211,9 @@ def coordplot(coord: _ot.ArrayLike, **kwargs: dict[str, _ot.Any]):
     if not isinstance(c, str):
         c = np.asarray(c)
         if not c.shape == (coord.shape[0],):
-            raise ValueError("Color array must have the same length as the number of coordinates.")
+            raise ValueError(
+                "Color array must have the same length as the number of coordinates."
+            )
         use_colorbar = True
 
     if coord.shape[1] != 2:

@@ -90,7 +90,9 @@ class ConnectDialog(QDialog):
         if own and others:
             self._class_combo.insertSeparator(len(own))
         if entry.device_class is not None:
-            self._class_combo.setCurrentIndex(self._class_combo.findData(entry.device_class.name))
+            self._class_combo.setCurrentIndex(
+                self._class_combo.findData(entry.device_class.name)
+            )
         else:
             self._class_combo.setCurrentIndex(-1)
             self._class_combo.setPlaceholderText("Choose the device class")
@@ -193,13 +195,21 @@ class ConnectDialog(QDialog):
         if not self._code_edited:
             self._reset_code()
         explicit = str(entry.conf.get("class") or "")
-        by_name = entry.device_class.name if entry.device_class and entry.source != "explicit" else None
+        by_name = (
+            entry.device_class.name
+            if entry.device_class and entry.source != "explicit"
+            else None
+        )
         self._save_class.setText(
-            f"Save 'class: {name}' in the configuration entry" if name else "Save the class in the configuration entry"
+            f"Save 'class: {name}' in the configuration entry"
+            if name
+            else "Save the class in the configuration entry"
         )
         already = name is not None and explicit.split(".")[-1].lower() == name.lower()
         self._save_class.setEnabled(name is not None and not already)
-        self._save_class.setChecked(name is not None and not already and name != by_name)
+        self._save_class.setChecked(
+            name is not None and not already and name != by_name
+        )
         self._refresh_buttons()
 
     def _on_var_changed(self, *args) -> None:
@@ -210,7 +220,9 @@ class ConnectDialog(QDialog):
     def _reset_code(self) -> None:
         self._setting_code = True
         try:
-            self._code.setPlainText(build_command(self._current, self.var_name() or None))
+            self._code.setPlainText(
+                build_command(self._current, self.var_name() or None)
+            )
         finally:
             self._setting_code = False
         self._code_edited = False
@@ -242,5 +254,9 @@ class ConnectDialog(QDialog):
     def _refresh_buttons(self) -> None:
         var = self.var_name()
         valid_var = var.isidentifier() and not keyword.iskeyword(var)
-        self._var_edit.setToolTip("" if valid_var else "Not a valid Python variable name")
-        self._btn_connect.setEnabled(valid_var and bool(self.code().strip()) and self.class_name() is not None)
+        self._var_edit.setToolTip(
+            "" if valid_var else "Not a valid Python variable name"
+        )
+        self._btn_connect.setEnabled(
+            valid_var and bool(self.code().strip()) and self.class_name() is not None
+        )

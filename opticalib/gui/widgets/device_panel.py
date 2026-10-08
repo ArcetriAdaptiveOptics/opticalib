@@ -90,6 +90,7 @@ KIND_ICONS: Dict[str, str] = {
     "device": "chip",
 }
 
+
 @dataclass
 class DeviceInfo:
     """
@@ -449,7 +450,11 @@ class DeviceCard(QFrame):
             self.connect_requested.emit(self)
 
     def _refresh_subtitle(self) -> None:
-        lines = [l for l in self.connect_code().splitlines() if not l.startswith(("#", "import", "from"))]
+        lines = [
+            l
+            for l in self.connect_code().splitlines()
+            if not l.startswith(("#", "import", "from"))
+        ]
         text = lines[-1] if lines else ""
         entry = self.info.entry
         if self.info.class_name is None:
@@ -472,7 +477,9 @@ class DeviceCard(QFrame):
         if shown == "setup":
             self._button.setText("Set up…")
         else:
-            self._button.setText("Reconnect" if self.status == "connected" else "Connect")
+            self._button.setText(
+                "Reconnect" if self.status == "connected" else "Connect"
+            )
         problems = self.info.entry.problems if self.info.entry is not None else []
         self._problem.setText(problems[0] if problems else "")
         self._problem.setToolTip("\n".join(problems))
@@ -490,21 +497,25 @@ class DeviceCard(QFrame):
             lambda: QGuiApplication.clipboard().setText(self.connect_code())
         )
         if self.info.entry is not None:
-            menu.addAction(theme().icon("tune-variant"), "Connect with options…").triggered.connect(
-                lambda: self.setup_requested.emit(self)
-            )
-            menu.addAction(theme().icon("file-document-edit-outline"), "Edit configuration entry").triggered.connect(
-                lambda: self.edit_requested.emit(self)
-            )
+            menu.addAction(
+                theme().icon("tune-variant"), "Connect with options…"
+            ).triggered.connect(lambda: self.setup_requested.emit(self))
+            menu.addAction(
+                theme().icon("file-document-edit-outline"), "Edit configuration entry"
+            ).triggered.connect(lambda: self.edit_requested.emit(self))
         if self.status == "error" and self.message:
-            menu.addAction(theme().icon("alert-circle", "danger"), self.message[:80]).setEnabled(False)
+            menu.addAction(
+                theme().icon("alert-circle", "danger"), self.message[:80]
+            ).setEnabled(False)
         if self.status != "connected":
             return
         menu.addSeparator()
         for label, code, confirm in quick_actions(self.info):
             action = menu.addAction(label)
             action.triggered.connect(
-                lambda checked=False, c=code, l=label, k=confirm: self._run_action(c, l, k)
+                lambda checked=False, c=code, l=label, k=confirm: self._run_action(
+                    c, l, k
+                )
             )
 
     def _run_action(self, code: str, label: str, confirm: bool) -> None:
@@ -545,7 +556,9 @@ class DevicePanel(QWidget):
     edit_config_requested = Signal(str, str)
     config_changed = Signal()
 
-    def __init__(self, config_path: str, runner, parent: Optional[QWidget] = None) -> None:
+    def __init__(
+        self, config_path: str, runner, parent: Optional[QWidget] = None
+    ) -> None:
         """Build the panel and read the configuration."""
         super().__init__(parent)
         self._config_path = config_path
@@ -649,7 +662,9 @@ class DevicePanel(QWidget):
             if widget is not None and widget not in self._cards.values():
                 widget.deleteLater()
         if not infos:
-            empty = QLabel("No configured devices. Fill in a device in the configuration file.")
+            empty = QLabel(
+                "No configured devices. Fill in a device in the configuration file."
+            )
             empty.setProperty("muted", True)
             empty.setWordWrap(True)
             self._configured_box.addWidget(empty)
@@ -671,9 +686,13 @@ class DevicePanel(QWidget):
         card.connect_requested.connect(self._connect)
         card.setup_requested.connect(self.open_connect_dialog)
         card.edit_requested.connect(
-            lambda c: self.edit_config_requested.emit(c.info.entry.section, c.info.entry.name)
+            lambda c: self.edit_config_requested.emit(
+                c.info.entry.section, c.info.entry.name
+            )
         )
-        card.action_requested.connect(lambda code, title: self._runner(code, title, None, None))
+        card.action_requested.connect(
+            lambda code, title: self._runner(code, title, None, None)
+        )
         self._cards[info.key] = card
         return card
 
@@ -723,7 +742,9 @@ class DevicePanel(QWidget):
         self._overrides[key] = {"class": dialog.class_name(), "var": dialog.var_name()}
         if dialog.save_class():
             try:
-                set_entry_class(self._config_path, entry.section, entry.name, dialog.class_name())
+                set_entry_class(
+                    self._config_path, entry.section, entry.name, dialog.class_name()
+                )
             except (OSError, ValueError) as exc:
                 QMessageBox.warning(self, "Configuration not updated", str(exc))
             else:
@@ -751,7 +772,9 @@ class DevicePanel(QWidget):
             c = self._cards.get(key)
             if c is not None:
                 error = task.error or {}
-                c.set_status("error", f"{error.get('ename', 'Error')}: {error.get('evalue', '')}")
+                c.set_status(
+                    "error", f"{error.get('ename', 'Error')}: {error.get('evalue', '')}"
+                )
 
         def started():
             c = self._cards.get(key)
@@ -759,7 +782,9 @@ class DevicePanel(QWidget):
                 c.set_status("connecting")
 
         task = self._runner(code or card.connect_code(), title, done, failed)
-        card.set_status("queued" if task is not None and task.state == "queued" else "connecting")
+        card.set_status(
+            "queued" if task is not None and task.state == "queued" else "connecting"
+        )
         if task is not None:
             task.changed.connect(started)
 
@@ -811,8 +836,13 @@ class DevicePanel(QWidget):
             candidates = [
                 c for c in cards if c.info.var_name == name and self._matches(c, item)
             ]
-            if len(candidates) == 1 and candidates[0].status in ("disconnected", "error"):
-                if not any(c.status == "connected" for c in cards if c.info.var_name == name):
+            if len(candidates) == 1 and candidates[0].status in (
+                "disconnected",
+                "error",
+            ):
+                if not any(
+                    c.status == "connected" for c in cards if c.info.var_name == name
+                ):
                     candidates[0].set_status("connected")
         for card in cards:
             if card.info.requires is None or card.status in ("queued", "connecting"):

@@ -9,7 +9,15 @@ analyse its stability with :mod:`opticalib.analyzer.timeseries`.
 from typing import List
 
 from .base import ProcedureWindow, Step, kwargs_code
-from .params import BoolParam, DeviceParam, ExprParam, FloatParam, IntParam, TnParam, VarParam
+from .params import (
+    BoolParam,
+    DeviceParam,
+    ExprParam,
+    FloatParam,
+    IntParam,
+    TnParam,
+    VarParam,
+)
 
 _SERIES = "OPD_SERIES_ROOT_FOLDER"
 
@@ -34,7 +42,12 @@ class TimeseriesWindow(ProcedureWindow):
                 "tracking number in OPDSeries. Frames are named after the "
                 "second they are taken, so the delay must be at least 1 s.",
                 [
-                    DeviceParam("device", "Device", kinds=("interferometer", "wfs", "camera"), default="interf"),
+                    DeviceParam(
+                        "device",
+                        "Device",
+                        kinds=("interferometer", "wfs", "camera"),
+                        default="interf",
+                    ),
                     IntParam("nframes", "Frames", 20, minimum=2, maximum=100000),
                     FloatParam("delay", "Delay between frames [s]", 1.0, minimum=1.0),
                     VarParam("out", "Store the tracking number in", "tn_ts"),
@@ -51,7 +64,9 @@ class TimeseriesWindow(ProcedureWindow):
                 "Average the frames of a series (optionally a range of them) "
                 "and show the result.",
                 [
-                    TnParam("tn", "Tracking number", folder_attr=_SERIES, state_key="ts_tn"),
+                    TnParam(
+                        "tn", "Tracking number", folder_attr=_SERIES, state_key="ts_tn"
+                    ),
                     IntParam("first", "First frame", 0, minimum=0),
                     IntParam("last", "Last frame (-1: all)", -1, minimum=-1),
                     BoolParam("thresh", "Average only valid pixels", False),
@@ -69,7 +84,9 @@ class TimeseriesWindow(ProcedureWindow):
                 "Subtract pairs of frames separated by the gap and plot the RMS "
                 "of each difference: a stable system gives a flat curve.",
                 [
-                    TnParam("tn", "Tracking number", folder_attr=_SERIES, state_key="ts_tn"),
+                    TnParam(
+                        "tn", "Tracking number", folder_attr=_SERIES, state_key="ts_tn"
+                    ),
                     IntParam("gap", "Gap [frames]", 2, minimum=1),
                     BoolParam("zernikes", "Remove the default Zernike modes", False),
                     VarParam("out", "Store the RMS values in", "ts_stds"),
@@ -89,7 +106,9 @@ class TimeseriesWindow(ProcedureWindow):
                 "frames separated by each time lag, after removing the chosen "
                 "Zernike modes.",
                 [
-                    TnParam("tn", "Tracking number", folder_attr=_SERIES, state_key="ts_tn"),
+                    TnParam(
+                        "tn", "Tracking number", folder_attr=_SERIES, state_key="ts_tn"
+                    ),
                     ExprParam("taus", "Time lags [frames]", "np.arange(1, 6)"),
                     ExprParam("zernikes", "Zernike modes to remove", "[1, 2, 3]"),
                     VarParam("out", "Store the RMS values in", "ts_noise"),

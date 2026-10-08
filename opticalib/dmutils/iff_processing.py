@@ -364,9 +364,7 @@ def cube_roi_processing(
 
     _osu.save_fits(_os.path.join(save_path, "IMCube.fits"), newcube, overwrite=True)
     _osu.save_fits(_os.path.join(save_path, _MATRIX_FILE), cmdmat, overwrite=True)
-    _osu.save_fits(
-        _os.path.join(save_path, _MODES_FILE), modesvec, overwrite=True
-    )
+    _osu.save_fits(_os.path.join(save_path, _MODES_FILE), modesvec, overwrite=True)
 
     return newtn
 

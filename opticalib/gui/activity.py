@@ -329,7 +329,9 @@ class ActivityCard(QFrame):
         elif state == "running":
             if self._spin is None:
                 self._spin = qta.Spin(self._icon, autostart=True)
-                self._icon.setIcon(theme().icon("loading", "accent", animation=self._spin))
+                self._icon.setIcon(
+                    theme().icon("loading", "accent", animation=self._spin)
+                )
             self._bar.setVisible(True)
             if job.progress is None:
                 self._bar.setRange(0, 0)
@@ -433,7 +435,9 @@ class _DragHeader(QFrame):
         if self._dragging:
             self._dragging = False
             self.setCursor(
-                Qt.CursorShape.OpenHandCursor if self.draggable else Qt.CursorShape.ArrowCursor
+                Qt.CursorShape.OpenHandCursor
+                if self.draggable
+                else Qt.CursorShape.ArrowCursor
             )
             self.drag_finished.emit()
             event.accept()
@@ -494,8 +498,12 @@ class ActivityCenter(QWidget):
         self._summary = ElidedLabel("Activity")
         self._summary.setProperty("heading", True)
         self._btn_clear = self._header_button("Clear finished", self.clear_finished)
-        self._btn_collapse = self._header_button("", lambda: self.set_collapsed(not self._collapsed))
-        self._btn_pin = self._header_button("", lambda: self.set_pinned(not self._pinned))
+        self._btn_collapse = self._header_button(
+            "", lambda: self.set_collapsed(not self._collapsed)
+        )
+        self._btn_pin = self._header_button(
+            "", lambda: self.set_pinned(not self._pinned)
+        )
         row = QHBoxLayout(self._header)
         row.setContentsMargins(10, 4, 4, 4)
         row.setSpacing(4)
@@ -578,7 +586,9 @@ class ActivityCenter(QWidget):
             return None
         cancel = self._cancel if hasattr(job, "msg_id") else None
         interrupt = self._interrupt if hasattr(job, "msg_id") else None
-        card = ActivityCard(job, interrupt=interrupt, cancel=cancel, parent=self._cards_box)
+        card = ActivityCard(
+            job, interrupt=interrupt, cancel=cancel, parent=self._cards_box
+        )
         card.dismissed.connect(lambda c=card: self._remove(c))
         job.finished.connect(lambda c=card: self._on_finished(c))
         job.changed.connect(self._refresh_header)
@@ -727,22 +737,39 @@ class ActivityCenter(QWidget):
         self._summary.setText(self.summary_text())
         self._summary.setToolTip(self.summary_text())
         self._grip.setPixmap(
-            t.icon("drag", "text_muted" if self._pinned else "text").pixmap(QSize(16, 16))
+            t.icon("drag", "text_muted" if self._pinned else "text").pixmap(
+                QSize(16, 16)
+            )
         )
         self._grip.setVisible(not self._pinned)
         self._header.draggable = not self._pinned
         self._header.setCursor(
-            Qt.CursorShape.ArrowCursor if self._pinned else Qt.CursorShape.OpenHandCursor
+            Qt.CursorShape.ArrowCursor
+            if self._pinned
+            else Qt.CursorShape.OpenHandCursor
         )
         self._header.setToolTip(
-            "Position locked" if self._pinned else "Drag to move; the panel pins to the nearest corner"
+            "Position locked"
+            if self._pinned
+            else "Drag to move; the panel pins to the nearest corner"
         )
         self._btn_clear.setIcon(t.icon("broom", "text_muted"))
         self._btn_clear.setEnabled(any(c.job.is_final for c in self._cards))
-        self._btn_collapse.setIcon(t.icon("chevron-down" if self._collapsed else "chevron-up"))
-        self._btn_collapse.setToolTip("Show the operations" if self._collapsed else "Collapse")
-        self._btn_pin.setIcon(t.icon("pin" if self._pinned else "pin-outline", "accent" if self._pinned else "text"))
-        self._btn_pin.setToolTip("Unlock the position" if self._pinned else "Lock the position")
+        self._btn_collapse.setIcon(
+            t.icon("chevron-down" if self._collapsed else "chevron-up")
+        )
+        self._btn_collapse.setToolTip(
+            "Show the operations" if self._collapsed else "Collapse"
+        )
+        self._btn_pin.setIcon(
+            t.icon(
+                "pin" if self._pinned else "pin-outline",
+                "accent" if self._pinned else "text",
+            )
+        )
+        self._btn_pin.setToolTip(
+            "Unlock the position" if self._pinned else "Lock the position"
+        )
         self._cards_box.setVisible(not self._collapsed)
 
     # ------------------------------------------------------------------
@@ -802,8 +829,14 @@ class ActivityCenter(QWidget):
 
     def _clamp(self, pos: QPoint, size: QSize) -> QPoint:
         area = self._area()
-        x = min(max(pos.x(), area.left()), max(area.left(), area.left() + area.width() - size.width()))
-        y = min(max(pos.y(), area.top()), max(area.top(), area.top() + area.height() - size.height()))
+        x = min(
+            max(pos.x(), area.left()),
+            max(area.left(), area.left() + area.width() - size.width()),
+        )
+        y = min(
+            max(pos.y(), area.top()),
+            max(area.top(), area.top() + area.height() - size.height()),
+        )
         return QPoint(x, y)
 
     def nearest_anchor(self, rect: QRect):
