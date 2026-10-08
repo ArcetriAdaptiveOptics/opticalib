@@ -78,18 +78,33 @@ Common fixtures are defined in `conftest.py`:
 
 ### GUI tests (`test_gui_*.py`)
 
-- They run without a display (`QT_QPA_PLATFORM=offscreen`, set by `conftest.py`),
+- Locally they run without a display (`QT_QPA_PLATFORM=offscreen`, set by `conftest.py`),
   but Qt still needs the OpenGL/EGL system libraries. On Debian/Ubuntu:
 
   ```bash
   sudo apt-get install libegl1 libgl1 libxkbcommon0 libfontconfig1 libdbus-1-3
   ```
 
+- In CI (`.github/workflows/tests.yml`) they run on a **real virtual display** instead:
+  the workflow starts `Xvfb` on `DISPLAY=:99` and exports `QT_QPA_PLATFORM=xcb`, which
+  wins over the `offscreen` default of `conftest.py` (a `setdefault`). The runner image
+  therefore also gets the X11/xcb libraries, Mesa and a set of fonts (see the
+  `Install Qt/X11 system libraries` step). To reproduce CI locally:
+
+  ```bash
+  sudo apt-get install xvfb x11-utils libxkbcommon-x11-0 libxcb-cursor0
+  Xvfb :99 -screen 0 1920x1080x24 -ac > /dev/null 2>&1 &
+  DISPLAY=:99 QT_QPA_PLATFORM=xcb pytest -rs
+  ```
+
 - When Qt cannot be loaded (missing libraries or packages), the GUI tests are
   skipped, with the reason (e.g. `libEGL.so.1: cannot open shared object file`)
-  shown by `pytest -rs`.
+  shown by `pytest -rs`. The workflow treats that as a failure: the
+  `Check that the GUI tests really ran` step asserts that no graphical test was skipped.
 - Qt settings are redirected to a temporary folder by the `qapp` fixture, so the
   tests never touch the user's configuration.
 - `test_gui_app.py` starts the whole application with a real IPython kernel in a
-  subprocess (marked `integration`, about 15 s).
+  subprocess (marked `integration`, about 15 s). That subprocess pins
+  `QT_QPA_PLATFORM=offscreen` itself, so it is the only graphical test that does not
+  draw on the virtual display.
 
