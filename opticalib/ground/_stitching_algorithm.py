@@ -3,8 +3,7 @@ import xupy as xp
 from tqdm import tqdm, trange
 from .modal_decomposer import ZernikeFitter
 from ..core import _types as t
-
-f32 = xp.float
+from ..core._xpcompat import compute_float
 
 
 def map_stitching(
@@ -38,7 +37,8 @@ def map_stitching(
     _zfit = ZernikeFitter(MM)
     M = len(zern2fit)
     p = xp.asarray(
-        xp.asnumpy([_zfit.make_surface(i) for i in [[1], [1, 2], [1, 2, 3]]]), dtype=f32
+        xp.asnumpy([_zfit.make_surface(i) for i in [[1], [1, 2], [1, 2, 3]]]),
+        dtype=compute_float(),
     )
     Qo = xp.tile(p, (M, 1, 1))
     v_order = xp.reshape(
@@ -49,13 +49,13 @@ def map_stitching(
     print("Setting up stitching algorithm...", end="\r", flush=True)
     # Pre-extract masks and data for efficiency
     masks = xp.array([img.mask for img in image_vector], dtype=xp.uint8)
-    data = xp.array([img.data for img in image_vector], dtype=f32)
+    data = xp.array([img.data for img in image_vector], dtype=compute_float())
 
     # Prepare all (ii, jj) pairs
     pairs = [(ii, jj) for ii in range(N) for jj in range(N)]
 
-    Q = xp.zeros((N, N, M**2), dtype=f32)
-    P = xp.zeros((N, N, M), dtype=f32)
+    Q = xp.zeros((N, N, M**2), dtype=compute_float())
+    P = xp.zeros((N, N, M), dtype=compute_float())
 
     pbar = "{l_bar}{bar}| {n_fmt}/{total_fmt} [{rate_fmt}{postfix}]"
 
@@ -73,7 +73,7 @@ def map_stitching(
             for jj in range(N):
                 mm = xp.logical_or(masks[ii], masks[jj])
                 if ii == jj:
-                    Q_val = xp.zeros(M**2, dtype=f32)
+                    Q_val = xp.zeros(M**2, dtype=compute_float())
                 else:
                     Q_val = xp.sum(q * (~mm), axis=(1, 2))
                 img = data[ii] - data[jj]
@@ -103,7 +103,7 @@ def map_stitching(
 
     print("Computing stitched image...", end="\r", flush=True)
     P1 = xp.reshape(P, (N, N, M))
-    Pt = xp.array([xp.sum(P1[ii], axis=0) for ii in range(N)], dtype=f32)
+    Pt = xp.array([xp.sum(P1[ii], axis=0) for ii in range(N)], dtype=compute_float())
     PP = xp.reshape(Pt, M * N)
     Q1 = xp.reshape(Q, (N, N, M**2))
     QQ = xp.reshape(Q1, (N, N, M, M))
@@ -111,23 +111,23 @@ def map_stitching(
         [xp.hstack([QQ[ii, jj, :, :] for ii in range(N)]) for jj in range(N)]
     )
     QQ = temp.copy()
-    QD = xp.zeros_like(QQ, dtype=f32)
+    QD = xp.zeros_like(QQ, dtype=compute_float())
     for ii in range(N):
         temp = xp.sum(Q1[ii], axis=0)
         temp = xp.reshape(temp, (M, M))
         QD[M * ii : M * (ii + 1), M * ii : M * (ii + 1)] = -temp
     QF = QD + QQ
     X = xp.linalg.lstsq(QF, PP, rcond=None)[0]
-    zzc = xp.ma.empty_like(image_vector, dtype=f32)
+    zzc = xp.ma.empty_like(image_vector, dtype=compute_float())
     c = xp.reshape(X, (N, M))
     for ii in range(N):
-        img = xp.asarray(image_vector[ii, :, :].data, dtype=f32)
+        img = xp.asarray(image_vector[ii, :, :].data, dtype=compute_float())
         mm = xp.asarray(image_vector[ii, :, :].mask, dtype=xp.int8)
-        res = xp.zeros_like(MM, dtype=f32)
+        res = xp.zeros_like(MM, dtype=compute_float())
         for ki in range(M):
             res += p[ki] * c[ii, ki]
         zzc[ii, :, :] = xp.ma.masked_array(
-            (img + res) * (-1 * mm + 1), mm.astype(bool), dtype=f32
+            (img + res) * (-1 * mm + 1), mm.astype(bool), dtype=compute_float()
         )
     print(f"Removing zernike modes {zern2fit}...", end="\r", flush=False)
     ZZ = xp.ma.mean(zzc, axis=0)

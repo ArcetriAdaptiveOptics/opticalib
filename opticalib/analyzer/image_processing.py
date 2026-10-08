@@ -15,6 +15,7 @@ import xupy as _xp
 import numpy as _np
 from ..core import _types as _ot
 from ..core import fitsarray as _fa
+from ..core._xpcompat import compute_float as _compute_float
 from skimage.transform import resize as _resize
 from ..ground import osutils as osu, modal_decomposer as _md
 from scipy import stats as _stats, fft as _fft, ndimage as _ndimage
@@ -225,7 +226,7 @@ def push_pull_reduction_algorithm(
     # Template weights computation
     w = _xp.asarray(
         template.astype(_np.result_type(template, imagelist[0].data), copy=True),
-        dtype=_xp.float,
+        dtype=_compute_float(),
     )
     if n_images > 2:
         w[1:-1] *= 2.0
@@ -233,9 +234,9 @@ def push_pull_reduction_algorithm(
     master_mask = _np.logical_or.reduce([ima.mask for ima in imagelist])
     # Compute weighted sum over realizations on raw data
     stack = _xp.stack(
-        [_xp.asarray(ima.data, dtype=_xp.float) for ima in imagelist],
+        [_xp.asarray(ima.data, dtype=_compute_float()) for ima in imagelist],
         axis=0,
-        dtype=_xp.float,
+        dtype=_compute_float(),
     )  # (n, H, W)
     image = _xp.asnumpy(_xp.tensordot(w, stack, axes=(0, 0)))  # (H, W)
 

@@ -10,6 +10,7 @@ from ._rbf_gpu import RBFInterpolator
 # from scipy.interpolate import Rbf
 from opticalib.core.root import folders as fp
 from opticalib.core import _types as _t
+from opticalib.core._xpcompat import compute_float
 from opticalib.ground import geometry as geo
 from opticalib.ground import osutils as osu
 from opticalib.ground import roi
@@ -435,7 +436,7 @@ class BaseFakeDp:
                         (self._iffCube[:, :, i, s].data)[mask == 0]
                         for i in range(self._iffCube.shape[2])
                     ],
-                    dtype=xp.float,
+                    dtype=compute_float(),
                 )
                 ims.append(im)
                 rms.append(xp.asnumpy(xp.linalg.pinv(im)))

@@ -16,6 +16,7 @@ import xupy as _xp
 from . import osutils as _osu
 import matplotlib.pyplot as _plt
 from opticalib.core import _types as _ot
+from opticalib.core._xpcompat import compute_float as _compute_float
 from .logger import SystemLogger as _SL
 from opticalib.core.root import folders as _fn
 import gc
@@ -68,9 +69,9 @@ def compute_interaction_matrix(
     )
     out = [im]
     if get_svd:
-        im_gpu = _xp.asarray(im, dtype=_xp.float)
+        im_gpu = _xp.asarray(im, dtype=_compute_float())
         u, s, vt = _xp.linalg.svd(im_gpu, full_matrices=False)
-        out.extend([u.get(), s.get(), vt.get()])
+        out.extend([_xp.asnumpy(x) for x in (u, s, vt)])
     return out if get_svd else im
 
 
@@ -292,7 +293,7 @@ class ComputeReconstructor:
                     ]
                 )
                 self._logger.info("SVD of Interaction Matrix")
-                im = _xp.asarray(self._intMat, dtype=_xp.float)
+                im = _xp.asarray(self._intMat, dtype=_compute_float())
                 U, S, Vt = _xp.linalg.svd(im, full_matrices=False)
                 self._intMat_U, self._intMat_S, self._intMat_Vt = [
                     _xp.asnumpy(x) for x in (U, S, Vt)
@@ -311,7 +312,7 @@ class ComputeReconstructor:
                 raise e
 
         return tuple(
-            _xp.asarray(x, dtype=_xp.float)
+            _xp.asarray(x, dtype=_compute_float())
             for x in (self._intMat, self._intMat_U, self._intMat_S, self._intMat_Vt)
         )
 

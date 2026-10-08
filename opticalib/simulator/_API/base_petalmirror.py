@@ -2,6 +2,7 @@ import os
 import xupy as xp
 import numpy as _np
 from ...core import _types as _ot
+from ...core._xpcompat import compute_float
 from .. import factory as ff
 from ...core import root as _root
 from ...ground.roi import roi_generator
@@ -190,7 +191,7 @@ class BaseFakePTL:
                         (self._iffCube[:, :, i, s].data)[mask == 0]
                         for i in range(self._iffCube.shape[2])
                     ],
-                    dtype=xp.float,
+                    dtype=compute_float(),
                 )
                 ims.append(im)
                 rms.append(xp.asnumpy(xp.linalg.pinv(im)))
