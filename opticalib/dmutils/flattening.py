@@ -85,7 +85,7 @@ class Flattening:
         self._frameCenter = None
         self._flatOffset = None
         self._cavityOffset = None
-        # self._synthFlat = None
+        self._synthFlat = None
         # self._flatResidue = None
         # self._flatteningModes = None
 
@@ -123,6 +123,13 @@ class Flattening:
         Metadata property.
         """
         return self._rec._intMatCube.header
+
+    @property
+    def synthetic_flat_wf(self) -> _ot.ImageData:
+        """
+        Synthetic flat wavefront property.
+        """
+        return self._synthFlat
 
     def closed_loop_flattening(
         self, iterations: int | None = None, **kwargs: dict[str, _ot.Any]
@@ -391,6 +398,30 @@ class Flattening:
             )
         self.flat_cmd = flat_cmd.copy()
         return flat_cmd
+
+    def compute_synthetic_flat_wf(
+        self, flat_cmd: _ot.ArrayLike | None = None, plot: bool = True
+    ) -> _ot.ImageData:
+        """
+        Compute the synthetic flat wavefront based on the current flat command.
+
+        Returns
+        -------
+        synthetic_flat_wf : ImageData
+            The synthetic flat wavefront.
+        """
+        if flat_cmd is None:
+            flat_cmd = self.flat_cmd
+        mask = self._get_master_mask()
+        wf = _np.ma.masked_array(mask * 0, mask=mask)
+        data = flat_cmd @ self.IM
+        wf[~mask] = data
+        self._synthFlat = wf
+        if plot:
+            from ..visualization import surfshow
+
+            surfshow(self._synthFlat, title="Synthetic Flat Wavefront")
+        return self._synthFlat.copy()
 
     def load_image2_shape(self, img: _ot.ImageData) -> None:
         """
