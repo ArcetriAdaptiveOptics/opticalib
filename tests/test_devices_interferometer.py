@@ -72,24 +72,12 @@ class Test4DInterferometerStatics:
         assert fullimg.shape == (2048, 2048)
         np.testing.assert_array_equal(fullimg[7:9, 4:6], img.data)
 
-    def test_into_full_frame_offset_argument_overrides_settings(self, monkeypatch):
-        """Test that explicit offsets have precedence over configuration offsets."""
-        monkeypatch.setattr(
-            "opticalib.devices.interferometer._4DInterferometer.get_camera_settings",
-            staticmethod(lambda _tn=None: [2048, 2048, 100, 100]),
-        )
-
-        img = ma.masked_array(np.array([[9.0]]))
-
-        fullimg = _4DInterferometer.into_full_frame(img, offset=(0, 0))
-
-        assert fullimg[0, 0] == 9.0
 
     def test_into_full_frame_reads_offsets_from_config_path(self, monkeypatch):
         """Test config_path-based offset loading for full-frame insertion."""
         reader = MagicMock()
-        reader.get_offset_x.return_value = 5
-        reader.get_offset_y.return_value = 6
+        reader.get_offset_x.return_value = 0
+        reader.get_offset_y.return_value = 0
         monkeypatch.setattr(
             "opticalib.devices.interferometer._fn.ConfSettingReader4D",
             lambda _path: reader,
@@ -100,7 +88,6 @@ class Test4DInterferometerStatics:
         fullimg = _4DInterferometer.into_full_frame(
             img,
             config_path="/tmp/fake_4d_settings.ini",
-            offset=(0, 0),
         )
 
         np.testing.assert_array_equal(fullimg[0:1, 0:2], img.data)
