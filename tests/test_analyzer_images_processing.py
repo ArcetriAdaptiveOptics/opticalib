@@ -91,6 +91,30 @@ class TestFrame:
             ip.frame(10, imgs)
 
 
+class TestPadImageToShape:
+    """Tests for the pad_image_to_shape function."""
+
+    def test_pad_image_to_shape_places_image_at_offset(self):
+        """Test that image values are copied at the requested offset."""
+        img = ma.masked_array(np.array([[1.0, 2.0], [3.0, 4.0]]))
+
+        result = ip.pad_image_to_shape(img, (5, 6), (1, 3), fill_value=-1.0)
+
+        assert result.shape == (5, 6)
+        np.testing.assert_array_equal(result[1:3, 3:5], img.data)
+        assert result[0, 0] == -1.0
+        assert result[4, 5] == -1.0
+
+    def test_pad_image_to_shape_default_fill_value_is_zero(self):
+        """Test that the default fill value is zero outside the pasted image."""
+        img = ma.masked_array(np.array([[7.0]]))
+
+        result = ip.pad_image_to_shape(img, (3, 3), (2, 1))
+
+        assert result[2, 1] == 7.0
+        assert result[0, 0] == 0.0
+
+
 class TestPistonUnwrap:
     """Tests for the unwrap_piston function."""
 

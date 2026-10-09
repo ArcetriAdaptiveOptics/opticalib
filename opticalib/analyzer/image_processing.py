@@ -20,6 +20,37 @@ from ..ground import osutils as osu, modal_decomposer as _md
 from scipy import stats as _stats, fft as _fft, ndimage as _ndimage
 
 
+def pad_image_to_shape(
+    img: _ot.ImageData,
+    shape: tuple[int, int],
+    offset: tuple[int, int],
+    fill_value: float = 0.
+) -> _ot.ImageData:
+    """
+    Pads an image to a specified shape with a given offset and fill value.
+
+    Parameters
+    ----------
+    img : _ot.ImageData
+        The image to be padded.
+    shape : tuple[int, int]
+        The target shape (height, width) for the padded image.
+    offset : tuple[int, int]
+        The (y, x) offset at which to place the original image in the padded image.
+    fill_value : float, optional
+        The value to fill the padded areas with. Default is 0.
+
+    Returns
+    -------
+    padded_img : _ot.ImageData
+        The padded image.
+    """
+    padded_img = _np.full(shape, fill_value)
+    y, x = offset
+    h, w = _np.shape(img)
+    padded_img[y : y + h, x : x + w] = img.data
+    return padded_img
+
 def frame(idx: int, mylist: list[_ot.ImageData] | _ot.CubeData) -> _ot.ImageData:
     """
     Returns a single frame from a list of files or from a cube.
@@ -859,7 +890,11 @@ def rebin2_d_array(
     )
 
 
+
+
 __all__ = [
+    "pad_image_to_shape",
+    # "into_4d_full_frame",
     "frame",
     "unwrap_piston",
     "unwrap_image",

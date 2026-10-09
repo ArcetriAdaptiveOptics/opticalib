@@ -5,20 +5,15 @@ OPTICALIB: adaptive OPTIcs package for dm CALIBration
 Author(s)
 ---------
 - Pietro Ferraiuolo : pietro.ferraiuolo@inaf.it
+- Runa Briguglio: runa.briguglio@inaf.it
+- Marco Xompero: marco.xompero@inaf.it
+- Matteo Menessini: matteo.menessini@inaf.it
 
 Description
 -----------
 OptiCalib is a package for the control of laboratory instrumentations, like
 Interferometers and Deformable Mirrors. It also provides tools for the
 analysis of wavefronts and images.
-
-How to Use:
------------
-```python
-> import opticalib
-> interf = opticalib.PhaseCam('193.206.155.218', 8011)
-> img = interf.acquire_map()
-```
 """
 
 from __future__ import annotations
@@ -34,13 +29,6 @@ from .core.root import (
 from .core import config
 from .core import _types as typings
 from .core.fitsarray import fits_array
-from .devices import *
-from .devices.interferometer import _4DInterferometer
-
-get_camera_settings = _4DInterferometer.get_camera_settings
-get_frame_rate = _4DInterferometer.get_frame_rate
-
-del _4DInterferometer
 
 from . import (
     analyzer,
@@ -50,6 +38,13 @@ from . import (
     simulator,
     visualization,
 )
+
+from .devices.interferometer import _4DInterferometer
+get_camera_settings = _4DInterferometer.get_camera_settings
+get_frame_rate = _4DInterferometer.get_frame_rate
+del _4DInterferometer
+
+from .devices import *
 
 vis = visualization
 

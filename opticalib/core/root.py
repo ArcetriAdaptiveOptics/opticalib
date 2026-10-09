@@ -351,7 +351,7 @@ class ConfSettingReader4D:
     defined object:
 
     >>> cr = ConfSettingReader4D(file_path)
-    >>> cr.get_image_widht_in_pixels()
+    >>> cr.get_image_width_in_pixels()
     2000
     >>> cr.get_image_height_in_pixels()
     2000
@@ -382,13 +382,13 @@ class ConfSettingReader4D:
         frame_rate = self.config.get(self.camera_section, "FrameRate")
         return float(frame_rate)
 
-    def get_image_widht_in_pixels(self):
+    def get_image_width_in_pixels(self):
         """
-        Returns the image widht in pixel scale
+        Returns the image width in pixel scale
 
         Returns
         -------
-        image_wight_in_pixels : int
+        image_width_in_pixels : int
             Image pixel width.
         """
         image_width_in_pixels = self.config.get(

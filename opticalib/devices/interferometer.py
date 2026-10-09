@@ -22,7 +22,10 @@ from opticalib.core import _types as _ot
 from opticalib.core import root as _fn
 from opticalib.ground import osutils as _osu
 from opticalib.ground.logger import SystemLogger as _SL
-from opticalib.analyzer import mode_rebinner as _modeRebinner
+from opticalib.analyzer.image_processing import (
+    mode_rebinner as _modeRebinner,
+    pad_image_to_shape as _to_shape
+)
 
 global _Folds
 _Folds = _fn.folders
@@ -339,12 +342,19 @@ class _4DInterferometer(BaseWavefrontSensor):
     @staticmethod
     def get_camera_settings(tn: str = None) -> list[int]:
         """
-        Reads che actual interferometer settings from its configuration file.
+        Reads the actual interferometer settings from its configuration file or 
+        pass in a saved configuration file from a tracking number data folder.
+        
+        Parameters
+        ----------
+        tn: str, optional
+            Tracking number to locate the saved configuration file. If None, 
+            the current configuration file is used.
 
-        Return
-        ------
+        Returns
+        -------
         output: list
-        list of camera settings: [width_pixel, height_pixel, offset_x, offset_y]
+            list of camera settings: [width_pixel, height_pixel, offset_x, offset_y]
         """
         if not tn is None:
             path = _osu.find_tracknum(tn, complete_path=True)
@@ -358,7 +368,7 @@ class _4DInterferometer(BaseWavefrontSensor):
         else:
             file_path = _Folds.SETTINGS_CONF_FILE
             setting_reader = _confReader(file_path)
-        width_pixel = setting_reader.get_image_widht_in_pixels()
+        width_pixel = setting_reader.get_image_width_in_pixels()
         height_pixel = setting_reader.get_image_height_in_pixels()
         offset_x = setting_reader.get_offset_x()
         offset_y = setting_reader.get_offset_y()
@@ -367,10 +377,18 @@ class _4DInterferometer(BaseWavefrontSensor):
     @staticmethod
     def get_frame_rate(tn: str = None) -> float:
         """
-        Reads the frame rate the interferometer is working at.
+        Reads the frame rate the interferometer is working at, either from the 
+        current configuration file or from a saved configuration file associated 
+        with a tracking number.
+        
+        Parameters
+        ----------
+        tn: str, optional
+            Tracking number to locate the saved configuration file. If None, 
+            the current configuration file is used.
 
-        Return
-        ------
+        Returns
+        -------
         frame_rate: float
             Frame rate of the interferometer
         """
@@ -389,34 +407,48 @@ class _4DInterferometer(BaseWavefrontSensor):
         frame_rate = setting_reader.get_frame_rate()
         return frame_rate
 
-    def into_full_frame(self, img: _ot.ImageData) -> _ot.ImageData:
+    @staticmethod
+    def into_full_frame(
+        img: _ot.ImageData,
+        tn: str = None,
+        config_path: str = None,
+        offset: tuple[int, int] = None,
+    ) -> _ot.ImageData:
         """
-        The function fits the passed frame (expected cropped) into the
-        full interferometer frame (2048x2048), after reading the cropping
-        parameters.
+        The function fits the passed frame (expected cropped) into the full
+        interferometer frame (2048x2048), after reading the cropping parameters
+        either from a passed configuration file, the current configuration or
+        directly from offset parameters.
 
         Parameters
         ----------
         img: ImageData
             The image to be fitted into the full frame.
+        tn: str, optional
+            Tracking number to locate the saved configuration file. If None, 
+            the current configuration file is used.
+        config_path: str, optional
+            Path to a specific configuration file. If None, the current configuration is used.
+        offset: tuple[int, int], optional
+            Offset parameters to directly place the image into the full frame. If None, 
+            the offset is read from the configuration.
 
-        Return
-        ------
+        Returns
+        -------
         output: ImageData
             The output image, in the interferometer full frame.
         """
-        off = (self.get_camera_settings())[2:4]
-        off = _np.flip(off)
-        nfullpix = _np.array([2048, 2048])
-        fullimg = _np.full(nfullpix, _np.nan)  # was   _np.zeros(nfullpix)
-        fullmask = _np.ones(nfullpix)
-        offx = off[0]
-        offy = off[1]
-        sx = _np.shape(img)[0]  # croppar[2]
-        sy = _np.shape(img)[1]  # croppar[3]
-        fullimg[offx : offx + sx, offy : offy + sy] = img.data
-        fullmask[offx : offx + sx, offy : offy + sy] = img.mask
-        fullimg = _np.ma.masked_array(fullimg, fullmask)
+        if config_path is not None:
+            setting_reader = _fn.ConfSettingReader4D(config_path)
+            offx = setting_reader.get_offset_x()
+            offy = setting_reader.get_offset_y()
+        else:
+            _, _, offx, offy = _4DInterferometer.get_camera_settings(tn)
+
+        if offset is not None:
+            offy, offx = offset
+
+        fullimg = _to_shape(img, (2048, 2048), (offy, offx), fill_value=_np.nan)
         return fullimg
 
     def _from_data_array_to_masked_array(

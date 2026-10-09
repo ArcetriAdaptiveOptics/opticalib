@@ -130,14 +130,14 @@ class TestConfSettingReader4D:
         assert isinstance(frame_rate, float)
 
     def test_get_image_width_in_pixels(self, temp_dir):
-        """Test get_image_widht_in_pixels method."""
+        """Test get_image_width_in_pixels method."""
         settings_file = os.path.join(temp_dir, "4DSettings.ini")
         with open(settings_file, "w") as f:
             f.write("[ACA2440]\n")
             f.write("ImageWidthInPixels = 2000\n")
 
         reader = root.ConfSettingReader4D(settings_file)
-        width = reader.get_image_widht_in_pixels()
+        width = reader.get_image_width_in_pixels()
         assert width == 2000
         assert isinstance(width, int)
 
