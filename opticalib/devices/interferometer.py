@@ -412,7 +412,6 @@ class _4DInterferometer(BaseWavefrontSensor):
         img: _ot.ImageData,
         tn: str = None,
         config_path: str = None,
-        offset: tuple[int, int] = None,
     ) -> _ot.ImageData:
         """
         The function fits the passed frame (expected cropped) into the full
@@ -429,9 +428,6 @@ class _4DInterferometer(BaseWavefrontSensor):
             the current configuration file is used.
         config_path: str, optional
             Path to a specific configuration file. If None, the current configuration is used.
-        offset: tuple[int, int], optional
-            Offset parameters to directly place the image into the full frame. If None, 
-            the offset is read from the configuration.
 
         Returns
         -------
@@ -444,9 +440,6 @@ class _4DInterferometer(BaseWavefrontSensor):
             offy = setting_reader.get_offset_y()
         else:
             _, _, offx, offy = _4DInterferometer.get_camera_settings(tn)
-
-        if offset is not None:
-            offy, offx = offset
 
         fullimg = _to_shape(img, (2048, 2048), (offy, offx), fill_value=_np.nan)
         return fullimg
