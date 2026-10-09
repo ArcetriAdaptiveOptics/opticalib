@@ -454,6 +454,7 @@ def get_device_type(device: object) -> str:
         return "camera"
     return device._name
 
+
 def compute_float():
     """
     Floating dtype for numerical work on the active xupy backend.
@@ -463,6 +464,7 @@ def compute_float():
     at call time, so it follows ``xupy.use_cpu()`` / ``xupy.use_gpu()``.
     """
     import xupy as xp
+
     dtype = xp.float32 if xp.on_gpu else xp.float64
     del xp
     return dtype

@@ -33,12 +33,11 @@ jobs:
       fail-fast: false
       matrix:
         python-version:
-          - "3.10"
-          - "3.11"
+          # - "3.10"  # Disabled because QT tests
+          # - "3.11"  # don't work on GH Runners
           - "3.12"
           - "3.13.12"
           - "3.x"
-          # - "3.14" for now disabled: Testing with minimum requirement
 
     steps:
       - name: Checkout repository

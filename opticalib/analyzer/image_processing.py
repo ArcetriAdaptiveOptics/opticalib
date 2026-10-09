@@ -24,7 +24,7 @@ def pad_image_to_shape(
     img: _ot.ImageData,
     shape: tuple[int, int],
     offset: tuple[int, int],
-    fill_value: float = 0.
+    fill_value: float = 0.0,
 ) -> _ot.ImageData:
     """
     Pads an image to a specified shape with a given offset and fill value.
@@ -50,6 +50,7 @@ def pad_image_to_shape(
     h, w = _np.shape(img)
     padded_img[y : y + h, x : x + w] = img.data
     return padded_img
+
 
 def frame(idx: int, mylist: list[_ot.ImageData] | _ot.CubeData) -> _ot.ImageData:
     """
@@ -888,8 +889,6 @@ def rebin2_d_array(
         mode=mode,
         cval=cval,
     )
-
-
 
 
 __all__ = [

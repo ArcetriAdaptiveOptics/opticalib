@@ -24,7 +24,7 @@ from opticalib.ground import osutils as _osu
 from opticalib.ground.logger import SystemLogger as _SL
 from opticalib.analyzer.image_processing import (
     mode_rebinner as _modeRebinner,
-    pad_image_to_shape as _to_shape
+    pad_image_to_shape as _to_shape,
 )
 
 global _Folds
@@ -342,13 +342,13 @@ class _4DInterferometer(BaseWavefrontSensor):
     @staticmethod
     def get_camera_settings(tn: str = None) -> list[int]:
         """
-        Reads the actual interferometer settings from its configuration file or 
+        Reads the actual interferometer settings from its configuration file or
         pass in a saved configuration file from a tracking number data folder.
-        
+
         Parameters
         ----------
         tn: str, optional
-            Tracking number to locate the saved configuration file. If None, 
+            Tracking number to locate the saved configuration file. If None,
             the current configuration file is used.
 
         Returns
@@ -377,14 +377,14 @@ class _4DInterferometer(BaseWavefrontSensor):
     @staticmethod
     def get_frame_rate(tn: str = None) -> float:
         """
-        Reads the frame rate the interferometer is working at, either from the 
-        current configuration file or from a saved configuration file associated 
+        Reads the frame rate the interferometer is working at, either from the
+        current configuration file or from a saved configuration file associated
         with a tracking number.
-        
+
         Parameters
         ----------
         tn: str, optional
-            Tracking number to locate the saved configuration file. If None, 
+            Tracking number to locate the saved configuration file. If None,
             the current configuration file is used.
 
         Returns
@@ -424,7 +424,7 @@ class _4DInterferometer(BaseWavefrontSensor):
         img: ImageData
             The image to be fitted into the full frame.
         tn: str, optional
-            Tracking number to locate the saved configuration file. If None, 
+            Tracking number to locate the saved configuration file. If None,
             the current configuration file is used.
         config_path: str, optional
             Path to a specific configuration file. If None, the current configuration is used.

@@ -40,6 +40,7 @@ from . import (
 )
 
 from .devices.interferometer import _4DInterferometer
+
 get_camera_settings = _4DInterferometer.get_camera_settings
 get_frame_rate = _4DInterferometer.get_frame_rate
 del _4DInterferometer
