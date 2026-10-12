@@ -196,6 +196,7 @@ class AdOpticaDm(BaseAdOpticaDm, BaseDeformableMirror):
     def __init__(self, tn: _ot.Optional[str] = None):
         """The Constructor"""
         self._name = "AdOpticaDM"
+        self._cmd_history = None
         super().__init__(tn)
         self._last_cmd = _np.zeros(self.n_acts)
 
