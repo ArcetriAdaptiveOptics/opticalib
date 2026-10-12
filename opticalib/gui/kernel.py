@@ -240,6 +240,30 @@ class CalpyConsole(RichJupyterWidget):
     image_received = Signal(dict)
     request_sent = Signal(str, bool)
 
+    def _forget_prompt_block(self) -> None:
+        """
+        Drop qtconsole's handle to the last prompt's text block.
+
+        ``JupyterWidget`` keeps a ``QTextBlock`` of the last prompt to rewrite
+        its number when the reply arrives.  Clearing the document leaves that
+        handle dangling yet still ``isValid()``, and the next execute reply
+        dereferences freed memory: the GUI segfaults, typically after a
+        couple of kernel restarts (the execution count restarts, so the
+        prompt number differs and the block is touched).
+        """
+        self._previous_prompt_obj = None
+
+    def reset(self, clear: bool = False) -> None:
+        """Reimplemented so that clearing never leaves a dangling prompt block."""
+        if clear:
+            self._forget_prompt_block()
+        super().reset(clear=clear)
+
+    def clear(self, keep_input: bool = True) -> None:
+        """Reimplemented so that clearing never leaves a dangling prompt block."""
+        self._forget_prompt_block()
+        super().clear(keep_input=keep_input)
+
     def _execute(self, source, hidden):
         """Reimplemented to report the ``msg_id`` of every request."""
         before = set(self._request_info["execute"])
@@ -281,6 +305,66 @@ def _safe_call(callback: Callable, *args: Any) -> None:
         callback(*args)
     except Exception:
         traceback.print_exc()
+
+
+#: Variables holding a list of directories, merged instead of replaced.
+_PATH_LIST_VARIABLES = (
+    "PATH",
+    "LD_LIBRARY_PATH",
+    "LIBRARY_PATH",
+    "CPATH",
+    "C_INCLUDE_PATH",
+    "CPLUS_INCLUDE_PATH",
+    "PYTHONPATH",
+)
+
+
+def conda_env_variables(
+    prefix: Optional[str] = None, environ: Optional[Dict[str, str]] = None
+) -> Dict[str, str]:
+    """
+    Return the variables a conda environment sets when it is activated.
+
+    ``conda env config vars set`` stores them in ``<prefix>/conda-meta/state``
+    and they only reach a process started through ``conda activate``.  A
+    launcher that runs the environment's ``calpy`` directly (a desktop
+    shortcut) skips that, and e.g. CuPy then cannot find the CUDA libraries.
+    Variables already present in ``environ`` are kept; the entries of
+    path lists such as ``LD_LIBRARY_PATH`` are prepended when missing.
+
+    Parameters
+    ----------
+    prefix : str, optional
+        The conda environment; default is the running interpreter's.
+    environ : dict, optional
+        The environment to complete; default is ``os.environ``.
+
+    Returns
+    -------
+    dict
+        The variables to set or replace; empty outside conda, or when the
+        environment defines none.
+    """
+    prefix = prefix or sys.prefix
+    environ = os.environ if environ is None else environ
+    try:
+        with open(os.path.join(prefix, "conda-meta", "state")) as f:
+            stored = json.load(f).get("env_vars") or {}
+    except (OSError, ValueError, AttributeError):
+        return {}
+    result: Dict[str, str] = {}
+    for name, value in stored.items():
+        if not isinstance(value, str) or not value:
+            continue
+        current = environ.get(name)
+        if not current:
+            result[name] = value
+        elif name in _PATH_LIST_VARIABLES:
+            have = current.split(os.pathsep)
+            missing = [d for d in value.split(os.pathsep) if d and d not in have]
+            if missing:
+                result[name] = os.pathsep.join(missing + [current])
+    return result
 
 
 class KernelBridge(QObject):
@@ -468,10 +552,12 @@ class KernelBridge(QObject):
         Returns
         -------
         dict
-            A copy of the GUI environment with ``AOCONF``, ``MPLBACKEND`` and
-            ``CALPY_GUI_TMP`` set for the kernel.
+            A copy of the GUI environment, completed with the variables of
+            the conda environment (see :func:`conda_env_variables`), with
+            ``AOCONF``, ``MPLBACKEND`` and ``CALPY_GUI_TMP`` set for the kernel.
         """
         env = dict(os.environ)
+        env.update(conda_env_variables(environ=env))
         env["AOCONF"] = self._config_path
         env["MPLBACKEND"] = KERNEL_MPL_BACKEND
         env["CALPY_GUI_TMP"] = self._tmp_dir

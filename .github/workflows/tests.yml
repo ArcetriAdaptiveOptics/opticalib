@@ -52,7 +52,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          key: ${{ runner.os }}-pip-${{ hashFiles('pyproject.toml') }}
           restore-keys: |
             ${{ runner.os }}-pip-
 
@@ -103,8 +103,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -e .
+          pip install -e ".[gui,test]"
 
       - name: Lint with flake8
         run: |
@@ -140,7 +139,6 @@ jobs:
         # own subprocess, which needs no display).
         shell: bash  # -eo pipefail: the exit status of pytest survives `tee`
         run: |
-          pip install pytest pytest-cov
           pytest --cov=opticalib -rs 2>&1 | tee pytest.log
 
       - name: Check that the GUI tests really ran

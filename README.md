@@ -1,6 +1,9 @@
 # OptiCalib : python framework for OPTical CALibration of deformable mirrors and AO experimentation
 
 ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/ArcetriAdaptiveOptics/opticalib/tests.yml)
+[![PyPI version](https://img.shields.io/pypi/v/opticalib.svg)](https://pypi.org/project/opticalib/)
+[![Python versions](https://img.shields.io/pypi/pyversions/opticalib.svg)](https://pypi.org/project/opticalib/)
+[![License: MIT](https://img.shields.io/pypi/l/opticalib.svg)](LICENSE)
 
 `Adaptive Optics Group, INAF - Osservatorio Astrofisico di Arcetri`
 
@@ -30,6 +33,14 @@ The latests, stable, version can be installed from pypi:
 
 ```bash
 pip install opticalib
+```
+
+The base install contains everything needed to talk to the hardware, run the simulators and the calibration routines, and use the `calpy` shell. Two optional extras add the rest:
+
+```bash
+pip install "opticalib[gui]"      # the graphical interface (calpy --gui / OptiCalib)
+pip install "opticalib[cuda13]"   # GPU backend (CuPy, via xupy); use cuda12 for CUDA 12.x
+pip install "opticalib[gui,cuda13]"  # extras can be combined
 ```
 
 The in-development version can be installed directly from this repository:

@@ -243,6 +243,29 @@ class TestBridgeHelpers:
         assert env["MPLBACKEND"] == self.kernel.KERNEL_MPL_BACKEND
         assert env["CALPY_GUI_TMP"] == str(tmp_path)
 
+    def test_conda_env_variables(self, tmp_path):
+        """Variables of ``conda env config vars`` reach a kernel started without activation."""
+        meta = tmp_path / "conda-meta"
+        meta.mkdir()
+        (meta / "state").write_text(json.dumps({"env_vars": {
+            "CUDA_PATH": "/cuda", "LD_LIBRARY_PATH": "/cuda/lib:/cuda/lib64:", "CPATH": "/cuda/include", "EMPTY": "",
+        }}))
+        fn = self.kernel.conda_env_variables
+        assert fn(str(tmp_path), {}) == {
+            "CUDA_PATH": "/cuda", "LD_LIBRARY_PATH": "/cuda/lib:/cuda/lib64:", "CPATH": "/cuda/include",
+        }
+        # What the user already set is kept; missing list entries are prepended.
+        got = fn(str(tmp_path), {"CUDA_PATH": "/mine", "LD_LIBRARY_PATH": "/x:/cuda/lib", "CPATH": "/cuda/include"})
+        assert got == {"LD_LIBRARY_PATH": "/cuda/lib64:/x:/cuda/lib"}
+        assert fn(str(tmp_path / "none"), {}) == {}  # not a conda environment
+        (meta / "state").write_text("not json")
+        assert fn(str(tmp_path), {}) == {}
+
+    def test_kernel_env_includes_conda_variables(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(self.kernel, "conda_env_variables", lambda environ=None: {"CUDA_PATH": "/cuda"})
+        bridge = self.kernel.KernelBridge(str(tmp_path / "c.yaml"), None, str(tmp_path))
+        assert bridge.kernel_env()["CUDA_PATH"] == "/cuda"
+
 
 class _Hostile:
     """Like a network proxy: touching instance attributes is expensive or fails."""

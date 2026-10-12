@@ -1,16 +1,15 @@
 import os
 import xupy as xp
 import numpy as np
-from ...core import _types as _t
 from ..factory import *
 from ...core import root as _root
 from ...core import config as _rc
-from abc import ABC, abstractmethod
+from .._API.base_simulated_dm import BaseSimulatedDM
 from opticalib.ground import osutils as osu
-from ._rbf_gpu import RBFInterpolator
+from rbfgpu import RBFInterpolator
 
 
-class BaseFakeAlpao(ABC):
+class BaseFakeAlpao(BaseSimulatedDM):
     """
     Base class for deformable mirrors.
     """
@@ -23,13 +22,14 @@ class BaseFakeAlpao(ABC):
         self.mirrorModes = None
         self.n_acts = n_acts
         self._pxScale = pixel_scale(self.n_acts)
-        self.actCoords, self._mask = get_alpao_coords_mask(self.n_acts)
-        self._scaledActCoords = self._scale_act_coords()
+        self._coords, self._mask = get_alpao_coords_mask(self.n_acts)
+        super().__init__()
+        self.scaled_coords = self._scale_act_coords()
         self._iffCube = None
-        self.im = None
-        self.zm = None
-        self.rm = None
-        self._load_matrices()
+        self.IM = None
+        self.ZM = None
+        self.RM = None
+        self._load_matrices(force_recompute=force_recompute)
         try:
             dmc = _rc.get_device_config("DEFORMABLE.MIRRORS", self._name)
             self._slaveIds = dmc.get("slave_ids", [])
@@ -45,57 +45,6 @@ class BaseFakeAlpao(ABC):
     @property
     def border_ids(self):
         return self._borderIds
-
-    @abstractmethod
-    def set_shape(self, command: _t.ArrayLike, differential: bool = False):
-        """
-        Applies the DM to a wavefront.
-
-        Parameters
-        ----------
-        command : numpy.ndarray
-            Wavefront to which the DM will be applied.
-
-        differential : bool
-            If True, the command is the differential wavefront.
-
-        Returns
-        -------
-        numpy.ndarray
-            Modified wavefront.
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def get_shape(self):
-        """
-        Returns the current shape of the DM.
-
-        Returns
-        -------
-        numpy.ndarray
-            Current shape of the DM.
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def upload_cmd_history(self, timed_command_history: _t.MatrixLike):
-        """
-        Uploads a history of commands to the DM.
-
-        Parameters
-        ----------
-        timed_command_history : _t.MatrixLike
-            A 2D array where each column represents a command to be applied to the DM.
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def run_cmd_history(self):
-        """
-        Executes the uploaded command history on the DM.
-        """
-        raise NotImplementedError
 
     def _load_matrices(self, force_recompute: bool = False):
         """
@@ -127,11 +76,11 @@ class BaseFakeAlpao(ABC):
         ):
             n_zern = self.n_acts
             print("Computing Zernike matrix...")
-            self.zm = xp.asnumpy(generate_zernike_matrix(n_zern, self._mask))
-            osu.save_fits(_root.sim_data_file(self._name, "ZM"), self.zm)
+            self.ZM = xp.asnumpy(generate_zernike_matrix(n_zern, self._mask))
+            osu.save_fits(_root.sim_data_file(self._name, "ZM"), self.ZM)
         else:
             print(f"Loaded Zernike matrix.")
-            self.zm = osu.load_fits(_root.sim_data_file(self._name, "ZM"))
+            self.ZM = osu.load_fits(_root.sim_data_file(self._name, "ZM"))
 
     def _create_int_and_rec_matrices(self, force_recompute: bool = False):
         """
@@ -153,16 +102,16 @@ class BaseFakeAlpao(ABC):
                     for i in range(self._iffCube.shape[2])
                 ]
             )
-            self.im = xp.asnumpy(im)
+            self.IM = xp.asnumpy(im)
             print("Computing reconstruction matrix...")
-            self.rm = xp.asnumpy(xp.linalg.pinv(im))
-            osu.save_fits(_root.sim_data_file(self._name, "IM"), self.im)
-            osu.save_fits(_root.sim_data_file(self._name, "RM"), self.rm)
+            self.RM = xp.asnumpy(xp.linalg.pinv(im))
+            osu.save_fits(_root.sim_data_file(self._name, "IM"), self.IM)
+            osu.save_fits(_root.sim_data_file(self._name, "RM"), self.RM)
         else:
             print(f"Loaded interaction matrix.")
-            self.im = osu.load_fits(_root.sim_data_file(self._name, "IM"))
+            self.IM = osu.load_fits(_root.sim_data_file(self._name, "IM"))
             print(f"Loaded reconstruction matrix.")
-            self.rm = osu.load_fits(_root.sim_data_file(self._name, "RM"))
+            self.RM = osu.load_fits(_root.sim_data_file(self._name, "RM"))
 
     def _simulate_iff(self):
         """
@@ -180,7 +129,7 @@ class BaseFakeAlpao(ABC):
             A masked cube of influence functions with shape (height, width, n_acts).
         """
         # Get the number of actuators from the coordinates array.
-        n_acts = self.actCoords.shape[1]
+        n_acts = self.n_acts
         max_x, max_y = self._mask.shape
         # Create pixel grid coordinates.
         pix_coords = np.zeros((max_x * max_y, 2))
@@ -218,18 +167,12 @@ class BaseFakeAlpao(ABC):
 
     def _scale_act_coords(self):
         """
-        Scales the actuator coordinates to the mirror's pixel scale.
+        Scale actuator coordinates to the mirror's pixel grid while preserving
+        their radial symmetry over the circular pupil.
         """
-        max_x, max_y = self._mask.shape
-        if not self.actCoords.shape[1] == 2:
-            act_coords = self.actCoords.T  # shape: (n_acts, 2)
-        else:
-            act_coords = self.actCoords  # shape: (n_acts, 2)
-        act_pix_coords = np.zeros((self.n_acts, 2), dtype=int)
-        act_pix_coords[:, 0] = (
-            act_coords[:, 1] / np.max(act_coords[:, 1]) * max_x
-        ).astype(int)
-        act_pix_coords[:, 1] = (
-            act_coords[:, 0] / np.max(act_coords[:, 0]) * max_y
-        ).astype(int)
-        return act_pix_coords
+        radius = min(self._mask.shape) / 2.0
+        return self.scale_coords_to_pupil(
+            self._coords,
+            mask=self._mask,
+            radius=radius,
+        )

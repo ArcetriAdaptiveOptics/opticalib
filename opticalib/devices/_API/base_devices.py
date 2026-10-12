@@ -36,6 +36,26 @@ class BaseDeformableMirror(ABC):
     Base class for all deformable mirror devices.
     """
 
+    @property
+    def slave_ids(self):
+        return self._slaveIds
+
+    @property
+    def border_ids(self):
+        return self._borderIds
+    
+    @property
+    def cmd_history(self) -> _ot.Optional[_ot.MatrixLike]:
+        """
+        Get the command history of the simulated deformable mirror (DM).
+
+        Returns
+        -------
+        cmd_history : _ot.Optional[_ot.MatrixLike]
+            The command history of the DM, or None if no history has been uploaded.
+        """
+        return self._cmd_history
+
     @abstractmethod
     def set_shape(self, cmd):
         """
@@ -97,23 +117,16 @@ class BaseDeformableMirror(ABC):
             return None
         return "minimum-rms" if (s and b) else "zero-force"
 
-    def _apply_slaving(self, cmd: _ot.ArrayLike, slave: bool | str) -> _ot.ArrayLike:
+    def _apply_slaving(self, cmd: _ot.ArrayLike|_ot.MatrixLike, slave: bool | str) -> _ot.ArrayLike|_ot.MatrixLike:
         """
         Apply actuator slaving to a command when requested.
         """
         method = self._get_slaving_method(slave)
         if method is None:
             return cmd
+        if _ot.isinstance_(cmd, "MatrixLike"):
+            return compute_slaved_command_matrix(self, cmdmat=cmd, method=slave)
         return compute_slave_cmd(self, cmd, method=method)
-
-    def _slave_cmdmat(self, cmdmat: _ot.ArrayLike, slave: bool | str) -> _ot.MatrixLike:
-        """
-        Apply actuator slaving to a command matrix when requested.
-        """
-        method = self._get_slaving_method(slave)
-        if method is None:
-            return cmdmat
-        return compute_slaved_command_matrix(self, cmdmat, method=method)
 
 
 class BaseCamera(ABC):

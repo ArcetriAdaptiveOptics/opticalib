@@ -216,6 +216,37 @@ def test_console_restart_goes_through_the_app(bridge):
     assert requested == [1]
 
 
+class TestConsoleClearing:
+    """Clearing the console must not leave qtconsole a dangling prompt block."""
+
+    @staticmethod
+    def _reply_with_count(count):
+        return {"content": {"status": "ok", "execution_count": count}}
+
+    @pytest.mark.parametrize("how", ["reset", "clear"])
+    def test_reply_after_clear_is_harmless(self, bridge, how):
+        # Segfaulted (QTextBlock::text on a freed block) before the override:
+        # the kernel restarts, its execution count restarts, the old prompt
+        # block is "updated" in the cleared document.
+        console = bridge.console
+        console._show_interpreter_prompt(7)
+        assert console._previous_prompt_obj is not None
+        if how == "reset":
+            console.reset(clear=True)
+        else:
+            console.clear()
+        console._show_interpreter_prompt_for_reply(self._reply_with_count(1))
+        console._show_interpreter_prompt_for_reply(self._reply_with_count(2))
+        assert console._previous_prompt_obj.number == 3
+
+    def test_handle_is_dropped(self, bridge):
+        console = bridge.console
+        console._show_interpreter_prompt(7)
+        console.reset(clear=True)
+        # The prompt shown by reset() is a fresh one, not the dropped block.
+        assert console._previous_prompt_obj is None or console._previous_prompt_obj.block.isValid()
+
+
 class TestWatchdog:
     """Requests lost by the kernel connection are detected and healed."""
 
