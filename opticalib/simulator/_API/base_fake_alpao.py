@@ -6,7 +6,7 @@ from ...core import root as _root
 from ...core import config as _rc
 from .._API.base_simulated_dm import BaseSimulatedDM
 from opticalib.ground import osutils as osu
-from ._rbf_gpu import RBFInterpolator
+from rbfgpu import RBFInterpolator
 
 
 class BaseFakeAlpao(BaseSimulatedDM):

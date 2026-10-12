@@ -215,7 +215,7 @@ def coordplot(
     c = _osu.get_kwargs(("color", "c"), default="black", pop=True, kwargs=kwargs)
     use_colorbar = False
 
-    if not isinstance(c, str):
+    if not isinstance(c, str) and c is not None:
         c = np.asarray(c)
         if not c.shape == (coord.shape[0],):
             raise ValueError(

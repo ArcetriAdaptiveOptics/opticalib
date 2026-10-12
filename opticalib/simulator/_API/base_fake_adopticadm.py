@@ -3,7 +3,7 @@ import xupy as xp
 import numpy as np
 
 # from scipy.interpolate import RBFInterpolator
-from ._rbf_gpu import RBFInterpolator
+from rbfgpu import RBFInterpolator
 
 # from scipy.interpolate import Rbf
 from opticalib.core.root import folders as fp

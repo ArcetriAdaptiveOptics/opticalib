@@ -7,7 +7,7 @@ from .. import factory as ff
 from ...core import root as _root
 from ...ground.roi import roi_generator
 from ...ground import osutils as osu
-from ._rbf_gpu import RBFInterpolator
+from rbfgpu import RBFInterpolator
 from .simdata import get_simdata_file
 
 

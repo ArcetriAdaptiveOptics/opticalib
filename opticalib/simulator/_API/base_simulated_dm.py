@@ -272,7 +272,7 @@ class BaseSimulatedDM(BaseDeformableMirror):
         """
         from opticalib.visualization import coordplot
 
-        c = (cmd or kwargs.pop("c", None)) or self._coords[:, 2]
+        c = (cmd or kwargs.pop("c", None))
         s = kwargs.pop("s", 65)
         marker = kwargs.pop("marker", "s")
         coordplot(
@@ -319,7 +319,7 @@ class BaseSimulatedDM(BaseDeformableMirror):
             Rescaled coordinate array of shape ``(n_actuators, 2)``.
         """
         if coords is None:
-            coords = getattr(self, "coords", None)
+            coords = getattr(self, "_coords", None)
         if coords is None:
             raise ValueError("No actuator coordinates were provided.")
 
@@ -332,7 +332,7 @@ class BaseSimulatedDM(BaseDeformableMirror):
             raise ValueError("Coordinates must contain at least two spatial columns.")
 
         xy = coords[:, :2]
-        mask = (self.pupil or self._mask) if mask is None else mask
+        mask = self._mask if mask is None else mask
 
         if center is None:
             if mask is not None:

@@ -12,6 +12,7 @@ h5py
 jdcal
 tqdm
 matplotlib
+rbfgpu
 xupy
 numpy
 # GUI and Jupyter related packages

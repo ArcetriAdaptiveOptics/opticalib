@@ -1,6 +1,9 @@
 # OptiCalib : python framework for OPTical CALibration of deformable mirrors and AO experimentation
 
 ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/ArcetriAdaptiveOptics/opticalib/tests.yml)
+[![PyPI version](https://img.shields.io/pypi/v/opticalib.svg)](https://pypi.org/project/opticalib/)
+[![Python versions](https://img.shields.io/pypi/pyversions/opticalib.svg)](https://pypi.org/project/opticalib/)
+[![License: MIT](https://img.shields.io/pypi/l/opticalib.svg)](LICENSE)
 
 `Adaptive Optics Group, INAF - Osservatorio Astrofisico di Arcetri`
 
