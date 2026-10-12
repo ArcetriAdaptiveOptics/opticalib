@@ -47,7 +47,7 @@ INFLUENCE.FUNCTIONS:
   DM:
     nacts: 100
     timing: 10
-    sequentialDelay: 0.1
+    sequential_delay: 0.1
   IFFUNC:
     numberofzeros: 0
     modeid: [1, 2, 3]

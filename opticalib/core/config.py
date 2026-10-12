@@ -558,8 +558,8 @@ def get_cmd_delay(bpath: str = _cfold):
         sub_section="DM",
         path=bpath,
     )
-    if "sequentialDelay" in dm_config:
-        cmdDelay = float(dm_config["sequentialDelay"])
+    if "sequential_delay" in dm_config:
+        cmdDelay = float(dm_config["sequential_delay"])
     elif "delay" in dm_config:
         cmdDelay = float(dm_config["delay"])
     elif "triggeredMode" in dm_config and "cmdDelay" in dm_config["triggeredMode"]:

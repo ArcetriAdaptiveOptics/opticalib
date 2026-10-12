@@ -135,7 +135,7 @@ class BaseAlpaoMirror:
             self._name
         ].get("diameter", None)
         self.mirrorModes = None
-        self.cmdHistory = None
+        self._cmd_history = None
         self.refAct = None
         self.ff = None
 

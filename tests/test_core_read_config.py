@@ -319,7 +319,7 @@ class TestGetCmdDelay:
     def test_get_cmd_delay(self, temp_dir, monkeypatch):
         """Test getting command delay."""
         config_file = os.path.join(temp_dir, "configuration.yaml")
-        config_data = {"INFLUENCE.FUNCTIONS": {"DM": {"sequentialDelay": 0.1}}}
+        config_data = {"INFLUENCE.FUNCTIONS": {"DM": {"sequential_delay": 0.1}}}
         with open(config_file, "w") as f:
             yaml.dump(config_data, f)
 

@@ -213,7 +213,7 @@ class BasePetalMirror:
         CommandError
             If any command is outside the allowed limits.
         """
-        for k in self.n_segments:
+        for k in range(self.n_segments):
             for ax, c in enumerate(cmd[k * 3 : k * 3 + 3]):
                 if not (_CMDLIMITS[ax][0] <= c <= _CMDLIMITS[ax][1]):
                     raise CommandError(f"Command for actuator {ax} out of bounds: {c}")

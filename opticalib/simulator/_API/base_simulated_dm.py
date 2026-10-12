@@ -66,7 +66,7 @@ class BaseSimulatedDM(BaseDeformableMirror):
         cmd: _ot.ArrayLike,
         differential: bool = False,
         *,
-        slave: bool | str = True,
+        slaving: bool | str = True,
         **kwargs: dict[str, _ot.Any],
     ) -> None:
         """
@@ -78,14 +78,14 @@ class BaseSimulatedDM(BaseDeformableMirror):
             The command to be sent to the DM.
         differential : bool, optional
             Whether the command is a differential command (default is False).
-        slave : bool | str, optional
+        slaving : bool | str, optional
             Whether to apply slaving to the command (default is True).
             It can be a string representing the slaving method to be used. Options
             are "zero-force" and "minimum-rms".
         **kwargs : dict[str,_ot.Any]
             Additional keyword arguments to be passed to the mirror command.
         """
-        cmd = _apply_slaving(self, cmd, slave=slave)
+        cmd = _apply_slaving(self, cmd, slave=slaving)
         self._logger.info(f"Sending mirror command to {self._name}")
         self._mirror_command(cmd, differential=differential, **kwargs)
         if self._live:
