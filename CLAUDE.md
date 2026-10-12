@@ -101,13 +101,13 @@ opticalib/
 
 ## Commands
 
-Environment: Python ≥ 3.10, dependencies in `requirements.txt` (includes `xupy`, `arte`, `astropy`,
-`Pyro4`, `PyQt5`+`qtconsole` for the GUI, vendor SDKs like `vmbpy`/`pipython`).
+Environment: Python ≥ 3.10, dependencies declared in `pyproject.toml` (base: `xupy`, `arte`, `astropy`,
+`Pyro4`, vendor SDKs like `vmbpy`/`pipython`; optional extras: `gui` = PySide6/qtconsole/pyqtgraph/...,
+`cuda12`/`cuda13` = CuPy via `xupy`, `test`, `dev`).
 
 ```bash
 # Install (editable, for development)
-pip install -r requirements.txt
-pip install -e .
+pip install -e ".[dev]"      # base + GUI + test tools (plain `pip install -e .` = base only)
 
 # Run the whole test suite
 pytest

@@ -108,22 +108,11 @@ def _launch_gui(config_path: Optional[str] = None, report=print) -> None:
     except ImportError as exc:
         report(
             f"Error: could not import the CalpyGUI module ({exc}).\n"
-            "Make sure the GUI dependencies are installed:\n"
-            f"  pip install {' '.join(GUI_REQUIREMENTS)}"
+            "The GUI dependencies are an optional extra, install them with:\n"
+            '  pip install "opticalib[gui]"'
         )
         sys.exit(1)
     launch_gui(config_path=config_path)
-
-
-#: Packages needed by the CalpyGUI graphical interface.
-GUI_REQUIREMENTS = (
-    "PySide6-Essentials",
-    "QtPy",
-    "qtconsole",
-    "ipykernel",
-    "pyqtgraph",
-    "qtawesome",
-)
 
 
 def _gui_display_problem() -> Optional[str]:
