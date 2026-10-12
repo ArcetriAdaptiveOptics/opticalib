@@ -14,6 +14,7 @@ tqdm
 matplotlib
 xupy
 numpy
+# GUI and Jupyter related packages
 qtconsole
 PyYAML
 PySide6-Essentials

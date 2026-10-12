@@ -1,5 +1,6 @@
 import os
 import xupy as xp
+from .base_simulated_dm import BaseSimulatedDM
 import numpy as _np
 from ...core import _types as _ot
 from .. import factory as ff
@@ -10,7 +11,7 @@ from ._rbf_gpu import RBFInterpolator
 from .simdata import get_simdata_file
 
 
-class BaseFakePTL:
+class BaseFakePTL(BaseSimulatedDM):
     """
     Base class for petal mirror simulators.
     """
@@ -25,7 +26,7 @@ class BaseFakePTL:
         self._name = "FakePetalDM"
         self._outer_radius = outer_radius
         self._inner_radius = inner_radius or _np.ceil(0.26666667 * outer_radius)
-        self._mask, self._coords = ff.get_petalmirror_mask_and_coords(
+        self._mask, self.coords = ff.get_petalmirror_mask_and_coords(
             shape,
             outer_radius,
             inner_radius,
@@ -33,13 +34,9 @@ class BaseFakePTL:
         self._rois = roi_generator(_np.ma.masked_array(self._mask * 0, mask=self._mask))
         _ = self._rois.pop(3)
         self._idxs = self._get_segs_idxs()
-        self.n_acts = self._coords.shape[0]
-        self._actPos = _np.zeros(self.n_acts)
+        self.n_acts = self.coords.shape[0]
         self._get_matrices(force_recompute)
         self._unit_calibration()
-        self._shape = _np.ma.masked_array(
-            self._mask * 0, mask=self._mask, dtype=xp.float32
-        )
         self._K = _np.array(
             [
                 [1.00, 0.90, -0.20],
@@ -48,46 +45,8 @@ class BaseFakePTL:
             ]
         )
         self._K_inv = _np.linalg.inv(self._K)
+        super().__init__()
         self._set_initial_shape()
-
-    def _wavefront(self, **kwargs: dict[str, _ot.Any]) -> _ot.ImageData:
-        """
-        Current shape of the mirror's surface. Only used for the interferometer's
-        live viewer (see `interferometer.py`).
-
-        Parameters
-        ----------
-        **kwargs : dict, optional
-            Additional keyword arguments for customization.
-
-            - zernike : int ,
-                Zernike mode to be removed from the wavefront.
-            - surf : bool ,
-                If True, the shape is returned instead of
-                the wavefront.
-            - noisy : bool ,
-                If True, adds noise to the wavefront.
-
-        Returns
-        -------
-        wf : numpy.ndarray
-            Phase map of the interferometer.
-        """
-        zernike = kwargs.get("zernike", None)
-        surf = kwargs.get("surf", True)
-        noisy = kwargs.get("noisy", False)
-        img = _np.ma.masked_array(self._shape, mask=self._mask)
-        if zernike is not None:
-            img = self._zern.remove_zernike(img, zernike)
-        if not surf:
-            Ilambda = 632.8e-9
-            phi = _np.random.uniform(-0.25 * _np.pi, 0.25 * _np.pi) if noisy else 0
-            wf = _np.sin(2 * _np.pi / Ilambda * img.copy() + phi)
-            A = _np.std(img) / _np.std(wf)
-            wf *= A
-            img = wf.copy()
-            del wf
-        return img
 
     def _mirror_command(self, cmd: _ot.ArrayLike, diff: bool):
         """
@@ -106,10 +65,10 @@ class BaseFakePTL:
             cmd_amp = _np.dot(calibrated_cmd, self._K.T)
 
             if not diff:
-                cmd_amp -= self._actPos[jj * 3 : (jj + 1) * 3]
+                cmd_amp -= self._act_pos[jj * 3 : (jj + 1) * 3]
 
             self._shape[idx] += _np.dot(cmd_amp, self.im[jj])
-            self._actPos[jj * 3 : (jj + 1) * 3] += cmd_amp
+            self._act_pos[jj * 3 : (jj + 1) * 3] += cmd_amp
 
     def _get_matrices(self, force_recompute: bool = False):
         """
@@ -136,7 +95,7 @@ class BaseFakePTL:
         for jj, roi in enumerate(self._rois):
 
             print(f"Simulating IFF for ROI {jj+1}/{len(self._rois)}")
-            act_pix_coords = self._coords[
+            act_pix_coords = self.coords[
                 jj * 3 : (jj + 1) * 3, :
             ]  # Shape (n_seg_acts, 2)
             n_acts = act_pix_coords.shape[0]
@@ -288,7 +247,7 @@ class BaseFakePTL:
         Compute the unit calibration for the command conversion.
         """
 
-        c = self._coords[1:3].copy()
+        c = self.coords[1:3].copy()
 
         pixel_scale = 0.100 / (self._outer_radius * 2)  # m per pixel
 

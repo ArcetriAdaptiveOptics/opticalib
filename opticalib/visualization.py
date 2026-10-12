@@ -172,7 +172,9 @@ def cmdplot(cmd: _ot.ArrayLike, **kwargs: dict[str, _ot.Any]):
     return fig, ax, l
 
 
-def coordplot(coord: _ot.ArrayLike, **kwargs: dict[str, _ot.Any]):
+def coordplot(
+    coord: _ot.ArrayLike, annotate: bool = True, **kwargs: dict[str, _ot.Any]
+):
     """
     Plot a set of coordinates as a 2D scatter plot.
 
@@ -182,6 +184,8 @@ def coordplot(coord: _ot.ArrayLike, **kwargs: dict[str, _ot.Any]):
         2D array representing the coordinates to be displayed. Each row should
         correspond to a point, with the first column as the x-coordinate and the
         second column as the y-coordinate.
+    annotate : bool, optional
+        If True, annotate the points with their indices. Default is True.
     **kwargs
         Additional keyword arguments to be passed to `scatter`, as well as some
         additions:
@@ -199,12 +203,15 @@ def coordplot(coord: _ot.ArrayLike, **kwargs: dict[str, _ot.Any]):
         The figure object.
     ax : matplotlib.axes.Axes
         The axes object.
+    cb : matplotlib.colorbar.Colorbar | None
+        The colorbar object if a color array was used, otherwise None.
     sc : matplotlib.collections.PathCollection
         The scatter plot object returned by scatter.
     """
     title = kwargs.pop("title", "Coordinates")
     xlabel = kwargs.pop("xlabel", "X [px]")
     ylabel = kwargs.pop("ylabel", "Y [px]")
+    clabel = kwargs.pop("clabel", "intensity")
     c = _osu.get_kwargs(("color", "c"), default="black", pop=True, kwargs=kwargs)
     use_colorbar = False
 
@@ -219,16 +226,38 @@ def coordplot(coord: _ot.ArrayLike, **kwargs: dict[str, _ot.Any]):
     if coord.shape[1] != 2:
         coord = coord.T
 
+    if isinstance(coord, list):
+        coord = np.asarray(coord)
+    if coord.ndim != 2:
+        raise ValueError("Coordinate array must be 2-dimensional.")
+    if coord.shape[1] != 2:
+        coord = coord.T
+
     Y, X = coord[:, 0], coord[:, 1]
     fig, ax = plt.subplots()
+    if annotate:
+        for i, (x, y) in enumerate([X, Y]):
+            ax.annotate(
+                str(i),
+                (x, y),
+                textcoords="offset points",
+                xytext=(3, 3),
+                ha="left",
+                va="bottom",
+                fontsize=7,
+                color="black",
+            )
+
     sc = ax.scatter(X, Y, c=c, **kwargs)
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
     ax.set_title(title)
+    cb = None
     if use_colorbar:
-        plt.colorbar(sc, ax=ax)
+        cb = plt.colorbar(sc, ax=ax)
+        cb.set_label(clabel)
 
-    return fig, ax, sc
+    return fig, ax, sc, cb
 
 
 def myimshow(

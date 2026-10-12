@@ -56,19 +56,17 @@ def iff_data_acquisition(
         from the 'iffconfig.ini' file.
     shuffle: bool , optional
         if True, shuffle the modes before acquisition
+    n_repetitions: int, optional
+        Number of times each mode is repeated during the acquisition. Default is 1.
     read_buffer: bool | dict[str, Any], optional
         If False (default) do not read the buffer data during the acquisition.
         If True, read the buffer data with default parameters.
         If a dictionary is provided, it is passed as keyword arguments to the
         `read_buffer` method of the deformable mirror device.
-    slave: bool | str, optional
-        If True, the deformable mirror device is set to slave mode during the
-        acquisition. If a string is provided, it specifies the slaving method to
-        be used. Default to False
 
     Other Parameters
     ----------------
-    **dm_wkargs: dict[str, Any]
+    **setshape_kwargs: dict[str, Any]
         Additional keyword arguments to be passed to the deformable mirror device
         ``set_shape`` method.
 
@@ -113,8 +111,8 @@ def iff_data_acquisition(
     _rif.update_iff_config(
         tn, item=list(pars2update.keys()), value=list(pars2update.values())
     )
-    slaving = setshape_kwargs.pop("slave", False)
-    dm.upload_cmd_history(tch, slave=slaving)
+    slaving = setshape_kwargs.pop("slaving", False)
+    dm.upload_cmd_history(tch, slaving=slaving)
     if read_buffer is not False:
         try:
             if not hasattr(dm, "read_buffer"):
@@ -189,11 +187,11 @@ def piston_data_acquisition(
 
     # check if dm is segmented
     try:
-        if dm.is_segmented and not segmentID > dm.nSegments - 1:
-            for ns in range(dm.nSegments):
+        if dm.is_segmented and not segmentID > dm.n_segments - 1:
+            for ns in range(dm.n_segments):
                 if not ns == segmentID:
-                    idx = ns * dm.nActsPerSegment
-                    cmdmat[idx : idx + dm.nActsPerSegment, :] = 0.0
+                    idx = ns * dm.n_acts_per_segment
+                    cmdmat[idx : idx + dm.n_acts_per_segment, :] = 0.0
     except AttributeError:
         print(
             f"--WARNING-- `{dm.__class__.__name__}` does not have the `is_segmented` attribute. Assuming monolitic DM."
