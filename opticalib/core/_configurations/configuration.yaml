@@ -96,15 +96,6 @@ DEVICES:
       port: 
     
 
-## Custom device classes ##
-# Devices driven by classes of your own (not in opticalib.devices): the GUI
-# connects their DEVICES entries with them (Set up... > Custom class). E.g.
-#   MorfeoDM:
-#     module: morfeo_dm.py         # module, or .py file of the experiment folder
-#     section: DEFORMABLE.MIRRORS  # entries named MorfeoDM<n> use it...
-#     args: "{suffix}"             # ...as MorfeoDM(<n>)
-DEVICE.CLASSES: {}
-
 # Here you can specify what you expect to see in the frame of a SPL phasing sensor
 # which is usually a camera plus a tunable filter (to be defined in the DEVICES
 # section)
