@@ -169,6 +169,10 @@ overriding its class attributes:
 ``DESKTOP_FILE_NAME``, ``ICON``
     Desktop integration.
 
+Extra panels are added by overriding :meth:`~opticalib.gui.app.CalpyGUI.add_panels`
+and calling :meth:`~opticalib.gui.app.CalpyGUI.add_dock` from it; they are
+listed in *View*, saved with the layout and restored by *Reset layout*.
+
 Here an example is shown with the M4 use and customization of the opticalib GUI.
 
 .. code-block:: python

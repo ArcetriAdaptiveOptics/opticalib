@@ -556,6 +556,9 @@ class CalpyGUI(QMainWindow):
             INIT_SCRIPTS = ["/path/to/initM4.py"]
             PROCEDURES = [Procedure("OTT", "telescope", "...", OttWindow)]
 
+            def add_panels(self):  # optional: extra dockable panels
+                self.add_dock("ott", "OTT status", OttStatusPanel())
+
         launch_gui(config_path, window_class=M4GUI)
     """
 
@@ -676,6 +679,7 @@ class CalpyGUI(QMainWindow):
         workspace.raise_()
         self.resizeDocks([devices, console], [360, 620], Qt.Orientation.Horizontal)
         self.resizeDocks([devices, workspace], [520, 360], Qt.Orientation.Vertical)
+        self.add_panels()
 
         self.device_panel.edit_config_requested.connect(self._edit_config_entry)
         self.workspace_view.run_requested.connect(
@@ -690,6 +694,120 @@ class CalpyGUI(QMainWindow):
         self._workspace_timer.setSingleShot(True)
         self._workspace_timer.setInterval(150)
         self._workspace_timer.timeout.connect(self._refresh_workspace)
+
+    # ------------------------------------------------------------------
+    # Extra panels (extension API)
+    # ------------------------------------------------------------------
+
+    #: Dock areas accepted by :meth:`add_dock`.
+    DOCK_AREAS = {
+        "left": Qt.DockWidgetArea.LeftDockWidgetArea,
+        "right": Qt.DockWidgetArea.RightDockWidgetArea,
+        "top": Qt.DockWidgetArea.TopDockWidgetArea,
+        "bottom": Qt.DockWidgetArea.BottomDockWidgetArea,
+    }
+
+    def add_panels(self) -> None:
+        """
+        Add the panels of a subclass (hook; does nothing by default).
+
+        Called while the window is built, after the standard panels and
+        before the menus, the default layout and the saved layout: panels
+        added here with :meth:`add_dock` are listed in *View*, remembered
+        between sessions and put back by *View → Reset layout*.
+
+        Available here: ``self.bridge`` (the kernel is not started yet: check
+        ``self.bridge.is_ready`` before querying it), the standard panels
+        (``self.plot_viewer``, ``self.device_panel``, ...) and
+        :meth:`add_dock`.  Not yet created: the menus, the status bar,
+        ``self.activity`` and ``self.procedure_context``; reach them later,
+        e.g. from a slot or with ``QTimer.singleShot(0, ...)``.
+
+        Examples
+        --------
+        ::
+
+            class MyGUI(CalpyGUI):
+                def add_panels(self):
+                    self.bench = BenchPanel()
+                    self.add_dock("bench", "Bench", self.bench, tabify_with="workspace")
+        """
+
+    def add_dock(
+        self,
+        name: str,
+        title: str,
+        widget: QWidget,
+        area: str = "left",
+        tabify_with: Optional[str] = None,
+    ) -> QDockWidget:
+        """
+        Add a dockable panel to the window.
+
+        Only from :meth:`add_panels`: later, the panel could not be part of
+        the default and saved layouts, nor of the *View* menu.  Left and
+        right panels are stacked vertically, top and bottom ones side by side.
+
+        Parameters
+        ----------
+        name : str
+            Unique identifier (the saved layout refers to it, so keep it
+            stable); the standard panels are ``'devices'``, ``'procedures'``,
+            ``'workspace'``, ``'data'`` and ``'console'``.
+        title : str
+            Title shown on the panel and its tab (unique among the panels).
+        widget : QWidget
+            Content of the panel.
+        area : str, optional
+            ``'left'`` (default), ``'right'``, ``'top'`` or ``'bottom'``;
+            ignored with *tabify_with*.
+        tabify_with : str, optional
+            Name of a panel to share a tab group with.
+
+        Returns
+        -------
+        QDockWidget
+            The panel.
+
+        Raises
+        ------
+        ValueError
+            If *name* or *title* is already used, or *area* or *tabify_with*
+            is unknown.
+        RuntimeError
+            If called after the window was built (outside :meth:`add_panels`).
+        """
+        if hasattr(self, "_default_state"):
+            raise RuntimeError("add_dock() can only be called from add_panels().")
+        if name in self._docks:
+            raise ValueError(f"A panel named {name!r} already exists.")
+        # The tab bars are matched to their panels by title.
+        if any(d.windowTitle() == title for d in self._docks.values()):
+            raise ValueError(f"A panel titled {title!r} already exists.")
+        if tabify_with is not None and tabify_with not in self._docks:
+            raise ValueError(
+                f"Unknown panel {tabify_with!r}; panels: {', '.join(self._docks)}."
+            )
+        if area not in self.DOCK_AREAS:
+            raise ValueError(
+                f"Unknown area {area!r}; use one of {', '.join(self.DOCK_AREAS)}."
+            )
+        dock = self._make_dock(name, title, widget)
+        if tabify_with is not None:
+            self.tabifyDockWidget(self._docks[tabify_with], dock)
+        else:
+            orientation = (
+                Qt.Orientation.Vertical
+                if area in ("left", "right")
+                else Qt.Orientation.Horizontal
+            )
+            self.addDockWidget(self.DOCK_AREAS[area], dock, orientation)
+        return dock
+
+    @property
+    def docks(self) -> Dict[str, QDockWidget]:
+        """The panels of the window, by name (a copy)."""
+        return dict(self._docks)
 
     def _make_dock(self, name: str, title: str, widget: QWidget) -> QDockWidget:
         dock = QDockWidget(title, self)

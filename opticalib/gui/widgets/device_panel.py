@@ -251,7 +251,7 @@ def configured_devices(
             conf = dict(entry.conf, **{"class": override["class"]})
             entry = resolve_entry(entry.section, entry.name, conf, classes, invalid)
         var = override.get("var") or entry.var_name
-        section = entry.device_class.section if entry.device_class else entry.section
+        section = entry.kind_section
         fields = [f"{k}: {v}" for k, v in _flatten_dict(entry.conf).items()]
         klass = entry.device_class.name if entry.device_class else "unknown class"
         if entry.device_class is not None and entry.device_class.custom:
@@ -263,7 +263,7 @@ def configured_devices(
             DeviceInfo(
                 key=entry.key,
                 title=entry.name,
-                kind=SECTION_KINDS.get(section.upper(), "device"),
+                kind=SECTION_KINDS.get(section, "device"),
                 var_name=var,
                 class_name=entry.device_class.name if entry.device_class else None,
                 module_prefix=(

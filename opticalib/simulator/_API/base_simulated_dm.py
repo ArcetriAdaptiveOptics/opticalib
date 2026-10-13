@@ -65,7 +65,6 @@ class BaseSimulatedDM(BaseDeformableMirror):
         self,
         cmd: _ot.ArrayLike,
         differential: bool = False,
-        *,
         slaving: bool | str = True,
         **kwargs: dict[str, _ot.Any],
     ) -> None:
@@ -272,7 +271,7 @@ class BaseSimulatedDM(BaseDeformableMirror):
         """
         from opticalib.visualization import coordplot
 
-        c = (cmd or kwargs.pop("c", None))
+        c = cmd if cmd is not None else kwargs.pop("c", None)
         s = kwargs.pop("s", 65)
         marker = kwargs.pop("marker", "s")
         coordplot(
@@ -296,27 +295,37 @@ class BaseSimulatedDM(BaseDeformableMirror):
         center: tuple[float, float] | None = None,
     ) -> np.ndarray:
         """
-        Rescale actuator coordinates onto a circular pupil while preserving their
-        relative radial distribution.
+        Remap actuator coordinates, given in an arbitrary reference frame, onto
+        the DM pupil expressed in pixels.
+
+        The coordinates are first centered on the midpoint of their own bounding
+        box, then uniformly scaled (preserving the relative geometry) so that the
+        farthest actuator lies at ``radius`` from the pupil center, and finally
+        translated onto the pupil center.
 
         Parameters
         ----------
         coords : _ot.ArrayLike, optional
-            Array of actuator coordinates, where the first two columns are the
-            x/y coordinates. If omitted, uses ``self._coords``.
+            Actuator coordinates, as an ``(n_actuators, >=2)`` or ``(2, n_actuators)``
+            array whose first two columns/rows are x/y, in any reference frame.
+            If omitted, uses ``self._coords``.
         mask : np.ndarray, optional
-            Boolean or numeric aperture mask used to infer the pupil radius when
-            no explicit ``radius`` is supplied.
+            Pupil mask, with ``True`` for the *masked* (outside the pupil) pixels,
+            used to infer the pupil center and radius when these are not
+            explicitly given. Defaults to ``self._mask``. If the mask has no
+            valid pixel, the whole frame is considered as the pupil.
         radius : float, optional
-            Radius of the target circular pupil in pixels.
+            Radius, in pixels, that the farthest actuator is mapped to. Use a
+            value smaller than the pupil radius to confine the actuators within
+            a smaller region. Defaults to the pupil radius inferred from ``mask``.
         center : tuple[float, float], optional
-            Center of the circular pupil. If omitted, it is inferred from the
-            coordinate distribution or from ``mask``.
+            ``(x, y)`` center of the pupil, in pixels. Defaults to the center
+            of the pupil inferred from ``mask``.
 
         Returns
         -------
         np.ndarray
-            Rescaled coordinate array of shape ``(n_actuators, 2)``.
+            Remapped coordinates, of shape ``(n_actuators, 2)``, in (x, y) pixels.
         """
         if coords is None:
             coords = getattr(self, "_coords", None)
@@ -332,37 +341,38 @@ class BaseSimulatedDM(BaseDeformableMirror):
             raise ValueError("Coordinates must contain at least two spatial columns.")
 
         xy = coords[:, :2]
-        mask = self._mask if mask is None else mask
+        if mask is None:
+            mask = getattr(self, "_mask", None)
+
+        # Target pupil geometry (pixels)
+        if mask is not None:
+            mask = np.ma.getdata(mask).astype(bool)
+            ys, xs = np.nonzero(~mask)
+            if xs.size == 0:
+                ys, xs = np.indices(mask.shape).reshape(2, -1)
+            pup_center = ((xs.min() + xs.max()) / 2.0, (ys.min() + ys.max()) / 2.0)
+            pup_radius = (
+                max(xs.max() - xs.min(), ys.max() - ys.min()) + 1
+            ) / 2.0
+        else:
+            pup_center, pup_radius = None, None
 
         if center is None:
-            if mask is not None:
-                y0, x0 = np.asarray(mask.shape) / 2.0
-            else:
-                x0, y0 = xy.mean(axis=0)
-        else:
-            x0, y0 = center
-
-        dx = xy[:, 0] - x0
-        dy = xy[:, 1] - y0
-        r = np.hypot(dx, dy)
-
+            if pup_center is None:
+                raise ValueError("Either 'center' or 'mask' must be provided.")
+            center = pup_center
         if radius is None:
-            if mask is not None:
-                radius = min(mask.shape) / 2.0
-            else:
-                radius = float(np.max(r)) if r.size else 0.0
+            if pup_radius is None:
+                raise ValueError("Either 'radius' or 'mask' must be provided.")
+            radius = pup_radius
 
-        rmax = float(np.max(r)) if r.size else 0.0
-        if rmax == 0.0:
-            return np.column_stack(
-                [
-                    np.full(xy.shape[0], x0, dtype=float),
-                    np.full(xy.shape[0], y0, dtype=float),
-                ]
-            )
+        # Source frame: center on the bounding-box midpoint of the coordinates
+        src_center = (xy.min(axis=0) + xy.max(axis=0)) / 2.0
+        rel = xy - src_center
+        rmax = float(np.max(np.hypot(rel[:, 0], rel[:, 1]))) if rel.size else 0.0
+        scale = float(radius) / rmax if rmax > 0.0 else 0.0
 
-        scale = radius / rmax
-        return np.column_stack([x0 + dx * scale, y0 + dy * scale])
+        return rel * scale + np.asarray(center, dtype=float)
 
     def _mirror_command(self, cmd: _ot.ArrayLike, differential: bool = False) -> None:
         """

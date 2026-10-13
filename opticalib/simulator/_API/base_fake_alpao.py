@@ -168,11 +168,6 @@ class BaseFakeAlpao(BaseSimulatedDM):
     def _scale_act_coords(self):
         """
         Scale actuator coordinates to the mirror's pixel grid while preserving
-        their radial symmetry over the circular pupil.
+        their relative geometry over the circular pupil.
         """
-        radius = min(self._mask.shape) / 2.0
-        return self.scale_coords_to_pupil(
-            self._coords,
-            mask=self._mask,
-            radius=radius,
-        )
+        return self.scale_coords_to_pupil(self._coords, mask=self._mask)

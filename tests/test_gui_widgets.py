@@ -397,3 +397,115 @@ class TestExperiments:
 
         assert _get_experiment_name("/data/ExpA/SysConfig/configuration.yaml") == "ExpA"
         assert _get_experiment_name("/data/ExpB/configuration.yaml") == "ExpB"
+
+
+class TestExtraPanels:
+    """The add_panels / add_dock extension API of CalpyGUI."""
+
+    @pytest.fixture
+    def make_window(self, qapp, tmp_path, monkeypatch):
+        from opticalib.gui.kernel import KernelBridge
+
+        from qtpy.QtCore import QSettings
+
+        # No kernel: only the window is under test.
+        monkeypatch.setattr(KernelBridge, "start", lambda self: None)
+        # Start from no saved layout (the settings are shared by the session).
+        for app in ("CalpyGUI", "ExtraPanelsTest"):
+            QSettings("ArcetriAdaptiveOptics", app).remove("window")
+        config = tmp_path / "Exp" / "configuration.yaml"
+        config.parent.mkdir()
+        config.write_text("SYSTEM:\n  data_path: ''\nDEVICES: {}\n")
+        windows = []
+
+        def make(cls):
+            window = cls(config_path=str(config))
+            window._confirm_close = False
+            windows.append(window)
+            return window
+
+        yield make
+        for window in windows:
+            window.close()
+            window.deleteLater()
+
+    @staticmethod
+    def _gui_class():
+        from qtpy.QtWidgets import QLabel
+
+        from opticalib.gui.app import CalpyGUI
+
+        class ExtraGUI(CalpyGUI):
+            SETTINGS_APP = "ExtraPanelsTest"
+
+            def add_panels(self):
+                self.bench = QLabel("bench")
+                self.notes = QLabel("notes")
+                self.add_dock("bench", "Bench", self.bench, area="right")
+                self.add_dock("notes", "Notes", self.notes, tabify_with="workspace")
+
+        return ExtraGUI
+
+    def test_panels_are_docked_and_listed(self, make_window):
+        window = make_window(self._gui_class())
+        docks = window.docks
+        assert list(docks)[-2:] == ["bench", "notes"]
+        assert docks["bench"].objectName() == "dock_bench"
+        assert docks["bench"].widget() is window.bench
+        assert docks["notes"] in window.tabifiedDockWidgets(docks["workspace"])
+        view = next(a.menu() for a in window.menuBar().actions() if a.text() == "&View")
+        assert {"Bench", "Notes"} <= {a.text() for a in view.actions()}
+
+    def test_layout_is_saved_and_restored(self, make_window):
+        from qtpy.QtCore import Qt
+
+        cls = self._gui_class()
+        first = make_window(cls)
+        first.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, first.docks["bench"])
+        assert first.dockWidgetArea(first.docks["bench"]) == Qt.DockWidgetArea.LeftDockWidgetArea
+        first._save_layout_settings()
+        second = make_window(cls)
+        assert second.dockWidgetArea(second.docks["bench"]) == Qt.DockWidgetArea.LeftDockWidgetArea
+        # Reset layout puts the panel back where add_panels placed it.
+        second._reset_layout()
+        assert second.dockWidgetArea(second.docks["bench"]) == Qt.DockWidgetArea.RightDockWidgetArea
+
+    def test_late_calls_are_refused(self, make_window):
+        from qtpy.QtWidgets import QLabel
+
+        window = make_window(self._gui_class())
+        with pytest.raises(RuntimeError, match="add_panels"):
+            window.add_dock("late", "Late", QLabel())
+
+    def test_invalid_requests(self, make_window):
+        from qtpy.QtWidgets import QLabel
+
+        from opticalib.gui.app import CalpyGUI
+
+        errors = []
+
+        class BadGUI(CalpyGUI):
+            SETTINGS_APP = "ExtraPanelsTest"
+
+            def add_panels(self):
+                for kwargs in (
+                    dict(name="data", title="Again"),
+                    dict(name="w2", title="Workspace"),
+                    dict(name="y", title="Y", area="middle"),
+                    dict(name="z", title="Z", tabify_with="nope"),
+                ):
+                    try:
+                        self.add_dock(widget=QLabel(), **kwargs)
+                    except ValueError as exc:
+                        errors.append(str(exc))
+
+        make_window(BadGUI)
+        assert len(errors) == 4
+        assert "named 'data'" in errors[0] and "titled 'Workspace'" in errors[1]
+        assert "Unknown area" in errors[2] and "Unknown panel" in errors[3]
+
+    def test_default_hook_adds_nothing(self, make_window):
+        from opticalib.gui.app import CalpyGUI
+
+        window = make_window(CalpyGUI)
+        assert list(window.docks) == ["devices", "procedures", "workspace", "data", "console"]

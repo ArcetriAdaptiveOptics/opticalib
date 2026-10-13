@@ -677,3 +677,64 @@ class TestCustomClassDialog:
         assert not custom_panel.card("cfg:DEFORMABLE.MIRRORS:MorfeoDM2").info.needs_setup
         custom_panel.reload()
         assert custom_panel.card("cfg:DEFORMABLE.MIRRORS:MorfeoDM1").info.class_name == "MorfeoDM"
+
+
+class TestSectionlessCustomClass:
+    """A custom class declared without a section takes the entry's section."""
+
+    def test_variable_and_kind_follow_the_entry(self, qapp, tmp_path):
+        path = tmp_path / "configuration.yaml"
+        path.write_text(
+            "DEVICES:\n"
+            "  CAMERAS:\n"
+            "    LabCam:\n"
+            "      class: AcmeCamera\n"
+            "  DEFORMABLE.MIRRORS:\n"
+            "    LabDM:\n"
+            "      class: AcmeCamera\n"
+            "DEVICE.CLASSES:\n"
+            "  AcmeCamera:\n"
+            "    module: acme_sdk.camera\n"
+        )
+        entries = {e.name: e for e in reg.list_entries(str(path))}
+        cam, dm = entries["LabCam"], entries["LabDM"]
+        assert cam.ready and cam.kind_section == "CAMERAS" and cam.var_name == "cam"
+        assert reg.build_command(cam).endswith("cam = AcmeCamera()")
+        assert dm.var_name == "dm"
+        infos = {i.title: i for i in dp.configured_devices(str(path))}
+        assert (infos["LabCam"].kind, infos["LabCam"].var_name) == ("camera", "cam")
+        assert (infos["LabDM"].kind, infos["LabDM"].var_name) == ("dm", "dm")
+        # The camera card now offers the camera quick actions.
+        labels = [label for label, _, _ in dp.quick_actions(infos["LabCam"])]
+        assert "Acquire frame" in labels
+
+    def test_legacy_section_name(self, qapp, tmp_path):
+        path = tmp_path / "configuration.yaml"
+        path.write_text(
+            "DEVICES:\n"
+            "  INTERFEROMETER:\n"
+            "    LabInterf:\n"
+            "      class: AcmeInterf\n"
+            "DEVICE.CLASSES:\n"
+            "  AcmeInterf:\n"
+            "    module: acme\n"
+        )
+        (entry,) = reg.list_entries(str(path))
+        assert entry.kind_section == "INTERFEROMETERS" and entry.var_name == "interf"
+        (info,) = dp.configured_devices(str(path))
+        assert (info.kind, info.var_name) == ("interferometer", "interf")
+
+    def test_class_section_still_wins(self, qapp, tmp_path):
+        path = tmp_path / "configuration.yaml"
+        path.write_text(
+            "DEVICES:\n"
+            "  CAMERAS:\n"
+            "    Odd:\n"
+            "      class: AcmeDM\n"
+            "DEVICE.CLASSES:\n"
+            "  AcmeDM:\n"
+            "    module: acme\n"
+            "    section: DEFORMABLE.MIRRORS\n"
+        )
+        (entry,) = reg.list_entries(str(path))
+        assert entry.kind_section == "DEFORMABLE.MIRRORS" and entry.var_name == "dm"

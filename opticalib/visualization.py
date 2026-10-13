@@ -173,7 +173,10 @@ def cmdplot(cmd: _ot.ArrayLike, **kwargs: dict[str, _ot.Any]):
 
 
 def coordplot(
-    coord: _ot.ArrayLike, annotate: bool = True, **kwargs: dict[str, _ot.Any]
+    coord: _ot.ArrayLike,
+    annotate: bool = True,
+    from_idx: int = 0,
+    **kwargs: dict[str, _ot.Any]
 ):
     """
     Plot a set of coordinates as a 2D scatter plot.
@@ -186,6 +189,8 @@ def coordplot(
         second column as the y-coordinate.
     annotate : bool, optional
         If True, annotate the points with their indices. Default is True.
+    from_idx : int, optional
+        The starting index for annotation. Default is 0.
     **kwargs
         Additional keyword arguments to be passed to `scatter`, as well as some
         additions:
@@ -203,10 +208,10 @@ def coordplot(
         The figure object.
     ax : matplotlib.axes.Axes
         The axes object.
-    cb : matplotlib.colorbar.Colorbar | None
-        The colorbar object if a color array was used, otherwise None.
     sc : matplotlib.collections.PathCollection
         The scatter plot object returned by scatter.
+    cb : matplotlib.colorbar.Colorbar | None
+        The colorbar object if a color array was used, otherwise None.
     """
     title = kwargs.pop("title", "Coordinates")
     xlabel = kwargs.pop("xlabel", "X [px]")
@@ -237,6 +242,8 @@ def coordplot(
     fig, ax = plt.subplots()
     if annotate:
         for i, (x, y) in enumerate(zip(X, Y)):
+            if i < from_idx:
+                continue
             ax.annotate(
                 str(i),
                 (x, y),

@@ -47,6 +47,8 @@ class BaseFakePTL(BaseSimulatedDM):
         self._K_inv = _np.linalg.inv(self._K)
         super().__init__()
         self._set_initial_shape()
+        self._slaveIds = []
+        self._borderIds = []
 
     def _mirror_command(self, cmd: _ot.ArrayLike, diff: bool):
         """

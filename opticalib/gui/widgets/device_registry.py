@@ -537,8 +537,18 @@ class DeviceEntry:
     @property
     def var_name(self) -> str:
         """Variable the device is bound to."""
-        section = self.device_class.section if self.device_class else self.section
-        return variable_name(section)
+        return variable_name(self.kind_section)
+
+    @property
+    def kind_section(self) -> str:
+        """
+        Section that sets the variable and the kind of the device.
+
+        The section of its class, or the section of the entry for classes
+        that belong to any section (custom classes declared without one).
+        """
+        section = self.device_class.section if self.device_class else ""
+        return normalize_section(section or self.section)
 
 
 def _suffix(name: str, device_class: DeviceClass) -> Optional[str]:

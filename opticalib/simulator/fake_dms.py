@@ -92,7 +92,7 @@ class AlpaoDm(BaseFakeAlpao):
         """
         return self._borderIds
 
-    def _mirror_command(self, cmd: _t.ArrayLike, differential: bool, modal: bool):
+    def _mirror_command(self, cmd: _t.ArrayLike, differential: bool, **kwargs: dict[str, _t.Any]):
         """
         Applies the given command to the deformable mirror.
 
@@ -111,6 +111,7 @@ class AlpaoDm(BaseFakeAlpao):
             Processed shape based on the command.
         """
         scaled_cmd = cmd * 1e-5  # more realistic command
+        modal = kwargs.get("modal", False)
         if modal:
             mode_img = np.dot(self.ZM, scaled_cmd)
             scaled_cmd = np.dot(mode_img, self.RM)
