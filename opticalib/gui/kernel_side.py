@@ -469,6 +469,43 @@ def backend() -> str:
     )
 
 
+#: Experiment folder this module put on ``sys.path`` (see :func:`use_experiment`).
+_experiment_path: Optional[str] = None
+
+
+def use_experiment(config_path: Optional[str] = None) -> str:
+    """
+    Make the modules of the experiment folder importable.
+
+    The folder of the experiment (the one containing ``SysConfig``) goes
+    first on ``sys.path``, as the folder of a script does, so that device
+    classes defined there (see the ``DEVICE.CLASSES`` section of the
+    configuration) can be imported.  The folder of the previous experiment
+    is removed, unless it was on the path already.
+
+    Parameters
+    ----------
+    config_path : str, optional
+        Configuration file of the experiment; default ``$AOCONF``.
+
+    Returns
+    -------
+    str
+        The experiment folder (empty when unknown).
+    """
+    global _experiment_path
+    from .widgets.device_registry import experiment_folder
+
+    folder = experiment_folder(config_path or _os.environ.get("AOCONF", ""))
+    if _experiment_path and _experiment_path != folder and _experiment_path in _sys.path:
+        _sys.path.remove(_experiment_path)
+        _experiment_path = None
+    if folder and folder not in _sys.path:
+        _sys.path.insert(0, folder)
+        _experiment_path = folder
+    return folder
+
+
 def mark_baseline() -> None:
     """Hide the names currently defined (the calpy bootstrap) from the workspace."""
     _baseline.clear()
@@ -508,3 +545,4 @@ def install(shell=None) -> None:
     shell.events.register("post_execute", _post_execute)
     shell.user_ns["_gui"] = module
     shell.user_ns_hidden["_gui"] = module
+    use_experiment()

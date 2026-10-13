@@ -354,7 +354,37 @@ def test_phasing_sweep_takes_the_dark_first(context):
 def test_plugin_panel_opens_every_window(qapp):
     from opticalib.gui.plugins import PLUGIN_WINDOWS, PLUGINS
 
-    assert [name for name, _, _ in PLUGINS] == list(PLUGIN_WINDOWS)
+    assert [name for name, *_ in PLUGINS] == list(PLUGIN_WINDOWS)
+
+
+class TestConfiguredProcedures:
+    """Procedures whose section the configuration does not define are not listed."""
+
+    def test_defined_sections(self, tmp_path):
+        from opticalib.gui.plugins import defined_sections
+
+        path = tmp_path / "configuration.yaml"
+        path.write_text("SYSTEM:\n  data_path: ''\nSTITCHING: null\nPHASING: {}\nINFLUENCE.FUNCTIONS:\n  timing: 1\n")
+        assert defined_sections(str(path)) == {"SYSTEM", "INFLUENCE.FUNCTIONS"}
+        assert defined_sections(str(tmp_path / "missing.yaml")) is None
+        path.write_text("SYSTEM: [unclosed")
+        assert defined_sections(str(path)) is None
+
+    def test_cards_follow_the_configuration(self, qapp, tmp_path):
+        from opticalib.gui.plugins import PluginPanel
+
+        path = tmp_path / "configuration.yaml"
+        path.write_text("SYSTEM:\n  data_path: ''\nINFLUENCE.FUNCTIONS:\n  timing: 1\nSTITCHING: null\n")
+        panel = PluginPanel(lambda name: None, config_path=str(path))
+        assert panel.available() == ["Deformable Mirror Calibration", "Timeseries"]
+        note = panel._hidden_note.text()
+        assert "Stitching (STITCHING)" in note and "Alignment (SYSTEM.ALIGNMENT)" in note
+        path.write_text(path.read_text().replace("STITCHING: null", "STITCHING:\n  overlap: 1"))
+        panel.reload()
+        assert "Stitching" in panel.available()
+        # Without a readable file every procedure is listed.
+        panel.set_config_path(None)
+        assert len(panel.available()) == 5 and panel._hidden_note.isHidden()
 
 
 # ---------------------------------------------------------------------------

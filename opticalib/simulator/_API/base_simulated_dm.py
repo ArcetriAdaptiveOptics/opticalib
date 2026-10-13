@@ -177,7 +177,7 @@ class BaseSimulatedDM(BaseDeformableMirror):
                 print(f"{i+1}/{self._cmd_history.shape[-1]}", end="\r", flush=True)
                 if differential:
                     cmd += s
-                self.set_shape(cmd, slave=slaving)
+                self.set_shape(cmd, slaving=slaving)
                 if wfs is not None:
                     sleep(delay)
                     img = wfs.acquire_map()

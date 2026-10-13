@@ -223,20 +223,20 @@ def coordplot(
             )
         use_colorbar = True
 
-    if coord.shape[1] != 2:
+    if coord.shape[0] != 2:
         coord = coord.T
 
     if isinstance(coord, list):
         coord = np.asarray(coord)
     if coord.ndim != 2:
         raise ValueError("Coordinate array must be 2-dimensional.")
-    if coord.shape[1] != 2:
+    if coord.shape[0] != 2:
         coord = coord.T
 
-    Y, X = coord[:, 0], coord[:, 1]
+    Y, X = coord[0, :], coord[1, :]
     fig, ax = plt.subplots()
     if annotate:
-        for i, (x, y) in enumerate([X, Y]):
+        for i, (x, y) in enumerate(zip(X, Y)):
             ax.annotate(
                 str(i),
                 (x, y),

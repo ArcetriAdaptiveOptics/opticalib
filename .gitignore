@@ -9,6 +9,9 @@ notebooks/
 **/*.ipynb
 labott.code-workspace
 
+# Type stubs generated
+typings/
+
 # Byte-compiled / optimized / DLL files
 **/__pycache__/
 *.py[cod]

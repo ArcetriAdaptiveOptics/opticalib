@@ -496,3 +496,54 @@ class TestCaseInsensitiveDeviceLookup:
 
     def test_other_sections_unchanged(self, config_file):
         assert type(read_config.get_section_config("SYSTEM")) is dict
+
+
+class TestOptionalSections:
+    """Experiments may delete the sections of the procedures they do not use."""
+
+    def _write(self, temp_dir, monkeypatch, data):
+        config_file = os.path.join(temp_dir, "configuration.yaml")
+        with open(config_file, "w") as f:
+            yaml.safe_dump(data, f)
+        monkeypatch.setattr(read_config, "_cfile", config_file)
+        return config_file
+
+    def test_lazy_section(self, temp_dir, monkeypatch):
+        config_file = self._write(temp_dir, monkeypatch, {"PHASING": {"expected_psfs": 6}})
+        section = read_config.LazySection("PHASING")
+        assert section["expected_psfs"] == 6 and dict(section) == {"expected_psfs": 6}
+        with pytest.raises(KeyError, match="PHASING"):
+            section["filter"]
+        # Read on every access: it follows the current configuration file.
+        with open(config_file, "w") as f:
+            yaml.safe_dump({"SYSTEM": {}}, f)
+        assert len(section) == 0 and section.get("expected_psfs", 1) == 1
+
+    def test_null_section_reads_as_empty(self, temp_dir, monkeypatch):
+        self._write(temp_dir, monkeypatch, {"PHASING": None})
+        assert dict(read_config.LazySection("PHASING")) == {}
+
+    @pytest.mark.parametrize("data", [{}, {"SYSTEM.ALIGNMENT": None}])
+    def test_missing_alignment_section(self, temp_dir, monkeypatch, data):
+        self._write(temp_dir, monkeypatch, data)
+        with pytest.raises(KeyError, match="SYSTEM.ALIGNMENT"):
+            read_config.get_alignment_config()
+
+    @pytest.mark.slow
+    def test_import_without_procedure_sections(self, tmp_path):
+        """opticalib imports with only SYSTEM and DEVICES in the file."""
+        import subprocess
+        import sys
+
+        config_file = tmp_path / "SysConfig" / "configuration.yaml"
+        config_file.parent.mkdir()
+        config_file.write_text(
+            f"SYSTEM:\n  data_path: '{tmp_path}'\nDEVICES:\n  CAMERAS: {{}}\n"
+            "SYSTEM.ALIGNMENT: null\nSTITCHING: null\n"
+        )
+        env = dict(os.environ, AOCONF=str(config_file), CUDA_VISIBLE_DEVICES="", XUPY_NO_GPU_WARNING="1")
+        proc = subprocess.run(
+            [sys.executable, "-c", "import opticalib, opticalib.procedures; print('ok')"],
+            capture_output=True, text=True, env=env, cwd=str(tmp_path), timeout=300,
+        )
+        assert proc.stdout.strip().endswith("ok"), proc.stderr[-3000:]

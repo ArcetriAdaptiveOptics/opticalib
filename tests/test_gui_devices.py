@@ -446,3 +446,234 @@ class TestSetEntryClassRobustness:
     def test_no_temporary_files_left(self, config_file):
         reg.set_entry_class(str(config_file), "INTERFEROMETERS", "Mystery", "PhaseCam")
         assert sorted(p.name for p in config_file.parent.iterdir()) == ["configuration.yaml"]
+
+
+# ---------------------------------------------------------------------------
+# Custom device classes (DEVICE.CLASSES)
+# ---------------------------------------------------------------------------
+
+CUSTOM_CONFIG = """\
+SYSTEM:
+  data_path: ''
+DEVICES:
+  DEFORMABLE.MIRRORS:
+    MorfeoDM1:
+      diameter: 930  # mm
+    MorfeoDM2:
+      diameter: 1224
+    OtherDM:
+      diameter: 1
+
+## Influence functions ##
+INFLUENCE.FUNCTIONS:
+  timing: 1
+"""
+
+
+@pytest.fixture
+def experiment(tmp_path):
+    """An experiment folder with a module defining a custom DM class."""
+    (tmp_path / "SysConfig").mkdir()
+    config = tmp_path / "SysConfig" / "configuration.yaml"
+    config.write_text(CUSTOM_CONFIG)
+    (tmp_path / "morfeo_dm.py").write_text("import os\n\n\nclass MorfeoDM:\n    pass\n")
+    return config
+
+
+class TestCustomClasses:
+    """Device classes declared by the experiment."""
+
+    def test_experiment_folder(self, tmp_path):
+        assert reg.experiment_folder(str(tmp_path / "SysConfig" / "configuration.yaml")) == str(tmp_path)
+        assert reg.experiment_folder(str(tmp_path / "configuration.yaml")) == str(tmp_path)
+        assert reg.experiment_folder("") == ""
+
+    @pytest.mark.parametrize(
+        "module, expected",
+        [("morfeo_dm", "morfeo_dm"), ("lab.drivers", "lab.drivers"), ("morfeo_dm.py", "morfeo_dm"),
+         ("drivers/morfeo_dm.py", "drivers.morfeo_dm")],
+    )
+    def test_module_name(self, tmp_path, module, expected):
+        assert reg.module_name(module, str(tmp_path)) == expected
+        if module.endswith(".py"):
+            assert reg.module_name(str(tmp_path / module), str(tmp_path)) == expected
+
+    @pytest.mark.parametrize("module", ["2bad", "with space", "/elsewhere/mod.py", "a..b"])
+    def test_invalid_module(self, tmp_path, module):
+        with pytest.raises(ValueError):
+            reg.module_name(module, str(tmp_path))
+
+    def test_declared_class_connects_entries_by_name(self, experiment):
+        reg.set_custom_class(str(experiment), "MorfeoDM", "morfeo_dm.py", "DEFORMABLE.MIRRORS", "{suffix}")
+        entries = _entries(experiment)
+        dm1, dm2, other = entries["MorfeoDM1"], entries["MorfeoDM2"], entries["OtherDM"]
+        assert dm1.ready and dm1.source == "name" and dm1.device_class.custom
+        assert reg.build_command(dm1) == "from morfeo_dm import MorfeoDM\ndm = MorfeoDM(1)"
+        assert reg.build_command(dm2, "dm2") == "from morfeo_dm import MorfeoDM\ndm2 = MorfeoDM(2)"
+        assert not other.ready
+        # An explicit class: key reaches any entry; {name} is the entry name.
+        reg.set_custom_class(str(experiment), "MorfeoDM", "morfeo_dm", "DEFORMABLE.MIRRORS", "name={name!r}" .replace("!r", ""))
+        reg.set_entry_class(str(experiment), "DEFORMABLE.MIRRORS", "OtherDM", "MorfeoDM")
+        other = _entries(experiment)["OtherDM"]
+        assert other.ready and reg.build_command(other).endswith("dm = MorfeoDM(name=OtherDM)")
+
+    def test_custom_classes_take_precedence(self, tmp_path):
+        config = {"DEVICE.CLASSES": {"PhaseCam": {"module": "lab.interf", "section": "INTERFEROMETERS"}}}
+        classes, invalid = reg.load_custom_classes(config, str(tmp_path / "configuration.yaml"))
+        assert not invalid and reg.find_class("phasecam", classes + reg.DEVICE_CLASSES).module == "lab.interf"
+        # Without a section a custom class belongs to every section.
+        classes, _ = reg.load_custom_classes({"DEVICE.CLASSES": {"Thing": {"module": "lab"}}})
+        assert classes[0] in reg.classes_for("CAMERAS", classes)
+
+    def test_invalid_declarations_are_explained(self, tmp_path):
+        path = tmp_path / "configuration.yaml"
+        path.write_text(
+            "SYSTEM: {}\nDEVICES:\n  CAMERAS:\n    Cam:\n      class: NoModule\n"
+            "DEVICE.CLASSES:\n  NoModule:\n    section: CAMERAS\n  2bad:\n    module: x\n"
+        )
+        classes, invalid = reg.known_classes(str(path))
+        assert set(invalid) == {"NoModule", "2bad"}
+        cam = _entries(path)["Cam"]
+        assert not cam.ready and "Invalid custom class 'NoModule'" in cam.problems[0]
+
+    def test_set_custom_class_preserves_the_file(self, experiment):
+        path = str(experiment)
+        reg.set_custom_class(path, "MorfeoDM", "morfeo_dm.py", "DEFORMABLE.MIRRORS", "{suffix}")
+        text = experiment.read_text()
+        # Declared right after DEVICES; everything else untouched.
+        assert text.replace(text[text.index("\n## Custom"):text.index("\n## Influence")], "") == CUSTOM_CONFIG
+        assert '    args: "{suffix}"\n' in text and "      diameter: 930  # mm\n" in text
+        # Replacing a declaration and adding another one.
+        reg.set_custom_class(path, "MorfeoDM", "morfeo_dm", "DEFORMABLE.MIRRORS", "{suffix}, n=2")
+        reg.set_custom_class(path, "Lamp", "lab.lamp")
+        import yaml
+
+        declared = yaml.safe_load(experiment.read_text())["DEVICE.CLASSES"]
+        assert declared == {
+            "MorfeoDM": {"module": "morfeo_dm", "section": "DEFORMABLE.MIRRORS", "args": "{suffix}, n=2"},
+            "Lamp": {"module": "lab.lamp"},
+        }
+        assert experiment.read_text().count("DEVICE.CLASSES:") == 1
+
+    @pytest.mark.parametrize("value", ["null", "{}", ""])
+    def test_set_custom_class_in_an_empty_section(self, tmp_path, value):
+        path = tmp_path / "configuration.yaml"
+        path.write_text(f"SYSTEM:\n  data_path: ''\nDEVICE.CLASSES: {value}  # mine\nSTITCHING: null\n")
+        reg.set_custom_class(str(path), "Lamp", "lab.lamp", args="1")
+        import yaml
+
+        loaded = yaml.safe_load(path.read_text())
+        assert loaded["DEVICE.CLASSES"] == {"Lamp": {"module": "lab.lamp", "args": "1"}}
+        assert "STITCHING" in loaded and "# mine" in path.read_text()
+
+    @pytest.mark.parametrize("name, module", [("2bad", "x"), ("Good", "/elsewhere/x.py")])
+    def test_set_custom_class_refuses_invalid_declarations(self, experiment, name, module):
+        with pytest.raises(ValueError):
+            reg.set_custom_class(str(experiment), name, module)
+        assert experiment.read_text() == CUSTOM_CONFIG
+
+
+@pytest.fixture
+def custom_panel(qapp, experiment):
+    from opticalib.gui.kernel import Task
+
+    tasks = []
+
+    def runner(code, title, on_done, on_error):
+        task = Task(code, title, on_done=on_done, on_error=on_error)
+        tasks.append(task)
+        return task
+
+    widget = dp.DevicePanel(str(experiment), runner=runner)
+    widget.tasks = tasks
+    return widget
+
+
+class TestCustomClassDialog:
+    """The connect dialog defines custom classes."""
+
+    def _custom_dialog(self, panel, name="MorfeoDM1"):
+        from opticalib.gui.widgets.connect_dialog import CUSTOM
+
+        card = panel.card(f"cfg:DEFORMABLE.MIRRORS:{name}")
+        dialog = panel._make_dialog(card.info.entry, card.info.var_name)
+        dialog._class_combo.setCurrentIndex(dialog._class_combo.findData(CUSTOM))
+        return card, dialog
+
+    def test_find_class_file(self, experiment):
+        from opticalib.gui.widgets.connect_dialog import find_class_file
+
+        folder = str(experiment.parent.parent)
+        assert find_class_file(folder, "MorfeoDM") == "morfeo_dm.py"
+        assert find_class_file(folder, "Morfeo") == "" and find_class_file("", "MorfeoDM") == ""
+
+    def test_guesses_and_command(self, custom_panel):
+        card, dialog = self._custom_dialog(custom_panel)
+        assert card.display_status == "setup"
+        assert dialog._class_combo.currentText() == "Custom DM class…"
+        assert (dialog._custom_name.text(), dialog._custom_module.text(), dialog._custom_args.text()) == (
+            "MorfeoDM", "morfeo_dm.py", "{suffix}")
+        assert dialog.code() == "from morfeo_dm import MorfeoDM\ndm = MorfeoDM(1)"
+        assert dialog.class_name() == "MorfeoDM" and dialog.save_class()
+        assert dialog._btn_connect.isEnabled()
+
+    def test_invalid_definition(self, custom_panel):
+        card, dialog = self._custom_dialog(custom_panel)
+        dialog._custom_module.setText("/elsewhere/x.py")
+        assert "not in the experiment folder" in dialog._problems.text()
+        assert dialog.custom_definition() is None and not dialog._save_class.isEnabled()
+        dialog._custom_module.setText("morfeo_dm")
+        dialog._custom_name.setText("")
+        assert dialog.class_name() is None and not dialog._btn_connect.isEnabled()
+
+    def test_save_choice_survives_typing(self, custom_panel):
+        card, dialog = self._custom_dialog(custom_panel)
+        dialog._save_class.setChecked(False)
+        dialog._custom_args.setText("{suffix}, n=2")
+        assert not dialog.save_class()
+
+    def test_apply_saves_the_class_for_every_entry(self, custom_panel, experiment):
+        changed = []
+        custom_panel.config_changed.connect(lambda: changed.append(1))
+        card, dialog = self._custom_dialog(custom_panel)
+        custom_panel.apply_connect_dialog(card, dialog)
+        import yaml
+
+        loaded = yaml.safe_load(experiment.read_text())
+        assert loaded["DEVICE.CLASSES"]["MorfeoDM"] == {
+            "module": "morfeo_dm.py", "section": "DEFORMABLE.MIRRORS", "args": "{suffix}"}
+        # The names say the class: no class key is needed in the entries.
+        assert "class" not in (loaded["DEVICES"]["DEFORMABLE.MIRRORS"]["MorfeoDM1"] or {})
+        assert changed == [1]
+        assert custom_panel.tasks[-1].code == "from morfeo_dm import MorfeoDM\ndm = MorfeoDM(1)"
+        card = custom_panel.card("cfg:DEFORMABLE.MIRRORS:MorfeoDM1")
+        assert card.info.module_prefix == "morfeo_dm"
+        custom_panel.tasks[-1]._start("m")
+        custom_panel.tasks[-1]._finish("done")
+        assert card.status == "connected"
+        custom_panel.update_workspace([_ws("dm", "MorfeoDM", "morfeo_dm", "dm")])
+        assert card.status == "connected"
+        # The other entry of the class connects in one click.
+        dm2 = custom_panel.card("cfg:DEFORMABLE.MIRRORS:MorfeoDM2")
+        assert not dm2.info.needs_setup and dm2.connect_code().endswith("dm = MorfeoDM(2)")
+
+    def test_entry_names_the_class_when_its_name_does_not(self, custom_panel, experiment):
+        card, dialog = self._custom_dialog(custom_panel, "OtherDM")
+        dialog._custom_name.setText("MorfeoDM")
+        dialog._custom_module.setText("morfeo_dm")
+        dialog._custom_args.setText("3")
+        custom_panel.apply_connect_dialog(card, dialog)
+        import yaml
+
+        loaded = yaml.safe_load(experiment.read_text())
+        assert loaded["DEVICES"]["DEFORMABLE.MIRRORS"]["OtherDM"]["class"] == "MorfeoDM"
+        assert custom_panel.card("cfg:DEFORMABLE.MIRRORS:OtherDM").connect_code().endswith("MorfeoDM(3)")
+
+    def test_apply_without_saving_lasts_for_the_session(self, custom_panel, experiment):
+        card, dialog = self._custom_dialog(custom_panel)
+        dialog._save_class.setChecked(False)
+        custom_panel.apply_connect_dialog(card, dialog)
+        assert experiment.read_text() == CUSTOM_CONFIG
+        assert not custom_panel.card("cfg:DEFORMABLE.MIRRORS:MorfeoDM2").info.needs_setup
+        custom_panel.reload()
+        assert custom_panel.card("cfg:DEFORMABLE.MIRRORS:MorfeoDM1").info.class_name == "MorfeoDM"

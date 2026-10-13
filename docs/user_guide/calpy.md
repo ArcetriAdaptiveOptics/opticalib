@@ -418,6 +418,50 @@ Device classes look up their entry by name: `Ingot` reads `INGOT`,
 lookup ignores case, so `Ingot` or `phasecam6110` work too, in the GUI and in
 scripts.
 
+### Your own device classes
+
+A device driven by a class of your own (not one of `opticalib.devices`) is
+declared in the `DEVICE.CLASSES` section, and its entries are then connected
+like the others:
+
+```{code-block} yaml
+DEVICES:
+  DEFORMABLE.MIRRORS:
+    MorfeoDM1:
+      diameter: 930
+    MorfeoDM2:
+      diameter: 1224
+
+DEVICE.CLASSES:
+  MorfeoDM:
+    module: morfeo_dm.py         # or a module name, e.g. lab.drivers
+    section: DEFORMABLE.MIRRORS  # optional: the entries it connects
+    args: "{suffix}"             # optional: constructor arguments
+```
+
+`MorfeoDM1` is connected with `from morfeo_dm import MorfeoDM` and
+`dm = MorfeoDM(1)`: entries whose name starts with the class name use it, and
+in `args` `{suffix}` is what follows the class name (`1`) and `{name}` the
+entry name. Other entries can name it with `class: MorfeoDM`. The `module` is
+an importable module or a `.py` file of the experiment folder, which the GUI
+puts on the kernel's `sys.path` (also after restarts and experiment
+switches).
+
+You do not need to write the section by hand: in the *Set up…* dialog choose
+*Custom … class*, check the class name, module and arguments it guesses
+(it looks for the class in the `.py` files of the experiment folder) and keep
+*Save the class in the configuration* ticked.
+
+### Procedures and optional sections
+
+The *Procedures* panel lists only the procedures whose section the
+configuration defines: *Deformable Mirror Calibration* needs
+`INFLUENCE.FUNCTIONS`, *Stitching* `STITCHING`, *Segments Phasing* `PHASING`
+and *Alignment* `SYSTEM.ALIGNMENT`; *Timeseries* is always listed. Delete (or
+set to `null`) the sections an experiment does not use: opticalib imports
+without them, and only the procedure that needs a missing section reports it
+when it is used.
+
 ```{note}
 The GUI needs a graphical display. Over SSH use `ssh -X`; `calpy --gui`
 prints an explanation instead of crashing when no display is available.

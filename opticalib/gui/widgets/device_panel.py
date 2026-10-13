@@ -38,10 +38,17 @@ from .common import ElidedLabel
 from .connect_dialog import ConnectDialog
 from .device_registry import (
     SECTION_KINDS,
+    DeviceClass,
     DeviceEntry,
     build_command,
+    custom_class,
+    experiment_folder,
+    known_classes,
     list_entries,
+    match_by_name,
+    module_name,
     resolve_entry,
+    set_custom_class,
     set_entry_class,
 )
 
@@ -211,6 +218,7 @@ SIMULATED_DEVICES: List[DeviceInfo] = [
 def configured_devices(
     config_path: str,
     overrides: Optional[Dict[str, Dict[str, str]]] = None,
+    extra: Optional[List[DeviceClass]] = None,
 ) -> List[DeviceInfo]:
     """
     Describe every device entry of *config_path*.
@@ -226,6 +234,8 @@ def configured_devices(
     overrides : dict, optional
         Per entry key, a ``class`` and/or ``var`` chosen in the connect
         dialog for this session.
+    extra : list of DeviceClass, optional
+        Custom classes defined in the connect dialog but not saved.
 
     Returns
     -------
@@ -233,16 +243,19 @@ def configured_devices(
         One entry per device, in file order.
     """
     overrides = overrides or {}
+    classes, invalid = known_classes(config_path, extra)
     infos = []
-    for entry in list_entries(config_path):
+    for entry in list_entries(config_path, extra):
         override = overrides.get(entry.key, {})
         if override.get("class") and entry.source != "explicit":
             conf = dict(entry.conf, **{"class": override["class"]})
-            entry = resolve_entry(entry.section, entry.name, conf)
+            entry = resolve_entry(entry.section, entry.name, conf, classes, invalid)
         var = override.get("var") or entry.var_name
         section = entry.device_class.section if entry.device_class else entry.section
         fields = [f"{k}: {v}" for k, v in _flatten_dict(entry.conf).items()]
         klass = entry.device_class.name if entry.device_class else "unknown class"
+        if entry.device_class is not None and entry.device_class.custom:
+            klass += f" from {entry.device_class.module}"
         tooltip = [f"{entry.section} → {entry.name} ({klass})"] + fields
         if entry.problems or entry.notes:
             tooltip += [""] + entry.problems + entry.notes
@@ -253,7 +266,11 @@ def configured_devices(
                 kind=SECTION_KINDS.get(section.upper(), "device"),
                 var_name=var,
                 class_name=entry.device_class.name if entry.device_class else None,
-                module_prefix="opticalib.devices",
+                module_prefix=(
+                    entry.device_class.module
+                    if entry.device_class is not None and entry.device_class.custom
+                    else "opticalib.devices"
+                ),
                 build_code=lambda option, e=entry, v=var: build_command(e, v),
                 tooltip="\n".join(tooltip),
                 entry=entry,
@@ -567,6 +584,8 @@ class DevicePanel(QWidget):
         self._workspace: Dict[str, Dict[str, str]] = {}
         # Class and variable chosen in the connect dialog, per entry key.
         self._overrides: Dict[str, Dict[str, str]] = {}
+        # Custom classes defined in the connect dialog but not saved, by name.
+        self._session_classes: Dict[str, DeviceClass] = {}
 
         self._configured_box = QVBoxLayout()
         self._configured_box.setSpacing(6)
@@ -650,7 +669,9 @@ class DevicePanel(QWidget):
 
     def reload(self) -> None:
         """Re-read the configured devices, keeping known card states."""
-        infos = configured_devices(self._config_path, self._overrides)
+        infos = configured_devices(
+            self._config_path, self._overrides, list(self._session_classes.values())
+        )
         keep = {info.key for info in infos}
         for key in [k for k in self._cards if k.startswith("cfg:") and k not in keep]:
             card = self._cards.pop(key)
@@ -724,7 +745,16 @@ class DevicePanel(QWidget):
 
     def _make_dialog(self, entry: DeviceEntry, var_name: str) -> ConnectDialog:
         """Create the connect dialog (separate for tests)."""
-        return ConnectDialog(entry, var_name=var_name, parent=self)
+        classes, _ = known_classes(
+            self._config_path, list(self._session_classes.values())
+        )
+        return ConnectDialog(
+            entry,
+            var_name=var_name,
+            classes=classes,
+            experiment=experiment_folder(self._config_path),
+            parent=self,
+        )
 
     def apply_connect_dialog(self, card: DeviceCard, dialog: ConnectDialog) -> None:
         """
@@ -740,18 +770,52 @@ class DevicePanel(QWidget):
         entry = card.info.entry
         key = card.info.key
         self._overrides[key] = {"class": dialog.class_name(), "var": dialog.var_name()}
-        if dialog.save_class():
-            try:
+        custom = dialog.custom_definition()
+        try:
+            if custom is not None:
+                self._apply_custom_class(entry, custom, dialog.save_class())
+            elif dialog.save_class():
                 set_entry_class(
                     self._config_path, entry.section, entry.name, dialog.class_name()
                 )
-            except (OSError, ValueError) as exc:
-                QMessageBox.warning(self, "Configuration not updated", str(exc))
-            else:
                 self.config_changed.emit()
+        except (OSError, ValueError) as exc:
+            QMessageBox.warning(self, "Configuration not updated", str(exc))
         self.reload()
         card = self._cards.get(key, card)
         self._connect(card, code=dialog.code())
+
+    def _apply_custom_class(
+        self, entry: DeviceEntry, custom: Dict[str, str], save: bool
+    ) -> None:
+        """
+        Use a custom class defined in the connect dialog.
+
+        Parameters
+        ----------
+        entry : DeviceEntry
+            The entry it connects.
+        custom : dict
+            ``name``, ``module``, ``section`` and ``args`` of the class.
+        save : bool
+            Whether to declare it in the configuration file (it is then
+            known to every session); otherwise it lasts for this session.
+        """
+        name = custom["name"]
+        if not save:
+            module = module_name(custom["module"], experiment_folder(self._config_path))
+            self._session_classes[name] = custom_class(
+                name, module, custom["section"], custom["args"]
+            )
+            return
+        set_custom_class(self._config_path, **custom)
+        self._session_classes.pop(name, None)
+        # The entry names its class only when its name does not say it.
+        classes, _ = known_classes(self._config_path)
+        by_name = match_by_name(entry.section, entry.name, classes)
+        if by_name is None or by_name.name != name:
+            set_entry_class(self._config_path, entry.section, entry.name, name)
+        self.config_changed.emit()
 
     def _connect(self, card: DeviceCard, code: Optional[str] = None) -> None:
         title = f"Connecting {card.info.title}"

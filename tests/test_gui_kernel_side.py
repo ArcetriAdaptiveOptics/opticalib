@@ -301,3 +301,26 @@ class TestWorkspaceRobustness:
         monkeypatch.setattr(matplotlib, "get_backend", lambda: ks.BACKEND)
         ks._post_execute()
         assert calls == [1]
+
+
+class TestUseExperiment:
+    """The experiment folder is importable from the kernel."""
+
+    def test_path_follows_the_experiment(self, tmp_path, monkeypatch):
+        import sys
+
+        monkeypatch.setattr(sys, "path", list(sys.path))
+        monkeypatch.setattr(ks, "_experiment_path", None)
+        first, second = tmp_path / "expA", tmp_path / "expB"
+        for folder in (first, second):
+            (folder / "SysConfig").mkdir(parents=True)
+        monkeypatch.setenv("AOCONF", str(first / "SysConfig" / "configuration.yaml"))
+        assert ks.use_experiment() == str(first) and sys.path[0] == str(first)
+        assert ks.use_experiment(str(second / "SysConfig" / "configuration.yaml")) == str(second)
+        assert sys.path[0] == str(second) and str(first) not in sys.path
+        # A folder that was already on the path is never removed.
+        sys.path.append(str(first))
+        ks.use_experiment(str(first / "SysConfig" / "configuration.yaml"))
+        ks.use_experiment(str(second / "SysConfig" / "configuration.yaml"))
+        assert str(first) in sys.path
+

@@ -617,7 +617,9 @@ class CalpyGUI(QMainWindow):
         self.setCentralWidget(self.plot_viewer)
 
         self.device_panel = DevicePanel(self._config_path, runner=self._run)
-        self.plugin_panel = PluginPanel(selection_callback=self._open_plugin_window)
+        self.plugin_panel = PluginPanel(
+            selection_callback=self._open_plugin_window, config_path=self._config_path
+        )
         self.workspace_view = WorkspaceView()
         self.data_browser = DataBrowser()
 
@@ -1106,8 +1108,9 @@ class CalpyGUI(QMainWindow):
         dlg.deleteLater()
 
     def _on_config_saved(self) -> None:
-        """Refresh the device panel and reload the configuration in the kernel."""
+        """Refresh the panels and reload the configuration in the kernel."""
         self.device_panel.reload()
+        self.plugin_panel.reload()
         self._run(
             "import opticalib\n"
             f"opticalib.set_configuration_file({self._config_path!r})",
@@ -1258,7 +1261,13 @@ class CalpyGUI(QMainWindow):
         self._config_label.setText(config_path)
         self._config_label.setToolTip(f"{config_path}\nClick to edit the configuration")
         self.bridge.set_config_path(config_path)
+        self.bridge.query(
+            {"ok": "True"},
+            lambda results: None,
+            code=f"{KERNEL_SIDE}.use_experiment({config_path!r})",
+        )
         self.device_panel.set_config_path(config_path)
+        self.plugin_panel.set_config_path(config_path)
         self._remember_experiment(config_path)
         self._refresh_folders()
         self._refresh_workspace()
