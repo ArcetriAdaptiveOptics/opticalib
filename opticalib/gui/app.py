@@ -71,7 +71,7 @@ from qtpy.QtWidgets import (
 
 from .activity import ActivityCenter, LocalJob, StartupOverlay, format_elapsed
 from .kernel import KERNEL_MPL_BACKEND, KERNEL_SIDE, KernelBridge, Task
-from .plugins import PLUGIN_WINDOWS, PluginPanel
+from .plugins import PROCEDURES, PluginPanel, Procedure
 from .procedures.base import ProcedureContext
 from .theme import SETTINGS_APP, SETTINGS_ORG, THEME_MODES, console_style_sheet, theme
 from .widgets.common import DockTitleBar, ElidedLabel
@@ -543,22 +543,52 @@ class CalpyGUI(QMainWindow):
         Path to the ``configuration.yaml`` file to load.  When *None* the
         default OptiCalib path (set via the ``AOCONF`` environment variable,
         or the package template) is used.
+
+    Notes
+    -----
+    Packages building on opticalib customise the GUI by subclassing it and
+    overriding the class attributes below (see the *Extending the GUI*
+    section of the GUI reference)::
+
+        class M4GUI(CalpyGUI):
+            APP_NAME = "M4 GUI"
+            SETTINGS_APP = "M4GUI"
+            INIT_SCRIPTS = ["/path/to/initM4.py"]
+            PROCEDURES = [Procedure("OTT", "telescope", "...", OttWindow)]
+
+        launch_gui(config_path, window_class=M4GUI)
     """
+
+    #: Name shown in the title bar and on the startup screen.
+    APP_NAME: str = "CalpyGUI"
+    #: Name under which the window layout and the recent experiments are
+    #: saved (theme and activity-panel preferences are shared by all).
+    SETTINGS_APP: str = SETTINGS_APP
+    #: Desktop file the window belongs to, on Linux (see ``calpy
+    #: --install-launcher``); ``None`` for none.
+    DESKTOP_FILE_NAME: Optional[str] = "OptiCalib"
+    #: Window icon (a file path).
+    ICON: str = ICON_FILE
+    #: Cards of the *Procedures* panel.
+    PROCEDURES: List[Procedure] = PROCEDURES
+    #: Scripts run in the kernel at startup (and after every restart), after
+    #: opticalib's ``initCalpy.py`` and in the same namespace.
+    INIT_SCRIPTS: List[str] = []
 
     def __init__(self, config_path: Optional[str] = None) -> None:
         """Initialise the main window and start the IPython kernel."""
         super().__init__()
 
-        self._settings = QSettings(SETTINGS_ORG, SETTINGS_APP)
+        self._settings = QSettings(SETTINGS_ORG, self.SETTINGS_APP)
         if config_path is None:
             from opticalib.core.root import CONFIGURATION_FILE
 
             config_path = CONFIGURATION_FILE
         self._config_path: str = os.path.abspath(config_path)
         self._experiment = _get_experiment_name(self._config_path) or "opticalib"
-        self.setWindowTitle(f"CalpyGUI – {self._experiment}")
-        if os.path.isfile(ICON_FILE):
-            self.setWindowIcon(QIcon(ICON_FILE))
+        self.setWindowTitle(f"{self.APP_NAME} – {self._experiment}")
+        if os.path.isfile(self.ICON):
+            self.setWindowIcon(QIcon(self.ICON))
         self.resize(1600, 950)
 
         self._tmp_dir = tempfile.mkdtemp(prefix="calpygui-")
@@ -571,7 +601,11 @@ class CalpyGUI(QMainWindow):
 
         theme().apply()
         self.bridge = KernelBridge(
-            self._config_path, _resolve_init_file(), self._tmp_dir, parent=self
+            self._config_path,
+            _resolve_init_file(),
+            self._tmp_dir,
+            parent=self,
+            extra_init_files=self.INIT_SCRIPTS,
         )
         self._build_ui()
         self._build_menus()
@@ -618,7 +652,9 @@ class CalpyGUI(QMainWindow):
 
         self.device_panel = DevicePanel(self._config_path, runner=self._run)
         self.plugin_panel = PluginPanel(
-            selection_callback=self._open_plugin_window, config_path=self._config_path
+            selection_callback=self._open_plugin_window,
+            config_path=self._config_path,
+            procedures=self.PROCEDURES,
         )
         self.workspace_view = WorkspaceView()
         self.data_browser = DataBrowser()
@@ -809,7 +845,7 @@ class CalpyGUI(QMainWindow):
         view_menu.addAction("Reset layout", self._reset_layout)
 
         help_menu = bar.addMenu("&Help")
-        help_menu.addAction("About CalpyGUI", self._about)
+        help_menu.addAction(f"About {self.APP_NAME}", self._about)
 
     def _build_status_bar(self) -> None:
         """Create the status bar (kernel state, actions, configuration)."""
@@ -875,7 +911,7 @@ class CalpyGUI(QMainWindow):
     def _show_overlay(self) -> None:
         self._overlay = StartupOverlay(
             KernelBridge.BOOTSTRAP_STEPS,
-            "CalpyGUI",
+            self.APP_NAME,
             f"Experiment: {self._experiment}\n{self._config_path}",
             parent=self,
         )
@@ -1257,7 +1293,7 @@ class CalpyGUI(QMainWindow):
         """Make the GUI follow the experiment the kernel switched to."""
         self._config_path = config_path
         self._experiment = _get_experiment_name(config_path) or "opticalib"
-        self.setWindowTitle(f"CalpyGUI – {self._experiment}")
+        self.setWindowTitle(f"{self.APP_NAME} – {self._experiment}")
         self._config_label.setText(config_path)
         self._config_label.setToolTip(f"{config_path}\nClick to edit the configuration")
         self.bridge.set_config_path(config_path)
@@ -1285,7 +1321,7 @@ class CalpyGUI(QMainWindow):
         plugin_name : str
             Display label selected in the plugin panel.
         """
-        window_cls = PLUGIN_WINDOWS.get(plugin_name)
+        window_cls = self.plugin_panel.window_class(plugin_name)
         if window_cls is None:
             QMessageBox.warning(
                 self,
@@ -1319,8 +1355,8 @@ class CalpyGUI(QMainWindow):
 
         QMessageBox.about(
             self,
-            "About CalpyGUI",
-            f"<b>CalpyGUI</b><br>opticalib {__version__}<br><br>"
+            f"About {self.APP_NAME}",
+            f"<b>{self.APP_NAME}</b><br>opticalib {__version__}<br><br>"
             "Graphical interface for the calpy / opticalib toolchain.<br>"
             "Arcetri Adaptive Optics group.",
         )
@@ -1336,7 +1372,7 @@ class CalpyGUI(QMainWindow):
         if busy and self._confirm_close:
             answer = QMessageBox.question(
                 self,
-                "Quit CalpyGUI",
+                f"Quit {self.APP_NAME}",
                 "Code is still running in the kernel (e.g. an acquisition).\n"
                 "Quit anyway? The running code is interrupted.",
             )
@@ -1358,7 +1394,7 @@ class CalpyGUI(QMainWindow):
 # ---------------------------------------------------------------------------
 
 
-def launch_gui(config_path: Optional[str] = None) -> None:
+def launch_gui(config_path: Optional[str] = None, window_class: type = CalpyGUI) -> None:
     """
     Launch the CalpyGUI application.
 
@@ -1372,15 +1408,18 @@ def launch_gui(config_path: Optional[str] = None) -> None:
         Path to the ``configuration.yaml`` file.  When *None* the default
         path resolved by OptiCalib at import time is used (either the
         ``AOCONF`` environment variable or the package template file).
+    window_class : type, optional
+        The main window: :class:`CalpyGUI` or a subclass customising it.
     """
     app = QApplication.instance() or QApplication(sys.argv)
-    app.setApplicationName("CalpyGUI")
-    app.setApplicationDisplayName("CalpyGUI")
-    # Lets Linux desktops match the window to the OptiCalib launcher.
-    app.setDesktopFileName("OptiCalib")
-    if os.path.isfile(ICON_FILE):
-        app.setWindowIcon(QIcon(ICON_FILE))
+    app.setApplicationName(window_class.APP_NAME)
+    app.setApplicationDisplayName(window_class.APP_NAME)
+    # Lets Linux desktops match the window to its launcher.
+    if window_class.DESKTOP_FILE_NAME:
+        app.setDesktopFileName(window_class.DESKTOP_FILE_NAME)
+    if os.path.isfile(window_class.ICON):
+        app.setWindowIcon(QIcon(window_class.ICON))
     theme().apply(app)
-    window = CalpyGUI(config_path=config_path)
+    window = window_class(config_path=config_path)
     window.show()
     sys.exit(app.exec())

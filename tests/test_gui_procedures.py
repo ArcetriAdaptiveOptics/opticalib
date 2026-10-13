@@ -357,6 +357,40 @@ def test_plugin_panel_opens_every_window(qapp):
     assert [name for name, *_ in PLUGINS] == list(PLUGIN_WINDOWS)
 
 
+class TestCustomProcedures:
+    """Packages building on opticalib list their own procedures."""
+
+    def test_panel_with_custom_procedures(self, qapp, tmp_path):
+        from opticalib.gui import PROCEDURES, Procedure
+        from opticalib.gui.plugins import PluginPanel
+        from opticalib.gui.procedures.base import ProcedureWindow, Step
+
+        class MyWindow(ProcedureWindow):
+            TITLE = "Mine"
+
+            def steps(self):
+                return [Step("hello", "Hello", "Say hello.", [], lambda v: "print('hello')")]
+
+        path = tmp_path / "configuration.yaml"
+        path.write_text("SYSTEM:\n  data_path: ''\n")
+        mine = Procedure("Mine", "star", "My procedure.", MyWindow)
+        opened = []
+        panel = PluginPanel(opened.append, config_path=str(path), procedures=[mine] + PROCEDURES)
+        assert panel.available() == ["Mine", "Timeseries"]
+        assert panel.window_class("Mine") is MyWindow and panel.window_class("Nope") is None
+        window = MyWindow()
+        assert window.step("hello").code() == "print('hello')"
+        window.deleteLater()
+
+    def test_subclass_attributes(self):
+        from opticalib.gui.app import CalpyGUI, launch_gui
+        import inspect
+
+        assert CalpyGUI.APP_NAME == "CalpyGUI" and CalpyGUI.INIT_SCRIPTS == []
+        assert [p.name for p in CalpyGUI.PROCEDURES][-1] == "Timeseries"
+        assert "window_class" in inspect.signature(launch_gui).parameters
+
+
 class TestConfiguredProcedures:
     """Procedures whose section the configuration does not define are not listed."""
 

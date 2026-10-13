@@ -529,6 +529,17 @@ class TestOptionalSections:
         with pytest.raises(KeyError, match="SYSTEM.ALIGNMENT"):
             read_config.get_alignment_config()
 
+    def test_alignment_config_still_importable(self, temp_dir, monkeypatch):
+        """Packages such as M4 import ``_sc``; it is now read when imported."""
+        self._write(temp_dir, monkeypatch, {"SYSTEM.ALIGNMENT": {"slices": [], "fitting_surface": ""}})
+        from opticalib.procedures.alignment import _sc
+
+        assert _sc.fitting_surface == ""
+        import opticalib.procedures.alignment as alignment
+
+        with pytest.raises(AttributeError):
+            alignment.not_there
+
     @pytest.mark.slow
     def test_import_without_procedure_sections(self, tmp_path):
         """opticalib imports with only SYSTEM and DEVICES in the file."""

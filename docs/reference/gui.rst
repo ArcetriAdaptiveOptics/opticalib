@@ -143,3 +143,58 @@ parameters come from :mod:`opticalib.gui.procedures.params`.
 
 .. autoclass:: opticalib.gui.plugins.PluginPanel
    :members:
+
+.. autoclass:: opticalib.gui.plugins.Procedure
+
+Extending the GUI
+-----------------
+
+A package built on opticalib (e.g. M4) reuses the whole GUI and adds its own
+procedures by subclassing :class:`~opticalib.gui.app.CalpyGUI` and
+overriding its class attributes:
+
+``APP_NAME``
+    Title of the window and of the startup screen.
+``SETTINGS_APP``
+    Name under which the window layout and the recent experiments are saved
+    (the theme and activity-panel preferences are shared).
+``INIT_SCRIPTS``
+    Scripts run in the kernel after opticalib's ``initCalpy.py``, in the
+    same namespace, at startup and after every restart: they import the
+    package and prepare what its procedures use.
+``PROCEDURES``
+    The cards of the *Procedures* panel, as
+    :class:`~opticalib.gui.plugins.Procedure` objects (opticalib's are in
+    :data:`opticalib.gui.PROCEDURES`).
+``DESKTOP_FILE_NAME``, ``ICON``
+    Desktop integration.
+
+Here an example is shown with the M4 use and customization of the opticalib GUI.
+
+.. code-block:: python
+
+    from opticalib.gui import PROCEDURES, CalpyGUI, Procedure
+    from opticalib.gui.app import launch_gui
+    from opticalib.gui.procedures.base import ProcedureWindow, Step
+    from opticalib.gui.procedures.params import BoolParam
+
+    class OttWindow(ProcedureWindow):
+        TITLE = "OTT"
+
+        def steps(self):
+            return [
+                Step("deploy", "Deploy the reference mirror", "Move it into the beam.",
+                     [], lambda v: "ottscripts.deployReferenceMirror()",
+                     confirm="This moves the reference mirror."),
+            ]
+
+    class M4GUI(CalpyGUI):
+        APP_NAME = "M4 CalpyGUI"
+        SETTINGS_APP = "M4CalpyGUI"
+        INIT_SCRIPTS = ["/path/to/initM4GUI.py"]
+        PROCEDURES = [Procedure("OTT", "telescope", "OTT user scripts.", OttWindow)] + PROCEDURES
+
+    launch_gui("/path/to/configuration.yaml", window_class=M4GUI)
+
+Set ``AOCONF`` before importing a package that reads its configuration at
+import time, as opticalib does.

@@ -29,7 +29,7 @@ import sys
 import time
 import traceback
 from collections import deque
-from typing import Any, Callable, Deque, Dict, List, Optional, Tuple
+from typing import Any, Callable, Deque, Dict, List, Optional, Sequence, Tuple
 
 from qtpy.QtCore import QObject, QTimer, Signal
 from qtconsole.manager import QtKernelManager
@@ -381,6 +381,9 @@ class KernelBridge(QObject):
         Folder used by the kernel to hand arrays over to the GUI.
     parent : QObject, optional
         Parent object.
+    extra_init_files : sequence of str, optional
+        Scripts run after *init_file*, in order, in the same namespace (e.g.
+        the environment of a package building on opticalib).
 
     Signals
     -------
@@ -436,11 +439,13 @@ class KernelBridge(QObject):
         init_file: Optional[str],
         tmp_dir: str,
         parent: Optional[QObject] = None,
+        extra_init_files: Sequence[str] = (),
     ) -> None:
         """Create the console widget; the kernel starts with :meth:`start`."""
         super().__init__(parent)
         self._config_path = config_path
         self._init_file = init_file
+        self._extra_init_files = [str(f) for f in extra_init_files]
         self._tmp_dir = tmp_dir
 
         self.console = CalpyConsole()
@@ -867,12 +872,19 @@ class KernelBridge(QObject):
             )
             self._finish_bootstrap()
             return
+        self._run_init_files([self._init_file] + self._extra_init_files)
+
+    def _run_init_files(self, files: List[str]) -> None:
+        """Run the bootstrap scripts one after the other; stop at the first error."""
+        if not files:
+            self._on_init_done()
+            return
         # safe_execfile instead of %run: no quoting or $-expansion issues
         # with the path (Windows paths, spaces, ...).
         task = Task(
-            f"get_ipython().safe_execfile({self._init_file!r}, get_ipython().user_ns, raise_exceptions=True)",
+            f"get_ipython().safe_execfile({files[0]!r}, get_ipython().user_ns, raise_exceptions=True)",
             "Loading the calpy environment",
-            on_done=self._current(lambda t: self._on_init_done()),
+            on_done=self._current(lambda t, rest=files[1:]: self._run_init_files(rest)),
             on_error=self._current(lambda t: self._bootstrap_failed("calpy", t.error)),
             quiet=True,
         )

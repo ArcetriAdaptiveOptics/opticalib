@@ -23,6 +23,18 @@ from ..analyzer import push_pull_reduction_algorithm as _ppr
 _np.set_printoptions(precision=2, suppress=False)
 
 
+def __getattr__(name: str):
+    """
+    Serve ``_sc``, the alignment configuration, when it is asked for.
+
+    It used to be read at import time, which failed for experiments without
+    an alignment section; packages such as M4 still import it.
+    """
+    if name == "_sc":
+        return _gac()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
 class Alignment:
     """
     Class for the alignment procedure: calibration and correction.

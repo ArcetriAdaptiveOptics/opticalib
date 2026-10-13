@@ -20,6 +20,11 @@ From Python::
 Via the CLI::
 
     calpy -f /path/to/experiment --gui
+
+Packages building on opticalib subclass :class:`CalpyGUI` to add their own
+procedures (:class:`~opticalib.gui.plugins.Procedure`, windows built on
+:class:`~opticalib.gui.procedures.base.ProcedureWindow`) and startup
+scripts, then call ``launch_gui(config_path, window_class=MyGUI)``.
 """
 
 import os as _os
@@ -38,7 +43,7 @@ if _os.environ["QT_API"].lower() in _PYQTGRAPH_LIBS:
         "PYQTGRAPH_QT_LIB", _PYQTGRAPH_LIBS[_os.environ["QT_API"].lower()]
     )
 
-__all__ = ["CalpyGUI", "launch_gui"]
+__all__ = ["CalpyGUI", "launch_gui", "Procedure", "PROCEDURES"]
 
 
 def __getattr__(name: str):
@@ -49,6 +54,10 @@ def __getattr__(name: str):
     inside the IPython kernel, which must not pay for (or require) a Qt
     import; the main window is therefore only loaded on first access.
     """
+    if name in ("Procedure", "PROCEDURES"):
+        from . import plugins
+
+        return getattr(plugins, name)
     if name in __all__:
         from . import app
 

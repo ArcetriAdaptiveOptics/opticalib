@@ -7,9 +7,15 @@ window (see :mod:`opticalib.gui.procedures`): DM calibration, stitching,
 segments phasing, alignment and timeseries.  A procedure that needs a
 section of the configuration file is listed only when the experiment
 defines that section: unused sections can simply be deleted.
+
+Each procedure is a :class:`Procedure`; :data:`PROCEDURES` lists opticalib's.
+Packages building on opticalib list their own in
+:attr:`opticalib.gui.CalpyGUI.PROCEDURES` (see the *Extending the GUI*
+section of the GUI reference).
 """
 
-from typing import Callable, Dict, List, Optional, Set, Tuple
+from dataclasses import dataclass
+from typing import Callable, Dict, List, Optional, Sequence, Set, Tuple
 
 import yaml
 
@@ -32,34 +38,77 @@ from .procedures.stitching import StitchingWindow
 from .procedures.timeseries import TimeseriesWindow
 from .theme import theme
 
-#: Available plugins, as (name, icon, description, configuration section
-#: they need or ``None``).
-PLUGINS: List[Tuple[str, str, str, Optional[str]]] = [
-    (
+@dataclass(frozen=True)
+class Procedure:
+    """
+    A card of the *Procedures* panel and the window it opens.
+
+    Attributes
+    ----------
+    name : str
+        Title of the card (unique in the panel).
+    icon : str
+        `Material Design <https://pictogrammers.com/library/mdi/>`_ icon name
+        (``mdi6.`` prefix omitted).
+    description : str
+        One-line description shown on the card.
+    window : type
+        The :class:`~opticalib.gui.procedures.base.ProcedureWindow` subclass
+        opened by the card.
+    section : str, optional
+        Configuration section the procedure needs: without it the card is
+        not listed.
+    """
+
+    name: str
+    icon: str
+    description: str
+    window: type
+    section: Optional[str] = None
+
+
+#: opticalib's procedures.
+PROCEDURES: List[Procedure] = [
+    Procedure(
         "Deformable Mirror Calibration",
         "mirror",
         "Influence functions acquisition and processing, flattening.",
+        DeformableMirrorCalibrationWindow,
         "INFLUENCE.FUNCTIONS",
     ),
-    (
+    Procedure(
         "Stitching",
         "image-multiple-outline",
         "Sub-aperture acquisition and stitching.",
+        StitchingWindow,
         "STITCHING",
     ),
-    (
+    Procedure(
         "Segments Phasing",
         "flare",
         "Segment piston measurement with the SPL sensor.",
+        SegmentsPhasingWindow,
         "PHASING",
     ),
-    (
+    Procedure(
         "Alignment",
         "axis-arrow",
         "Calibrate and correct the optical alignment.",
+        AlignmentWindow,
         "SYSTEM.ALIGNMENT",
     ),
-    ("Timeseries", "chart-line", "Acquire and analyse sequences of frames.", None),
+    Procedure(
+        "Timeseries",
+        "chart-line",
+        "Acquire and analyse sequences of frames.",
+        TimeseriesWindow,
+    ),
+]
+
+#: Former description of the procedures, as (name, icon, description,
+#: configuration section).
+PLUGINS: List[Tuple[str, str, str, Optional[str]]] = [
+    (p.name, p.icon, p.description, p.section) for p in PROCEDURES
 ]
 
 
@@ -103,6 +152,8 @@ class PluginPanel(QWidget):
     config_path : str, optional
         Configuration file: procedures whose section it does not define are
         not listed (all are listed without a file).
+    procedures : sequence of Procedure, optional
+        The cards, in order (default: :data:`PROCEDURES`).
     parent : QWidget, optional
         Parent widget.
     """
@@ -111,11 +162,15 @@ class PluginPanel(QWidget):
         self,
         selection_callback: Callable[[str], None],
         config_path: Optional[str] = None,
+        procedures: Optional[Sequence[Procedure]] = None,
         parent: Optional[QWidget] = None,
     ) -> None:
         """Build one card per plugin."""
         super().__init__(parent)
         self._selection_callback = selection_callback
+        self.procedures: List[Procedure] = list(
+            PROCEDURES if procedures is None else procedures
+        )
         self._icons: List[Tuple[object, str]] = []
         self._cards: Dict[str, QFrame] = {}
 
@@ -129,7 +184,12 @@ class PluginPanel(QWidget):
         caption.setProperty("muted", True)
         caption.setWordWrap(True)
         column.addWidget(caption)
-        for name, icon_name, description, _ in PLUGINS:
+        for procedure in self.procedures:
+            name, icon_name, description = (
+                procedure.name,
+                procedure.icon,
+                procedure.description,
+            )
             card = QFrame()
             card.setProperty("card", True)
             icon = qta.IconWidget()
@@ -196,7 +256,8 @@ class PluginPanel(QWidget):
         self._config_path = config_path
         sections = defined_sections(config_path)
         hidden = []
-        for name, _, _, section in PLUGINS:
+        for procedure in self.procedures:
+            name, section = procedure.name, procedure.section
             shown = section is None or sections is None or section in sections
             self._cards[name].setHidden(not shown)
             if not shown:
@@ -213,19 +274,29 @@ class PluginPanel(QWidget):
         """Re-read the configuration file."""
         self.set_config_path(self._config_path)
 
+    def window_class(self, name: str) -> Optional[type]:
+        """
+        Return the window class of a procedure.
+
+        Parameters
+        ----------
+        name : str
+            Procedure name.
+
+        Returns
+        -------
+        type or None
+            The window class, or ``None`` for an unknown name.
+        """
+        return next((p.window for p in self.procedures if p.name == name), None)
+
     def _apply_theme(self) -> None:
         for icon, name in self._icons:
             icon.setIcon(theme().icon(name, "accent"))
 
 
-#: Window class of each plugin, by name.
-PLUGIN_WINDOWS: Dict[str, type] = {
-    "Deformable Mirror Calibration": DeformableMirrorCalibrationWindow,
-    "Stitching": StitchingWindow,
-    "Segments Phasing": SegmentsPhasingWindow,
-    "Alignment": AlignmentWindow,
-    "Timeseries": TimeseriesWindow,
-}
+#: Window class of each of opticalib's procedures, by name.
+PLUGIN_WINDOWS: Dict[str, type] = {p.name: p.window for p in PROCEDURES}
 
 #: Former name of the procedure window base class.
 PluginWindowBase = ProcedureWindow

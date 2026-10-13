@@ -121,6 +121,21 @@ class TestBootstrap:
         bridge._begin_bootstrap()
         assert list(bridge._queue) == [user]
 
+    def test_extra_init_files_run_in_order(self, bridge):
+        steps = []
+        bridge.bootstrap_step.connect(lambda k, s, m: steps.append((k, s)))
+        bridge._extra_init_files = ["/pkg/initA.py", "/pkg/initB.py"]
+        bridge._on_install_done({"ok": True})
+        first = bridge.kc.executed[-1]
+        assert str(bridge._init_file) in first["code"] and "initA" not in first["code"]
+        bridge._on_shell(_reply(first["id"]))
+        second = bridge.kc.executed[-1]
+        assert "/pkg/initA.py" in second["code"]
+        # A failing script stops the bootstrap: the next one is not run.
+        bridge._on_shell(_reply(second["id"], status="error", ename="ImportError", evalue="m4"))
+        assert ("calpy", "error") in steps and bridge.is_ready
+        assert not any("initB" in r["code"] for r in bridge.kc.executed)
+
     def test_bootstrap_uses_safe_execfile(self, bridge):
         bridge._on_install_done({"ok": True})
         code = bridge.kc.executed[-1]["code"]
