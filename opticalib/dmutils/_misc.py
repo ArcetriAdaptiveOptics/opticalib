@@ -4,6 +4,7 @@ from ..core import _types as _ot
 
 
 def make_modal_base(
+    im: _ot.MatrixData,
     rm: _ot.MatrixLike,
     modes: int | list[int],
     mask: _ot.MaskData,
@@ -14,8 +15,10 @@ def make_modal_base(
 
     Parameters
     ----------
-    RM : MatrixLike
-        The reconstruction matrix.
+    im : MatrixData
+        The Interaction Matrix (nacts, npix).
+    rm : MatrixLike
+        The reconstruction matrix (npix, nacts).
     modes : int or list of int
         The number of modes to compute, or the list of mode indices to compute.
     mask : MaskData
@@ -30,7 +33,7 @@ def make_modal_base(
 
     Returns
     -------
-    array_like
+    m2c : MatrixLike
         The modal base.
 
     """
@@ -64,8 +67,8 @@ def make_modal_base(
         masked_data = surf[~mask]
         mat[i, :] = masked_data
 
-    MB = (mat @ rm).T
-    return MB
+    m2c = (mat @ rm).T
+    return m2c
 
 
 __all__ = ["make_modal_base"]

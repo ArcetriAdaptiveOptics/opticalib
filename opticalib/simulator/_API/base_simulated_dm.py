@@ -127,7 +127,7 @@ class BaseSimulatedDM(BaseDeformableMirror):
     def run_cmd_history(
         self,
         wfs: _ot.Optional[_ot.InterferometerDevice | _ot.WFSDevice] = None,
-        save: str = None,
+        save: str|bool = False,
         **setshape_kwargs: dict[str, _ot.Any],
     ):
         """
@@ -166,11 +166,13 @@ class BaseSimulatedDM(BaseDeformableMirror):
 
             if wfs is not None:
                 datafold, tn = osu.create_data_folder(get_tn=True)
-            else:
+            elif save is not False:
                 tn = save
                 datafold = os.path.join(fp.OPD_IMAGES_ROOT_FOLDER, tn)
                 if not os.path.exists(datafold):
                     os.mkdir(datafold)
+            else:
+                tn = None
 
             print(f"{tn} - {self._cmd_history.shape[-1]} modes.")
             s = self.get_shape()
