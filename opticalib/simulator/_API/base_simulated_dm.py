@@ -276,10 +276,10 @@ class BaseSimulatedDM(BaseDeformableMirror):
         c = cmd if cmd is not None else kwargs.pop("c", None)
         s = kwargs.pop("s", 65)
         marker = kwargs.pop("marker", "s")
-        idx = kwargs.pop("from_idx", None)
+        idx = kwargs.pop("from_idx", 0)
         xlabel = kwargs.pop("xlabel", "X [m]")
         ylabel = kwargs.pop("ylabel", "Y [m]")
-        title = kwargs.pop("title", f"Morfeo DM{self._which} actuator coordinates") 
+        title = kwargs.pop("title", f"{self._name} actuator coordinates")
         return coordplot(
             self._coords[:, :2],
             annotate=annotate,
