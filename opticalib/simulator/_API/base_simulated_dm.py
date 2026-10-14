@@ -152,7 +152,9 @@ class BaseSimulatedDM(BaseDeformableMirror):
         """
         differential = setshape_kwargs.get("differential", False)
         delay: float = _rc.get_iff_config(key=None).get("sequential_delay", 0.0)
-        slaving: bool | str = setshape_kwargs.get("slave", False)
+        slaving: bool | str = setshape_kwargs.get(
+            "slaving", setshape_kwargs.get("slave", False)
+        )
 
         if self._cmd_history is None:
             self._logger.error("No Command History found in memory!")
@@ -274,15 +276,20 @@ class BaseSimulatedDM(BaseDeformableMirror):
         c = cmd if cmd is not None else kwargs.pop("c", None)
         s = kwargs.pop("s", 65)
         marker = kwargs.pop("marker", "s")
-        coordplot(
+        idx = kwargs.pop("from_idx", None)
+        xlabel = kwargs.pop("xlabel", "X [m]")
+        ylabel = kwargs.pop("ylabel", "Y [m]")
+        title = kwargs.pop("title", f"Morfeo DM{self._which} actuator coordinates") 
+        return coordplot(
             self._coords[:, :2],
             annotate=annotate,
+            from_idx=idx,
             c=c,
             s=s,
             marker=marker,
-            xlabel="X [m]",
-            ylabel="Y [m]",
-            title=f"Morfeo DM{self._which} actuator coordinates",
+            xlabel=xlabel,
+            ylabel=ylabel,
+            title=title,
             **kwargs,
         )
 
