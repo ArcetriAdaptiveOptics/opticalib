@@ -127,7 +127,7 @@ class BaseSimulatedDM(BaseDeformableMirror):
     def run_cmd_history(
         self,
         wfs: _ot.Optional[_ot.InterferometerDevice | _ot.WFSDevice] = None,
-        save: str|bool = False,
+        save: str | bool = False,
         **setshape_kwargs: dict[str, _ot.Any],
     ):
         """
@@ -360,9 +360,7 @@ class BaseSimulatedDM(BaseDeformableMirror):
             if xs.size == 0:
                 ys, xs = np.indices(mask.shape).reshape(2, -1)
             pup_center = ((xs.min() + xs.max()) / 2.0, (ys.min() + ys.max()) / 2.0)
-            pup_radius = (
-                max(xs.max() - xs.min(), ys.max() - ys.min()) + 1
-            ) / 2.0
+            pup_radius = (max(xs.max() - xs.min(), ys.max() - ys.min()) + 1) / 2.0
         else:
             pup_center, pup_radius = None, None
 

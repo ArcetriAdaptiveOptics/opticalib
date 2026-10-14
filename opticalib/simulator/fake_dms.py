@@ -92,7 +92,9 @@ class AlpaoDm(BaseFakeAlpao):
         """
         return self._borderIds
 
-    def _mirror_command(self, cmd: _t.ArrayLike, differential: bool, **kwargs: dict[str, _t.Any]):
+    def _mirror_command(
+        self, cmd: _t.ArrayLike, differential: bool, **kwargs: dict[str, _t.Any]
+    ):
         """
         Applies the given command to the deformable mirror.
 

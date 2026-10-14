@@ -191,7 +191,7 @@ class ConnectDialog(QDialog):
         if not name_guess.isidentifier():
             name_guess = ""
         file_guess = find_class_file(experiment, name_guess)
-        suffix = entry.name[len(name_guess):] if name_guess else ""
+        suffix = entry.name[len(name_guess) :] if name_guess else ""
         self._custom_name = QLineEdit(name_guess)
         self._custom_name.setPlaceholderText("e.g. MyDM")
         self._custom_module = QLineEdit(file_guess)
@@ -201,7 +201,9 @@ class ConnectDialog(QDialog):
         self._btn_browse = QPushButton("Browse…")
         self._btn_browse.clicked.connect(self._browse_module)
         self._custom_args = QLineEdit("{suffix}" if suffix else "")
-        self._custom_args.setPlaceholderText("constructor arguments, e.g. {suffix}, n=2")
+        self._custom_args.setPlaceholderText(
+            "constructor arguments, e.g. {suffix}, n=2"
+        )
         hint = QLabel(
             "In the arguments, {name} is the entry name and {suffix} what follows "
             f"the class name (here {suffix or 'nothing'!r}). The experiment folder"
@@ -348,7 +350,9 @@ class ConnectDialog(QDialog):
         if not name.isidentifier() or keyword.iskeyword(name):
             self._custom_error = "Enter the class name."
         elif not module:
-            self._custom_error = "Enter the module, or the .py file, defining the class."
+            self._custom_error = (
+                "Enter the module, or the .py file, defining the class."
+            )
         else:
             try:
                 dotted = module_name(module, self._experiment)
@@ -373,8 +377,12 @@ class ConnectDialog(QDialog):
         self._custom_module.setText(path)
         if not self._custom_name.text().strip():
             try:
-                with open(os.path.join(self._experiment, path), "r", errors="replace") as f:
-                    found = re.search(r"^class\s+([A-Za-z_]\w*)", f.read(), re.MULTILINE)
+                with open(
+                    os.path.join(self._experiment, path), "r", errors="replace"
+                ) as f:
+                    found = re.search(
+                        r"^class\s+([A-Za-z_]\w*)", f.read(), re.MULTILINE
+                    )
             except OSError:
                 found = None
             if found:
@@ -400,7 +408,9 @@ class ConnectDialog(QDialog):
         else:
             conf = dict(entry.conf)
             conf["class"] = name
-            self._current = resolve_entry(entry.section, entry.name, conf, self._classes)
+            self._current = resolve_entry(
+                entry.section, entry.name, conf, self._classes
+            )
         self._refresh_problems()
         if not self._code_edited:
             self._reset_code()
@@ -427,7 +437,9 @@ class ConnectDialog(QDialog):
                 if name
                 else "Save the class in the configuration entry"
             )
-            already = name is not None and explicit.split(".")[-1].lower() == name.lower()
+            already = (
+                name is not None and explicit.split(".")[-1].lower() == name.lower()
+            )
             self._save_class.setEnabled(name is not None and not already)
             if set_default:
                 self._save_class.setChecked(

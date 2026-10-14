@@ -308,7 +308,7 @@ def create_cube(fl_or_il: list[str], register: bool = False) -> _ot.CubeData:
 
     # check if it is composed of file paths to load
     if all([isinstance(item, str) for item in fl_or_il]):
-        N = len(fl_or_il) # Number of files
+        N = len(fl_or_il)  # Number of files
         if N > 1000:
             memmap = False
             print("Disabling memory mapping for large file list: N =", N)

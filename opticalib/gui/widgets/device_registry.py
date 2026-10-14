@@ -1110,7 +1110,12 @@ def set_custom_class(
     if lines and not lines[-1].endswith("\n"):
         lines[-1] += "\n"
 
-    fields = [("module", module), ("section", section), ("args", args), ("description", description)]
+    fields = [
+        ("module", module),
+        ("section", section),
+        ("args", args),
+        ("description", description),
+    ]
     try:
         section_i, section_indent = _find_child(
             lines, CUSTOM_CLASSES_SECTION, 0, len(lines), -1
@@ -1121,7 +1126,11 @@ def set_custom_class(
     def block(indent: str) -> List[str]:
         child = indent + "  "
         out = [f"{indent}{name}:\n"]
-        out += [f"{child}{k}: {_yaml_scalar(v)}\n" for k, v in fields if str(v or "").strip()]
+        out += [
+            f"{child}{k}: {_yaml_scalar(v)}\n"
+            for k, v in fields
+            if str(v or "").strip()
+        ]
         return out
 
     if section_i is None:
@@ -1160,14 +1169,22 @@ def set_custom_class(
             if parsed is not None:
                 child_indent = parsed[0]
                 break
-        indent = " " * (child_indent if child_indent is not None else section_indent + 2)
+        indent = " " * (
+            child_indent if child_indent is not None else section_indent + 2
+        )
         try:
-            old_i, old_indent = _find_child(lines, name, section_i + 1, end, section_indent)
+            old_i, old_indent = _find_child(
+                lines, name, section_i + 1, end, section_indent
+            )
         except ValueError:
             at = end
-            while at > section_i + 1 and (
-                not lines[at - 1].strip() or lines[at - 1].lstrip().startswith("#")
-            ) and not lines[at - 1].startswith(indent + " "):
+            while (
+                at > section_i + 1
+                and (
+                    not lines[at - 1].strip() or lines[at - 1].lstrip().startswith("#")
+                )
+                and not lines[at - 1].startswith(indent + " ")
+            ):
                 at -= 1
             lines[at:at] = block(indent)
         else:

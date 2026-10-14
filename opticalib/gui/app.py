@@ -1512,7 +1512,9 @@ class CalpyGUI(QMainWindow):
 # ---------------------------------------------------------------------------
 
 
-def launch_gui(config_path: Optional[str] = None, window_class: type = CalpyGUI) -> None:
+def launch_gui(
+    config_path: Optional[str] = None, window_class: type = CalpyGUI
+) -> None:
     """
     Launch the CalpyGUI application.
 

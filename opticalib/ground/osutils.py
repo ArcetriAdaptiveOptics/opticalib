@@ -457,7 +457,7 @@ def load_cube_from_filelist(
     return cube
 
 
-def read_phasemap(file_path: str, **kwargs: dict[str,_ot.Any]) -> _ot.ImageData:
+def read_phasemap(file_path: str, **kwargs: dict[str, _ot.Any]) -> _ot.ImageData:
     """
     Function to read interferometric data, in the three possible formats
     (FITS, 4D, H5)
@@ -480,7 +480,9 @@ def read_phasemap(file_path: str, **kwargs: dict[str,_ot.Any]) -> _ot.ImageData:
     return image
 
 
-def load_fits(filepath: str, on_gpu: bool = False, **kwargs: dict[str,_ot.Any]) -> _ot.FitsData | list[_ot.FitsData]:
+def load_fits(
+    filepath: str, on_gpu: bool = False, **kwargs: dict[str, _ot.Any]
+) -> _ot.FitsData | list[_ot.FitsData]:
     """
     Loads a FITS file.
 

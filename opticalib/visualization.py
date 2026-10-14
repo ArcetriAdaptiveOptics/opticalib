@@ -176,7 +176,7 @@ def coordplot(
     coord: _ot.ArrayLike,
     annotate: bool = True,
     from_idx: int = 0,
-    **kwargs: dict[str, _ot.Any]
+    **kwargs: dict[str, _ot.Any],
 ):
     """
     Plot a set of coordinates as a 2D scatter plot.

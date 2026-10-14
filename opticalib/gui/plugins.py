@@ -38,6 +38,7 @@ from .procedures.stitching import StitchingWindow
 from .procedures.timeseries import TimeseriesWindow
 from .theme import theme
 
+
 @dataclass(frozen=True)
 class Procedure:
     """

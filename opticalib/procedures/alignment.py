@@ -94,9 +94,7 @@ class Alignment:
         self.recMat = None
         self._cmdAmp = None
         self._surface = (
-            _osu.load_fits(sc.fitting_surface)
-            if not sc.fitting_surface == ""
-            else None
+            _osu.load_fits(sc.fitting_surface) if not sc.fitting_surface == "" else None
         )
         self._fitter = _zfitter(self._surface)
         self._moveFnc = self.__get_callables(self.mdev, sc.devices_move_calls)
