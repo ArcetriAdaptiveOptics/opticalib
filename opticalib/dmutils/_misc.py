@@ -4,7 +4,7 @@ from ..core import _types as _ot
 
 
 def make_modal_base(
-    im: _ot.MatrixData,
+    im: _ot.MatrixLike,
     rm: _ot.MatrixLike,
     modes: int | list[int],
     mask: _ot.MaskData,
@@ -15,7 +15,7 @@ def make_modal_base(
 
     Parameters
     ----------
-    im : MatrixData
+    im : MatrixLike
         The Interaction Matrix (nacts, npix).
     rm : MatrixLike
         The reconstruction matrix (npix, nacts).
