@@ -105,10 +105,10 @@ PROCEDURES: List[Procedure] = [
     ),
 ]
 
-#: Former description of the procedures, as (name, icon, description,
-#: configuration section).
-PLUGINS: List[Tuple[str, str, str, Optional[str]]] = [
-    (p.name, p.icon, p.description, p.section) for p in PROCEDURES
+#: Former description of the procedures, as (name, icon, description); the
+#: configuration section each one needs is in :data:`PROCEDURES`.
+PLUGINS: List[Tuple[str, str, str]] = [
+    (p.name, p.icon, p.description) for p in PROCEDURES
 ]
 
 
@@ -161,9 +161,10 @@ class PluginPanel(QWidget):
     def __init__(
         self,
         selection_callback: Callable[[str], None],
+        parent: Optional[QWidget] = None,
+        *,
         config_path: Optional[str] = None,
         procedures: Optional[Sequence[Procedure]] = None,
-        parent: Optional[QWidget] = None,
     ) -> None:
         """Build one card per plugin."""
         super().__init__(parent)

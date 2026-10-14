@@ -324,3 +324,43 @@ class TestUseExperiment:
         ks.use_experiment(str(second / "SysConfig" / "configuration.yaml"))
         assert str(first) in sys.path
 
+    def test_modules_of_the_previous_experiment_are_not_reused(self, tmp_path, monkeypatch):
+        import sys
+
+        monkeypatch.setattr(sys, "path", list(sys.path))
+        monkeypatch.setattr(ks, "_experiment_path", None)
+        monkeypatch.setattr(sys, "modules", dict(sys.modules))
+        first, second = tmp_path / "expA", tmp_path / "expB"
+        for folder, who in ((first, "A"), (second, "B")):
+            (folder / "SysConfig").mkdir(parents=True)
+            (folder / "lab_driver.py").write_text(f"WHO = {who!r}\n")
+            (folder / "lab_pkg").mkdir()
+            (folder / "lab_pkg" / "__init__.py").write_text("")
+            (folder / "lab_pkg" / "sub.py").write_text(f"WHO = {who!r}\n")
+        ks.use_experiment(str(first / "SysConfig" / "configuration.yaml"))
+        import importlib
+
+        assert importlib.import_module("lab_driver").WHO == "A"
+        assert importlib.import_module("lab_pkg.sub").WHO == "A"
+        ks.use_experiment(str(second / "SysConfig" / "configuration.yaml"))
+        assert "lab_driver" not in sys.modules and "lab_pkg.sub" not in sys.modules
+        assert importlib.import_module("lab_driver").WHO == "B"
+        assert importlib.import_module("lab_pkg.sub").WHO == "B"
+
+    def test_unloading_spares_opticalib_and_installed_code(self, tmp_path, monkeypatch):
+        import sys
+        import types
+
+        monkeypatch.setattr(sys, "modules", dict(sys.modules))
+        site = tmp_path / "venv" / "site-packages"
+        site.mkdir(parents=True)
+        installed = types.ModuleType("installed_thing")
+        installed.__file__ = str(site / "installed_thing.py")
+        sys.modules["installed_thing"] = installed
+        own = types.ModuleType("my_driver")
+        own.__file__ = str(tmp_path / "my_driver.py")
+        sys.modules["my_driver"] = own
+        removed = ks._unload_experiment_modules(str(tmp_path))
+        assert removed == ["my_driver"]
+        assert "installed_thing" in sys.modules and "opticalib.gui.kernel_side" in sys.modules
+

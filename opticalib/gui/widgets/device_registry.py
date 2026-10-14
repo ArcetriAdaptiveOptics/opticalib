@@ -37,6 +37,7 @@ This module does not import Qt.
 """
 
 import json
+import keyword
 import os
 import re
 import shutil
@@ -236,6 +237,18 @@ _IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _MODULE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$")
 
 
+def _is_identifier(name: str) -> bool:
+    """Whether *name* can be used as a Python name (keywords such as ``class`` cannot)."""
+    return bool(_IDENTIFIER.match(name)) and not keyword.iskeyword(name)
+
+
+def _is_module_name(name: str) -> bool:
+    """Whether *name* is a dotted module path that ``from <name> import x`` accepts."""
+    return bool(_MODULE.match(name)) and all(
+        not keyword.iskeyword(part) for part in name.split(".")
+    )
+
+
 def experiment_folder(config_path: str) -> str:
     """
     Return the folder of the experiment of a configuration file.
@@ -299,7 +312,7 @@ def module_name(module: str, experiment: str = "") -> str:
         if path.endswith(".py"):
             path = path[:-3]
         text = path.replace(os.sep, ".").replace("/", ".")
-    if not _MODULE.match(text):
+    if not _is_module_name(text):
         raise ValueError(f"'{module}' is not a Python module name or a .py file.")
     return text
 
@@ -368,7 +381,7 @@ def load_custom_classes(
     experiment = experiment_folder(config_path)
     for name, definition in section.items():
         name = str(name)
-        if not _IDENTIFIER.match(name):
+        if not _is_identifier(name):
             invalid[name] = f"'{name}' is not a valid class name."
             continue
         if not isinstance(definition, dict) or _is_empty(definition.get("module")):
@@ -1088,7 +1101,7 @@ def set_custom_class(
     ValueError
         If the declaration is invalid or the edit would not produce it.
     """
-    if not _IDENTIFIER.match(str(name)):
+    if not _is_identifier(str(name)):
         raise ValueError(f"'{name}' is not a valid class name.")
     module_name(module, experiment_folder(config_path))  # validates
 

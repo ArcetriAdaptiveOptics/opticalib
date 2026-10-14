@@ -355,6 +355,19 @@ def test_plugin_panel_opens_every_window(qapp):
     from opticalib.gui.plugins import PLUGIN_WINDOWS, PLUGINS
 
     assert [name for name, *_ in PLUGINS] == list(PLUGIN_WINDOWS)
+    # Still the former (name, icon, description) triples.
+    for name, icon, description in PLUGINS:
+        assert name and icon and description
+
+
+def test_plugin_panel_keeps_its_positional_signature(qapp):
+    from qtpy.QtWidgets import QWidget
+
+    from opticalib.gui.plugins import PluginPanel
+
+    parent = QWidget()
+    panel = PluginPanel(lambda name: None, parent)
+    assert panel.parent() is parent
 
 
 class TestCustomProcedures:

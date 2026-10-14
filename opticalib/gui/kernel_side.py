@@ -473,6 +473,53 @@ def backend() -> str:
 _experiment_path: Optional[str] = None
 
 
+def _unload_experiment_modules(folder: str) -> List[str]:
+    """
+    Remove from ``sys.modules`` the modules loaded from *folder*.
+
+    Changing ``sys.path`` does not replace modules that were already
+    imported: without this, a driver module of the previous experiment would
+    still be found, under the same name, in the next one.  opticalib itself,
+    the standard library and installed packages are never unloaded, even
+    when *folder* contains them (e.g. a source checkout used as experiment).
+
+    Parameters
+    ----------
+    folder : str
+        The experiment folder whose modules are dropped.
+
+    Returns
+    -------
+    list of str
+        Names of the modules removed.
+    """
+    import importlib
+
+    root = _os.path.join(_os.path.realpath(folder), "")
+    stdlib = getattr(_sys, "stdlib_module_names", frozenset())
+    removed = []
+    for name, module in list(_sys.modules.items()):
+        top = name.partition(".")[0]
+        if top == "opticalib" or top in stdlib or name == "__main__":
+            continue
+        files = [getattr(module, "__file__", None)] + list(
+            getattr(module, "__path__", None) or []
+        )
+        for path in files:
+            if not path:
+                continue
+            real = _os.path.realpath(path)
+            if real.startswith(root) and not any(
+                part in ("site-packages", "dist-packages")
+                for part in real.split(_os.sep)
+            ):
+                del _sys.modules[name]
+                removed.append(name)
+                break
+    importlib.invalidate_caches()
+    return removed
+
+
 def use_experiment(config_path: Optional[str] = None) -> str:
     """
     Make the modules of the experiment folder importable.
@@ -497,8 +544,11 @@ def use_experiment(config_path: Optional[str] = None) -> str:
     from .widgets.device_registry import experiment_folder
 
     folder = experiment_folder(config_path or _os.environ.get("AOCONF", ""))
-    if _experiment_path and _experiment_path != folder and _experiment_path in _sys.path:
-        _sys.path.remove(_experiment_path)
+    if _experiment_path and _experiment_path != folder:
+        if _experiment_path in _sys.path:
+            _sys.path.remove(_experiment_path)
+        # Modules imported from the previous experiment must not be reused.
+        _unload_experiment_modules(_experiment_path)
         _experiment_path = None
     if folder and folder not in _sys.path:
         _sys.path.insert(0, folder)

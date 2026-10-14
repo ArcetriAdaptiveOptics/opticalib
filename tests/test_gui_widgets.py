@@ -470,6 +470,20 @@ class TestExtraPanels:
         second._reset_layout()
         assert second.dockWidgetArea(second.docks["bench"]) == Qt.DockWidgetArea.RightDockWidgetArea
 
+    def test_area_is_ignored_when_tabifying(self, make_window):
+        from qtpy.QtWidgets import QLabel
+
+        from opticalib.gui.app import CalpyGUI
+
+        class TabGUI(CalpyGUI):
+            SETTINGS_APP = "ExtraPanelsTest"
+
+            def add_panels(self):
+                self.add_dock("t", "T", QLabel(), area="unused", tabify_with="workspace")
+
+        window = make_window(TabGUI)
+        assert window.docks["t"] in window.tabifiedDockWidgets(window.docks["workspace"])
+
     def test_late_calls_are_refused(self, make_window):
         from qtpy.QtWidgets import QLabel
 

@@ -788,7 +788,7 @@ class CalpyGUI(QMainWindow):
             raise ValueError(
                 f"Unknown panel {tabify_with!r}; panels: {', '.join(self._docks)}."
             )
-        if area not in self.DOCK_AREAS:
+        if tabify_with is None and area not in self.DOCK_AREAS:
             raise ValueError(
                 f"Unknown area {area!r}; use one of {', '.join(self.DOCK_AREAS)}."
             )

@@ -137,9 +137,10 @@ class ConnectDialog(QDialog):
         self,
         entry: DeviceEntry,
         var_name: Optional[str] = None,
+        parent: Optional[QWidget] = None,
+        *,
         classes: Optional[List[DeviceClass]] = None,
         experiment: str = "",
-        parent: Optional[QWidget] = None,
     ) -> None:
         """Build the dialog for *entry*."""
         super().__init__(parent)

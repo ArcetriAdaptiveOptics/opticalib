@@ -354,6 +354,16 @@ class TestConnectDialog:
         card = panel.card(f"cfg:INTERFEROMETERS:{name}")
         return card, panel._make_dialog(card.info.entry, card.info.var_name)
 
+    def test_positional_signature(self, panel, qapp):
+        from qtpy.QtWidgets import QWidget
+
+        from opticalib.gui.widgets.connect_dialog import ConnectDialog
+
+        entry = panel.card("cfg:INTERFEROMETERS:Mystery").info.entry
+        parent = QWidget()
+        dialog = ConnectDialog(entry, "interf", parent)
+        assert dialog.parent() is parent and dialog.var_name() == "interf"
+
     def test_choosing_a_class(self, panel):
         card, dialog = self._dialog(panel, "Mystery")
         assert dialog.class_name() is None
@@ -669,6 +679,20 @@ class TestCustomClassDialog:
         assert loaded["DEVICES"]["DEFORMABLE.MIRRORS"]["OtherDM"]["class"] == "MorfeoDM"
         assert custom_panel.card("cfg:DEFORMABLE.MIRRORS:OtherDM").connect_code().endswith("MorfeoDM(3)")
 
+    def test_session_choices_do_not_follow_a_switch(self, custom_panel, experiment, tmp_path):
+        card, dialog = self._custom_dialog(custom_panel)
+        dialog._save_class.setChecked(False)
+        custom_panel.apply_connect_dialog(card, dialog)
+        assert custom_panel._overrides and custom_panel._session_classes
+        other = tmp_path / "other.yaml"
+        other.write_text(CUSTOM_CONFIG)
+        custom_panel.set_config_path(str(other))
+        assert not custom_panel._overrides and not custom_panel._session_classes
+        # The same path again keeps the (new) state.
+        custom_panel._overrides["k"] = {"var": "x"}
+        custom_panel.set_config_path(str(other))
+        assert custom_panel._overrides == {"k": {"var": "x"}}
+
     def test_apply_without_saving_lasts_for_the_session(self, custom_panel, experiment):
         card, dialog = self._custom_dialog(custom_panel)
         dialog._save_class.setChecked(False)
@@ -677,6 +701,29 @@ class TestCustomClassDialog:
         assert not custom_panel.card("cfg:DEFORMABLE.MIRRORS:MorfeoDM2").info.needs_setup
         custom_panel.reload()
         assert custom_panel.card("cfg:DEFORMABLE.MIRRORS:MorfeoDM1").info.class_name == "MorfeoDM"
+
+
+class TestKeywordNames:
+    """Python keywords are not valid class or module names."""
+
+    @pytest.mark.parametrize("name", ["class", "None", "import", "True"])
+    def test_class_names(self, tmp_path, name):
+        classes, invalid = reg.load_custom_classes({"DEVICE.CLASSES": {name: {"module": "lab"}}})
+        assert not classes and name in invalid
+        path = tmp_path / "configuration.yaml"
+        path.write_text("DEVICES: {}\n")
+        with pytest.raises(ValueError, match="valid class name"):
+            reg.set_custom_class(str(path), name, "lab")
+
+    @pytest.mark.parametrize("module", ["class.driver", "lab.import", "None", "lab/def.py"])
+    def test_module_names(self, module):
+        with pytest.raises(ValueError, match="Python module name"):
+            reg.module_name(module)
+        classes, invalid = reg.load_custom_classes({"DEVICE.CLASSES": {"Thing": {"module": module}}})
+        assert not classes and "Thing" in invalid
+
+    def test_soft_keywords_are_fine(self):
+        assert reg.module_name("lab.match.case") == "lab.match.case"
 
 
 class TestSectionlessCustomClass:

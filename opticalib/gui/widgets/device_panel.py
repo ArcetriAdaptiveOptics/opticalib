@@ -14,6 +14,7 @@ variable it was bound to (``dm``, ``interf``, ...) holds an instance of the
 expected class.  Connecting a device runs its constructor in the console.
 """
 
+import os
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
@@ -664,6 +665,11 @@ class DevicePanel(QWidget):
         config_path : str
             Path to the ``configuration.yaml`` file.
         """
+        if os.path.normpath(config_path) != os.path.normpath(self._config_path):
+            # Choices made for the previous experiment (a class from one of
+            # its modules, a variable name) do not carry over.
+            self._overrides.clear()
+            self._session_classes.clear()
         self._config_path = config_path
         self.reload()
 
