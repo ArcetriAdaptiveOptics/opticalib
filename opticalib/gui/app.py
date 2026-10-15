@@ -71,7 +71,7 @@ from qtpy.QtWidgets import (
 
 from .activity import ActivityCenter, LocalJob, StartupOverlay, format_elapsed
 from .kernel import KERNEL_MPL_BACKEND, KERNEL_SIDE, KernelBridge, Task
-from .plugins import PLUGIN_WINDOWS, PluginPanel
+from .plugins import PROCEDURES, PluginPanel, Procedure
 from .procedures.base import ProcedureContext
 from .theme import SETTINGS_APP, SETTINGS_ORG, THEME_MODES, console_style_sheet, theme
 from .widgets.common import DockTitleBar, ElidedLabel
@@ -543,22 +543,55 @@ class CalpyGUI(QMainWindow):
         Path to the ``configuration.yaml`` file to load.  When *None* the
         default OptiCalib path (set via the ``AOCONF`` environment variable,
         or the package template) is used.
+
+    Notes
+    -----
+    Packages building on opticalib customise the GUI by subclassing it and
+    overriding the class attributes below (see the *Extending the GUI*
+    section of the GUI reference)::
+
+        class M4GUI(CalpyGUI):
+            APP_NAME = "M4 GUI"
+            SETTINGS_APP = "M4GUI"
+            INIT_SCRIPTS = ["/path/to/initM4.py"]
+            PROCEDURES = [Procedure("OTT", "telescope", "...", OttWindow)]
+
+            def add_panels(self):  # optional: extra dockable panels
+                self.add_dock("ott", "OTT status", OttStatusPanel())
+
+        launch_gui(config_path, window_class=M4GUI)
     """
+
+    #: Name shown in the title bar and on the startup screen.
+    APP_NAME: str = "CalpyGUI"
+    #: Name under which the window layout and the recent experiments are
+    #: saved (theme and activity-panel preferences are shared by all).
+    SETTINGS_APP: str = SETTINGS_APP
+    #: Desktop file the window belongs to, on Linux (see ``calpy
+    #: --install-launcher``); ``None`` for none.
+    DESKTOP_FILE_NAME: Optional[str] = "OptiCalib"
+    #: Window icon (a file path).
+    ICON: str = ICON_FILE
+    #: Cards of the *Procedures* panel.
+    PROCEDURES: List[Procedure] = PROCEDURES
+    #: Scripts run in the kernel at startup (and after every restart), after
+    #: opticalib's ``initCalpy.py`` and in the same namespace.
+    INIT_SCRIPTS: List[str] = []
 
     def __init__(self, config_path: Optional[str] = None) -> None:
         """Initialise the main window and start the IPython kernel."""
         super().__init__()
 
-        self._settings = QSettings(SETTINGS_ORG, SETTINGS_APP)
+        self._settings = QSettings(SETTINGS_ORG, self.SETTINGS_APP)
         if config_path is None:
             from opticalib.core.root import CONFIGURATION_FILE
 
             config_path = CONFIGURATION_FILE
         self._config_path: str = os.path.abspath(config_path)
         self._experiment = _get_experiment_name(self._config_path) or "opticalib"
-        self.setWindowTitle(f"CalpyGUI – {self._experiment}")
-        if os.path.isfile(ICON_FILE):
-            self.setWindowIcon(QIcon(ICON_FILE))
+        self.setWindowTitle(f"{self.APP_NAME} – {self._experiment}")
+        if os.path.isfile(self.ICON):
+            self.setWindowIcon(QIcon(self.ICON))
         self.resize(1600, 950)
 
         self._tmp_dir = tempfile.mkdtemp(prefix="calpygui-")
@@ -571,7 +604,11 @@ class CalpyGUI(QMainWindow):
 
         theme().apply()
         self.bridge = KernelBridge(
-            self._config_path, _resolve_init_file(), self._tmp_dir, parent=self
+            self._config_path,
+            _resolve_init_file(),
+            self._tmp_dir,
+            parent=self,
+            extra_init_files=self.INIT_SCRIPTS,
         )
         self._build_ui()
         self._build_menus()
@@ -617,7 +654,11 @@ class CalpyGUI(QMainWindow):
         self.setCentralWidget(self.plot_viewer)
 
         self.device_panel = DevicePanel(self._config_path, runner=self._run)
-        self.plugin_panel = PluginPanel(selection_callback=self._open_plugin_window)
+        self.plugin_panel = PluginPanel(
+            selection_callback=self._open_plugin_window,
+            config_path=self._config_path,
+            procedures=self.PROCEDURES,
+        )
         self.workspace_view = WorkspaceView()
         self.data_browser = DataBrowser()
 
@@ -638,6 +679,7 @@ class CalpyGUI(QMainWindow):
         workspace.raise_()
         self.resizeDocks([devices, console], [360, 620], Qt.Orientation.Horizontal)
         self.resizeDocks([devices, workspace], [520, 360], Qt.Orientation.Vertical)
+        self.add_panels()
 
         self.device_panel.edit_config_requested.connect(self._edit_config_entry)
         self.workspace_view.run_requested.connect(
@@ -652,6 +694,120 @@ class CalpyGUI(QMainWindow):
         self._workspace_timer.setSingleShot(True)
         self._workspace_timer.setInterval(150)
         self._workspace_timer.timeout.connect(self._refresh_workspace)
+
+    # ------------------------------------------------------------------
+    # Extra panels (extension API)
+    # ------------------------------------------------------------------
+
+    #: Dock areas accepted by :meth:`add_dock`.
+    DOCK_AREAS = {
+        "left": Qt.DockWidgetArea.LeftDockWidgetArea,
+        "right": Qt.DockWidgetArea.RightDockWidgetArea,
+        "top": Qt.DockWidgetArea.TopDockWidgetArea,
+        "bottom": Qt.DockWidgetArea.BottomDockWidgetArea,
+    }
+
+    def add_panels(self) -> None:
+        """
+        Add the panels of a subclass (hook; does nothing by default).
+
+        Called while the window is built, after the standard panels and
+        before the menus, the default layout and the saved layout: panels
+        added here with :meth:`add_dock` are listed in *View*, remembered
+        between sessions and put back by *View → Reset layout*.
+
+        Available here: ``self.bridge`` (the kernel is not started yet: check
+        ``self.bridge.is_ready`` before querying it), the standard panels
+        (``self.plot_viewer``, ``self.device_panel``, ...) and
+        :meth:`add_dock`.  Not yet created: the menus, the status bar,
+        ``self.activity`` and ``self.procedure_context``; reach them later,
+        e.g. from a slot or with ``QTimer.singleShot(0, ...)``.
+
+        Examples
+        --------
+        ::
+
+            class MyGUI(CalpyGUI):
+                def add_panels(self):
+                    self.bench = BenchPanel()
+                    self.add_dock("bench", "Bench", self.bench, tabify_with="workspace")
+        """
+
+    def add_dock(
+        self,
+        name: str,
+        title: str,
+        widget: QWidget,
+        area: str = "left",
+        tabify_with: Optional[str] = None,
+    ) -> QDockWidget:
+        """
+        Add a dockable panel to the window.
+
+        Only from :meth:`add_panels`: later, the panel could not be part of
+        the default and saved layouts, nor of the *View* menu.  Left and
+        right panels are stacked vertically, top and bottom ones side by side.
+
+        Parameters
+        ----------
+        name : str
+            Unique identifier (the saved layout refers to it, so keep it
+            stable); the standard panels are ``'devices'``, ``'procedures'``,
+            ``'workspace'``, ``'data'`` and ``'console'``.
+        title : str
+            Title shown on the panel and its tab (unique among the panels).
+        widget : QWidget
+            Content of the panel.
+        area : str, optional
+            ``'left'`` (default), ``'right'``, ``'top'`` or ``'bottom'``;
+            ignored with *tabify_with*.
+        tabify_with : str, optional
+            Name of a panel to share a tab group with.
+
+        Returns
+        -------
+        QDockWidget
+            The panel.
+
+        Raises
+        ------
+        ValueError
+            If *name* or *title* is already used, or *area* or *tabify_with*
+            is unknown.
+        RuntimeError
+            If called after the window was built (outside :meth:`add_panels`).
+        """
+        if hasattr(self, "_default_state"):
+            raise RuntimeError("add_dock() can only be called from add_panels().")
+        if name in self._docks:
+            raise ValueError(f"A panel named {name!r} already exists.")
+        # The tab bars are matched to their panels by title.
+        if any(d.windowTitle() == title for d in self._docks.values()):
+            raise ValueError(f"A panel titled {title!r} already exists.")
+        if tabify_with is not None and tabify_with not in self._docks:
+            raise ValueError(
+                f"Unknown panel {tabify_with!r}; panels: {', '.join(self._docks)}."
+            )
+        if tabify_with is None and area not in self.DOCK_AREAS:
+            raise ValueError(
+                f"Unknown area {area!r}; use one of {', '.join(self.DOCK_AREAS)}."
+            )
+        dock = self._make_dock(name, title, widget)
+        if tabify_with is not None:
+            self.tabifyDockWidget(self._docks[tabify_with], dock)
+        else:
+            orientation = (
+                Qt.Orientation.Vertical
+                if area in ("left", "right")
+                else Qt.Orientation.Horizontal
+            )
+            self.addDockWidget(self.DOCK_AREAS[area], dock, orientation)
+        return dock
+
+    @property
+    def docks(self) -> Dict[str, QDockWidget]:
+        """The panels of the window, by name (a copy)."""
+        return dict(self._docks)
 
     def _make_dock(self, name: str, title: str, widget: QWidget) -> QDockWidget:
         dock = QDockWidget(title, self)
@@ -807,7 +963,7 @@ class CalpyGUI(QMainWindow):
         view_menu.addAction("Reset layout", self._reset_layout)
 
         help_menu = bar.addMenu("&Help")
-        help_menu.addAction("About CalpyGUI", self._about)
+        help_menu.addAction(f"About {self.APP_NAME}", self._about)
 
     def _build_status_bar(self) -> None:
         """Create the status bar (kernel state, actions, configuration)."""
@@ -873,7 +1029,7 @@ class CalpyGUI(QMainWindow):
     def _show_overlay(self) -> None:
         self._overlay = StartupOverlay(
             KernelBridge.BOOTSTRAP_STEPS,
-            "CalpyGUI",
+            self.APP_NAME,
             f"Experiment: {self._experiment}\n{self._config_path}",
             parent=self,
         )
@@ -1106,8 +1262,9 @@ class CalpyGUI(QMainWindow):
         dlg.deleteLater()
 
     def _on_config_saved(self) -> None:
-        """Refresh the device panel and reload the configuration in the kernel."""
+        """Refresh the panels and reload the configuration in the kernel."""
         self.device_panel.reload()
+        self.plugin_panel.reload()
         self._run(
             "import opticalib\n"
             f"opticalib.set_configuration_file({self._config_path!r})",
@@ -1254,11 +1411,17 @@ class CalpyGUI(QMainWindow):
         """Make the GUI follow the experiment the kernel switched to."""
         self._config_path = config_path
         self._experiment = _get_experiment_name(config_path) or "opticalib"
-        self.setWindowTitle(f"CalpyGUI – {self._experiment}")
+        self.setWindowTitle(f"{self.APP_NAME} – {self._experiment}")
         self._config_label.setText(config_path)
         self._config_label.setToolTip(f"{config_path}\nClick to edit the configuration")
         self.bridge.set_config_path(config_path)
+        self.bridge.query(
+            {"ok": "True"},
+            lambda results: None,
+            code=f"{KERNEL_SIDE}.use_experiment({config_path!r})",
+        )
         self.device_panel.set_config_path(config_path)
+        self.plugin_panel.set_config_path(config_path)
         self._remember_experiment(config_path)
         self._refresh_folders()
         self._refresh_workspace()
@@ -1276,7 +1439,7 @@ class CalpyGUI(QMainWindow):
         plugin_name : str
             Display label selected in the plugin panel.
         """
-        window_cls = PLUGIN_WINDOWS.get(plugin_name)
+        window_cls = self.plugin_panel.window_class(plugin_name)
         if window_cls is None:
             QMessageBox.warning(
                 self,
@@ -1310,8 +1473,8 @@ class CalpyGUI(QMainWindow):
 
         QMessageBox.about(
             self,
-            "About CalpyGUI",
-            f"<b>CalpyGUI</b><br>opticalib {__version__}<br><br>"
+            f"About {self.APP_NAME}",
+            f"<b>{self.APP_NAME}</b><br>opticalib {__version__}<br><br>"
             "Graphical interface for the calpy / opticalib toolchain.<br>"
             "Arcetri Adaptive Optics group.",
         )
@@ -1327,7 +1490,7 @@ class CalpyGUI(QMainWindow):
         if busy and self._confirm_close:
             answer = QMessageBox.question(
                 self,
-                "Quit CalpyGUI",
+                f"Quit {self.APP_NAME}",
                 "Code is still running in the kernel (e.g. an acquisition).\n"
                 "Quit anyway? The running code is interrupted.",
             )
@@ -1349,7 +1512,9 @@ class CalpyGUI(QMainWindow):
 # ---------------------------------------------------------------------------
 
 
-def launch_gui(config_path: Optional[str] = None) -> None:
+def launch_gui(
+    config_path: Optional[str] = None, window_class: type = CalpyGUI
+) -> None:
     """
     Launch the CalpyGUI application.
 
@@ -1363,15 +1528,18 @@ def launch_gui(config_path: Optional[str] = None) -> None:
         Path to the ``configuration.yaml`` file.  When *None* the default
         path resolved by OptiCalib at import time is used (either the
         ``AOCONF`` environment variable or the package template file).
+    window_class : type, optional
+        The main window: :class:`CalpyGUI` or a subclass customising it.
     """
     app = QApplication.instance() or QApplication(sys.argv)
-    app.setApplicationName("CalpyGUI")
-    app.setApplicationDisplayName("CalpyGUI")
-    # Lets Linux desktops match the window to the OptiCalib launcher.
-    app.setDesktopFileName("OptiCalib")
-    if os.path.isfile(ICON_FILE):
-        app.setWindowIcon(QIcon(ICON_FILE))
+    app.setApplicationName(window_class.APP_NAME)
+    app.setApplicationDisplayName(window_class.APP_NAME)
+    # Lets Linux desktops match the window to its launcher.
+    if window_class.DESKTOP_FILE_NAME:
+        app.setDesktopFileName(window_class.DESKTOP_FILE_NAME)
+    if os.path.isfile(window_class.ICON):
+        app.setWindowIcon(QIcon(window_class.ICON))
     theme().apply(app)
-    window = CalpyGUI(config_path=config_path)
+    window = window_class(config_path=config_path)
     window.show()
     sys.exit(app.exec())

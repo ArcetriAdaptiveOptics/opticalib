@@ -43,7 +43,7 @@ class BaseDeformableMirror(ABC):
     @property
     def border_ids(self):
         return self._borderIds
-    
+
     @property
     def cmd_history(self) -> _ot.Optional[_ot.MatrixLike]:
         """
@@ -117,7 +117,9 @@ class BaseDeformableMirror(ABC):
             return None
         return "minimum-rms" if (s and b) else "zero-force"
 
-    def _apply_slaving(self, cmd: _ot.ArrayLike|_ot.MatrixLike, slave: bool | str) -> _ot.ArrayLike|_ot.MatrixLike:
+    def _apply_slaving(
+        self, cmd: _ot.ArrayLike | _ot.MatrixLike, slave: bool | str
+    ) -> _ot.ArrayLike | _ot.MatrixLike:
         """
         Apply actuator slaving to a command when requested.
         """

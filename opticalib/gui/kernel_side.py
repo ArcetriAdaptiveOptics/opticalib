@@ -469,6 +469,93 @@ def backend() -> str:
     )
 
 
+#: Experiment folder this module put on ``sys.path`` (see :func:`use_experiment`).
+_experiment_path: Optional[str] = None
+
+
+def _unload_experiment_modules(folder: str) -> List[str]:
+    """
+    Remove from ``sys.modules`` the modules loaded from *folder*.
+
+    Changing ``sys.path`` does not replace modules that were already
+    imported: without this, a driver module of the previous experiment would
+    still be found, under the same name, in the next one.  opticalib itself,
+    the standard library and installed packages are never unloaded, even
+    when *folder* contains them (e.g. a source checkout used as experiment).
+
+    Parameters
+    ----------
+    folder : str
+        The experiment folder whose modules are dropped.
+
+    Returns
+    -------
+    list of str
+        Names of the modules removed.
+    """
+    import importlib
+
+    root = _os.path.join(_os.path.realpath(folder), "")
+    stdlib = getattr(_sys, "stdlib_module_names", frozenset())
+    removed = []
+    for name, module in list(_sys.modules.items()):
+        top = name.partition(".")[0]
+        if top == "opticalib" or top in stdlib or name == "__main__":
+            continue
+        files = [getattr(module, "__file__", None)] + list(
+            getattr(module, "__path__", None) or []
+        )
+        for path in files:
+            if not path:
+                continue
+            real = _os.path.realpath(path)
+            if real.startswith(root) and not any(
+                part in ("site-packages", "dist-packages")
+                for part in real.split(_os.sep)
+            ):
+                del _sys.modules[name]
+                removed.append(name)
+                break
+    importlib.invalidate_caches()
+    return removed
+
+
+def use_experiment(config_path: Optional[str] = None) -> str:
+    """
+    Make the modules of the experiment folder importable.
+
+    The folder of the experiment (the one containing ``SysConfig``) goes
+    first on ``sys.path``, as the folder of a script does, so that device
+    classes defined there (see the ``DEVICE.CLASSES`` section of the
+    configuration) can be imported.  The folder of the previous experiment
+    is removed, unless it was on the path already.
+
+    Parameters
+    ----------
+    config_path : str, optional
+        Configuration file of the experiment; default ``$AOCONF``.
+
+    Returns
+    -------
+    str
+        The experiment folder (empty when unknown).
+    """
+    global _experiment_path
+    from .widgets.device_registry import experiment_folder
+
+    folder = experiment_folder(config_path or _os.environ.get("AOCONF", ""))
+    if _experiment_path and _experiment_path != folder:
+        if _experiment_path in _sys.path:
+            _sys.path.remove(_experiment_path)
+        # Modules imported from the previous experiment must not be reused.
+        _unload_experiment_modules(_experiment_path)
+        _experiment_path = None
+    if folder and folder not in _sys.path:
+        _sys.path.insert(0, folder)
+        _experiment_path = folder
+    return folder
+
+
 def mark_baseline() -> None:
     """Hide the names currently defined (the calpy bootstrap) from the workspace."""
     _baseline.clear()
@@ -508,3 +595,4 @@ def install(shell=None) -> None:
     shell.events.register("post_execute", _post_execute)
     shell.user_ns["_gui"] = module
     shell.user_ns_hidden["_gui"] = module
+    use_experiment()

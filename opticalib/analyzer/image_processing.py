@@ -301,13 +301,18 @@ def create_cube(fl_or_il: list[str], register: bool = False) -> _ot.CubeData:
     cube : ndarray
         Data cube containing the images/frames stacked, with shape (npx, npy, nframes).
     """
+    memmap = True
     # check it is a list
     if not isinstance(fl_or_il, list):
         raise TypeError("filelist must be a list of strings or images")
 
     # check if it is composed of file paths to load
     if all([isinstance(item, str) for item in fl_or_il]):
-        fl_or_il = [osu.read_phasemap(f) for f in fl_or_il]
+        N = len(fl_or_il)  # Number of files
+        if N > 1000:
+            memmap = False
+            print("Disabling memory mapping for large file list: N =", N)
+        fl_or_il = [osu.read_phasemap(f, memmap=memmap) for f in fl_or_il]
 
         # Is the list now full of images?
         if not any(

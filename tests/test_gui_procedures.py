@@ -354,7 +354,84 @@ def test_phasing_sweep_takes_the_dark_first(context):
 def test_plugin_panel_opens_every_window(qapp):
     from opticalib.gui.plugins import PLUGIN_WINDOWS, PLUGINS
 
-    assert [name for name, _, _ in PLUGINS] == list(PLUGIN_WINDOWS)
+    assert [name for name, *_ in PLUGINS] == list(PLUGIN_WINDOWS)
+    # Still the former (name, icon, description) triples.
+    for name, icon, description in PLUGINS:
+        assert name and icon and description
+
+
+def test_plugin_panel_keeps_its_positional_signature(qapp):
+    from qtpy.QtWidgets import QWidget
+
+    from opticalib.gui.plugins import PluginPanel
+
+    parent = QWidget()
+    panel = PluginPanel(lambda name: None, parent)
+    assert panel.parent() is parent
+
+
+class TestCustomProcedures:
+    """Packages building on opticalib list their own procedures."""
+
+    def test_panel_with_custom_procedures(self, qapp, tmp_path):
+        from opticalib.gui import PROCEDURES, Procedure
+        from opticalib.gui.plugins import PluginPanel
+        from opticalib.gui.procedures.base import ProcedureWindow, Step
+
+        class MyWindow(ProcedureWindow):
+            TITLE = "Mine"
+
+            def steps(self):
+                return [Step("hello", "Hello", "Say hello.", [], lambda v: "print('hello')")]
+
+        path = tmp_path / "configuration.yaml"
+        path.write_text("SYSTEM:\n  data_path: ''\n")
+        mine = Procedure("Mine", "star", "My procedure.", MyWindow)
+        opened = []
+        panel = PluginPanel(opened.append, config_path=str(path), procedures=[mine] + PROCEDURES)
+        assert panel.available() == ["Mine", "Timeseries"]
+        assert panel.window_class("Mine") is MyWindow and panel.window_class("Nope") is None
+        window = MyWindow()
+        assert window.step("hello").code() == "print('hello')"
+        window.deleteLater()
+
+    def test_subclass_attributes(self):
+        from opticalib.gui.app import CalpyGUI, launch_gui
+        import inspect
+
+        assert CalpyGUI.APP_NAME == "CalpyGUI" and CalpyGUI.INIT_SCRIPTS == []
+        assert [p.name for p in CalpyGUI.PROCEDURES][-1] == "Timeseries"
+        assert "window_class" in inspect.signature(launch_gui).parameters
+
+
+class TestConfiguredProcedures:
+    """Procedures whose section the configuration does not define are not listed."""
+
+    def test_defined_sections(self, tmp_path):
+        from opticalib.gui.plugins import defined_sections
+
+        path = tmp_path / "configuration.yaml"
+        path.write_text("SYSTEM:\n  data_path: ''\nSTITCHING: null\nPHASING: {}\nINFLUENCE.FUNCTIONS:\n  timing: 1\n")
+        assert defined_sections(str(path)) == {"SYSTEM", "INFLUENCE.FUNCTIONS"}
+        assert defined_sections(str(tmp_path / "missing.yaml")) is None
+        path.write_text("SYSTEM: [unclosed")
+        assert defined_sections(str(path)) is None
+
+    def test_cards_follow_the_configuration(self, qapp, tmp_path):
+        from opticalib.gui.plugins import PluginPanel
+
+        path = tmp_path / "configuration.yaml"
+        path.write_text("SYSTEM:\n  data_path: ''\nINFLUENCE.FUNCTIONS:\n  timing: 1\nSTITCHING: null\n")
+        panel = PluginPanel(lambda name: None, config_path=str(path))
+        assert panel.available() == ["Deformable Mirror Calibration", "Timeseries"]
+        note = panel._hidden_note.text()
+        assert "Stitching (STITCHING)" in note and "Alignment (SYSTEM.ALIGNMENT)" in note
+        path.write_text(path.read_text().replace("STITCHING: null", "STITCHING:\n  overlap: 1"))
+        panel.reload()
+        assert "Stitching" in panel.available()
+        # Without a readable file every procedure is listed.
+        panel.set_config_path(None)
+        assert len(panel.available()) == 5 and panel._hidden_note.isHidden()
 
 
 # ---------------------------------------------------------------------------

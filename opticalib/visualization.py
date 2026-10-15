@@ -138,7 +138,7 @@ def cmdplot(cmd: _ot.ArrayLike, **kwargs: dict[str, _ot.Any]):
     cmd : array-like
         1D array representing the DM command to be displayed.
     **kwargs
-        Additional keyword arguments to be passed to `imshow`, as well as some
+        Additional keyword arguments to be passed to `plot`, as well as some
         additions:
 
         - title: str, optional
@@ -161,9 +161,11 @@ def cmdplot(cmd: _ot.ArrayLike, **kwargs: dict[str, _ot.Any]):
     xlabel = kwargs.pop("xlabel", "Actuator Index")
     ylabel = kwargs.pop("ylabel", "Amplitude")
     c = _osu.get_kwargs(("color", "c"), default="black", pop=True, kwargs=kwargs)
+    linewidth = kwargs.pop("linewidth", 1)
+    markersize = kwargs.pop("markersize", 5)
 
     fig, ax = plt.subplots()
-    l = ax.plot(cmd, "-o", linewidth=1, markersize=5, color=c, **kwargs)
+    l = ax.plot(cmd, "-o", linewidth=linewidth, markersize=markersize, color=c, **kwargs)
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
     ax.set_title(title)
@@ -173,7 +175,10 @@ def cmdplot(cmd: _ot.ArrayLike, **kwargs: dict[str, _ot.Any]):
 
 
 def coordplot(
-    coord: _ot.ArrayLike, annotate: bool = True, **kwargs: dict[str, _ot.Any]
+    coord: _ot.ArrayLike,
+    annotate: bool = True,
+    from_idx: int = 0,
+    **kwargs: dict[str, _ot.Any],
 ):
     """
     Plot a set of coordinates as a 2D scatter plot.
@@ -186,6 +191,8 @@ def coordplot(
         second column as the y-coordinate.
     annotate : bool, optional
         If True, annotate the points with their indices. Default is True.
+    from_idx : int, optional
+        The starting index for annotation. Default is 0.
     **kwargs
         Additional keyword arguments to be passed to `scatter`, as well as some
         additions:
@@ -203,10 +210,10 @@ def coordplot(
         The figure object.
     ax : matplotlib.axes.Axes
         The axes object.
-    cb : matplotlib.colorbar.Colorbar | None
-        The colorbar object if a color array was used, otherwise None.
     sc : matplotlib.collections.PathCollection
         The scatter plot object returned by scatter.
+    cb : matplotlib.colorbar.Colorbar | None
+        The colorbar object if a color array was used, otherwise None.
     """
     title = kwargs.pop("title", "Coordinates")
     xlabel = kwargs.pop("xlabel", "X [px]")
@@ -223,20 +230,22 @@ def coordplot(
             )
         use_colorbar = True
 
-    if coord.shape[1] != 2:
+    if coord.shape[0] != 2:
         coord = coord.T
 
     if isinstance(coord, list):
         coord = np.asarray(coord)
     if coord.ndim != 2:
         raise ValueError("Coordinate array must be 2-dimensional.")
-    if coord.shape[1] != 2:
+    if coord.shape[0] != 2:
         coord = coord.T
 
-    Y, X = coord[:, 0], coord[:, 1]
+    Y, X = coord[0, :], coord[1, :]
     fig, ax = plt.subplots()
     if annotate:
-        for i, (x, y) in enumerate([X, Y]):
+        for i, (x, y) in enumerate(zip(X, Y)):
+            if i < from_idx:
+                continue
             ax.annotate(
                 str(i),
                 (x, y),

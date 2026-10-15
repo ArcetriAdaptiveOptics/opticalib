@@ -4,9 +4,10 @@ from ..core import _types as _ot
 
 
 def make_modal_base(
-    rm: _ot.MatrixLike,
     modes: int | list[int],
     mask: _ot.MaskData,
+    im: _ot.MatrixLike|None = None,
+    rm: _ot.MatrixLike|None = None,
     basis: str = "zernike",
 ) -> _ot.MatrixLike:
     """
@@ -14,8 +15,10 @@ def make_modal_base(
 
     Parameters
     ----------
-    RM : MatrixLike
-        The reconstruction matrix.
+    im : MatrixLike
+        The Interaction Matrix (nacts, npix).
+    rm : MatrixLike
+        The reconstruction matrix (npix, nacts).
     modes : int or list of int
         The number of modes to compute, or the list of mode indices to compute.
     mask : MaskData
@@ -30,7 +33,7 @@ def make_modal_base(
 
     Returns
     -------
-    array_like
+    m2c : MatrixLike
         The modal base.
 
     """
@@ -64,8 +67,13 @@ def make_modal_base(
         masked_data = surf[~mask]
         mat[i, :] = masked_data
 
-    MB = (mat @ rm).T
-    return MB
+    if rm is not None:
+        m2c = (mat @ rm).T
+    elif im is not None:
+        m2c = (mat @ im.T).T
+    else:
+        raise ValueError("Either `rm` or `im` must be provided.")
+    return m2c
 
 
 __all__ = ["make_modal_base"]

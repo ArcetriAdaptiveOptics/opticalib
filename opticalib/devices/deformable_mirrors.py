@@ -30,6 +30,7 @@ from opticalib.ground.logger import SystemLogger as _SL
 
 from ._API.piAPI import BasePetalMirror
 
+
 class PetalMirror(BasePetalMirror, BaseDeformableMirror):
     """
     Petal Deformable Mirror interface.
@@ -185,6 +186,7 @@ class PetalMirror(BasePetalMirror, BaseDeformableMirror):
 
 
 from ._API.micAPI import BaseAdOpticaDm
+
 
 class AdOpticaDm(BaseAdOpticaDm, BaseDeformableMirror):
     """
@@ -443,6 +445,7 @@ class AdOpticaDm(BaseAdOpticaDm, BaseDeformableMirror):
     def __repr__(self):
         return f"{self._name}(n_segments={self.n_segments}, n_acts_per_segment={self.n_acts_per_segment})"
 
+
 class DP(AdOpticaDm):
     """
     Deformable Mirror interface for the Deformable Platform (DP) of the ELT.
@@ -586,6 +589,7 @@ class DP(AdOpticaDm):
             # Store in both the yielded dict and class attribute
             self.bufferData = result.copy()
 
+
 class M4AU(AdOpticaDm):
     """
     Deformable Mirror interface for the M4 Auxiliary Unit (M4AU) of the ELT.
@@ -610,6 +614,7 @@ class M4AU(AdOpticaDm):
 
 
 from ._API.alpaoAPI import BaseAlpaoMirror
+
 
 class AlpaoDm(BaseAlpaoMirror, BaseDeformableMirror):
     """
@@ -757,7 +762,7 @@ class AlpaoDm(BaseAlpaoMirror, BaseDeformableMirror):
         if not _ot.isinstance_(tcmdhist, "MatrixLike"):
             raise _oe.MatrixError(
                 f"Expecting a 2D Matrix of shape (nacts, nmodes), got instead: {tcmdhist.shape}"
-            )    
+            )
         tcmdhist = self._apply_slaving(cmd=tcmdhist, slave=slaving)
         self._cmd_history = tcmdhist
 
@@ -888,6 +893,7 @@ class AlpaoDm(BaseAlpaoMirror, BaseDeformableMirror):
 
 
 from ._API.splattAPI import SPLATTEngine
+
 
 class SplattDm(BaseDeformableMirror):
     """

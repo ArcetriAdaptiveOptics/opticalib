@@ -355,12 +355,12 @@ class BaseAlpaoMirror:
         The serial number is resolved in the following priority order:
 
         1. The *serial_number* argument, if not ``None``.
-        2. The ``serialNumber`` key in the device configuration file
+        2. The ``serial_number`` key in the device configuration file
            (looked up by *nacts*).
 
         When *nacts* is provided the device configuration block
         ``Alpao{nacts}`` is read from the configuration file, allowing
-        ``serialNumber``, ``sdk_folder_path``, and ``acfg_path`` to be
+        ``serial_number``, ``sdk_folder_path``, and ``acfg_path`` to be
         set there instead of being passed as arguments.  When only
         *serial_number* is given the configuration lookup is skipped and
         the caller is responsible for having ``ACECFG`` set in the
