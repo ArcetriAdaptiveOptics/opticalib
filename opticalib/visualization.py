@@ -138,7 +138,7 @@ def cmdplot(cmd: _ot.ArrayLike, **kwargs: dict[str, _ot.Any]):
     cmd : array-like
         1D array representing the DM command to be displayed.
     **kwargs
-        Additional keyword arguments to be passed to `imshow`, as well as some
+        Additional keyword arguments to be passed to `plot`, as well as some
         additions:
 
         - title: str, optional
@@ -161,9 +161,11 @@ def cmdplot(cmd: _ot.ArrayLike, **kwargs: dict[str, _ot.Any]):
     xlabel = kwargs.pop("xlabel", "Actuator Index")
     ylabel = kwargs.pop("ylabel", "Amplitude")
     c = _osu.get_kwargs(("color", "c"), default="black", pop=True, kwargs=kwargs)
+    linewidth = kwargs.pop("linewidth", 1)
+    markersize = kwargs.pop("markersize", 5)
 
     fig, ax = plt.subplots()
-    l = ax.plot(cmd, "-o", linewidth=1, markersize=5, color=c, **kwargs)
+    l = ax.plot(cmd, "-o", linewidth=linewidth, markersize=markersize, color=c, **kwargs)
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
     ax.set_title(title)
