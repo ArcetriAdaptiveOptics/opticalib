@@ -11,7 +11,15 @@ using the ``STITCHING`` section of the configuration).
 from typing import List
 
 from .base import ProcedureWindow, Step
-from .params import BoolParam, DeviceParam, ExprParam, FloatParam, IntParam, TnParam, VarParam
+from .params import (
+    BoolParam,
+    DeviceParam,
+    ExprParam,
+    FloatParam,
+    IntParam,
+    TnParam,
+    VarParam,
+)
 
 _IMPORT = "from opticalib.procedures.stitching import StitchAcquire, StitchAnalysis\n"
 
@@ -37,7 +45,12 @@ class StitchingWindow(ProcedureWindow):
                 "position (the stages are only read, not moved).",
                 [
                     DeviceParam("dm", "Deformable mirror", kinds=("dm",), default="dm"),
-                    DeviceParam("wfs", "Wavefront sensor", kinds=("interferometer", "wfs", "camera"), default="interf"),
+                    DeviceParam(
+                        "wfs",
+                        "Wavefront sensor",
+                        kinds=("interferometer", "wfs", "camera"),
+                        default="interf",
+                    ),
                     DeviceParam("motors", "Stages", kinds=("other",), default="motors"),
                     IntParam("nstep", "Positions per axis", 3, minimum=1, maximum=100),
                     FloatParam("step_x", "Step along x [mm]", 3.0, minimum=0.0),
@@ -60,7 +73,9 @@ class StitchingWindow(ProcedureWindow):
                 "save them as one cube in OPDImages (positions in the header).",
                 [
                     ExprParam("coords", "Positions", "stitch_coords"),
-                    IntParam("nframes", "Frames per position", 1, minimum=1, maximum=1000),
+                    IntParam(
+                        "nframes", "Frames per position", 1, minimum=1, maximum=1000
+                    ),
                     BoolParam("homing", "Go home at the end", True),
                     VarParam("out", "Store the tracking number in", "tn_scan"),
                 ],
@@ -77,8 +92,19 @@ class StitchingWindow(ProcedureWindow):
                 "Stitch the maps of a scan into one map, optionally removing a "
                 "polynomial of the given degree from each sub-aperture.",
                 [
-                    TnParam("tn", "Scan tracking number", folder_attr="OPD_IMAGES_ROOT_FOLDER", state_key="scan_tn"),
-                    ExprParam("deg", "Polynomial degree to remove", "", placeholder="none", optional=True),
+                    TnParam(
+                        "tn",
+                        "Scan tracking number",
+                        folder_attr="OPD_IMAGES_ROOT_FOLDER",
+                        state_key="scan_tn",
+                    ),
+                    ExprParam(
+                        "deg",
+                        "Polynomial degree to remove",
+                        "",
+                        placeholder="none",
+                        optional=True,
+                    ),
                     VarParam("out", "Store the stitched map in", "stitched"),
                 ],
                 lambda v: (

@@ -31,9 +31,9 @@ class BasePetalMirror:
 
         self._had_error = False
         self.is_segmented = True
-        self.nSegments = 6
-        self.nActsPerSegment = 3
-        self.n_acts = self.nSegments * self.nActsPerSegment
+        self.n_segments = 6
+        self.n_acts_per_segment = 3
+        self.n_acts = self.n_segments * self.n_acts_per_segment
         self._slaveIds = ptl_config.get("slave_ids", [])
         self._borderIds = ptl_config.get("border_ids", [])
 
@@ -213,7 +213,7 @@ class BasePetalMirror:
         CommandError
             If any command is outside the allowed limits.
         """
-        for k in self.nSegments:
+        for k in range(self.n_segments):
             for ax, c in enumerate(cmd[k * 3 : k * 3 + 3]):
                 if not (_CMDLIMITS[ax][0] <= c <= _CMDLIMITS[ax][1]):
                     raise CommandError(f"Command for actuator {ax} out of bounds: {c}")
@@ -326,4 +326,4 @@ class BasePetalMirror:
             raise RuntimeError("Failed to check/enable axes") from err
 
     def __repr__(self):
-        return f"PetalMirror(nSegments={self.nSegments}, nActsPerSegment={self.nActsPerSegment})"
+        return f"PetalMirror(n_segments={self.n_segments}, n_acts_per_segment={self.n_acts_per_segment})"

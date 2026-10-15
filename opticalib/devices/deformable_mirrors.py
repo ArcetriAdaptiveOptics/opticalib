@@ -44,7 +44,7 @@ class PetalMirror(BasePetalMirror, BaseDeformableMirror):
         self._logger = _SL(the_class=__class__)
         super().__init__(ip_addresses)
         self.mirrorModes = None
-        self.cmdHistory = None
+        self._cmd_history = None
 
     def get_shape(self) -> _ot.ArrayLike:
         """
@@ -57,7 +57,7 @@ class PetalMirror(BasePetalMirror, BaseDeformableMirror):
         cmd: _ot.ArrayLike,
         differential: bool = False,
         *,
-        slave: bool | str = False,
+        slaving: bool | str = False,
     ) -> None:
         """
         Applies the given command to the DM actuators.
@@ -70,15 +70,15 @@ class PetalMirror(BasePetalMirror, BaseDeformableMirror):
         differential : bool, optional
             If True, the command will be applied as a differential command
             with respect to the current shape (default is False).
-        slave : bool | str, optional
+        slaving : bool | str, optional
             Slaving option for the input command. If ``True``, the slaving method
             is chosen automatically; if a string is provided, it is used as method.
         """
-        cmd = self._apply_slaving(cmd=cmd, slave=slave)
+        cmd = self._apply_slaving(cmd=cmd, slave=slaving)
         self._mirror_command(cmd, differential)
 
     def upload_cmd_history(
-        self, tcmdhist: _ot.MatrixLike, slave: bool | str = False
+        self, tcmdhist: _ot.MatrixLike, slaving: bool | str = False
     ) -> None:
         """
         Uploads the (timed) command history to the DM.
@@ -87,7 +87,7 @@ class PetalMirror(BasePetalMirror, BaseDeformableMirror):
         ----------
         tcmdhist : _ot.MatrixLike
             The command history to be uploaded, of shape (n_acts, nmodes).
-        slave : bool | str, optional
+        slaving : bool | str, optional
             Slaving option for the input command history. If ``True``, the slaving method
             is chosen automatically; if a string is provided, it is used as method.
             Default is False.
@@ -99,9 +99,8 @@ class PetalMirror(BasePetalMirror, BaseDeformableMirror):
             raise _oe.MatrixError(
                 f"Expecting a 2D Matrix of shape (n_acts, nmodes), got instead: {tcmdhist.shape}"
             )
-        if slave:
-            tcmdhist = self._slave_cmdmat(cmdmat=tcmdhist, slave=slave)
-        self.cmdHistory = tcmdhist
+        tcmdhist = self._apply_slaving(cmd=tcmdhist, slave=slaving)
+        self._cmd_history = tcmdhist
         self._logger.info(f"Loaded Timed command history of shape {tcmdhist.shape}")
 
     def run_cmd_history(
@@ -119,7 +118,7 @@ class PetalMirror(BasePetalMirror, BaseDeformableMirror):
             The wavefront sensor device to be used for acquiring images during the command history run.
         differential : bool, optional
             If True, the commands will be applied as differential commands (default is True).
-        slave : bool | str, optional
+        slaving : bool | str, optional
             Slaving option for the input command. If ``True``, the slaving method
             is chosen automatically; if a string is provided, it is used as method.
             Default is False.
@@ -128,11 +127,11 @@ class PetalMirror(BasePetalMirror, BaseDeformableMirror):
             generated timestamp.
         """
         self._logger.info("Starting to run the command history")
-        slave = setshape_kwargs.pop("slave", False)
+        slaving = setshape_kwargs.pop("slaving", False)
         differential = setshape_kwargs.pop("differential", True)
         iff_config = _rc.get_iff_config(key=None)
 
-        if self.cmdHistory is None:
+        if self._cmd_history is None:
             self._logger.error("MatrixError: No Command History to run!")
             raise _oe.MatrixError("No Command History to run!")
 
@@ -143,20 +142,20 @@ class PetalMirror(BasePetalMirror, BaseDeformableMirror):
                 else:
                     tn = save
                     datafold = _os.path.join(_opdi, tn)
-                print(f"{tn} - {self.cmdHistory.shape[-1]} images to go.")
+                print(f"{tn} - {self._cmd_history.shape[-1]} images to go.")
 
-            self._logger.info(f"Acquiring {tn} - {self.cmdHistory.shape[-1]} images")
+            self._logger.info(f"Acquiring {tn} - {self._cmd_history.shape[-1]} images")
 
             # Getting starting position for differential commands
             s = self.get_shape()
 
             # Main loop for running the history
-            for i, cmd in enumerate(self.cmdHistory.T):
-                print(f"{i+1}/{self.cmdHistory.shape[-1]}", end="\r", flush=True)
+            for i, cmd in enumerate(self._cmd_history.T):
+                print(f"{i+1}/{self._cmd_history.shape[-1]}", end="\r", flush=True)
 
                 if differential:
                     cmd = cmd + s
-                self.set_shape(cmd, **setshape_kwargs, slave=slave)
+                self.set_shape(cmd, **setshape_kwargs, slaving=slaving)
 
                 if wfs is not None:
                     _time.sleep(iff_config["delay"])
@@ -199,16 +198,9 @@ class AdOpticaDm(BaseAdOpticaDm, BaseDeformableMirror):
     def __init__(self, tn: _ot.Optional[str] = None):
         """The Constructor"""
         self._name = "AdOpticaDM"
+        self._cmd_history = None
         super().__init__(tn)
         self._last_cmd = _np.zeros(self.n_acts)
-
-    @property
-    def slave_ids(self):
-        return self._slaveIds
-
-    @property
-    def border_ids(self):
-        return self._borderIds
 
     def get_shape(self):
         """
@@ -226,7 +218,7 @@ class AdOpticaDm(BaseAdOpticaDm, BaseDeformableMirror):
 
     def set_shape(
         self,
-        command: _ot.ArrayLike | list[float],
+        cmd: _ot.ArrayLike | list[float],
         differential: bool = False,
         incremental: float | int = False,
         *,
@@ -255,7 +247,7 @@ class AdOpticaDm(BaseAdOpticaDm, BaseDeformableMirror):
             Slaving option for the input command. If ``True``, the slaving method
             is chosen automatically; if a string is provided, it is used as method.
         """
-        cmd = command.copy()
+        cmd = cmd.copy()
 
         if not len(cmd) == self.n_acts:
             raise _oe.CommandError(
@@ -322,7 +314,7 @@ class AdOpticaDm(BaseAdOpticaDm, BaseDeformableMirror):
             self._last_cmd = cmd.copy()
 
     def upload_cmd_history(
-        self, tcmdhist: _ot.MatrixLike, slave: bool | str = False
+        self, tcmdhist: _ot.MatrixLike, slaving: bool | str = False
     ) -> None:
         """
         Uploads the (timed) command history in the DM. if `for_triggered` is true,
@@ -342,10 +334,9 @@ class AdOpticaDm(BaseAdOpticaDm, BaseDeformableMirror):
                 f"Expecting a 2D Matrix of shape (used_acts, nmodes), got instead: {tcmdhist.shape}"
             )
         tcmdhist += self._last_cmd[:, None]
-        if slave:
-            tcmdhist = self._slave_cmdmat(cmdmat=tcmdhist, slave=slave)
+        tcmdhist = self._apply_slaving(cmd=tcmdhist, slave=slaving)
         trig = _rc.get_iff_config(None)["triggered_mode"]
-        self.cmdHistory = tcmdhist.copy()
+        self._cmd_history = tcmdhist.copy()
         if trig is not False:
             self._aoClient.timeHistoryUpload(tcmdhist)
         self._logger.info(f"Command History uploaded to the {self._name} DM.")
@@ -387,20 +378,20 @@ class AdOpticaDm(BaseAdOpticaDm, BaseDeformableMirror):
         triggered = dmifconf["triggered_mode"]
         sequential_delay = dmifconf["sequential_delay"]
         differential: bool = setshape_kwargs.pop("differential", True)
-        slave: bool | str = setshape_kwargs.pop("slave", False)
+        slaving: bool | str = setshape_kwargs.pop("slaving", False)
         if triggered is not False:
             for arg in triggered.keys():
                 if not arg in ["frequency", "cmd_delay"]:
                     raise _oe.CommandError(
                         f"Invalid argument '{arg}' in triggered commands."
                     )
-            if self.cmdHistory is None:
+            if self._cmd_history is None:
                 raise _oe.CommandError("No Command History uploaded!")
             freq = triggered.get("frequency", 1.0)
             tdelay = triggered.get("cmd_delay", 0.8)
             ins = self._last_cmd.copy()
             self._logger.info("Executing Command history")
-            nframes = self.cmdHistory.shape[-1]
+            nframes = self._cmd_history.shape[-1]
             self._aoClient.timeHistoryRun(freq, 0, tdelay)
             if wfs is not None:
                 with wfs.triggered():
@@ -410,21 +401,21 @@ class AdOpticaDm(BaseAdOpticaDm, BaseDeformableMirror):
 
             return None
         else:
-            if self.cmdHistory is None:
+            if self._cmd_history is None:
                 raise _oe.CommandError("No Command History uploaded!")
             else:
                 tn = _ts() if save is None else save
-                print(f"{tn} - {self.cmdHistory.shape[-1]} images to go.")
+                print(f"{tn} - {self._cmd_history.shape[-1]} images to go.")
                 datafold = _os.path.join(self.baseDataPath, tn)
                 s = self.get_shape() - self._biasCmd
                 if not _os.path.exists(datafold) and wfs is not None:
                     _os.mkdir(datafold)
                 self._logger.info("Executing Command history")
-                for i, cmd in enumerate(self.cmdHistory.T):
-                    print(f"{i+1}/{self.cmdHistory.shape[-1]}", end="\r", flush=True)
+                for i, cmd in enumerate(self._cmd_history.T):
+                    print(f"{i+1}/{self._cmd_history.shape[-1]}", end="\r", flush=True)
                     if differential:
                         cmd = cmd + s
-                    self.set_shape(cmd, **setshape_kwargs, slave=slave)
+                    self.set_shape(cmd, **setshape_kwargs, slaving=slaving)
                     if wfs is not None:
                         _time.sleep(sequential_delay)
                         img = wfs.acquire_map()
@@ -452,7 +443,7 @@ class AdOpticaDm(BaseAdOpticaDm, BaseDeformableMirror):
         return total_skipped_frames
 
     def __repr__(self):
-        return f"{self._name}(nSegments={self.nSegments}, nActsPerSegment={self.nActsPerSegment})"
+        return f"{self._name}(n_segments={self.n_segments}, n_acts_per_segment={self.n_acts_per_segment})"
 
 
 class DP(AdOpticaDm):
@@ -469,8 +460,8 @@ class DP(AdOpticaDm):
         self._name = self._name.replace("DM", "DP")
         self.bufferData = None
         self.is_segmented = True
-        self.nSegments: int = 2
-        self.nActsPerSegment: int = 111
+        self.n_segments: int = 2
+        self.n_acts_per_segment: int = 111
         try:
             dp_config = _rc.get_device_config("DEFORMABLE.MIRRORS", self._name)
             self._slaveIds = dp_config.get("slave_ids", [])
@@ -515,8 +506,8 @@ class DP(AdOpticaDm):
         """
         # Setup: Configure and start buffer acquisition
         subsys_nacts = 111
-        if self.cmdHistory is not None:
-            totframes = self.cmdHistory.shape[-1]
+        if self._cmd_history is not None:
+            totframes = self._cmd_history.shape[-1]
         elif total_frames is not None:
             totframes = total_frames
         else:
@@ -611,8 +602,8 @@ class M4AU(AdOpticaDm):
         super().__init__(tn)
         self._name = "M4AU"
         self.is_segmented = True
-        self.nSegments = 6
-        self.nActsPerSegment = 892
+        self.n_segments = 6
+        self.n_acts_per_segment = 892
         try:
             m4au_config = _rc.get_device_config("DEFORMABLE.MIRRORS", "M4AU")
             self._slaveIds = m4au_config.get("slave_ids", [])
@@ -715,16 +706,6 @@ class AlpaoDm(BaseAlpaoMirror, BaseDeformableMirror):
             self._borderIds = []
         self.has_slaved_acts = False if len(self._slaveIds) == 0 else True
 
-    @property
-    def slave_ids(self):
-        """Slaved Actuators ID"""
-        return self._slaveIds
-
-    @property
-    def border_ids(self):
-        """Border Master Actuators ID"""
-        return self._borderIds
-
     def get_shape(self) -> _ot.ArrayLike:
         """Retrieve the actuators positions."""
         return super().get_shape()
@@ -734,7 +715,7 @@ class AlpaoDm(BaseAlpaoMirror, BaseDeformableMirror):
         cmd: _ot.ArrayLike,
         differential: bool = False,
         *,
-        slave: bool | str = False,
+        slaving: bool | str = False,
     ) -> None:
         """
         Applies the given command to the DM actuators.
@@ -745,11 +726,11 @@ class AlpaoDm(BaseAlpaoMirror, BaseDeformableMirror):
             Command to be applied to the actuators.
         differential : bool, optional
             If True, the command is applied differentially (added to the current shape).
-        slave : bool | str, optional
+        slaving : bool | str, optional
             Slaving option for the input command. If ``True``, the slaving method
             is chosen automatically; if a string is provided, it is used as method.
         """
-        cmd = self._apply_slaving(cmd=cmd, slave=slave)
+        cmd = self._apply_slaving(cmd=cmd, slave=slaving)
         if differential:
             shape = self.get_shape()
             cmd = cmd + shape
@@ -764,7 +745,7 @@ class AlpaoDm(BaseAlpaoMirror, BaseDeformableMirror):
         self.set_shape(zero)
 
     def upload_cmd_history(
-        self, tcmdhist: _ot.MatrixLike, *, slave: bool | str = False
+        self, tcmdhist: _ot.MatrixLike, *, slaving: bool | str = False
     ) -> None:
         """
         Upload a command history to the DM.
@@ -774,7 +755,7 @@ class AlpaoDm(BaseAlpaoMirror, BaseDeformableMirror):
         tcmdhist : numpy.ndarray
             Command history to be uploaded. Should be a 2D matrix of shape
             (nacts, nmodes).
-        slave : bool | str, optional
+        slaving : bool | str, optional
             Slaving option for the input command history. If ``True``, the slaving method
             is chosen automatically; if a string is provided, it is used as method.
         """
@@ -782,9 +763,8 @@ class AlpaoDm(BaseAlpaoMirror, BaseDeformableMirror):
             raise _oe.MatrixError(
                 f"Expecting a 2D Matrix of shape (nacts, nmodes), got instead: {tcmdhist.shape}"
             )
-        if slave:
-            tcmdhist = self._slave_cmdmat(cmdmat=tcmdhist, slave=slave)
-        self.cmdHistory = tcmdhist
+        tcmdhist = self._apply_slaving(cmd=tcmdhist, slave=slaving)
+        self._cmd_history = tcmdhist
 
     def run_cmd_history(
         self,
@@ -803,7 +783,7 @@ class AlpaoDm(BaseAlpaoMirror, BaseDeformableMirror):
             Directory to save the acquired images.
         differential : bool, optional
             If True, the command is applied differentially (added to the current shape).
-        slave : bool | str, optional
+        slaving : bool | str, optional
             Slaving option for the input command. If ``True``, the slaving method
             is chosen automatically; if a string is provided, it is used as method.
             Default is False.
@@ -814,11 +794,11 @@ class AlpaoDm(BaseAlpaoMirror, BaseDeformableMirror):
             Tracking number of the directory where the images are saved.
 
         """
-        delay: float = _rc.get_iff_config(key=None).get("sequentialDelay", 0.0)
+        delay: float = _rc.get_iff_config(key=None).get("sequential_delay", 0.0)
         differential: bool = setshape_kwargs.get("differential", True)
-        slaving: bool | str = setshape_kwargs.get("slave", False)
+        slaving: bool | str = setshape_kwargs.get("slaving", False)
 
-        if self.cmdHistory is None:
+        if self._cmd_history is None:
             raise _oe.MatrixError("No Command History to run!")
 
         s = self.get_shape()
@@ -828,10 +808,10 @@ class AlpaoDm(BaseAlpaoMirror, BaseDeformableMirror):
 
             if isinstance(wfs[0], (types.FunctionType, types.MethodType)):
                 tn = []
-                for i, cmd in enumerate(self.cmdHistory.T):
+                for i, cmd in enumerate(self._cmd_history.T):
                     if differential:
                         cmd = cmd + s
-                    self.set_shape(cmd, slave=slaving)
+                    self.set_shape(cmd, slaving=slaving)
                     if wfs is not None:
                         _time.sleep(delay)
                         img = wfs[0](*wfs[1:])
@@ -846,14 +826,14 @@ class AlpaoDm(BaseAlpaoMirror, BaseDeformableMirror):
                     tn = save
                     datafold = _os.path.join(_opdi, tn)
                     _os.makedirs(datafold, exist_ok=True)
-                print(f"{tn} - {self.cmdHistory.shape[-1]} images to go.")
+                print(f"{tn} - {self._cmd_history.shape[-1]} images to go.")
 
-            for i, cmd in enumerate(self.cmdHistory.T):
-                print(f"{i+1}/{self.cmdHistory.shape[-1]}", end="\r", flush=True)
+            for i, cmd in enumerate(self._cmd_history.T):
+                print(f"{i+1}/{self._cmd_history.shape[-1]}", end="\r", flush=True)
 
                 if differential:
                     cmd = cmd + s
-                self.set_shape(cmd, slave=slaving)
+                self.set_shape(cmd, slaving=slaving)
 
                 if wfs is not None:
                     _time.sleep(delay)
@@ -861,7 +841,7 @@ class AlpaoDm(BaseAlpaoMirror, BaseDeformableMirror):
                     _sf(_os.path.join(datafold, f"image_{i:05d}.fits"), img)
 
         # get back to the starting shape
-        self.set_shape(s, slave=slaving)
+        self.set_shape(s, slaving=slaving)
         return tn
 
     def visualize_shape(self, cmd: _ot.ArrayLike = None, **kwargs: dict[str, _ot.Any]):
@@ -927,7 +907,7 @@ class SplattDm(BaseDeformableMirror):
         self.n_acts = self._dm.n_acts
         self.mirrorModes = self._dm.mirrorModes
         self.act_coord = self._dm.actCoords
-        self.cmdHistory = None
+        self._cmd_history = None
         self.baseDataPath = _opdi
         self.refAct = 16
         self.is_segmented = False
@@ -940,14 +920,6 @@ class SplattDm(BaseDeformableMirror):
             self._borderIds = []
         self._logger = _SL(the_class=__class__)
 
-    @property
-    def slave_ids(self):
-        return self._slaveIds
-
-    @property
-    def border_ids(self):
-        return self._borderIds
-
     def get_shape(self):
         shape = self._dm.get_position()
         return shape
@@ -957,9 +929,9 @@ class SplattDm(BaseDeformableMirror):
         cmd: _ot.ArrayLike,
         differential: bool = False,
         *,
-        slave: bool | str = False,
+        slaving: bool | str = False,
     ) -> None:
-        cmd = self._apply_slaving(cmd=cmd, slave=slave)
+        cmd = self._apply_slaving(cmd=cmd, slave=slaving)
         if differential:
             lastCmd = self._dm.get_position_command()
             cmd = cmd + lastCmd
@@ -971,7 +943,7 @@ class SplattDm(BaseDeformableMirror):
             raise _oe.MatrixError(
                 f"Expecting a 2D Matrix of shape (used_acts, nmodes), got instead: {tcmdhist.shape}"
             )
-        self.cmdHistory = tcmdhist
+        self._cmd_history = tcmdhist
 
     def run_cmd_history(
         self,
@@ -981,19 +953,19 @@ class SplattDm(BaseDeformableMirror):
         differential: bool = True,
         read_buffers: bool = False,
     ) -> str:
-        if self.cmdHistory is None:
+        if self._cmd_history is None:
             raise _oe.MatrixError("No Command History to run!")
         else:
             tn = _ts() if save is None else save
-            print(f"{tn} - {self.cmdHistory.shape[-1]} images to go.")
+            print(f"{tn} - {self._cmd_history.shape[-1]} images to go.")
             datafold = _os.path.join(self.baseDataPath, tn)
             s = self._dm.get_position_command()  # self._dm.flatPos # self.get_shape()
             if read_buffers is True:
                 delay = 0.0
             if not _os.path.exists(datafold) and wfs is not None:
                 _os.mkdir(datafold)
-            for i, cmd in enumerate(self.cmdHistory.T):
-                print(f"{i+1}/{self.cmdHistory.shape[-1]}", end="\r", flush=True)
+            for i, cmd in enumerate(self._cmd_history.T):
+                print(f"{i+1}/{self._cmd_history.shape[-1]}", end="\r", flush=True)
                 if differential:
                     cmd = cmd + s
                 self.set_shape(cmd)

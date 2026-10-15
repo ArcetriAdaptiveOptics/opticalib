@@ -20,6 +20,11 @@ From Python::
 Via the CLI::
 
     calpy -f /path/to/experiment --gui
+
+Packages building on opticalib subclass :class:`CalpyGUI` to add their own
+procedures (:class:`~opticalib.gui.plugins.Procedure`, windows built on
+:class:`~opticalib.gui.procedures.base.ProcedureWindow`) and startup
+scripts, then call ``launch_gui(config_path, window_class=MyGUI)``.
 """
 
 import os as _os
@@ -27,11 +32,18 @@ import os as _os
 # Prefer PySide6 unless the user explicitly selected another Qt binding,
 # and make pyqtgraph use the same binding as qtpy (mixing bindings crashes).
 _os.environ.setdefault("QT_API", "pyside6")
-_PYQTGRAPH_LIBS = {"pyside6": "PySide6", "pyqt6": "PyQt6", "pyqt5": "PyQt5", "pyside2": "PySide2"}
+_PYQTGRAPH_LIBS = {
+    "pyside6": "PySide6",
+    "pyqt6": "PyQt6",
+    "pyqt5": "PyQt5",
+    "pyside2": "PySide2",
+}
 if _os.environ["QT_API"].lower() in _PYQTGRAPH_LIBS:
-    _os.environ.setdefault("PYQTGRAPH_QT_LIB", _PYQTGRAPH_LIBS[_os.environ["QT_API"].lower()])
+    _os.environ.setdefault(
+        "PYQTGRAPH_QT_LIB", _PYQTGRAPH_LIBS[_os.environ["QT_API"].lower()]
+    )
 
-__all__ = ["CalpyGUI", "launch_gui"]
+__all__ = ["CalpyGUI", "launch_gui", "Procedure", "PROCEDURES"]
 
 
 def __getattr__(name: str):
@@ -42,6 +54,10 @@ def __getattr__(name: str):
     inside the IPython kernel, which must not pay for (or require) a Qt
     import; the main window is therefore only loaded on first access.
     """
+    if name in ("Procedure", "PROCEDURES"):
+        from . import plugins
+
+        return getattr(plugins, name)
     if name in __all__:
         from . import app
 

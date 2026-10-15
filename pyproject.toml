@@ -1,0 +1,103 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "opticalib"
+dynamic = ["version"]
+description = "This package is a python interface for laboratory adaptive optics systems, with a focus on the calibration of deformable mirrors (DMs) and the acquisition of wavefront data using wavefront sensors."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Adaptive Optics Group - INAF - Osservatorio Astrofisico di Arcetri", email = "pietro.ferraiuolo@inaf.it" },
+]
+maintainers = [
+    { name = "Pietro Ferraiuolo", email = "pietro.ferraiuolo@inaf.it" },
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+]
+
+# Base install: everything needed to talk to the hardware, run the simulators
+# and the calibration routines, and use the ``calpy`` IPython shell.  The
+# graphical interface (``calpy --gui`` / ``OptiCalib``) and the GPU backend are
+# optional extras, see below.
+dependencies = [
+    "arte",
+    "astropy",
+    "scikit-image",
+    "scikit-learn",
+    "vmbpy",
+    "pipython",
+    "photutils",
+    "scipy",
+    "ruamel.yaml",
+    "PyYAML",
+    "Pyro4",
+    "h5py",
+    "jdcal",
+    "tqdm",
+    "matplotlib",
+    "numpy",
+    "rbfgpu",
+    "xupy>=2.0",
+    "ipython",  # the ``calpy`` shell (``python -m IPython``); used to come with ipykernel
+]
+
+[project.optional-dependencies]
+# Graphical interface:  pip install "opticalib[gui]"
+gui = [
+    "PySide6-Essentials",
+    "QtPy",
+    "qtconsole",
+    "ipykernel",
+    "jupyter_client",
+    "pyqtgraph",
+    "qtawesome",
+    "psutil",
+]
+# GPU backend (CuPy), through xupy's own extras.  Pick the one matching your
+# CUDA toolkit, e.g.:  pip install "opticalib[cuda13]"
+cuda12 = ["xupy[cuda12]>=2.0"]
+cuda13 = ["xupy[cuda13]>=2.0"]
+# Development
+test = ["pytest", "pytest-cov"]
+dev = ["opticalib[gui,test]", "flake8"]
+
+[project.urls]
+Homepage = "https://github.com/ArcetriAdaptiveOptics/opticalib"
+Repository = "https://github.com/ArcetriAdaptiveOptics/opticalib"
+Issues = "https://github.com/ArcetriAdaptiveOptics/opticalib/issues"
+
+[project.scripts]
+calpy = "setup_calpy:main"
+
+# GUI launcher without a console window: pip generates OptiCalib.exe on
+# Windows (and an OptiCalib script elsewhere).
+[project.gui-scripts]
+OptiCalib = "setup_calpy:gui_main"
+
+[tool.setuptools]
+# Standalone module used by the console/gui scripts above.
+py-modules = ["setup_calpy"]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["opticalib*"]
+
+[tool.setuptools.package-data]
+opticalib = [
+    "py.typed",
+    "core/_configurations/configuration.yaml",
+    "simulator/_API/alpao_conf.yaml",
+    "__init_script__/initCalpy.py",
+    "gui/resources/*",
+]
+
+[tool.setuptools.dynamic]
+version = { attr = "opticalib.__version__.__version__" }

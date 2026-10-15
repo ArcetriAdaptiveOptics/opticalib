@@ -8,9 +8,11 @@ from ..ground import osutils as _osu
 from ..core.root import folders as _fn
 from ..ground.logger import SystemLogger as _SL
 from ..core.fitsarray import fits_array as _fits_array
-from ..core.config import get_section_config as _gsc
+from ..core.config import get_section_config as _gsc, LazySection as _LazySection
 
-_splconf = _gsc("PHASING")
+# Read on first use: experiments without a PHASING section can still import
+# opticalib (the section is then empty).
+_splconf = _LazySection("PHASING")
 
 
 def _get_tunable_filter():

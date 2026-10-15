@@ -121,6 +121,21 @@ class TestBootstrap:
         bridge._begin_bootstrap()
         assert list(bridge._queue) == [user]
 
+    def test_extra_init_files_run_in_order(self, bridge):
+        steps = []
+        bridge.bootstrap_step.connect(lambda k, s, m: steps.append((k, s)))
+        bridge._extra_init_files = ["/pkg/initA.py", "/pkg/initB.py"]
+        bridge._on_install_done({"ok": True})
+        first = bridge.kc.executed[-1]
+        assert str(bridge._init_file) in first["code"] and "initA" not in first["code"]
+        bridge._on_shell(_reply(first["id"]))
+        second = bridge.kc.executed[-1]
+        assert "/pkg/initA.py" in second["code"]
+        # A failing script stops the bootstrap: the next one is not run.
+        bridge._on_shell(_reply(second["id"], status="error", ename="ImportError", evalue="m4"))
+        assert ("calpy", "error") in steps and bridge.is_ready
+        assert not any("initB" in r["code"] for r in bridge.kc.executed)
+
     def test_bootstrap_uses_safe_execfile(self, bridge):
         bridge._on_install_done({"ok": True})
         code = bridge.kc.executed[-1]["code"]
@@ -214,6 +229,37 @@ def test_console_restart_goes_through_the_app(bridge):
     bridge.restart_requested.connect(lambda: requested.append(1))
     bridge.console.request_restart_kernel()  # what Ctrl+. does
     assert requested == [1]
+
+
+class TestConsoleClearing:
+    """Clearing the console must not leave qtconsole a dangling prompt block."""
+
+    @staticmethod
+    def _reply_with_count(count):
+        return {"content": {"status": "ok", "execution_count": count}}
+
+    @pytest.mark.parametrize("how", ["reset", "clear"])
+    def test_reply_after_clear_is_harmless(self, bridge, how):
+        # Segfaulted (QTextBlock::text on a freed block) before the override:
+        # the kernel restarts, its execution count restarts, the old prompt
+        # block is "updated" in the cleared document.
+        console = bridge.console
+        console._show_interpreter_prompt(7)
+        assert console._previous_prompt_obj is not None
+        if how == "reset":
+            console.reset(clear=True)
+        else:
+            console.clear()
+        console._show_interpreter_prompt_for_reply(self._reply_with_count(1))
+        console._show_interpreter_prompt_for_reply(self._reply_with_count(2))
+        assert console._previous_prompt_obj.number == 3
+
+    def test_handle_is_dropped(self, bridge):
+        console = bridge.console
+        console._show_interpreter_prompt(7)
+        console.reset(clear=True)
+        # The prompt shown by reset() is a fresh one, not the dropped block.
+        assert console._previous_prompt_obj is None or console._previous_prompt_obj.block.isValid()
 
 
 class TestWatchdog:

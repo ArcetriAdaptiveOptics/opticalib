@@ -10,11 +10,21 @@ section of the configuration).
 from typing import List
 
 from .base import ProcedureWindow, Step, kwargs_code
-from .params import ChoiceParam, DeviceParam, ExprParam, FloatParam, IntParam, TnParam, VarParam
+from .params import (
+    ChoiceParam,
+    DeviceParam,
+    ExprParam,
+    FloatParam,
+    IntParam,
+    TnParam,
+    VarParam,
+)
 
 _MOVES_FILTER = "This step moves the tunable filter."
 # The PHASING section of the configuration (defaults of the SPL sensor).
-_PHASING = "__import__('opticalib.core.config', fromlist=['_']).get_section_config('PHASING')"
+_PHASING = (
+    "__import__('opticalib.core.config', fromlist=['_']).get_section_config('PHASING')"
+)
 _MODES = [("narrow", "Narrow"), ("medium", "Medium"), ("wide", "Wide")]
 
 
@@ -38,11 +48,28 @@ class SegmentsPhasingWindow(ProcedureWindow):
                 "named in the PHASING section of the configuration are used. "
                 "The fringe templates are needed for the analysis.",
                 [
-                    DeviceParam("camera", "Camera", kinds=("camera",), default="cam", optional=True,
-                                config_default=f"{_PHASING}['camera']"),
-                    DeviceParam("filter", "Tunable filter", kinds=("other",), default="", optional=True,
-                                config_default=f"{_PHASING}['filter']"),
-                    TnParam("fringes", "Fringe templates", folder_attr="SPL_FRINGES_ROOT_FOLDER", optional=True),
+                    DeviceParam(
+                        "camera",
+                        "Camera",
+                        kinds=("camera",),
+                        default="cam",
+                        optional=True,
+                        config_default=f"{_PHASING}['camera']",
+                    ),
+                    DeviceParam(
+                        "filter",
+                        "Tunable filter",
+                        kinds=("other",),
+                        default="",
+                        optional=True,
+                        config_default=f"{_PHASING}['filter']",
+                    ),
+                    TnParam(
+                        "fringes",
+                        "Fringe templates",
+                        folder_attr="SPL_FRINGES_ROOT_FOLDER",
+                        optional=True,
+                    ),
                     VarParam("out", "Store the sensor in", "spl"),
                 ],
                 lambda v: (
@@ -70,11 +97,28 @@ class SegmentsPhasingWindow(ProcedureWindow):
                 "to tune the exposure and the detection before a full sweep.",
                 [
                     VarParam("spl", "SPL sensor", "spl"),
-                    FloatParam("exptime", "Exposure time [s]", None, minimum=0.0, optional=True),
-                    ChoiceParam("filter_mode", "Filter mode", [(None, "Unchanged")] + _MODES),
-                    FloatParam("wavelength", "Wavelength [nm]", None, minimum=400, maximum=700, optional=True),
-                    ExprParam("n_psfs", "Expected PSFs", "", placeholder="from configuration", optional=True,
-                              config_default=f"{_PHASING}['expected_psfs']"),
+                    FloatParam(
+                        "exptime", "Exposure time [s]", None, minimum=0.0, optional=True
+                    ),
+                    ChoiceParam(
+                        "filter_mode", "Filter mode", [(None, "Unchanged")] + _MODES
+                    ),
+                    FloatParam(
+                        "wavelength",
+                        "Wavelength [nm]",
+                        None,
+                        minimum=400,
+                        maximum=700,
+                        optional=True,
+                    ),
+                    ExprParam(
+                        "n_psfs",
+                        "Expected PSFs",
+                        "",
+                        placeholder="from configuration",
+                        optional=True,
+                        config_default=f"{_PHASING}['expected_psfs']",
+                    ),
                 ],
                 lambda v: (
                     f"{v['spl']}.preview_detection("
@@ -93,8 +137,12 @@ class SegmentsPhasingWindow(ProcedureWindow):
                     VarParam("spl", "SPL sensor", "spl"),
                     FloatParam("exptime", "Exposure time [s]", 0.01, minimum=0.0),
                     ChoiceParam("filter_mode", "Filter mode", _MODES),
-                    ExprParam("wavelengths", "Wavelengths [nm]", "np.arange(440, 701, 20)"),
-                    IntParam("nframes", "Frames per wavelength", 1, minimum=1, maximum=1000),
+                    ExprParam(
+                        "wavelengths", "Wavelengths [nm]", "np.arange(440, 701, 20)"
+                    ),
+                    IntParam(
+                        "nframes", "Frames per wavelength", 1, minimum=1, maximum=1000
+                    ),
                     VarParam("out", "Store the tracking number in", "tn_spl"),
                 ],
                 # The dark frame comes first: without one, acquire() would take
@@ -114,9 +162,20 @@ class SegmentsPhasingWindow(ProcedureWindow):
                 "templates and print the differential piston of each one [nm].",
                 [
                     VarParam("spl", "SPL sensor", "spl"),
-                    TnParam("tn", "Sweep tracking number", folder_attr="SPL_DATA_ROOT_FOLDER", state_key="spl_tn"),
-                    ExprParam("n_psfs", "Expected PSFs", "", placeholder="from configuration", optional=True,
-                              config_default=f"{_PHASING}['expected_psfs']"),
+                    TnParam(
+                        "tn",
+                        "Sweep tracking number",
+                        folder_attr="SPL_DATA_ROOT_FOLDER",
+                        state_key="spl_tn",
+                    ),
+                    ExprParam(
+                        "n_psfs",
+                        "Expected PSFs",
+                        "",
+                        placeholder="from configuration",
+                        optional=True,
+                        config_default=f"{_PHASING}['expected_psfs']",
+                    ),
                     VarParam("out", "Store the pistons in", "spl_pistons"),
                 ],
                 lambda v: (

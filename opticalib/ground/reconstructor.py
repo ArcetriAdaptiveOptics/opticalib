@@ -64,13 +64,13 @@ def compute_interaction_matrix(
         iff_cube = _osu.load_cube_from_filelist(iff_cube, fold=_IFFOLD, key="mode_")
     master_mask = pupil_mask if pupil_mask is not None else cube_master_mask(iff_cube)
     im = _np.array(
-        [[(iff_cube[:, :, i].data)[master_mask == 0] for i in range(iff_cube.shape[2])]]
+        [(iff_cube[:, :, i].data)[master_mask == 0] for i in range(iff_cube.shape[2])]
     )
     out = [im]
     if get_svd:
-        im_gpu = _xp.asarray(im, dtype=_xp.float)
+        im_gpu = _xp.asarray(im, dtype=_ot.compute_float())
         u, s, vt = _xp.linalg.svd(im_gpu, full_matrices=False)
-        out.extend([u.get(), s.get(), vt.get()])
+        out.extend([_xp.asnumpy(x) for x in (u, s, vt)])
     return out if get_svd else im
 
 
@@ -292,7 +292,7 @@ class ComputeReconstructor:
                     ]
                 )
                 self._logger.info("SVD of Interaction Matrix")
-                im = _xp.asarray(self._intMat, dtype=_xp.float)
+                im = _xp.asarray(self._intMat, dtype=_ot.compute_float())
                 U, S, Vt = _xp.linalg.svd(im, full_matrices=False)
                 self._intMat_U, self._intMat_S, self._intMat_Vt = [
                     _xp.asnumpy(x) for x in (U, S, Vt)
@@ -311,7 +311,7 @@ class ComputeReconstructor:
                 raise e
 
         return tuple(
-            _xp.asarray(x, dtype=_xp.float)
+            _xp.asarray(x, dtype=_ot.compute_float())
             for x in (self._intMat, self._intMat_U, self._intMat_S, self._intMat_Vt)
         )
 

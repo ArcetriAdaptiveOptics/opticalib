@@ -1,40 +1,12 @@
 import os
-import time
 import numpy as np
 
 from opticalib.core import _types as _t
-
+from opticalib.core.exceptions import CommandError
 from ._API import *
-from matplotlib import pyplot as plt
 from opticalib.ground import osutils as osu
 from opticalib.core.root import folders as fp
 from opticalib.ground.logger import SystemLogger as _SL
-from opticalib.ground.modal_decomposer import ZernikeFitter as _ZF
-from opticalib.dmutils.slaving import (
-    compute_slave_cmd as _compute_slave_cmd,
-    compute_slaved_command_matrix as _compute_slaved_command_matrix,
-)
-
-
-def _apply_slaving(
-    dm: _t.FakeDeformableMirrorDevice,
-    cmd: _t.ArrayLike | _t.MatrixLike,
-    slave: bool | str,
-) -> _t.ArrayLike:
-    """
-    Apply slaving to command if requested.
-    """
-    if isinstance(slave, str):
-        method = slave
-    elif slave:
-        if len(dm.slave_ids) == 0:
-            return cmd
-        method = "zero-force" if len(dm.border_ids) == 0 else "minimum-rms"
-    else:
-        return cmd
-    if _t.isinstance_(cmd, "MatrixLike"):
-        return _compute_slaved_command_matrix(dm, cmd, method=method)
-    return _compute_slave_cmd(dm, cmd, method=method)
 
 
 class PetalMirror(BaseFakePTL):
@@ -47,9 +19,8 @@ class PetalMirror(BaseFakePTL):
         self._logger = _SL(__class__)
         super().__init__(**kwargs)
         self.is_segmented = True
-        self.nSegments = 6
-        self.nActsPerSegment = 3
-        self._zern = _ZF(self._mask)
+        self.n_segments = 6
+        self.n_acts_per_segment = 3
         self.mirrorModes = None
 
     @property
@@ -76,37 +47,6 @@ class PetalMirror(BaseFakePTL):
         """
         return self._borderIds
 
-    @property
-    def act_coord(self) -> _t.ArrayLike:
-        """Actuator coordinates in pixels."""
-        return self._coords.copy()
-
-    def set_shape(
-        self,
-        command: _t.ArrayLike,
-        differential: bool = False,
-        modal: bool = False,
-        *,
-        slave: bool | str = False,
-    ):
-        """
-        Applies the given command to the deformable mirror.
-
-        Parameters
-        ----------
-        command : numpy.ndarray
-            Command to be applied to the deformable mirror.
-
-        differential : bool
-            If True, the command is applied differentially.
-        """
-        command = _apply_slaving(self, command, slave)
-        self._logger.info(f"Sending mirror command to {self._name}")
-        self._mirror_command(command, differential)
-        if self._live:
-            time.sleep(0.15)
-            plt.pause(0.05)
-
     def get_shape(self):
         """
         Returns the current amplitudes commanded to the dm's actuators.
@@ -116,102 +56,7 @@ class PetalMirror(BaseFakePTL):
         numpy.ndarray
             Current amplitudes commanded to the dm's actuators.
         """
-        return self._n2modes(self._actPos.copy()) / np.tile(self._unit_calib, 6)
-
-    def upload_cmd_history(self, cmdhist: _t.MatrixLike):
-        """
-        Upload the command history to the deformable mirror memory.
-        Ready to run the `run_cmd_history` method.
-        """
-        self._logger.info(
-            f"Uploading command history of shape {cmdhist.shape} to {self._name}"
-        )
-        self.cmdHistory = cmdhist
-
-    def run_cmd_history(
-        self,
-        wfs: _t.Optional[_t.InterferometerDevice | _t.WFSDevice] = None,
-        save: str = None,
-        rebin: int = 1,
-        differential: bool = True,
-        delay: float = 0,
-    ):
-        """
-        Runs the command history on the deformable mirror.
-
-        Parameters
-        ----------
-        wfs : InterferometerDevice | WFSDevice, optional
-            Wavefront sensor object used to acquire the data.
-        rebin : int
-            Rebinning factor for the acquired phase map.
-        modal : bool
-            If True, the command history is modal.
-        differential : bool
-            If True, the command history is applied differentially
-            to the initial shape.
-
-        Returns
-        -------
-        tn :str
-            Timestamp of the data saved.
-        """
-        if self.cmdHistory is None:
-            self._logger.error("No Command History found in memory!")
-            raise Exception("No Command History to run!")
-        else:
-            self._logger.info(
-                f"Running command history of shape {self.cmdHistory.shape}"
-            )
-
-            if wfs is not None:
-                datafold, tn = osu.create_data_folder(get_tn=True)
-            else:
-                tn = save
-                datafold = os.path.join(fp.OPD_IMAGES_ROOT_FOLDER, tn)
-
-            print(f"{tn} - {self.cmdHistory.shape[-1]} images to go.")
-            s = self.get_shape()
-            if not os.path.exists(datafold):
-                os.mkdir(datafold)
-            for i, cmd in enumerate(self.cmdHistory.T):
-                print(f"{i+1}/{self.cmdHistory.shape[-1]}", end="\r", flush=True)
-                if differential:
-                    cmd += s
-                self.set_shape(cmd)
-                if wfs is not None:
-                    time.sleep(delay)
-                    img = wfs.acquire_map(rebin=rebin)
-                    path = os.path.join(datafold, f"image_{i:05d}.fits")
-                    osu.save_fits(path, img)
-        self.set_shape(s)
-        return tn
-
-    def visualize_shape(self, cmd: _t.ArrayLike = None):
-        """
-        Visualizes the command amplitudes on the mirror's actuators.
-
-        Parameters
-        ----------
-        cmd : np.array, optional
-            Command to be visualized on the mirror's actuators. If none, will plot
-            the current position of the actuators.
-
-        Returns
-        -------
-        numpy.ndarray
-            Processed shape based on the command.
-        """
-        if cmd is None:
-            cmd = self._actPos.copy()
-        plt.figure(figsize=(7, 6))
-        size = (120 * 97) / self.n_acts
-        plt.scatter(self._coords[:, 0], self._coords[:, 1], c=cmd, s=size)
-        plt.xlabel(r"$x$ $[px]$")
-        plt.ylabel(r"$y$ $[px]$")
-        plt.title(f"DM {self.n_acts} Actuator's Coordinates")
-        plt.colorbar()
-        plt.show()
+        return self._n2modes(self._act_pos.copy()) / np.tile(self._unit_calib, 6)
 
 
 class AlpaoDm(BaseFakeAlpao):
@@ -219,13 +64,8 @@ class AlpaoDm(BaseFakeAlpao):
     def __init__(self, n_acts: int, force_recompute: bool = False):
         self._logger = _SL(__class__)
         super(AlpaoDm, self).__init__(n_acts, force_recompute=force_recompute)
-        self.cmdHistory = None
-        self._shape = np.ma.masked_array(self._mask * 0, mask=self._mask, dtype=float)
         self._idx = np.where(self._mask == 0)
-        self._actPos = np.zeros(self.n_acts)
-        self._live = False
         self._produce_random_shape()
-        self._zern = _ZF(self._mask)
         self.is_segmented = False
 
     @property
@@ -252,196 +92,33 @@ class AlpaoDm(BaseFakeAlpao):
         """
         return self._borderIds
 
-    def set_shape(
-        self,
-        command: _t.ArrayLike,
-        differential: bool = False,
-        modal: bool = False,
-        *,
-        slave: bool | str = False,
+    def _mirror_command(
+        self, cmd: _t.ArrayLike, differential: bool, **kwargs: dict[str, _t.Any]
     ):
-        """
-        Applies the given command to the deformable mirror.
-
-        Parameters
-        ----------
-        command : numpy.ndarray
-            Command to be applied to the deformable mirror.
-
-        differential : bool
-            If True, the command is applied differentially.
-        """
-        command = _apply_slaving(self, command, slave)
-        scaled_cmd = command * 1e-5  # more realistic command
-        self._logger.info(f"Sending mirror command to {self._name}")
-        self._mirror_command(scaled_cmd, differential, modal)
-        if self._live:
-            time.sleep(0.15)
-            plt.pause(0.05)
-
-    def get_shape(self):
-        """
-        Returns the current amplitudes commanded to the dm's actuators.
-
-        Returns
-        -------
-        numpy.ndarray
-            Current amplitudes commanded to the dm's actuators.
-        """
-        return self._actPos.copy()
-
-    def upload_cmd_history(self, cmdhist: _t.MatrixLike, slave: bool | str = False):
-        """
-        Upload the command history to the deformable mirror memory.
-        Ready to run the `run_cmd_history` method.
-
-        Parameters
-        ----------
-        cmdhist : MatrixLike
-            Command history to be uploaded to the deformable mirror.
-        slave : bool | str
-            If True, apply slaving to the command history. If a string is provided,
-            it specifies the slaving method to be used.
-        """
-        self._logger.info(
-            f"Uploading command history of shape {cmdhist.shape} to {self._name}"
-        )
-        self.cmdHistory = _apply_slaving(self, cmdhist, slave)
-
-    def run_cmd_history(
-        self,
-        wfs: _t.InterferometerDevice | _t.WFSDevice | None = None,
-        save: str = None,
-        rebin: int = 1,
-        delay: float = 0,
-        **setshape_kwargs: dict[str, _t.Any],
-    ):
-        """
-        Runs the command history on the deformable mirror.
-
-        Parameters
-        ----------
-        wfs : Interferometer or WFSDevice
-            Interferometer or WFSDevice object to acquire the data.
-        rebin : int
-            Rebinning factor for the acquired phase map.
-        modal : bool
-            If True, the command history is modal.
-        differential : bool
-            If True, the command history is applied differentially
-            to the initial shape.
-        slave : bool | str
-            If True, apply slaving to the command history. If a string is provided,
-            it specifies the slaving method to be used.
-        **setshape_kwargs : dict
-            Additional keyword arguments to be passed to the `set_shape` method.
-
-        Returns
-        -------
-        tn :str
-            Timestamp of the data saved.
-        """
-        differential = setshape_kwargs.pop("differential", True)
-        if self.cmdHistory is None:
-            self._logger.error("No Command History found in memory!")
-            raise Exception("No Command History to run!")
-        else:
-            self._logger.info(
-                f"Running command history of shape {self.cmdHistory.shape}"
-            )
-            if all([wfs is not None, wfs._live is True, wfs._surf is False]):
-                wfs.toggle_surface_view()
-            tn = osu.newtn() if save is None else save
-            print(f"{tn} - {self.cmdHistory.shape[-1]} images to go.")
-            datafold = os.path.join(fp.OPD_IMAGES_ROOT_FOLDER, tn)
-            s = self.get_shape()
-            if not os.path.exists(datafold):
-                os.mkdir(datafold)
-            for i, cmd in enumerate(self.cmdHistory.T):
-                print(f"{i+1}/{self.cmdHistory.shape[-1]}", end="\r", flush=True)
-                if differential:
-                    cmd = cmd + s
-                self.set_shape(cmd, **setshape_kwargs)
-                if wfs is not None:
-                    time.sleep(delay)
-                    img = wfs.acquire_map(rebin=rebin)
-                    path = os.path.join(datafold, f"image_{i:05d}.fits")
-                    osu.save_fits(path, img)
-        self.set_shape(s)
-        return tn
-
-    def visualize_shape(
-        self, cmd: _t.ArrayLike = None, **scatter_kwargs: dict[str, _t.Any]
-    ):
-        """
-        Visualizes the command amplitudes on the mirror's actuators.
-
-        Parameters
-        ----------
-        cmd : np.array, optional
-            Command to be visualized on the mirror's actuators. If none, will plot
-            the current position of the actuators.
-
-        Returns
-        -------
-        numpy.ndarray
-            Processed shape based on the command.
-        """
-        plt.figure(figsize=(7, 6))
-        if cmd is None:
-            cmd = self.get_shape()
-
-            for i, (x, y) in enumerate(self._scaledActCoords):
-                plt.annotate(
-                    str(i),
-                    (x, y),
-                    textcoords="offset points",
-                    xytext=(3, 3),
-                    ha="left",
-                    va="bottom",
-                    fontsize=7,
-                    color="black",
-                )
-
-        plt.scatter(
-            self._scaledActCoords[:, 0],
-            self._scaledActCoords[:, 1],
-            c=cmd,
-            s=scatter_kwargs.pop("s", (120 * 97) / self.n_acts),
-            **scatter_kwargs,
-        )
-        plt.xlabel(r"$x$ $[px]$")
-        plt.ylabel(r"$y$ $[px]$")
-        plt.title(f"DM {self.n_acts} Actuator's Coordinates")
-        plt.colorbar()
-        plt.show()
-
-    def _mirror_command(self, cmd: _t.ArrayLike, diff: bool, modal: bool):
         """
         Applies the given command to the deformable mirror.
 
         Parameters
         ----------
         cmd : numpy.ndarray
-            Command to be processed by the deformable mirror.
-        diff : bool
-            If True, process the command differentially.
+            Actuators command to be applied to the deformable mirror.
+        differential : bool
+            If True, process the command as a differential command.
         modal : bool
-            If True, process the command in modal space.
+            If True, process the command in modal (Zernike) space.
 
         Returns
         -------
         numpy.ndarray
             Processed shape based on the command.
         """
+        scaled_cmd = cmd * 1e-5  # more realistic command
+        modal = kwargs.get("modal", False)
         if modal:
-            mode_img = np.dot(self.zm, cmd)
-            cmd = np.dot(mode_img, self.rm)
-        cmd_amp = cmd
-        if not diff:
-            cmd_amp = cmd - self._actPos
-        self._shape[self._idx] += np.dot(cmd_amp, self.im)
-        self._actPos += cmd_amp
+            mode_img = np.dot(self.ZM, scaled_cmd)
+            scaled_cmd = np.dot(mode_img, self.RM)
+        cmd_amp = scaled_cmd
+        super()._base_mirror_command(cmd_amp, differential=differential)
 
     def _wavefront(self, **kwargs: dict[str, _t.Any]) -> np.array:
         """
@@ -517,7 +194,7 @@ class AlpaoDm(BaseFakeAlpao):
                 os.path.join(fp.simulated_dm_path(self._name), f"baseShape.fits"),
                 self._shape,
             )
-            self._actPos = np.zeros(self.n_acts)
+            self._act_pos = np.zeros(self.n_acts)
 
     def __repr__(self) -> str:
         return f"{__class__.__name__}(n_acts={self.n_acts})"
@@ -536,34 +213,8 @@ class DP(BaseFakeDp):
         self._logger = _SL(__class__)
         super().__init__(**kwargs)
         self.is_segmented = True
-        self.nSegments = 2
-        self.nActsPerSegment = 111
-
-    def set_shape(
-        self,
-        command: _t.ArrayLike,
-        differential: bool = False,
-        modal: bool = False,
-        *,
-        slave: bool | str = False,
-    ):
-        """
-        Applies the given command to the deformable mirror.
-
-        Parameters
-        ----------
-        command : numpy.ndarray
-            Command to be applied to the deformable mirror.
-
-        differential : bool
-            If True, the command is applied differentially.
-        """
-        command = _apply_slaving(self, command, slave)
-        self._logger.info(f"Sending mirror command to {self._name}")
-        self._mirror_command(command, differential, modal)
-        if self._live:
-            time.sleep(0.15)
-            plt.pause(0.05)
+        self.n_segments = 2
+        self.n_acts_per_segment = 111
 
     def get_shape(self):
         """
@@ -574,121 +225,11 @@ class DP(BaseFakeDp):
         numpy.ndarray
             Current amplitudes commanded to the dm's actuators.
         """
-        cmd = np.concatenate((self._actPos[0], self._actPos[1]))
+        cmd = np.concatenate((self._act_pos[0], self._act_pos[1]))
         return cmd
 
-    def upload_cmd_history(self, cmdhist: _t.MatrixLike):
-        """
-        Upload the command history to the deformable mirror memory.
-        Ready to run the `run_cmd_history` method.
-        """
-        self._logger.info(
-            f"Uploading command history of shape {cmdhist.shape} to {self._name}"
-        )
-        self.cmdHistory = cmdhist
-
-    def run_cmd_history(
-        self,
-        wfs: _t.Optional[_t.InterferometerDevice | _t.WFSDevice] = None,
-        save: str = None,
-        rebin: int = 1,
-        modal: bool = False,
-        differential: bool = True,
-        delay: float = 0,
-    ):
-        """
-        Runs the command history on the deformable mirror.
-
-        Parameters
-        ----------
-        wfs : Interferometer | WFSDevice
-            Wavefront sensor used to acquire the data.
-        rebin : int
-            Rebinning factor for the acquired phase map.
-        modal : bool
-            If True, the command history is modal.
-        differential : bool
-            If True, the command history is applied differentially
-            to the initial shape.
-
-        Returns
-        -------
-        tn :str
-            Timestamp of the data saved.
-        """
-        import time
-
-        if self.cmdHistory is None:
-            self._logger.error("No Command History found in memory!")
-            raise Exception("No Command History to run!")
-        else:
-            self._logger.info(
-                f"Running command history of shape {self.cmdHistory.shape}"
-            )
-            tn = osu.newtn() if save is None else save
-            print(f"{tn} - {self.cmdHistory.shape[-1]} images to go.")
-            datafold = os.path.join(fp.OPD_IMAGES_ROOT_FOLDER, tn)
-            s = self.get_shape()
-            if not os.path.exists(datafold):
-                os.mkdir(datafold)
-            for i, cmd in enumerate(self.cmdHistory.T):
-                print(f"{i+1}/{self.cmdHistory.shape[-1]}", end="\r", flush=True)
-                if differential:
-                    cmd = cmd + s
-                self.set_shape(cmd, modal=modal)
-                if wfs is not None:
-                    time.sleep(delay)
-                    img = wfs.acquire_map(rebin=rebin)
-                    path = os.path.join(datafold, f"image_{i:05d}.fits")
-                    osu.save_fits(path, img)
-        self.set_shape(s)
-        return tn
-
-    def visualize_shape(self, cmd: _t.ArrayLike = None, **kwargs: dict[str, _t.Any]):
-        """
-        Visualizes the command amplitudes on the mirror's actuators.
-
-        Parameters
-        ----------
-        cmd : np.array, optional
-            Command to be visualized on the mirror's actuators. If none, will plot
-            the current position of the actuators.
-
-        Returns
-        -------
-        numpy.ndarray
-            Processed shape based on the command.
-        """
-        size = kwargs.pop("s", (120 * 97) / self.n_acts)
-        import matplotlib.pyplot as plt
-
-        coords = self.act_coord
-        plt.figure(figsize=(13, 6))
-
-        if cmd is None:
-            cmd = self.get_shape()
-
-            for i, (x, y) in enumerate(coords):
-                plt.annotate(
-                    str(i),
-                    (x, y),
-                    textcoords="offset points",
-                    xytext=(3, 3),
-                    ha="left",
-                    va="bottom",
-                    fontsize=7,
-                    color="black",
-                )
-        size = (120 * 97) / self.n_acts
-        plt.scatter(coords[:, 0], coords[:, 1], c=cmd, s=size, **kwargs)
-        plt.xlabel(r"$x$ $[px]$")
-        plt.ylabel(r"$y$ $[px]$")
-        plt.title(f"{self._name} {self.n_acts} Actuator's Coordinates")
-        plt.colorbar()
-        plt.show()
-
     def __repr__(self) -> str:
-        return f"{self._name}(nSegments={self.nSegments}, nActsPerSegment={self.nActsPerSegment})"
+        return f"{self._name}(n_segments={self.n_segments}, n_acts_per_segment={self.n_acts_per_segment})"
 
 
 class M4AU(BaseFakeM4):
@@ -698,149 +239,43 @@ class M4AU(BaseFakeM4):
         super().__init__(**kwargs)
 
     def __repr__(self) -> str:
-        return f"{self._name}(nSegments={self.nSegments}, nActsPerSegment={self.nActsPerSegment})"
+        return f"{self._name}(n_segments={self.n_segments}, n_acts_per_segment={self.n_acts_per_segment})"
 
-    def set_shape(
-        self,
-        command: _t.ArrayLike,
-        differential: bool = False,
-        modal: bool = False,
-        *,
-        slave: bool | str = False,
-    ):
+    def _mirror_command(self, cmd: _t.ArrayLike, diff: bool, modal: bool):
         """
         Applies the given command to the deformable mirror.
 
         Parameters
         ----------
-        command : numpy.ndarray
-            Command to be applied to the deformable mirror.
+        cmd : numpy.ndarray
+            Command to be processed by the deformable mirror.
 
-        differential : bool
-            If True, the command is applied differentially.
-        """
-        command = _apply_slaving(self, command, slave)
-        self._logger.info(f"Sending mirror command to {self._name}")
-        self._mirror_command(command, differential, modal)
-        if self._live:
-            time.sleep(0.15)
-            plt.pause(0.05)
-
-    def get_shape(self):
-        """
-        Returns the current amplitudes commanded to the dm's actuators.
-
-        Returns
-        -------
-        numpy.ndarray
-            Current amplitudes commanded to the dm's actuators.
-        """
-        return self._actPos.copy()
-
-    def visualize_shape(self, cmd: _t.ArrayLike = None, **kwargs: dict[str, _t.Any]):
-        """
-        Visualizes the command amplitudes on the mirror's actuators.
-
-        Parameters
-        ----------
-        cmd : np.array, optional
-            Command to be visualized on the mirror's actuators. If none, will plot
-            the current position of the actuators.
+        diff : bool
+            If True, process the command differentially.
 
         Returns
         -------
         numpy.ndarray
             Processed shape based on the command.
         """
-        size = kwargs.pop("s", (120 * 97) / self.n_acts)
-        import matplotlib.pyplot as plt
-
-        coords = self.act_coord
-        plt.figure(figsize=(13, 6))
-
-        if cmd is None:
-            cmd = self.get_shape()
-
-            for i, (x, y) in enumerate(coords):
-                plt.annotate(
-                    str(i),
-                    (x, y),
-                    textcoords="offset points",
-                    xytext=(3, 3),
-                    ha="left",
-                    va="bottom",
-                    fontsize=7,
-                    color="black",
-                )
-        size = (120 * 97) / self.n_acts
-        plt.scatter(coords[:, 0], coords[:, 1], c=cmd, s=size, **kwargs)
-        plt.xlabel(r"$x$ $[px]$")
-        plt.ylabel(r"$y$ $[px]$")
-        plt.title(f"{self._name} {self.n_acts} Actuator's Coordinates")
-        plt.colorbar()
-        plt.show()
-
-    def upload_cmd_history(self, cmdhist: _t.MatrixLike):
-        """
-        Upload the command history to the deformable mirror memory.
-        Ready to run the `run_cmd_history` method.
-        """
-        self._logger.info(
-            f"Uploading command history of shape {cmdhist.shape} to {self._name}"
-        )
-        self.cmdHistory = cmdhist
-
-    def run_cmd_history(
-        self,
-        wfs: _t.Optional[_t.InterferometerDevice | _t.WFSDevice] = None,
-        save: str = None,
-        rebin: int = 1,
-        modal: bool = False,
-        differential: bool = True,
-        delay: float = 0,
-    ):
-        """
-        Runs the command history on the deformable mirror.
-
-        Parameters
-        ----------
-        wfs : Interferometer | WFSDevice
-            Wavefront sensor used to acquire the data.
-        rebin : int
-            Rebinning factor for the acquired phase map.
-        modal : bool
-            If True, the command history is modal.
-        differential : bool
-            If True, the command history is applied differentially
-            to the initial shape.
-
-        Returns
-        -------
-        tn :str
-            Timestamp of the data saved.
-        """
-        if self.cmdHistory is None:
-            self._logger.error("No Command History found in memory!")
-            raise Exception("No Command History to run!")
-        else:
-            self._logger.info(
-                f"Running command history of shape {self.cmdHistory.shape}"
+        if not len(cmd) == self.n_acts:
+            raise CommandError(
+                f"Command length {len(cmd)} does not match the number of actuators {self.n_acts}."
             )
-            tn = osu.newtn() if save is None else save
-            print(f"{tn} - {self.cmdHistory.shape[-1]} images to go.")
-            datafold = os.path.join(fp.OPD_IMAGES_ROOT_FOLDER, tn)
-            s = self.get_shape()
-            if not os.path.exists(datafold):
-                os.mkdir(datafold)
-            for i, cmd in enumerate(self.cmdHistory.T):
-                print(f"{i+1}/{self.cmdHistory.shape[-1]}", end="\r", flush=True)
-                if differential:
-                    cmd = cmd + s
-                self.set_shape(cmd, modal=modal)
-                if wfs is not None:
-                    time.sleep(delay)
-                    img = wfs.acquire_map(rebin=rebin)
-                    path = os.path.join(datafold, f"image_{i:05d}.fits")
-                    osu.save_fits(path, img)
-        self.set_shape(s)
-        return tn
+
+        nsag = self.n_acts_per_segment
+
+        for seg in range(self.n_segments):
+            idx = self._idx[seg]
+
+            if modal and self.zm is not None:
+                mode_img = np.dot(self.zm[seg], cmd[seg * nsag : (seg + 1) * nsag])
+                cmd_amp = np.dot(mode_img, self.rm[seg])
+            else:
+                cmd_amp = cmd[seg * nsag : (seg + 1) * nsag]
+
+            if not diff:
+                cmd_amp = cmd_amp - self._act_pos[seg * nsag : (seg + 1) * nsag]
+
+            self._shape[idx] += np.dot(cmd_amp, self.im[seg])
+            self._act_pos[seg * nsag : (seg + 1) * nsag] += cmd_amp

@@ -195,9 +195,15 @@ class DataBrowser(QWidget):
         self._tree.clear()
         t = theme()
         for label, path in self._categories:
-            all_tns = sorted((e.name for e in _list_dir(path) if e.is_dir()), reverse=True)
+            all_tns = sorted(
+                (e.name for e in _list_dir(path) if e.is_dir()), reverse=True
+            )
             tns = all_tns[:MAX_TNS]
-            count = f"{len(all_tns)}" if len(all_tns) <= MAX_TNS else f"latest {MAX_TNS} of {len(all_tns)}"
+            count = (
+                f"{len(all_tns)}"
+                if len(all_tns) <= MAX_TNS
+                else f"latest {MAX_TNS} of {len(all_tns)}"
+            )
             node = QTreeWidgetItem([f"{label}  ({count})"])
             node.setData(0, _ROLE, path)
             node.setToolTip(0, path)
@@ -208,7 +214,9 @@ class DataBrowser(QWidget):
                 child_path = os.path.join(path, tn)
                 child.setData(0, _ROLE, child_path)
                 child.setIcon(0, t.icon("folder-outline", "text_muted"))
-                child.setChildIndicatorPolicy(QTreeWidgetItem.ChildIndicatorPolicy.ShowIndicator)
+                child.setChildIndicatorPolicy(
+                    QTreeWidgetItem.ChildIndicatorPolicy.ShowIndicator
+                )
                 node.addChild(child)
                 if child_path in expanded:
                     child.setExpanded(True)
@@ -269,16 +277,18 @@ class DataBrowser(QWidget):
                 lambda: self.preview_requested.emit(path)
             )
             menu.addAction(t.icon("console"), "Load in console").triggered.connect(
-                lambda: self.run_requested.emit(load_code(path), f"Load {os.path.basename(path)}")
+                lambda: self.run_requested.emit(
+                    load_code(path), f"Load {os.path.basename(path)}"
+                )
             )
         menu.addAction(t.icon("content-copy"), "Copy path").triggered.connect(
             lambda: QGuiApplication.clipboard().setText(path)
         )
         tn = self._tracking_number(item)
         if tn:
-            menu.addAction(t.icon("content-copy"), f"Copy tracking number ({tn})").triggered.connect(
-                lambda: QGuiApplication.clipboard().setText(tn)
-            )
+            menu.addAction(
+                t.icon("content-copy"), f"Copy tracking number ({tn})"
+            ).triggered.connect(lambda: QGuiApplication.clipboard().setText(tn))
         folder = path if os.path.isdir(path) else os.path.dirname(path)
         menu.addAction(t.icon("folder-open-outline"), "Open folder").triggered.connect(
             lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(folder))
@@ -288,7 +298,11 @@ class DataBrowser(QWidget):
     @staticmethod
     def _tracking_number(item: QTreeWidgetItem) -> str:
         """Return the tracking number an item belongs to."""
-        while item is not None and item.parent() is not None and item.parent().parent() is not None:
+        while (
+            item is not None
+            and item.parent() is not None
+            and item.parent().parent() is not None
+        ):
             item = item.parent()
         if item is not None and item.parent() is not None:
             return item.text(0)

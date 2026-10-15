@@ -5,9 +5,10 @@ Requirements
 ------------
 
 OptiCalib requires **Python 3.10** or newer.  The package depends on several
-scientific Python libraries that are listed in ``requirements.txt`` at the root
-of the repository.  All of them are installed automatically when you use
-``pip``.
+scientific Python libraries that are listed in the ``dependencies`` of
+``pyproject.toml`` at the root of the repository.  All of them are installed
+automatically when you use ``pip``.  The graphical interface and the GPU backend
+are optional, see :ref:`optional-extras`.
 
 Installing from PyPI (stable release)
 --------------------------------------
@@ -36,7 +37,10 @@ repository and install it in *editable* mode::
 
     git clone https://github.com/ArcetriAdaptiveOptics/opticalib.git
     cd opticalib
-    pip install -e .
+    pip install -e ".[dev]"
+
+``dev`` installs the optional graphical interface together with the test tools;
+use plain ``pip install -e .`` for the base package only.
 
 Setting up the experiment environment
 --------------------------------------
@@ -53,23 +57,37 @@ Upon installation, the ``calpy`` entry-point script is added to your
 See :doc:`configuration` for details on editing the generated configuration
 file.
 
-Optional dependencies
----------------------
+.. _optional-extras:
 
-Some features require packages that are not installed by default:
+Optional extras
+---------------
+
+Some features require packages that are not installed by default.  They are
+installed as *extras*, e.g. ``pip install "opticalib[gui]"``:
 
 .. list-table::
    :header-rows: 1
    :widths: 25 50
 
-   * - Package
+   * - Extra
      - Feature enabled
-   * - ``cupy-cuda12x`` or ``cupy-cuda13x``
-     - GPU-accelerated processing tools (iff, slaving, modal decomposition). Enables ``xupy`` on gpu, allowing for GPU-accelerated masked arrays.
-      
+   * - ``gui``
+     - The graphical interface (``calpy --gui`` and the ``OptiCalib`` launcher):
+       PySide6, QtPy, qtconsole, ipykernel, pyqtgraph, ...
+   * - ``cuda12`` or ``cuda13``
+     - GPU-accelerated processing tools (iff, slaving, modal decomposition).
+       Installs ``xupy`` with CuPy, enabling GPU-accelerated masked arrays.
+   * - ``test``
+     - ``pytest`` and ``pytest-cov``, to run the test suite.
+   * - ``dev``
+     - ``gui`` + ``test`` + ``flake8``, for contributors.
+
+Extras can be combined, e.g. ``pip install "opticalib[gui,cuda13]"``.
 
 .. note::
-   The appropriate version of ``cupy`` depends on your CUDA Toolkit version.
+   Pick ``cuda12`` or ``cuda13`` according to your CUDA Toolkit version
+   (``nvidia-smi`` shows the maximum version the driver supports).  Without an
+   extra, ``xupy`` runs on the CPU with NumPy.
 
 Verifying the installation
 --------------------------

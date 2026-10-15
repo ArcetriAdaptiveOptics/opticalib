@@ -1,8 +1,9 @@
 include README.md
-include requirements.txt
+include LICENSE
+include CITATION.bib
 include opticalib/core/_configurations/configuration.yaml
-include setup_calpy.py
-include opticalib/__init_script__/initCalpy.py
 include opticalib/simulator/_API/alpao_conf.yaml
+include opticalib/__init_script__/initCalpy.py
 recursive-include opticalib/gui/resources *.svg *.png *.ico
-recursive-include labott *.py
+graft tests
+global-exclude __pycache__ *.py[cod]

@@ -29,7 +29,7 @@ import sys
 import time
 import traceback
 from collections import deque
-from typing import Any, Callable, Deque, Dict, List, Optional, Tuple
+from typing import Any, Callable, Deque, Dict, List, Optional, Sequence, Tuple
 
 from qtpy.QtCore import QObject, QTimer, Signal
 from qtconsole.manager import QtKernelManager
@@ -240,6 +240,30 @@ class CalpyConsole(RichJupyterWidget):
     image_received = Signal(dict)
     request_sent = Signal(str, bool)
 
+    def _forget_prompt_block(self) -> None:
+        """
+        Drop qtconsole's handle to the last prompt's text block.
+
+        ``JupyterWidget`` keeps a ``QTextBlock`` of the last prompt to rewrite
+        its number when the reply arrives.  Clearing the document leaves that
+        handle dangling yet still ``isValid()``, and the next execute reply
+        dereferences freed memory: the GUI segfaults, typically after a
+        couple of kernel restarts (the execution count restarts, so the
+        prompt number differs and the block is touched).
+        """
+        self._previous_prompt_obj = None
+
+    def reset(self, clear: bool = False) -> None:
+        """Reimplemented so that clearing never leaves a dangling prompt block."""
+        if clear:
+            self._forget_prompt_block()
+        super().reset(clear=clear)
+
+    def clear(self, keep_input: bool = True) -> None:
+        """Reimplemented so that clearing never leaves a dangling prompt block."""
+        self._forget_prompt_block()
+        super().clear(keep_input=keep_input)
+
     def _execute(self, source, hidden):
         """Reimplemented to report the ``msg_id`` of every request."""
         before = set(self._request_info["execute"])
@@ -283,6 +307,66 @@ def _safe_call(callback: Callable, *args: Any) -> None:
         traceback.print_exc()
 
 
+#: Variables holding a list of directories, merged instead of replaced.
+_PATH_LIST_VARIABLES = (
+    "PATH",
+    "LD_LIBRARY_PATH",
+    "LIBRARY_PATH",
+    "CPATH",
+    "C_INCLUDE_PATH",
+    "CPLUS_INCLUDE_PATH",
+    "PYTHONPATH",
+)
+
+
+def conda_env_variables(
+    prefix: Optional[str] = None, environ: Optional[Dict[str, str]] = None
+) -> Dict[str, str]:
+    """
+    Return the variables a conda environment sets when it is activated.
+
+    ``conda env config vars set`` stores them in ``<prefix>/conda-meta/state``
+    and they only reach a process started through ``conda activate``.  A
+    launcher that runs the environment's ``calpy`` directly (a desktop
+    shortcut) skips that, and e.g. CuPy then cannot find the CUDA libraries.
+    Variables already present in ``environ`` are kept; the entries of
+    path lists such as ``LD_LIBRARY_PATH`` are prepended when missing.
+
+    Parameters
+    ----------
+    prefix : str, optional
+        The conda environment; default is the running interpreter's.
+    environ : dict, optional
+        The environment to complete; default is ``os.environ``.
+
+    Returns
+    -------
+    dict
+        The variables to set or replace; empty outside conda, or when the
+        environment defines none.
+    """
+    prefix = prefix or sys.prefix
+    environ = os.environ if environ is None else environ
+    try:
+        with open(os.path.join(prefix, "conda-meta", "state")) as f:
+            stored = json.load(f).get("env_vars") or {}
+    except (OSError, ValueError, AttributeError):
+        return {}
+    result: Dict[str, str] = {}
+    for name, value in stored.items():
+        if not isinstance(value, str) or not value:
+            continue
+        current = environ.get(name)
+        if not current:
+            result[name] = value
+        elif name in _PATH_LIST_VARIABLES:
+            have = current.split(os.pathsep)
+            missing = [d for d in value.split(os.pathsep) if d and d not in have]
+            if missing:
+                result[name] = os.pathsep.join(missing + [current])
+    return result
+
+
 class KernelBridge(QObject):
     """
     Owner of the kernel process and the console widget.
@@ -297,6 +381,9 @@ class KernelBridge(QObject):
         Folder used by the kernel to hand arrays over to the GUI.
     parent : QObject, optional
         Parent object.
+    extra_init_files : sequence of str, optional
+        Scripts run after *init_file*, in order, in the same namespace (e.g.
+        the environment of a package building on opticalib).
 
     Signals
     -------
@@ -352,11 +439,13 @@ class KernelBridge(QObject):
         init_file: Optional[str],
         tmp_dir: str,
         parent: Optional[QObject] = None,
+        extra_init_files: Sequence[str] = (),
     ) -> None:
         """Create the console widget; the kernel starts with :meth:`start`."""
         super().__init__(parent)
         self._config_path = config_path
         self._init_file = init_file
+        self._extra_init_files = [str(f) for f in extra_init_files]
         self._tmp_dir = tmp_dir
 
         self.console = CalpyConsole()
@@ -468,10 +557,12 @@ class KernelBridge(QObject):
         Returns
         -------
         dict
-            A copy of the GUI environment with ``AOCONF``, ``MPLBACKEND`` and
-            ``CALPY_GUI_TMP`` set for the kernel.
+            A copy of the GUI environment, completed with the variables of
+            the conda environment (see :func:`conda_env_variables`), with
+            ``AOCONF``, ``MPLBACKEND`` and ``CALPY_GUI_TMP`` set for the kernel.
         """
         env = dict(os.environ)
+        env.update(conda_env_variables(environ=env))
         env["AOCONF"] = self._config_path
         env["MPLBACKEND"] = KERNEL_MPL_BACKEND
         env["CALPY_GUI_TMP"] = self._tmp_dir
@@ -498,7 +589,9 @@ class KernelBridge(QObject):
             km.start_kernel(env=self.kernel_env())
         except Exception as exc:
             self._set_state("dead")
-            self.bootstrap_step.emit("kernel", "error", f"The kernel could not start: {exc}")
+            self.bootstrap_step.emit(
+                "kernel", "error", f"The kernel could not start: {exc}"
+            )
             return
         km.add_restart_callback(self._on_kernel_dead, "dead")
         self._km = km
@@ -586,7 +679,9 @@ class KernelBridge(QObject):
             self._km.restart_kernel(now=True)
         except Exception as exc:
             self._set_state("dead")
-            self.bootstrap_step.emit("kernel", "error", f"The kernel could not restart: {exc}")
+            self.bootstrap_step.emit(
+                "kernel", "error", f"The kernel could not restart: {exc}"
+            )
             return
         self.console.reset(clear=True)
         self._connect_client()
@@ -678,7 +773,10 @@ class KernelBridge(QObject):
             Statements executed before evaluating the expressions.
         """
         if self._kc is None:
-            _safe_call(callback, {k: RuntimeError("The kernel is not running.") for k in expressions})
+            _safe_call(
+                callback,
+                {k: RuntimeError("The kernel is not running.") for k in expressions},
+            )
             return
         self._send_query(_Query(callback, expressions, code))
 
@@ -730,7 +828,8 @@ class KernelBridge(QObject):
             self._bootstrapping = False
             self._set_state("dead")
             self.bootstrap_step.emit(
-                "kernel", "error",
+                "kernel",
+                "error",
                 f"The kernel did not answer within {self.STARTUP_TIMEOUT:.0f} s. "
                 "Try Kernel → Restart.",
             )
@@ -761,7 +860,9 @@ class KernelBridge(QObject):
 
     def _on_install_done(self, results: Dict[str, Any]) -> None:
         if results.get("ok") is not True:
-            self._bootstrap_failed("opticalib", results.get("ok", "no reply from the kernel"))
+            self._bootstrap_failed(
+                "opticalib", results.get("ok", "no reply from the kernel")
+            )
             return
         self.bootstrap_step.emit("opticalib", "done", "")
         self.bootstrap_step.emit("calpy", "running", "")
@@ -771,12 +872,19 @@ class KernelBridge(QObject):
             )
             self._finish_bootstrap()
             return
+        self._run_init_files([self._init_file] + self._extra_init_files)
+
+    def _run_init_files(self, files: List[str]) -> None:
+        """Run the bootstrap scripts one after the other; stop at the first error."""
+        if not files:
+            self._on_init_done()
+            return
         # safe_execfile instead of %run: no quoting or $-expansion issues
         # with the path (Windows paths, spaces, ...).
         task = Task(
-            f"get_ipython().safe_execfile({self._init_file!r}, get_ipython().user_ns, raise_exceptions=True)",
+            f"get_ipython().safe_execfile({files[0]!r}, get_ipython().user_ns, raise_exceptions=True)",
             "Loading the calpy environment",
-            on_done=self._current(lambda t: self._on_init_done()),
+            on_done=self._current(lambda t, rest=files[1:]: self._run_init_files(rest)),
             on_error=self._current(lambda t: self._bootstrap_failed("calpy", t.error)),
             quiet=True,
         )
@@ -797,7 +905,9 @@ class KernelBridge(QObject):
         self._finish_bootstrap()
 
     def _finish_bootstrap(self) -> None:
-        self.query({"ok": "True"}, lambda r: None, code=f"{KERNEL_SIDE}.mark_baseline()")
+        self.query(
+            {"ok": "True"}, lambda r: None, code=f"{KERNEL_SIDE}.mark_baseline()"
+        )
         self._bootstrapping = False
         self._ready = True
         self.ready.emit()
@@ -823,11 +933,17 @@ class KernelBridge(QObject):
         try:
             self.console.execute(task.code)
         except Exception as exc:
-            task._finish("error", {"ename": type(exc).__name__, "evalue": str(exc), "traceback": []})
+            task._finish(
+                "error",
+                {"ename": type(exc).__name__, "evalue": str(exc), "traceback": []},
+            )
         finally:
             self._dispatching = None
         if task.msg_id is None and not task.is_final:  # the console refused it
-            task._finish("error", {"ename": "RuntimeError", "evalue": "not executed", "traceback": []})
+            task._finish(
+                "error",
+                {"ename": "RuntimeError", "evalue": "not executed", "traceback": []},
+            )
             QTimer.singleShot(0, self._dispatch)
 
     def _on_request_sent(self, msg_id: str, hidden: bool) -> None:
@@ -948,7 +1064,9 @@ class KernelBridge(QObject):
             keys = list(query.expressions) or ["ok"]
             _safe_call(query.callback, {k: error for k in keys})
             return
-        _safe_call(query.callback, _parse_user_expressions(content.get("user_expressions", {})))
+        _safe_call(
+            query.callback, _parse_user_expressions(content.get("user_expressions", {}))
+        )
 
     def _watchdog_check(self) -> None:
         """
@@ -965,15 +1083,19 @@ class KernelBridge(QObject):
             return
         now = time.monotonic()
         stalled_queries = [
-            (msg_id, q) for msg_id, q in self._queries.items()
+            (msg_id, q)
+            for msg_id, q in self._queries.items()
             if msg_id not in self._acknowledged and now - q.sent_at > self.REQUEST_STALL
         ]
         stalled_visible = [
-            msg_id for msg_id in self._inflight_visible
+            msg_id
+            for msg_id in self._inflight_visible
             if msg_id not in self._acknowledged
             and now - self._visible_sent_at.get(msg_id, now) > self.REQUEST_STALL
         ]
-        acknowledged_visible = [m for m in self._inflight_visible if m in self._acknowledged]
+        acknowledged_visible = [
+            m for m in self._inflight_visible if m in self._acknowledged
+        ]
         if acknowledged_visible or not (stalled_queries or stalled_visible):
             return
         self._reconnects = [t for t in self._reconnects if now - t < 60] + [now]

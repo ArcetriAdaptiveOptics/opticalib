@@ -44,6 +44,8 @@ control and deformable mirror (DM) calibration.  It provides:
 
    contributing
    developer_guide/adding_a_device
+   developer_guide/gui_internals
+   developer_guide/extending_the_gui
    developer_guide/documentation
    readme
 

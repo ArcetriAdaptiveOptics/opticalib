@@ -15,6 +15,7 @@ Most accessors also accept an explicit ``bpath`` to point at a specific
 
 import os as _os
 import re as _re
+from collections.abc import Mapping as _Mapping
 from ast import literal_eval as _literal_eval
 
 import numpy as _np
@@ -274,6 +275,52 @@ def get_section_config(section: str, sub_section: str | None = None) -> dict[str
         Requested section configuration.
     """
     return _get_section_config(section=section, sub_section=sub_section, path=_cfile)
+
+
+class LazySection(_Mapping):
+    """
+    A section of ``configuration.yaml``, read when it is used.
+
+    Modules that need a section at import time use it instead of reading the
+    file immediately, so that an experiment that does not define the
+    section (or sets it to ``null``) can still import opticalib.  A missing
+    section reads as empty; ``section[key]`` then raises a ``KeyError``
+    naming the section.  The file is read on every access, so the values
+    follow :func:`opticalib.set_configuration_file`.
+
+    Parameters
+    ----------
+    section : str
+        Top-level section name.
+    """
+
+    def __init__(self, section: str) -> None:
+        """Remember the section; nothing is read yet."""
+        self._section = section
+
+    def _load(self) -> dict[str, _Any]:
+        try:
+            data = get_section_config(self._section)
+        except KeyError:
+            data = None
+        return dict(data) if isinstance(data, dict) else {}
+
+    def __getitem__(self, key: str) -> _Any:
+        data = self._load()
+        if key not in data:
+            raise KeyError(
+                f"`{key}` not found in the `{self._section}` section of the configuration file"
+            )
+        return data[key]
+
+    def __iter__(self):
+        return iter(self._load())
+
+    def __len__(self) -> int:
+        return len(self._load())
+
+    def __repr__(self) -> str:
+        return f"LazySection({self._section!r})"
 
 
 def get_device_config(device_type: str, device_name: str | None = None):
@@ -558,8 +605,8 @@ def get_cmd_delay(bpath: str = _cfold):
         sub_section="DM",
         path=bpath,
     )
-    if "sequentialDelay" in dm_config:
-        cmdDelay = float(dm_config["sequentialDelay"])
+    if "sequential_delay" in dm_config:
+        cmdDelay = float(dm_config["sequential_delay"])
     elif "delay" in dm_config:
         cmdDelay = float(dm_config["delay"])
     elif "triggeredMode" in dm_config and "cmdDelay" in dm_config["triggeredMode"]:
@@ -696,6 +743,10 @@ def get_alignment_config():
         The alignment configuration as a class, for backwards compatibility.
     """
     config = get_section_config("SYSTEM.ALIGNMENT")
+    if not isinstance(config, dict):
+        raise KeyError(
+            "The `SYSTEM.ALIGNMENT` section of the configuration file is empty."
+        )
     config["slices"] = [slice(item["start"], item["stop"]) for item in config["slices"]]
 
     class AlignmentConfig:

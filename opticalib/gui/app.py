@@ -45,7 +45,15 @@ if getattr(qtpy, "QT5", False) is True:  # "is True": qtpy is mocked in the docs
     )
 
 from qtpy.QtCore import QRectF, QSettings, Qt, QTimer, Signal
-from qtpy.QtGui import QAction, QActionGroup, QColor, QIcon, QKeySequence, QPainter, QPainterPath
+from qtpy.QtGui import (
+    QAction,
+    QActionGroup,
+    QColor,
+    QIcon,
+    QKeySequence,
+    QPainter,
+    QPainterPath,
+)
 from qtpy.QtWidgets import (
     QApplication,
     QDockWidget,
@@ -63,7 +71,7 @@ from qtpy.QtWidgets import (
 
 from .activity import ActivityCenter, LocalJob, StartupOverlay, format_elapsed
 from .kernel import KERNEL_MPL_BACKEND, KERNEL_SIDE, KernelBridge, Task
-from .plugins import PLUGIN_WINDOWS, PluginPanel
+from .plugins import PROCEDURES, PluginPanel, Procedure
 from .procedures.base import ProcedureContext
 from .theme import SETTINGS_APP, SETTINGS_ORG, THEME_MODES, console_style_sheet, theme
 from .widgets.common import DockTitleBar, ElidedLabel
@@ -77,12 +85,13 @@ from .widgets.workspace import WorkspaceView
 LAYOUT_VERSION = 2
 
 #: Application icon (also used by the OptiCalib desktop launchers).
-ICON_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "resources", "opticalib.png")
+ICON_FILE = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "resources", "opticalib.png"
+)
 
 # Re-bind ``_gui`` in the kernel if the user deleted it (e.g. ``%reset``).
 _REINSTALL_GUI = (
-    "if '_gui' not in get_ipython().user_ns:\n"
-    f"    {KERNEL_SIDE}.install()\n"
+    "if '_gui' not in get_ipython().user_ns:\n" f"    {KERNEL_SIDE}.install()\n"
 )
 
 
@@ -298,7 +307,9 @@ class RamBar(QWidget):
     #: System memory use (fraction) above which the bar turns orange / red.
     WARNING, CRITICAL = 0.85, 0.95
 
-    def __init__(self, pid: Callable[[], Optional[int]], parent: Optional[QWidget] = None) -> None:
+    def __init__(
+        self, pid: Callable[[], Optional[int]], parent: Optional[QWidget] = None
+    ) -> None:
         """Create the gauge (hidden until the first reading)."""
         super().__init__(parent)
         try:
@@ -334,7 +345,11 @@ class RamBar(QWidget):
         """``1536 MB`` → ``'1.5 GB'``."""
         for unit in ("B", "KB", "MB", "GB", "TB"):
             if value < 1024 or unit == "TB":
-                return f"{value:.0f} {unit}" if unit in ("B", "KB") else f"{value:.1f} {unit}"
+                return (
+                    f"{value:.0f} {unit}"
+                    if unit in ("B", "KB")
+                    else f"{value:.1f} {unit}"
+                )
             value /= 1024
         return f"{value:.1f} TB"  # pragma: no cover
 
@@ -387,7 +402,11 @@ class RamBar(QWidget):
             f"Other processes: {fmt(max(used - kernel - gui, 0))}\n"
             f"Available: {fmt(max(total - used, 0))}"
         )
-        level = "critical" if fraction >= self.CRITICAL else "warning" if fraction >= self.WARNING else ""
+        level = (
+            "critical"
+            if fraction >= self.CRITICAL
+            else "warning" if fraction >= self.WARNING else ""
+        )
         if level != self._level:
             self._level = level
             self._apply_level()
@@ -395,8 +414,14 @@ class RamBar(QWidget):
 
     def _apply_level(self) -> None:
         tokens = theme().tokens
-        others = {"warning": "warning", "critical": "danger"}.get(self._level, "text_muted")
-        self._gauge.colors = (QColor(tokens["surface_hover"]), QColor(tokens["accent"]), QColor(tokens[others]))
+        others = {"warning": "warning", "critical": "danger"}.get(
+            self._level, "text_muted"
+        )
+        self._gauge.colors = (
+            QColor(tokens["surface_hover"]),
+            QColor(tokens["accent"]),
+            QColor(tokens[others]),
+        )
         self._value.setStyleSheet(f"color: {tokens[others]};" if self._level else "")
         self._gauge.update()
 
@@ -466,14 +491,30 @@ class BackendButton(QToolButton):
         if self.on_gpu is None:
             color, glow, tip = muted, False, "xupy backend: unknown (kernel not ready)"
         elif not self.available:
-            color, glow, tip = muted, False, "xupy backend: CPU (NumPy). No GPU available (CuPy not found)."
+            color, glow, tip = (
+                muted,
+                False,
+                "xupy backend: CPU (NumPy). No GPU available (CuPy not found).",
+            )
         elif self.on_gpu:
-            color, glow, tip = lit, True, "xupy backend: GPU (CuPy). Click to switch to the CPU (NumPy)."
+            color, glow, tip = (
+                lit,
+                True,
+                "xupy backend: GPU (CuPy). Click to switch to the CPU (NumPy).",
+            )
         else:
-            color, glow, tip = dead, False, "xupy backend: CPU (NumPy). Click to switch to the GPU (CuPy)."
+            color, glow, tip = (
+                dead,
+                False,
+                "xupy backend: CPU (NumPy). Click to switch to the GPU (CuPy).",
+            )
         self.setEnabled(bool(self.available) and self.on_gpu is not None)
-        self.setIcon(theme().icon("chip", color_disabled=color.name(), color=color.name()))
-        self.setStyleSheet(f"QToolButton {{ color: {color.name()}; font-weight: 600; }}")
+        self.setIcon(
+            theme().icon("chip", color_disabled=color.name(), color=color.name())
+        )
+        self.setStyleSheet(
+            f"QToolButton {{ color: {color.name()}; font-weight: 600; }}"
+        )
         self._glow.setColor(lit)
         self._glow.setEnabled(glow)
         self.setToolTip(tip + "\nArrays created before a switch are not converted.")
@@ -502,22 +543,55 @@ class CalpyGUI(QMainWindow):
         Path to the ``configuration.yaml`` file to load.  When *None* the
         default OptiCalib path (set via the ``AOCONF`` environment variable,
         or the package template) is used.
+
+    Notes
+    -----
+    Packages building on opticalib customise the GUI by subclassing it and
+    overriding the class attributes below (see the *Extending the GUI*
+    section of the GUI reference)::
+
+        class M4GUI(CalpyGUI):
+            APP_NAME = "M4 GUI"
+            SETTINGS_APP = "M4GUI"
+            INIT_SCRIPTS = ["/path/to/initM4.py"]
+            PROCEDURES = [Procedure("OTT", "telescope", "...", OttWindow)]
+
+            def add_panels(self):  # optional: extra dockable panels
+                self.add_dock("ott", "OTT status", OttStatusPanel())
+
+        launch_gui(config_path, window_class=M4GUI)
     """
+
+    #: Name shown in the title bar and on the startup screen.
+    APP_NAME: str = "CalpyGUI"
+    #: Name under which the window layout and the recent experiments are
+    #: saved (theme and activity-panel preferences are shared by all).
+    SETTINGS_APP: str = SETTINGS_APP
+    #: Desktop file the window belongs to, on Linux (see ``calpy
+    #: --install-launcher``); ``None`` for none.
+    DESKTOP_FILE_NAME: Optional[str] = "OptiCalib"
+    #: Window icon (a file path).
+    ICON: str = ICON_FILE
+    #: Cards of the *Procedures* panel.
+    PROCEDURES: List[Procedure] = PROCEDURES
+    #: Scripts run in the kernel at startup (and after every restart), after
+    #: opticalib's ``initCalpy.py`` and in the same namespace.
+    INIT_SCRIPTS: List[str] = []
 
     def __init__(self, config_path: Optional[str] = None) -> None:
         """Initialise the main window and start the IPython kernel."""
         super().__init__()
 
-        self._settings = QSettings(SETTINGS_ORG, SETTINGS_APP)
+        self._settings = QSettings(SETTINGS_ORG, self.SETTINGS_APP)
         if config_path is None:
             from opticalib.core.root import CONFIGURATION_FILE
 
             config_path = CONFIGURATION_FILE
         self._config_path: str = os.path.abspath(config_path)
         self._experiment = _get_experiment_name(self._config_path) or "opticalib"
-        self.setWindowTitle(f"CalpyGUI – {self._experiment}")
-        if os.path.isfile(ICON_FILE):
-            self.setWindowIcon(QIcon(ICON_FILE))
+        self.setWindowTitle(f"{self.APP_NAME} – {self._experiment}")
+        if os.path.isfile(self.ICON):
+            self.setWindowIcon(QIcon(self.ICON))
         self.resize(1600, 950)
 
         self._tmp_dir = tempfile.mkdtemp(prefix="calpygui-")
@@ -530,7 +604,11 @@ class CalpyGUI(QMainWindow):
 
         theme().apply()
         self.bridge = KernelBridge(
-            self._config_path, _resolve_init_file(), self._tmp_dir, parent=self
+            self._config_path,
+            _resolve_init_file(),
+            self._tmp_dir,
+            parent=self,
+            extra_init_files=self.INIT_SCRIPTS,
         )
         self._build_ui()
         self._build_menus()
@@ -564,15 +642,23 @@ class CalpyGUI(QMainWindow):
     def _build_ui(self) -> None:
         """Create the central viewer and the dock panels."""
         self.setDockNestingEnabled(True)
-        self.tabifiedDockWidgetActivated.connect(lambda dock: self._schedule_dock_titles())
+        self.tabifiedDockWidgetActivated.connect(
+            lambda dock: self._schedule_dock_titles()
+        )
         self.setCorner(Qt.Corner.BottomLeftCorner, Qt.DockWidgetArea.LeftDockWidgetArea)
-        self.setCorner(Qt.Corner.BottomRightCorner, Qt.DockWidgetArea.RightDockWidgetArea)
+        self.setCorner(
+            Qt.Corner.BottomRightCorner, Qt.DockWidgetArea.RightDockWidgetArea
+        )
 
         self.plot_viewer = PlotViewer()
         self.setCentralWidget(self.plot_viewer)
 
         self.device_panel = DevicePanel(self._config_path, runner=self._run)
-        self.plugin_panel = PluginPanel(selection_callback=self._open_plugin_window)
+        self.plugin_panel = PluginPanel(
+            selection_callback=self._open_plugin_window,
+            config_path=self._config_path,
+            procedures=self.PROCEDURES,
+        )
         self.workspace_view = WorkspaceView()
         self.data_browser = DataBrowser()
 
@@ -593,16 +679,135 @@ class CalpyGUI(QMainWindow):
         workspace.raise_()
         self.resizeDocks([devices, console], [360, 620], Qt.Orientation.Horizontal)
         self.resizeDocks([devices, workspace], [520, 360], Qt.Orientation.Vertical)
+        self.add_panels()
 
         self.device_panel.edit_config_requested.connect(self._edit_config_entry)
-        self.workspace_view.run_requested.connect(lambda code, title: self._run(code, title))
-        self.data_browser.run_requested.connect(lambda code, title: self._run(code, title))
+        self.workspace_view.run_requested.connect(
+            lambda code, title: self._run(code, title)
+        )
+        self.data_browser.run_requested.connect(
+            lambda code, title: self._run(code, title)
+        )
         self.data_browser.preview_requested.connect(self._preview_file)
 
         self._workspace_timer = QTimer(self)
         self._workspace_timer.setSingleShot(True)
         self._workspace_timer.setInterval(150)
         self._workspace_timer.timeout.connect(self._refresh_workspace)
+
+    # ------------------------------------------------------------------
+    # Extra panels (extension API)
+    # ------------------------------------------------------------------
+
+    #: Dock areas accepted by :meth:`add_dock`.
+    DOCK_AREAS = {
+        "left": Qt.DockWidgetArea.LeftDockWidgetArea,
+        "right": Qt.DockWidgetArea.RightDockWidgetArea,
+        "top": Qt.DockWidgetArea.TopDockWidgetArea,
+        "bottom": Qt.DockWidgetArea.BottomDockWidgetArea,
+    }
+
+    def add_panels(self) -> None:
+        """
+        Add the panels of a subclass (hook; does nothing by default).
+
+        Called while the window is built, after the standard panels and
+        before the menus, the default layout and the saved layout: panels
+        added here with :meth:`add_dock` are listed in *View*, remembered
+        between sessions and put back by *View → Reset layout*.
+
+        Available here: ``self.bridge`` (the kernel is not started yet: check
+        ``self.bridge.is_ready`` before querying it), the standard panels
+        (``self.plot_viewer``, ``self.device_panel``, ...) and
+        :meth:`add_dock`.  Not yet created: the menus, the status bar,
+        ``self.activity`` and ``self.procedure_context``; reach them later,
+        e.g. from a slot or with ``QTimer.singleShot(0, ...)``.
+
+        Examples
+        --------
+        ::
+
+            class MyGUI(CalpyGUI):
+                def add_panels(self):
+                    self.bench = BenchPanel()
+                    self.add_dock("bench", "Bench", self.bench, tabify_with="workspace")
+        """
+
+    def add_dock(
+        self,
+        name: str,
+        title: str,
+        widget: QWidget,
+        area: str = "left",
+        tabify_with: Optional[str] = None,
+    ) -> QDockWidget:
+        """
+        Add a dockable panel to the window.
+
+        Only from :meth:`add_panels`: later, the panel could not be part of
+        the default and saved layouts, nor of the *View* menu.  Left and
+        right panels are stacked vertically, top and bottom ones side by side.
+
+        Parameters
+        ----------
+        name : str
+            Unique identifier (the saved layout refers to it, so keep it
+            stable); the standard panels are ``'devices'``, ``'procedures'``,
+            ``'workspace'``, ``'data'`` and ``'console'``.
+        title : str
+            Title shown on the panel and its tab (unique among the panels).
+        widget : QWidget
+            Content of the panel.
+        area : str, optional
+            ``'left'`` (default), ``'right'``, ``'top'`` or ``'bottom'``;
+            ignored with *tabify_with*.
+        tabify_with : str, optional
+            Name of a panel to share a tab group with.
+
+        Returns
+        -------
+        QDockWidget
+            The panel.
+
+        Raises
+        ------
+        ValueError
+            If *name* or *title* is already used, or *area* or *tabify_with*
+            is unknown.
+        RuntimeError
+            If called after the window was built (outside :meth:`add_panels`).
+        """
+        if hasattr(self, "_default_state"):
+            raise RuntimeError("add_dock() can only be called from add_panels().")
+        if name in self._docks:
+            raise ValueError(f"A panel named {name!r} already exists.")
+        # The tab bars are matched to their panels by title.
+        if any(d.windowTitle() == title for d in self._docks.values()):
+            raise ValueError(f"A panel titled {title!r} already exists.")
+        if tabify_with is not None and tabify_with not in self._docks:
+            raise ValueError(
+                f"Unknown panel {tabify_with!r}; panels: {', '.join(self._docks)}."
+            )
+        if tabify_with is None and area not in self.DOCK_AREAS:
+            raise ValueError(
+                f"Unknown area {area!r}; use one of {', '.join(self.DOCK_AREAS)}."
+            )
+        dock = self._make_dock(name, title, widget)
+        if tabify_with is not None:
+            self.tabifyDockWidget(self._docks[tabify_with], dock)
+        else:
+            orientation = (
+                Qt.Orientation.Vertical
+                if area in ("left", "right")
+                else Qt.Orientation.Horizontal
+            )
+            self.addDockWidget(self.DOCK_AREAS[area], dock, orientation)
+        return dock
+
+    @property
+    def docks(self) -> Dict[str, QDockWidget]:
+        """The panels of the window, by name (a copy)."""
+        return dict(self._docks)
 
     def _make_dock(self, name: str, title: str, widget: QWidget) -> QDockWidget:
         dock = QDockWidget(title, self)
@@ -672,8 +877,14 @@ class CalpyGUI(QMainWindow):
                 if dock is None or dock.isHidden() or dock.isFloating():
                     continue
                 dg = dock.geometry()
-                aligned = abs(dg.left() - geo.left()) <= 2 and abs(dg.width() - geo.width()) <= 4
-                touching = abs(dg.top() - (geo.bottom() + 1)) <= 12 or abs(geo.top() - (dg.bottom() + 1)) <= 12
+                aligned = (
+                    abs(dg.left() - geo.left()) <= 2
+                    and abs(dg.width() - geo.width()) <= 4
+                )
+                touching = (
+                    abs(dg.top() - (geo.bottom() + 1)) <= 12
+                    or abs(geo.top() - (dg.bottom() + 1)) <= 12
+                )
                 if aligned and touching:
                     attached = True
                     break
@@ -694,21 +905,29 @@ class CalpyGUI(QMainWindow):
 
         file_menu = bar.addMenu("&File")
         open_experiment = file_menu.addAction(
-            theme().icon("folder-open-outline"), "Open experiment…", self._choose_experiment
+            theme().icon("folder-open-outline"),
+            "Open experiment…",
+            self._choose_experiment,
         )
         open_experiment.setShortcut(QKeySequence.StandardKey.Open)
         file_menu.addAction("Open configuration file…", self._choose_configuration_file)
-        self._recent_menu = file_menu.addMenu(theme().icon("history"), "Recent experiments")
+        self._recent_menu = file_menu.addMenu(
+            theme().icon("history"), "Recent experiments"
+        )
         self._recent_menu.aboutToShow.connect(self._fill_recent_menu)
         file_menu.addSeparator()
-        self._action_config = file_menu.addAction("Edit configuration…", self._view_config)
+        self._action_config = file_menu.addAction(
+            "Edit configuration…", self._view_config
+        )
         self._action_config.setShortcut(QKeySequence("Ctrl+,"))
         file_menu.addSeparator()
         quit_action = file_menu.addAction("Quit", self.close)
         quit_action.setShortcut(QKeySequence.StandardKey.Quit)
 
         kernel_menu = bar.addMenu("&Kernel")
-        self._action_interrupt = kernel_menu.addAction("Interrupt", self.bridge.interrupt)
+        self._action_interrupt = kernel_menu.addAction(
+            "Interrupt", self.bridge.interrupt
+        )
         self._action_interrupt.setShortcut(QKeySequence("Ctrl+Shift+C"))
         self._action_restart = kernel_menu.addAction("Restart…", self._restart_kernel)
         self._action_restart.setShortcut(QKeySequence("Ctrl+Shift+R"))
@@ -723,7 +942,9 @@ class CalpyGUI(QMainWindow):
             action = plots_menu.addAction(label)
             action.setCheckable(True)
             action.setChecked(mode == "panel")
-            action.triggered.connect(lambda checked=False, m=mode: self._set_plot_mode(m))
+            action.triggered.connect(
+                lambda checked=False, m=mode: self._set_plot_mode(m)
+            )
             group.addAction(action)
             self._plot_mode_actions[mode] = action
 
@@ -742,7 +963,7 @@ class CalpyGUI(QMainWindow):
         view_menu.addAction("Reset layout", self._reset_layout)
 
         help_menu = bar.addMenu("&Help")
-        help_menu.addAction("About CalpyGUI", self._about)
+        help_menu.addAction(f"About {self.APP_NAME}", self._about)
 
     def _build_status_bar(self) -> None:
         """Create the status bar (kernel state, actions, configuration)."""
@@ -764,7 +985,9 @@ class CalpyGUI(QMainWindow):
         self._config_label.setProperty("muted", True)
         self._config_label.setMinimumWidth(220)
         self._config_label.setMaximumWidth(520)
-        self._config_label.setToolTip(f"{self._config_path}\nClick to edit the configuration")
+        self._config_label.setToolTip(
+            f"{self._config_path}\nClick to edit the configuration"
+        )
         self._config_label.setCursor(Qt.CursorShape.PointingHandCursor)
         self._config_label.clicked.connect(self._view_config)
         version = QLabel(f"opticalib {__version__}")
@@ -791,7 +1014,9 @@ class CalpyGUI(QMainWindow):
 
     def _apply_theme(self) -> None:
         """Update the parts that are not styled by the style sheet."""
-        self._btn_switch_experiment.setIcon(theme().icon("folder-swap-outline", "text_muted"))
+        self._btn_switch_experiment.setIcon(
+            theme().icon("folder-swap-outline", "text_muted")
+        )
         t = theme()
         self._btn_interrupt.setIcon(t.icon("stop-circle-outline"))
         self._btn_restart.setIcon(t.icon("restart"))
@@ -804,7 +1029,7 @@ class CalpyGUI(QMainWindow):
     def _show_overlay(self) -> None:
         self._overlay = StartupOverlay(
             KernelBridge.BOOTSTRAP_STEPS,
-            "CalpyGUI",
+            self.APP_NAME,
             f"Experiment: {self._experiment}\n{self._config_path}",
             parent=self,
         )
@@ -920,8 +1145,8 @@ class CalpyGUI(QMainWindow):
         """Switch the xupy backend of the kernel (arrays created later)."""
         target = "gpu" if to_gpu else "cpu"
         self._run(
-            f"import xupy as xp\nxp.use_{target}()",
-            f"Switching xupy to the {target.upper()}",
+            f"xp.use_{target}()",  ## No need, as initCalpy imports xp
+            f"Switching `xupy` to the {target.upper()}",
         )
 
     def _on_kernel_died(self, reason: str) -> None:
@@ -929,7 +1154,9 @@ class CalpyGUI(QMainWindow):
         self.workspace_view.set_items([])
         self.device_panel.update_workspace([])
         QMessageBox.critical(
-            self, "Kernel stopped", f"{reason}\n\nUse Kernel → Restart to start a new one."
+            self,
+            "Kernel stopped",
+            f"{reason}\n\nUse Kernel → Restart to start a new one.",
         )
 
     def _set_plot_mode(self, mode: str) -> None:
@@ -957,7 +1184,9 @@ class CalpyGUI(QMainWindow):
         self._workspace_pending = False
         backend = results.get("xp")
         if isinstance(backend, dict):
-            self.backend_button.set_state(backend.get("on_gpu"), backend.get("available"))
+            self.backend_button.set_state(
+                backend.get("on_gpu"), backend.get("available")
+            )
         items = results.get("ws")
         if isinstance(items, list):
             self.workspace_view.set_items(items)
@@ -985,7 +1214,9 @@ class CalpyGUI(QMainWindow):
         job = LocalJob(
             lambda path=payload.get("path"): load_npz_view(path),
             f"Loading {title}",
-            on_done=lambda j, t=title: self.plot_viewer.add_data(j.result, t, "console"),
+            on_done=lambda j, t=title: self.plot_viewer.add_data(
+                j.result, t, "console"
+            ),
             on_error=self._on_local_job_failed,
         )
         job.quiet = True
@@ -1031,8 +1262,9 @@ class CalpyGUI(QMainWindow):
         dlg.deleteLater()
 
     def _on_config_saved(self) -> None:
-        """Refresh the device panel and reload the configuration in the kernel."""
+        """Refresh the panels and reload the configuration in the kernel."""
         self.device_panel.reload()
+        self.plugin_panel.reload()
         self._run(
             "import opticalib\n"
             f"opticalib.set_configuration_file({self._config_path!r})",
@@ -1062,7 +1294,9 @@ class CalpyGUI(QMainWindow):
     def _choose_configuration_file(self) -> None:
         """Ask for a configuration file and switch to it."""
         path, _ = QFileDialog.getOpenFileName(
-            self, "Open configuration file", os.path.dirname(self._config_path),
+            self,
+            "Open configuration file",
+            os.path.dirname(self._config_path),
             "Configuration (*.yaml *.yml)",
         )
         if path:
@@ -1076,8 +1310,14 @@ class CalpyGUI(QMainWindow):
         return [p for p in (value or []) if isinstance(p, str) and os.path.isfile(p)]
 
     def _remember_experiment(self, config_path: str) -> None:
-        recent = [p for p in self.recent_experiments() if os.path.normpath(p) != os.path.normpath(config_path)]
-        self._settings.setValue("recent/experiments", [config_path] + recent[: self.MAX_RECENT - 1])
+        recent = [
+            p
+            for p in self.recent_experiments()
+            if os.path.normpath(p) != os.path.normpath(config_path)
+        ]
+        self._settings.setValue(
+            "recent/experiments", [config_path] + recent[: self.MAX_RECENT - 1]
+        )
 
     def _fill_recent_menu(self) -> None:
         menu = self._recent_menu
@@ -1089,10 +1329,16 @@ class CalpyGUI(QMainWindow):
         for path in recent:
             action = menu.addAction(f"{_get_experiment_name(path)}  —  {path}")
             action.setCheckable(True)
-            action.setChecked(os.path.normpath(path) == os.path.normpath(self._config_path))
-            action.triggered.connect(lambda checked=False, p=path: self.switch_experiment(p))
+            action.setChecked(
+                os.path.normpath(path) == os.path.normpath(self._config_path)
+            )
+            action.triggered.connect(
+                lambda checked=False, p=path: self.switch_experiment(p)
+            )
         menu.addSeparator()
-        menu.addAction("Clear list", lambda: self._settings.remove("recent/experiments"))
+        menu.addAction(
+            "Clear list", lambda: self._settings.remove("recent/experiments")
+        )
 
     def switch_experiment(self, path: str, confirm: bool = True) -> Optional[Task]:
         """
@@ -1124,17 +1370,27 @@ class CalpyGUI(QMainWindow):
             QMessageBox.warning(self, "Open experiment", str(exc))
             return None
         if error is not None:
-            QMessageBox.warning(self, "Open experiment", f"Invalid configuration file:\n{config_path}\n\n{error}")
+            QMessageBox.warning(
+                self,
+                "Open experiment",
+                f"Invalid configuration file:\n{config_path}\n\n{error}",
+            )
             return None
         if os.path.normpath(config_path) == os.path.normpath(self._config_path):
             return None
         name = _get_experiment_name(config_path)
         if confirm:
-            connected = [i["name"] for i in self.workspace_view.items if i.get("kind") in ("dm", "interferometer", "wfs", "camera")]
+            connected = [
+                i["name"]
+                for i in self.workspace_view.items
+                if i.get("kind") in ("dm", "interferometer", "wfs", "camera")
+            ]
             message = f"Switch to the experiment '{name}'?\n\n{config_path}"
             if connected:
                 message += (
-                    "\n\nConnected devices (" + ", ".join(connected) + ") keep the configuration "
+                    "\n\nConnected devices ("
+                    + ", ".join(connected)
+                    + ") keep the configuration "
                     "they were created with: reconnect them to use the new one."
                 )
             answer = QMessageBox.question(self, "Open experiment", message)
@@ -1145,7 +1401,8 @@ class CalpyGUI(QMainWindow):
             f"Switching to the experiment {name}",
             on_done=lambda task, p=config_path: self._apply_experiment(p),
             on_error=lambda task: QMessageBox.warning(
-                self, "Open experiment",
+                self,
+                "Open experiment",
                 f"The experiment could not be loaded:\n{(task.error or {}).get('evalue', '')}",
             ),
         )
@@ -1154,11 +1411,17 @@ class CalpyGUI(QMainWindow):
         """Make the GUI follow the experiment the kernel switched to."""
         self._config_path = config_path
         self._experiment = _get_experiment_name(config_path) or "opticalib"
-        self.setWindowTitle(f"CalpyGUI – {self._experiment}")
+        self.setWindowTitle(f"{self.APP_NAME} – {self._experiment}")
         self._config_label.setText(config_path)
         self._config_label.setToolTip(f"{config_path}\nClick to edit the configuration")
         self.bridge.set_config_path(config_path)
+        self.bridge.query(
+            {"ok": "True"},
+            lambda results: None,
+            code=f"{KERNEL_SIDE}.use_experiment({config_path!r})",
+        )
         self.device_panel.set_config_path(config_path)
+        self.plugin_panel.set_config_path(config_path)
         self._remember_experiment(config_path)
         self._refresh_folders()
         self._refresh_workspace()
@@ -1176,7 +1439,7 @@ class CalpyGUI(QMainWindow):
         plugin_name : str
             Display label selected in the plugin panel.
         """
-        window_cls = PLUGIN_WINDOWS.get(plugin_name)
+        window_cls = self.plugin_panel.window_class(plugin_name)
         if window_cls is None:
             QMessageBox.warning(
                 self,
@@ -1210,8 +1473,8 @@ class CalpyGUI(QMainWindow):
 
         QMessageBox.about(
             self,
-            "About CalpyGUI",
-            f"<b>CalpyGUI</b><br>opticalib {__version__}<br><br>"
+            f"About {self.APP_NAME}",
+            f"<b>{self.APP_NAME}</b><br>opticalib {__version__}<br><br>"
             "Graphical interface for the calpy / opticalib toolchain.<br>"
             "Arcetri Adaptive Optics group.",
         )
@@ -1227,7 +1490,7 @@ class CalpyGUI(QMainWindow):
         if busy and self._confirm_close:
             answer = QMessageBox.question(
                 self,
-                "Quit CalpyGUI",
+                f"Quit {self.APP_NAME}",
                 "Code is still running in the kernel (e.g. an acquisition).\n"
                 "Quit anyway? The running code is interrupted.",
             )
@@ -1249,7 +1512,9 @@ class CalpyGUI(QMainWindow):
 # ---------------------------------------------------------------------------
 
 
-def launch_gui(config_path: Optional[str] = None) -> None:
+def launch_gui(
+    config_path: Optional[str] = None, window_class: type = CalpyGUI
+) -> None:
     """
     Launch the CalpyGUI application.
 
@@ -1263,15 +1528,18 @@ def launch_gui(config_path: Optional[str] = None) -> None:
         Path to the ``configuration.yaml`` file.  When *None* the default
         path resolved by OptiCalib at import time is used (either the
         ``AOCONF`` environment variable or the package template file).
+    window_class : type, optional
+        The main window: :class:`CalpyGUI` or a subclass customising it.
     """
     app = QApplication.instance() or QApplication(sys.argv)
-    app.setApplicationName("CalpyGUI")
-    app.setApplicationDisplayName("CalpyGUI")
-    # Lets Linux desktops match the window to the OptiCalib launcher.
-    app.setDesktopFileName("OptiCalib")
-    if os.path.isfile(ICON_FILE):
-        app.setWindowIcon(QIcon(ICON_FILE))
+    app.setApplicationName(window_class.APP_NAME)
+    app.setApplicationDisplayName(window_class.APP_NAME)
+    # Lets Linux desktops match the window to its launcher.
+    if window_class.DESKTOP_FILE_NAME:
+        app.setDesktopFileName(window_class.DESKTOP_FILE_NAME)
+    if os.path.isfile(window_class.ICON):
+        app.setWindowIcon(QIcon(window_class.ICON))
     theme().apply(app)
-    window = CalpyGUI(config_path=config_path)
+    window = window_class(config_path=config_path)
     window.show()
     sys.exit(app.exec())

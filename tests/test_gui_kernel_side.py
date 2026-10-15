@@ -243,6 +243,29 @@ class TestBridgeHelpers:
         assert env["MPLBACKEND"] == self.kernel.KERNEL_MPL_BACKEND
         assert env["CALPY_GUI_TMP"] == str(tmp_path)
 
+    def test_conda_env_variables(self, tmp_path):
+        """Variables of ``conda env config vars`` reach a kernel started without activation."""
+        meta = tmp_path / "conda-meta"
+        meta.mkdir()
+        (meta / "state").write_text(json.dumps({"env_vars": {
+            "CUDA_PATH": "/cuda", "LD_LIBRARY_PATH": "/cuda/lib:/cuda/lib64:", "CPATH": "/cuda/include", "EMPTY": "",
+        }}))
+        fn = self.kernel.conda_env_variables
+        assert fn(str(tmp_path), {}) == {
+            "CUDA_PATH": "/cuda", "LD_LIBRARY_PATH": "/cuda/lib:/cuda/lib64:", "CPATH": "/cuda/include",
+        }
+        # What the user already set is kept; missing list entries are prepended.
+        got = fn(str(tmp_path), {"CUDA_PATH": "/mine", "LD_LIBRARY_PATH": "/x:/cuda/lib", "CPATH": "/cuda/include"})
+        assert got == {"LD_LIBRARY_PATH": "/cuda/lib64:/x:/cuda/lib"}
+        assert fn(str(tmp_path / "none"), {}) == {}  # not a conda environment
+        (meta / "state").write_text("not json")
+        assert fn(str(tmp_path), {}) == {}
+
+    def test_kernel_env_includes_conda_variables(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(self.kernel, "conda_env_variables", lambda environ=None: {"CUDA_PATH": "/cuda"})
+        bridge = self.kernel.KernelBridge(str(tmp_path / "c.yaml"), None, str(tmp_path))
+        assert bridge.kernel_env()["CUDA_PATH"] == "/cuda"
+
 
 class _Hostile:
     """Like a network proxy: touching instance attributes is expensive or fails."""
@@ -278,3 +301,66 @@ class TestWorkspaceRobustness:
         monkeypatch.setattr(matplotlib, "get_backend", lambda: ks.BACKEND)
         ks._post_execute()
         assert calls == [1]
+
+
+class TestUseExperiment:
+    """The experiment folder is importable from the kernel."""
+
+    def test_path_follows_the_experiment(self, tmp_path, monkeypatch):
+        import sys
+
+        monkeypatch.setattr(sys, "path", list(sys.path))
+        monkeypatch.setattr(ks, "_experiment_path", None)
+        first, second = tmp_path / "expA", tmp_path / "expB"
+        for folder in (first, second):
+            (folder / "SysConfig").mkdir(parents=True)
+        monkeypatch.setenv("AOCONF", str(first / "SysConfig" / "configuration.yaml"))
+        assert ks.use_experiment() == str(first) and sys.path[0] == str(first)
+        assert ks.use_experiment(str(second / "SysConfig" / "configuration.yaml")) == str(second)
+        assert sys.path[0] == str(second) and str(first) not in sys.path
+        # A folder that was already on the path is never removed.
+        sys.path.append(str(first))
+        ks.use_experiment(str(first / "SysConfig" / "configuration.yaml"))
+        ks.use_experiment(str(second / "SysConfig" / "configuration.yaml"))
+        assert str(first) in sys.path
+
+    def test_modules_of_the_previous_experiment_are_not_reused(self, tmp_path, monkeypatch):
+        import sys
+
+        monkeypatch.setattr(sys, "path", list(sys.path))
+        monkeypatch.setattr(ks, "_experiment_path", None)
+        monkeypatch.setattr(sys, "modules", dict(sys.modules))
+        first, second = tmp_path / "expA", tmp_path / "expB"
+        for folder, who in ((first, "A"), (second, "B")):
+            (folder / "SysConfig").mkdir(parents=True)
+            (folder / "lab_driver.py").write_text(f"WHO = {who!r}\n")
+            (folder / "lab_pkg").mkdir()
+            (folder / "lab_pkg" / "__init__.py").write_text("")
+            (folder / "lab_pkg" / "sub.py").write_text(f"WHO = {who!r}\n")
+        ks.use_experiment(str(first / "SysConfig" / "configuration.yaml"))
+        import importlib
+
+        assert importlib.import_module("lab_driver").WHO == "A"
+        assert importlib.import_module("lab_pkg.sub").WHO == "A"
+        ks.use_experiment(str(second / "SysConfig" / "configuration.yaml"))
+        assert "lab_driver" not in sys.modules and "lab_pkg.sub" not in sys.modules
+        assert importlib.import_module("lab_driver").WHO == "B"
+        assert importlib.import_module("lab_pkg.sub").WHO == "B"
+
+    def test_unloading_spares_opticalib_and_installed_code(self, tmp_path, monkeypatch):
+        import sys
+        import types
+
+        monkeypatch.setattr(sys, "modules", dict(sys.modules))
+        site = tmp_path / "venv" / "site-packages"
+        site.mkdir(parents=True)
+        installed = types.ModuleType("installed_thing")
+        installed.__file__ = str(site / "installed_thing.py")
+        sys.modules["installed_thing"] = installed
+        own = types.ModuleType("my_driver")
+        own.__file__ = str(tmp_path / "my_driver.py")
+        sys.modules["my_driver"] = own
+        removed = ks._unload_experiment_modules(str(tmp_path))
+        assert removed == ["my_driver"]
+        assert "installed_thing" in sys.modules and "opticalib.gui.kernel_side" in sys.modules
+

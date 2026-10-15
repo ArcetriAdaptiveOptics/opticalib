@@ -19,9 +19,25 @@ fixed entry, e.g. ``PetalMirror`` always reads ``PetalDM``), and the fields
 required by the class are filled in.  Otherwise the problems are reported so
 the GUI can explain what to fix.
 
+Besides the opticalib classes, an experiment can declare its own device
+classes in the ``DEVICE.CLASSES`` section of the configuration file::
+
+    DEVICE.CLASSES:
+      MorfeoDM:
+        module: morfeo_dm            # module, or .py file of the experiment folder
+        section: DEFORMABLE.MIRRORS  # optional: where its entries are
+        args: '{suffix}'             # optional: constructor arguments
+
+They are used like the opticalib ones (``MorfeoDM1`` -> ``MorfeoDM(1)``).
+``{name}`` and ``{suffix}`` (the entry name after the class name) are
+replaced in ``args``.  The GUI puts the experiment folder on the kernel's
+``sys.path``, so its modules can be imported.
+
 This module does not import Qt.
 """
 
+import json
+import keyword
 import os
 import re
 import shutil
@@ -69,7 +85,8 @@ class DeviceClass:
     args : str
         How the constructor arguments are derived from the entry:
         ``'suffix'`` (name suffix, e.g. the model), ``'alpao'`` (number of
-        actuators from the name, or the ``serialNumber``), ``'name'`` (the
+        actuators from the name, plus the backend settings of the entry when
+        the class cannot read them itself), ``'name'`` (the
         entry name), ``'camera'`` (the ``camera`` field) or ``'none'``.
     reads : str or None
         Entry the class reads: a fixed name, ``'{suffix}'`` patterns (e.g.
@@ -83,6 +100,12 @@ class DeviceClass:
         Whether the class is the default of its section.
     description : str
         Short description.
+    module : str or None
+        Module to import the class from, for custom classes (``None`` for
+        the classes of :mod:`opticalib.devices`).
+    template : str
+        Constructor arguments of custom classes, where ``{name}`` and
+        ``{suffix}`` are replaced (``args == 'template'``).
     """
 
     name: str
@@ -94,55 +117,293 @@ class DeviceClass:
     optional_config: bool = False
     default: bool = False
     description: str = ""
+    module: Optional[str] = None
+    template: str = ""
+
+    @property
+    def custom(self) -> bool:
+        """Whether the class is declared in the configuration file."""
+        return self.module is not None
 
 
 #: Known device classes.
 DEVICE_CLASSES: List[DeviceClass] = [
     DeviceClass(
-        "PhaseCam", "INTERFEROMETERS", ("phasecam",), "suffix", "PhaseCam{suffix}",
-        (("ip", "port"),), description="4D Twyman-Green PhaseCam interferometer",
+        "PhaseCam",
+        "INTERFEROMETERS",
+        ("phasecam",),
+        "suffix",
+        "PhaseCam{suffix}",
+        (("ip", "port"),),
+        description="4D Twyman-Green PhaseCam interferometer",
     ),
     DeviceClass(
-        "AccuFiz", "INTERFEROMETERS", ("accufiz",), "suffix", "AccuFiz{suffix}",
-        (("ip", "port"),), description="4D AccuFiz Fizeau interferometer",
+        "AccuFiz",
+        "INTERFEROMETERS",
+        ("accufiz",),
+        "suffix",
+        "AccuFiz{suffix}",
+        (("ip", "port"),),
+        description="4D AccuFiz Fizeau interferometer",
     ),
     DeviceClass(
-        "Processer4D", "INTERFEROMETERS", ("4dprocesser",), "suffix", "4DProcesser{suffix}",
-        (("ip", "port"),), description="4D processing virtual machine (no acquisition)",
+        "Processer4D",
+        "INTERFEROMETERS",
+        ("4dprocesser",),
+        "suffix",
+        "4DProcesser{suffix}",
+        (("ip", "port"),),
+        description="4D processing virtual machine (no acquisition)",
     ),
     DeviceClass(
-        "AlpaoDm", "DEFORMABLE.MIRRORS", ("alpao",), "alpao", "Alpao{suffix}",
-        (("serialNumber",),), description="Alpao deformable mirror",
+        "AlpaoDm",
+        "DEFORMABLE.MIRRORS",
+        ("alpaodm", "alpao"),
+        "alpao",
+        None,  # the settings of the entry are handled by _alpao_args
+        (("serial_number", "acfg_path"), ("plico_ip", "plico_port")),
+        description="Alpao deformable mirror (native SDK or plico_dm backend)",
     ),
     DeviceClass(
-        "PetalMirror", "DEFORMABLE.MIRRORS", ("petaldm", "petal"), "none", "PetalDM",
-        tuple((f"ip{i}",) for i in range(6)), description="PI petal mirror",
+        "PetalMirror",
+        "DEFORMABLE.MIRRORS",
+        ("petaldm", "petal"),
+        "none",
+        "PetalDM",
+        tuple((f"ip{i}",) for i in range(6)),
+        description="PI petal mirror",
     ),
     DeviceClass(
-        "SplattDm", "DEFORMABLE.MIRRORS", ("splatt",), "none", "Splatt",
-        (("ip", "port"),), description="SPLATT deformable mirror",
+        "SplattDm",
+        "DEFORMABLE.MIRRORS",
+        ("splatt",),
+        "none",
+        "Splatt",
+        (("ip", "port"),),
+        description="SPLATT deformable mirror",
     ),
     DeviceClass(
-        "DP", "DEFORMABLE.MIRRORS", ("adopticadp", "dp"), "none", "AdOpticaDP",
-        optional_config=True, description="AdOptica Demonstration Prototype",
+        "DP",
+        "DEFORMABLE.MIRRORS",
+        ("adopticadp", "dp"),
+        "none",
+        "AdOpticaDP",
+        optional_config=True,
+        description="AdOptica Demonstration Prototype",
     ),
     DeviceClass(
-        "M4AU", "DEFORMABLE.MIRRORS", ("m4au",), "none", "M4AU",
-        optional_config=True, description="M4 adaptive unit",
+        "M4AU",
+        "DEFORMABLE.MIRRORS",
+        ("m4au",),
+        "none",
+        "M4AU",
+        optional_config=True,
+        description="M4 adaptive unit",
     ),
     DeviceClass(
-        "AdOpticaDm", "DEFORMABLE.MIRRORS", ("adopticadm", "adoptica"), "none", None,
+        "AdOpticaDm",
+        "DEFORMABLE.MIRRORS",
+        ("adopticadm", "adoptica"),
+        "none",
+        None,
         description="Generic AdOptica deformable mirror",
     ),
     DeviceClass(
-        "GigaVision", "CAMERAS", ("gigavision", "avt"), "name", "*",
-        (("id",), ("ip",)), default=True, description="Allied Vision GigE camera",
+        "GigaVision",
+        "CAMERAS",
+        ("gigavision", "avt"),
+        "name",
+        "*",
+        (("id",), ("ip",)),
+        default=True,
+        description="Allied Vision GigE camera",
     ),
     DeviceClass(
-        "Ingot", "WFS", ("ingot",), "camera", "INGOT",
-        (("camera",),), default=True, description="INGOT wavefront sensor",
+        "Ingot",
+        "WFS",
+        ("ingot",),
+        "camera",
+        "INGOT",
+        (("camera",),),
+        default=True,
+        description="INGOT wavefront sensor",
     ),
 ]
+
+
+#: Configuration section declaring the custom device classes.
+CUSTOM_CLASSES_SECTION = "DEVICE.CLASSES"
+
+_IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+_MODULE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$")
+
+
+def _is_identifier(name: str) -> bool:
+    """Whether *name* can be used as a Python name (keywords such as ``class`` cannot)."""
+    return bool(_IDENTIFIER.match(name)) and not keyword.iskeyword(name)
+
+
+def _is_module_name(name: str) -> bool:
+    """Whether *name* is a dotted module path that ``from <name> import x`` accepts."""
+    return bool(_MODULE.match(name)) and all(
+        not keyword.iskeyword(part) for part in name.split(".")
+    )
+
+
+def experiment_folder(config_path: str) -> str:
+    """
+    Return the folder of the experiment of a configuration file.
+
+    Parameters
+    ----------
+    config_path : str
+        Path to the ``configuration.yaml`` file.
+
+    Returns
+    -------
+    str
+        The folder containing ``SysConfig`` (the ``calpy`` layout), else the
+        folder of the file; empty for an empty path.
+    """
+    if not config_path:
+        return ""
+    folder = os.path.dirname(os.path.abspath(os.path.expanduser(config_path)))
+    if os.path.basename(folder) == "SysConfig":
+        folder = os.path.dirname(folder)
+    return folder
+
+
+def module_name(module: str, experiment: str = "") -> str:
+    """
+    Return the importable name of a custom-class module.
+
+    Parameters
+    ----------
+    module : str
+        A module name (``morfeo_dm``, ``lab.drivers``) or a ``.py`` file,
+        absolute or relative to the experiment folder
+        (``drivers/morfeo_dm.py`` -> ``drivers.morfeo_dm``).
+    experiment : str, optional
+        The experiment folder.
+
+    Returns
+    -------
+    str
+        The dotted module name.
+
+    Raises
+    ------
+    ValueError
+        If *module* is not a module name, or a file outside the experiment
+        folder.
+    """
+    text = str(module).strip()
+    if text.endswith(".py") or "/" in text or os.sep in text:
+        path = os.path.expanduser(text)
+        if os.path.isabs(path):
+            if not experiment:
+                raise ValueError(f"'{text}' is not in the experiment folder.")
+            path = os.path.relpath(path, experiment)
+            if path.startswith(os.pardir):
+                raise ValueError(
+                    f"'{text}' is not in the experiment folder ({experiment}): "
+                    "move it there or install it as a package."
+                )
+        path = os.path.normpath(path)
+        if path.endswith(".py"):
+            path = path[:-3]
+        text = path.replace(os.sep, ".").replace("/", ".")
+    if not _is_module_name(text):
+        raise ValueError(f"'{module}' is not a Python module name or a .py file.")
+    return text
+
+
+def custom_class(
+    name: str, module: str, section: str = "", args: str = "", description: str = ""
+) -> DeviceClass:
+    """
+    Describe a device class declared by the user.
+
+    Parameters
+    ----------
+    name : str
+        Class name.
+    module : str
+        Dotted module the class is imported from.
+    section : str, optional
+        ``DEVICES`` subsection of its entries (empty: any section).
+    args : str, optional
+        Constructor arguments; ``{name}`` and ``{suffix}`` are replaced.
+    description : str, optional
+        Short description.
+
+    Returns
+    -------
+    DeviceClass
+        The class description.
+    """
+    return DeviceClass(
+        name=name,
+        section=normalize_section(section) if section else "",
+        aliases=(name.lower(),),
+        args="template",
+        reads=None,
+        description=description or f"Custom class from {module}",
+        module=module,
+        template=str(args or ""),
+    )
+
+
+def load_custom_classes(
+    config: Any, config_path: str = ""
+) -> Tuple[List[DeviceClass], Dict[str, str]]:
+    """
+    Read the ``DEVICE.CLASSES`` section of a configuration.
+
+    Parameters
+    ----------
+    config : dict
+        The parsed configuration file.
+    config_path : str, optional
+        Its path, to resolve ``.py`` files of the experiment folder.
+
+    Returns
+    -------
+    classes : list of DeviceClass
+        The valid custom classes.
+    invalid : dict
+        Why each invalid declaration was skipped, by class name.
+    """
+    classes: List[DeviceClass] = []
+    invalid: Dict[str, str] = {}
+    section = config.get(CUSTOM_CLASSES_SECTION) if isinstance(config, dict) else None
+    if not isinstance(section, dict):
+        return classes, invalid
+    experiment = experiment_folder(config_path)
+    for name, definition in section.items():
+        name = str(name)
+        if not _is_identifier(name):
+            invalid[name] = f"'{name}' is not a valid class name."
+            continue
+        if not isinstance(definition, dict) or _is_empty(definition.get("module")):
+            invalid[name] = f"'{name}' needs a 'module' in {CUSTOM_CLASSES_SECTION}."
+            continue
+        try:
+            module = module_name(definition["module"], experiment)
+        except ValueError as exc:
+            invalid[name] = str(exc)
+            continue
+        args = definition.get("args")
+        classes.append(
+            custom_class(
+                name,
+                module,
+                str(definition.get("section") or ""),
+                "" if args is None else str(args),
+                str(definition.get("description") or ""),
+            )
+        )
+    return classes, invalid
 
 
 def normalize_section(section: str) -> str:
@@ -180,7 +441,9 @@ def variable_name(section: str) -> str:
     return SECTION_VARIABLES.get(normalize_section(section), "device")
 
 
-def classes_for(section: str) -> List[DeviceClass]:
+def classes_for(
+    section: str, classes: Optional[List[DeviceClass]] = None
+) -> List[DeviceClass]:
     """
     Return the device classes of a section.
 
@@ -188,17 +451,23 @@ def classes_for(section: str) -> List[DeviceClass]:
     ----------
     section : str
         ``DEVICES`` subsection.
+    classes : list of DeviceClass, optional
+        Classes to choose from (default: :data:`DEVICE_CLASSES`).
 
     Returns
     -------
     list of DeviceClass
-        The classes (empty for sections without known classes).
+        The classes (empty for sections without known classes); custom
+        classes declared without a section belong to every section.
     """
     section = normalize_section(section)
-    return [c for c in DEVICE_CLASSES if c.section == section]
+    classes = DEVICE_CLASSES if classes is None else classes
+    return [c for c in classes if c.section == section or (c.custom and not c.section)]
 
 
-def find_class(name: str) -> Optional[DeviceClass]:
+def find_class(
+    name: str, classes: Optional[List[DeviceClass]] = None
+) -> Optional[DeviceClass]:
     """
     Find a device class by name, ignoring case and module prefixes.
 
@@ -206,6 +475,9 @@ def find_class(name: str) -> Optional[DeviceClass]:
     ----------
     name : str
         E.g. ``'PhaseCam'``, ``'phasecam'`` or ``'devices.PhaseCam'``.
+    classes : list of DeviceClass, optional
+        Classes to choose from (default: :data:`DEVICE_CLASSES`); the first
+        match wins, so custom classes listed first take precedence.
 
     Returns
     -------
@@ -213,7 +485,8 @@ def find_class(name: str) -> Optional[DeviceClass]:
         The class, or ``None`` if unknown.
     """
     short = str(name).strip().split(".")[-1].lower()
-    return next((c for c in DEVICE_CLASSES if c.name.lower() == short), None)
+    classes = DEVICE_CLASSES if classes is None else classes
+    return next((c for c in classes if c.name.lower() == short), None)
 
 
 def _is_empty(value: Any) -> bool:
@@ -269,13 +542,27 @@ class DeviceEntry:
     @property
     def ready(self) -> bool:
         """Whether the entry can be connected without changes."""
-        return self.device_class is not None and self.args is not None and not self.problems
+        return (
+            self.device_class is not None
+            and self.args is not None
+            and not self.problems
+        )
 
     @property
     def var_name(self) -> str:
         """Variable the device is bound to."""
-        section = self.device_class.section if self.device_class else self.section
-        return variable_name(section)
+        return variable_name(self.kind_section)
+
+    @property
+    def kind_section(self) -> str:
+        """
+        Section that sets the variable and the kind of the device.
+
+        The section of its class, or the section of the entry for classes
+        that belong to any section (custom classes declared without one).
+        """
+        section = self.device_class.section if self.device_class else ""
+        return normalize_section(section or self.section)
 
 
 def _suffix(name: str, device_class: DeviceClass) -> Optional[str]:
@@ -283,23 +570,115 @@ def _suffix(name: str, device_class: DeviceClass) -> Optional[str]:
     lower = name.lower()
     for alias in sorted(device_class.aliases, key=len, reverse=True):
         if lower.startswith(alias):
-            return name[len(alias):].strip()
+            return name[len(alias) :].strip()
     return None
 
 
-def _match_by_name(section: str, name: str) -> Optional[DeviceClass]:
+def _match_by_name(
+    section: str, name: str, classes: Optional[List[DeviceClass]] = None
+) -> Optional[DeviceClass]:
     lower = name.lower()
     best: Tuple[int, Optional[DeviceClass]] = (0, None)
-    for device_class in classes_for(section):
+    for device_class in classes_for(section, classes):
         for alias in device_class.aliases:
             if lower.startswith(alias) and len(alias) > best[0]:
                 best = (len(alias), device_class)
     return best[1]
 
 
-def _constructor_args(device_class: DeviceClass, name: str, conf: Dict[str, Any]) -> Optional[str]:
+def match_by_name(
+    section: str, name: str, classes: Optional[List[DeviceClass]] = None
+) -> Optional[DeviceClass]:
+    """
+    Return the class an entry name identifies (longest matching alias).
+
+    Parameters
+    ----------
+    section : str
+        ``DEVICES`` subsection.
+    name : str
+        Entry name.
+    classes : list of DeviceClass, optional
+        Classes to choose from (default: :data:`DEVICE_CLASSES`).
+
+    Returns
+    -------
+    DeviceClass or None
+        The class, or ``None`` when no alias matches.
+    """
+    return _match_by_name(section, name, classes)
+
+
+#: Fields of an Alpao entry passed to the constructor by name, per backend.
+_ALPAO_SDK_FIELDS = ("serial_number", "sdk_folder_path", "acfg_path")
+_ALPAO_PLICO_FIELDS = ("plico_ip", "plico_port")
+
+
+def _alpao_settings(conf: Dict[str, Any]) -> Dict[str, Any]:
+    """The Alpao fields of an entry, with the former ``serialNumber`` key accepted."""
+    settings = dict(conf)
+    if _is_empty(settings.get("serial_number")) and not _is_empty(
+        settings.get("serialNumber")
+    ):
+        settings["serial_number"] = settings["serialNumber"]
+    return settings
+
+
+def _alpao_args(name: str, suffix: str, conf: Dict[str, Any]) -> Optional[str]:
+    """
+    Constructor arguments of an ``AlpaoDm`` entry.
+
+    ``AlpaoDm(nacts)`` reads its settings from the entry called
+    ``Alpao<nacts>``.  The entry is therefore left to the class when it has
+    that name and the current keys; the plico backend is not selected by the
+    configuration, so ``use_plico=True`` is added for it.  An entry named
+    ``AlpaoDm<nacts>`` (or one using the former ``serialNumber`` key) cannot
+    be read by the class, so its settings are passed by name.
+
+    Parameters
+    ----------
+    name : str
+        Entry name.
+    suffix : str
+        Part of the name after the class prefix (the number of actuators).
+    conf : dict
+        Entry fields.
+
+    Returns
+    -------
+    str or None
+        The arguments, or ``None`` when the name has no number of actuators.
+    """
+    if not suffix.isdigit():
+        return None
+    nacts = str(int(suffix))
+    settings = _alpao_settings(conf)
+    sdk_ready = all(not _is_empty(settings.get(f)) for f in ("serial_number", "acfg_path"))
+    plico = not sdk_ready and all(not _is_empty(settings.get(f)) for f in _ALPAO_PLICO_FIELDS)
+    own_entry = re.fullmatch(r"alpao\d+", name.lower()) is not None
+    legacy = _is_empty(conf.get("serial_number")) and not _is_empty(conf.get("serialNumber"))
+    if own_entry and not legacy:
+        return nacts + (", use_plico=True" if plico else "")
+    fields = _ALPAO_PLICO_FIELDS if plico else _ALPAO_SDK_FIELDS
+    args = [nacts] + (["use_plico=True"] if plico else [])
+    for field_name in fields:
+        value = settings.get(field_name)
+        if _is_empty(value):
+            continue
+        if field_name == "plico_port" and str(value).isdigit():
+            args.append(f"{field_name}={int(value)}")
+        else:
+            args.append(f"{field_name}={str(value)!r}")
+    return ", ".join(args)
+
+
+def _constructor_args(
+    device_class: DeviceClass, name: str, conf: Dict[str, Any]
+) -> Optional[str]:
     suffix = _suffix(name, device_class) or ""
     style = device_class.args
+    if style == "template":
+        return device_class.template.replace("{name}", name).replace("{suffix}", suffix)
     if style == "none":
         return ""
     if style == "name":
@@ -307,10 +686,7 @@ def _constructor_args(device_class: DeviceClass, name: str, conf: Dict[str, Any]
     if style == "suffix":
         return repr(suffix) if suffix else None
     if style == "alpao":
-        if suffix.isdigit():
-            return str(int(suffix))
-        serial = conf.get("serialNumber")
-        return f"serial_number={str(serial)!r}" if not _is_empty(serial) else None
+        return _alpao_args(name, suffix, conf)
     if style == "camera":
         camera = conf.get("camera")
         if _is_empty(camera):
@@ -334,15 +710,25 @@ def _entry_read(device_class: DeviceClass, name: str) -> Optional[str]:
 def _argument_hint(device_class: DeviceClass) -> str:
     return {
         "suffix": (
-            f"name the entry {device_class.reads.replace('{suffix}', '<model>')} "
-            f"(e.g. {device_class.reads.replace('{suffix}', '6110')})"
-        ) if device_class.reads else "",
-        "alpao": "name the entry Alpao<number of actuators> (e.g. Alpao820) or fill in serialNumber",
+            (
+                f"name the entry {device_class.reads.replace('{suffix}', '<model>')} "
+                f"(e.g. {device_class.reads.replace('{suffix}', '6110')})"
+            )
+            if device_class.reads
+            else ""
+        ),
+        "alpao": "name the entry Alpao<number of actuators> or AlpaoDm<number of actuators> (e.g. Alpao88)",
         "camera": "fill in 'camera: CAMERAS:<camera name>'",
     }.get(device_class.args, "")
 
 
-def resolve_entry(section: str, name: str, conf: Any) -> DeviceEntry:
+def resolve_entry(
+    section: str,
+    name: str,
+    conf: Any,
+    classes: Optional[List[DeviceClass]] = None,
+    invalid: Optional[Dict[str, str]] = None,
+) -> DeviceEntry:
     """
     Work out how a configuration entry is connected.
 
@@ -354,6 +740,12 @@ def resolve_entry(section: str, name: str, conf: Any) -> DeviceEntry:
         Entry name.
     conf : dict or None
         Entry fields.
+    classes : list of DeviceClass, optional
+        Known classes (default: :data:`DEVICE_CLASSES`; see
+        :func:`known_classes` for the custom ones).
+    invalid : dict, optional
+        Invalid custom-class declarations, by name (see
+        :func:`load_custom_classes`), to explain an unknown ``class:``.
 
     Returns
     -------
@@ -362,20 +754,25 @@ def resolve_entry(section: str, name: str, conf: Any) -> DeviceEntry:
     """
     conf = dict(conf) if isinstance(conf, dict) else {}
     entry = DeviceEntry(section=section, name=str(name), conf=conf)
+    classes = DEVICE_CLASSES if classes is None else classes
 
     explicit = conf.get("class")
     if not _is_empty(explicit):
-        entry.device_class = find_class(str(explicit))
+        entry.device_class = find_class(str(explicit), classes)
         entry.source = "explicit"
         if entry.device_class is None:
-            known = ", ".join(c.name for c in DEVICE_CLASSES)
-            entry.problems.append(f"Unknown class '{explicit}' (known: {known}).")
+            reason = (invalid or {}).get(str(explicit).strip())
+            if reason:
+                entry.problems.append(f"Invalid custom class '{explicit}': {reason}")
+            else:
+                known = ", ".join(c.name for c in classes)
+                entry.problems.append(f"Unknown class '{explicit}' (known: {known}).")
             return entry
     else:
-        entry.device_class = _match_by_name(section, entry.name)
+        entry.device_class = _match_by_name(section, entry.name, classes)
         entry.source = "name"
         if entry.device_class is None:
-            defaults = [c for c in classes_for(section) if c.default]
+            defaults = [c for c in classes_for(section, classes) if c.default]
             if len(defaults) == 1:
                 entry.device_class, entry.source = defaults[0], "default"
     if entry.device_class is None:
@@ -391,21 +788,39 @@ def resolve_entry(section: str, name: str, conf: Any) -> DeviceEntry:
         )
 
     entry.reads = _entry_read(device_class, entry.name)
-    if entry.args is not None and entry.reads is not None and entry.reads.lower() != entry.name.lower():
-        message = f"{device_class.name} reads the entry '{entry.reads}', not '{entry.name}'"
+    if (
+        entry.args is not None
+        and entry.reads is not None
+        and entry.reads.lower() != entry.name.lower()
+    ):
+        message = (
+            f"{device_class.name} reads the entry '{entry.reads}', not '{entry.name}'"
+        )
         if device_class.optional_config:
             entry.notes.append(message + "; its settings here are ignored.")
         else:
             entry.problems.append(message + ": rename this entry.")
 
     if device_class.required:
-        groups = [[f for f in group if _is_empty(conf.get(f))] for group in device_class.required]
+        fields = _alpao_settings(conf) if device_class.args == "alpao" else conf
+        groups = [
+            [f for f in group if _is_empty(fields.get(f))]
+            for group in device_class.required
+        ]
         best = min(groups, key=len)
         if best:
             entry.missing = best
-            alternatives = " or ".join(
-                ", ".join(group) for group in device_class.required
-            ) if len(device_class.required) > 1 else ", ".join(best)
+            # A group that is partly filled is the one being set up: name
+            # only what it lacks; otherwise list every alternative.
+            partly = any(
+                len(missing) < len(group)
+                for missing, group in zip(groups, device_class.required)
+            )
+            alternatives = (
+                " or ".join(", ".join(group) for group in device_class.required)
+                if len(device_class.required) > 1 and not partly
+                else ", ".join(best)
+            )
             entry.problems.append(f"Missing: {alternatives}.")
     return entry
 
@@ -428,6 +843,12 @@ def build_command(entry: DeviceEntry, var_name: Optional[str] = None) -> str:
         or the arguments are unknown.
     """
     var = var_name or entry.var_name
+    device_class = entry.device_class
+    if device_class is not None and entry.args is not None and device_class.custom:
+        return (
+            f"from {device_class.module} import {device_class.name}\n"
+            f"{var} = {device_class.name}({entry.args})"
+        )
     if entry.device_class is not None and entry.args is not None:
         return (
             "import opticalib.devices as devices\n"
@@ -443,7 +864,44 @@ def build_command(entry: DeviceEntry, var_name: Optional[str] = None) -> str:
     )
 
 
-def list_entries(config_path: str) -> List[DeviceEntry]:
+def _read_config(config_path: str) -> Optional[Dict[str, Any]]:
+    try:
+        with open(config_path, "r") as f:
+            config = yaml.safe_load(f)
+    except Exception:
+        return None
+    return config if isinstance(config, dict) else None
+
+
+def known_classes(
+    config_path: str, extra: Optional[List[DeviceClass]] = None
+) -> Tuple[List[DeviceClass], Dict[str, str]]:
+    """
+    Return the classes available to the entries of a configuration file.
+
+    Parameters
+    ----------
+    config_path : str
+        Path to the ``configuration.yaml`` file.
+    extra : list of DeviceClass, optional
+        Custom classes defined for this session only (not saved).
+
+    Returns
+    -------
+    classes : list of DeviceClass
+        Custom classes (session ones first), then :data:`DEVICE_CLASSES`.
+    invalid : dict
+        Invalid custom-class declarations, by name.
+    """
+    custom, invalid = load_custom_classes(_read_config(config_path) or {}, config_path)
+    extra = list(extra or [])
+    names = {c.name for c in extra}
+    return extra + [c for c in custom if c.name not in names] + DEVICE_CLASSES, invalid
+
+
+def list_entries(
+    config_path: str, extra: Optional[List[DeviceClass]] = None
+) -> List[DeviceEntry]:
     """
     Resolve every entry of the ``DEVICES`` section of *config_path*.
 
@@ -454,26 +912,27 @@ def list_entries(config_path: str) -> List[DeviceEntry]:
     ----------
     config_path : str
         Path to the ``configuration.yaml`` file.
+    extra : list of DeviceClass, optional
+        Custom classes defined for this session only (not saved).
 
     Returns
     -------
     list of DeviceEntry
         One entry per device, in file order.
     """
-    try:
-        with open(config_path, "r") as f:
-            config = yaml.safe_load(f)
-    except Exception:
+    config = _read_config(config_path)
+    if config is None:
         return []
-    if not isinstance(config, dict):
-        return []
+    classes, invalid = known_classes(config_path, extra)
     entries = []
     for section, devices in (config.get("DEVICES") or {}).items():
         if not isinstance(devices, dict):
             continue
         for name, conf in devices.items():
             if conf is None or isinstance(conf, dict):
-                entries.append(resolve_entry(str(section), str(name), conf))
+                entries.append(
+                    resolve_entry(str(section), str(name), conf, classes, invalid)
+                )
     return entries
 
 
@@ -513,7 +972,9 @@ def _block_end(lines: List[str], start: int, indent: int) -> int:
     return len(lines)
 
 
-def _find_child(lines: List[str], key: str, start: int, end: int, parent_indent: int) -> Tuple[int, int]:
+def _find_child(
+    lines: List[str], key: str, start: int, end: int, parent_indent: int
+) -> Tuple[int, int]:
     """Return (line index, indent) of *key* directly under a parent block."""
     child_indent = None
     for i in range(start, end):
@@ -557,10 +1018,18 @@ def locate_entry(lines: List[str], section: str, name: str) -> Tuple[int, int]:
     """
     devices_i, devices_indent = _find_child(lines, "DEVICES", 0, len(lines), -1)
     section_i, section_indent = _find_child(
-        lines, section, devices_i + 1, _block_end(lines, devices_i, devices_indent), devices_indent
+        lines,
+        section,
+        devices_i + 1,
+        _block_end(lines, devices_i, devices_indent),
+        devices_indent,
     )
     return _find_child(
-        lines, name, section_i + 1, _block_end(lines, section_i, section_indent), section_indent
+        lines,
+        name,
+        section_i + 1,
+        _block_end(lines, section_i, section_indent),
+        section_indent,
     )
 
 
@@ -595,7 +1064,9 @@ def set_entry_class(config_path: str, section: str, name: str, class_name: str) 
     entry_i, entry_indent = locate_entry(lines, section, name)
     value, comment = _split_comment(_parse_line(lines[entry_i])[2])
     if value not in ("", "{}", "null", "~"):
-        raise ValueError(f"The entry '{name}' is written inline; add 'class: {class_name}' by hand.")
+        raise ValueError(
+            f"The entry '{name}' is written inline; add 'class: {class_name}' by hand."
+        )
     if value:
         # "Name: {}" -> "Name:" (keeping a trailing comment)
         head = lines[entry_i][: lines[entry_i].index(":", entry_indent) + 1]
@@ -624,12 +1095,20 @@ def set_entry_class(config_path: str, section: str, name: str, class_name: str) 
         check = yaml.safe_load(text)
         written = check["DEVICES"][section][name]["class"]
     except (yaml.YAMLError, KeyError, TypeError) as exc:
-        raise ValueError(f"Could not add the class to the configuration entry: {exc}") from exc
+        raise ValueError(
+            f"Could not add the class to the configuration entry: {exc}"
+        ) from exc
     if written != class_name:
         raise ValueError("Could not add the class to the configuration entry.")
-    # Atomic replacement: a crash while writing never truncates the file.
+    _write_atomic(config_path, text)
+
+
+def _write_atomic(config_path: str, text: str) -> None:
+    """Replace the file atomically: a crash while writing never truncates it."""
     folder = os.path.dirname(os.path.abspath(config_path))
-    fd, tmp_path = tempfile.mkstemp(prefix=".configuration-", suffix=".yaml", dir=folder)
+    fd, tmp_path = tempfile.mkstemp(
+        prefix=".configuration-", suffix=".yaml", dir=folder
+    )
     try:
         with os.fdopen(fd, "w") as f:
             f.write(text)
@@ -640,3 +1119,154 @@ def set_entry_class(config_path: str, section: str, name: str, class_name: str) 
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
         raise
+
+
+def _yaml_scalar(value: str) -> str:
+    """Write *value* as a YAML string: plain when safe, else double-quoted."""
+    text = str(value)
+    if re.fullmatch(r"[A-Za-z0-9_./-]+", text):
+        try:
+            if yaml.safe_load(text) == text:
+                return text
+        except yaml.YAMLError:
+            pass
+    return json.dumps(text)
+
+
+def set_custom_class(
+    config_path: str,
+    name: str,
+    module: str,
+    section: str = "",
+    args: str = "",
+    description: str = "",
+) -> None:
+    """
+    Declare a custom device class in the ``DEVICE.CLASSES`` section.
+
+    The section is created (after ``DEVICES``) when missing; a declaration
+    with the same name is replaced.  The rest of the file, comments
+    included, is left untouched, and the result is checked by parsing it
+    before the file is written.
+
+    Parameters
+    ----------
+    config_path : str
+        Path to the ``configuration.yaml`` file.
+    name : str
+        Class name.
+    module : str
+        Module, or ``.py`` file of the experiment folder, defining the class.
+    section : str, optional
+        ``DEVICES`` subsection of its entries.
+    args : str, optional
+        Constructor arguments (``{name}`` and ``{suffix}`` are replaced).
+    description : str, optional
+        Short description.
+
+    Raises
+    ------
+    ValueError
+        If the declaration is invalid or the edit would not produce it.
+    """
+    if not _is_identifier(str(name)):
+        raise ValueError(f"'{name}' is not a valid class name.")
+    module_name(module, experiment_folder(config_path))  # validates
+
+    with open(config_path, "r") as f:
+        lines = f.readlines()
+    if lines and not lines[-1].endswith("\n"):
+        lines[-1] += "\n"
+
+    fields = [
+        ("module", module),
+        ("section", section),
+        ("args", args),
+        ("description", description),
+    ]
+    try:
+        section_i, section_indent = _find_child(
+            lines, CUSTOM_CLASSES_SECTION, 0, len(lines), -1
+        )
+    except ValueError:
+        section_i = None
+
+    def block(indent: str) -> List[str]:
+        child = indent + "  "
+        out = [f"{indent}{name}:\n"]
+        out += [
+            f"{child}{k}: {_yaml_scalar(v)}\n"
+            for k, v in fields
+            if str(v or "").strip()
+        ]
+        return out
+
+    if section_i is None:
+        # New section, right after DEVICES (or at the end of the file).
+        try:
+            devices_i, devices_indent = _find_child(lines, "DEVICES", 0, len(lines), -1)
+            at = _block_end(lines, devices_i, devices_indent)
+            # Blank lines and top-level comments before the next section
+            # belong to it.
+            while at > devices_i + 1 and (
+                not lines[at - 1].strip() or lines[at - 1].startswith("#")
+            ):
+                at -= 1
+        except ValueError:
+            at = len(lines)
+        new = [
+            "\n",
+            "## Custom device classes ##\n",
+            "# Classes of this experiment, used by the GUI to connect DEVICES entries.\n",
+            f"{CUSTOM_CLASSES_SECTION}:\n",
+        ] + block("  ")
+        lines[at:at] = new
+    else:
+        value, comment = _split_comment(_parse_line(lines[section_i])[2])
+        if value not in ("", "{}", "null", "~"):
+            raise ValueError(
+                f"The {CUSTOM_CLASSES_SECTION} section is written inline; edit it by hand."
+            )
+        if value:
+            head = lines[section_i][: lines[section_i].index(":") + 1]
+            lines[section_i] = head + (f" {comment}" if comment else "") + "\n"
+        end = _block_end(lines, section_i, section_indent)
+        child_indent = None
+        for i in range(section_i + 1, end):
+            parsed = _parse_line(lines[i])
+            if parsed is not None:
+                child_indent = parsed[0]
+                break
+        indent = " " * (
+            child_indent if child_indent is not None else section_indent + 2
+        )
+        try:
+            old_i, old_indent = _find_child(
+                lines, name, section_i + 1, end, section_indent
+            )
+        except ValueError:
+            at = end
+            while (
+                at > section_i + 1
+                and (
+                    not lines[at - 1].strip() or lines[at - 1].lstrip().startswith("#")
+                )
+                and not lines[at - 1].startswith(indent + " ")
+            ):
+                at -= 1
+            lines[at:at] = block(indent)
+        else:
+            old_end = _block_end(lines, old_i, old_indent)
+            while old_end > old_i + 1 and not lines[old_end - 1].strip():
+                old_end -= 1
+            lines[old_i:old_end] = block(indent)
+
+    text = "".join(lines)
+    try:
+        check = yaml.safe_load(text)[CUSTOM_CLASSES_SECTION][name]
+    except (yaml.YAMLError, KeyError, TypeError) as exc:
+        raise ValueError(f"Could not declare the class {name}: {exc}") from exc
+    expected = {k: str(v) for k, v in fields if str(v or "").strip()}
+    if {k: str(v) for k, v in check.items()} != expected:
+        raise ValueError(f"Could not declare the class {name}.")
+    _write_atomic(config_path, text)

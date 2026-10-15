@@ -32,16 +32,16 @@ class TestResolveInitFile:
         assert "initCalpy.py" in resolved
 
     def test_packaged_init_script_declared(self) -> None:
-        """Ensure setup.py declares packaged init script for wheels.
+        """Ensure pyproject.toml declares packaged init script for wheels.
         
         When opticalib is installed, initCalpy.py must be shipped with it.
-        This test guards against regressions where setup.py loses the
-        package_data declaration for __init_script__/initCalpy.py.
+        This test guards against regressions where pyproject.toml loses the
+        package-data declaration for __init_script__/initCalpy.py.
         """
-        setup_path = Path(__file__).resolve().parents[1] / "setup.py"
-        setup_source = setup_path.read_text(encoding="utf-8")
-        assert "__init_script__/initCalpy.py" in setup_source, (
-            "setup.py does not declare __init_script__/initCalpy.py in package_data. "
+        pyproject = Path(__file__).resolve().parents[1] / "pyproject.toml"
+        source = pyproject.read_text(encoding="utf-8")
+        assert "__init_script__/initCalpy.py" in source, (
+            "pyproject.toml does not declare __init_script__/initCalpy.py in package-data. "
             "This will break calpy in installed wheels."
         )
 
@@ -106,7 +106,8 @@ class TestLaunchGui:
             setup_calpy._launch_gui(None)
         assert exit_info.value.code == 1
         out = capsys.readouterr().out
-        assert "PySide6-Essentials" in out and "PyQt5" not in out
+        # The hint points at the optional extra instead of listing packages.
+        assert 'pip install "opticalib[gui]"' in out and "PyQt5" not in out
 
 
 class TestLauncher:
@@ -221,8 +222,9 @@ class TestLauncher:
 
     def test_packaging(self) -> None:
         root = Path(setup_calpy.__file__).resolve().parent
-        setup_text = (root / "setup.py").read_text()
-        assert '"OptiCalib=setup_calpy:gui_main"' in setup_text and '"gui_scripts"' in setup_text
-        assert '"gui/resources/*"' in setup_text
+        text = (root / "pyproject.toml").read_text()
+        assert 'OptiCalib = "setup_calpy:gui_main"' in text and "[project.gui-scripts]" in text
+        assert 'calpy = "setup_calpy:main"' in text and "[project.scripts]" in text
+        assert '"gui/resources/*"' in text
         for ext in ("svg", "png", "ico"):
             assert (root / "opticalib" / "gui" / "resources" / f"opticalib.{ext}").is_file()

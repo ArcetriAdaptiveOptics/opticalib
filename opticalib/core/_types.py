@@ -162,7 +162,7 @@ class _DMProtocol(Protocol):
     def set_shape(self, cmd: MatrixLike, differential: bool) -> None: ...
     def get_shape(self) -> ArrayLike: ...
     def upload_cmd_history(
-        self, cmdhist: MatrixLike, *, slave: bool | str = False
+        self, cmdhist: MatrixLike, *, slaving: bool | str = False
     ) -> None: ...
     def run_cmd_history(
         self,
@@ -453,3 +453,18 @@ def get_device_type(device: object) -> str:
     elif isinstance_(device, "CameraDevice"):
         return "camera"
     return device._name
+
+
+def compute_float():
+    """
+    Floating dtype for numerical work on the active xupy backend.
+
+    ``float32`` on GPU (CuPy) for speed, ``float64`` on CPU (NumPy). This is
+    what the removed ``xupy.float`` alias used to resolve to; it is evaluated
+    at call time, so it follows ``xupy.use_cpu()`` / ``xupy.use_gpu()``.
+    """
+    import xupy as xp
+
+    dtype = xp.float32 if xp.on_gpu else xp.float64
+    del xp
+    return dtype

@@ -20,8 +20,19 @@ from ..ground import osutils as _osu
 from ..core import _types as _ot
 from ..analyzer import push_pull_reduction_algorithm as _ppr
 
-_sc = _gac()
 _np.set_printoptions(precision=2, suppress=False)
+
+
+def __getattr__(name: str):
+    """
+    Serve ``_sc``, the alignment configuration, when it is asked for.
+
+    It used to be read at import time, which failed for experiments without
+    an alignment section; packages such as M4 still import it.
+    """
+    if name == "_sc":
+        return _gac()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 class Alignment:
@@ -70,38 +81,39 @@ class Alignment:
         calibtn : str, optional
             The tracking number of the alignment calibration to be used.
         """
+        # Read here, not at import: experiments without an alignment section
+        # can still import opticalib.
+        sc = _gac()
         self.mdev = mechanical_devices
         self.ccd = acquisition_devices
         self.cmdMat = _osu.load_fits(
-            _os.path.join(_fn.CONTROL_MATRIX_FOLDER, _sc.command_matrix)
+            _os.path.join(_fn.CONTROL_MATRIX_FOLDER, sc.command_matrix)
         )
         self._calibtn = calibtn
         self.intMat = self.__load_int_mat(calibtn)
         self.recMat = None
         self._cmdAmp = None
         self._surface = (
-            _osu.load_fits(_sc.fitting_surface)
-            if not _sc.fitting_surface == ""
-            else None
+            _osu.load_fits(sc.fitting_surface) if not sc.fitting_surface == "" else None
         )
         self._fitter = _zfitter(self._surface)
-        self._moveFnc = self.__get_callables(self.mdev, _sc.devices_move_calls)
-        self._readFnc = self.__get_callables(self.mdev, _sc.devices_read_calls)
-        self._acquire = self.__get_callables(self.ccd, _sc.ccd_acquisition)
-        self._devName = self.__get_dev_names(_sc.names, ndev=len(self._moveFnc))
+        self._moveFnc = self.__get_callables(self.mdev, sc.devices_move_calls)
+        self._readFnc = self.__get_callables(self.mdev, sc.devices_read_calls)
+        self._acquire = self.__get_callables(self.ccd, sc.ccd_acquisition)
+        self._devName = self.__get_dev_names(sc.names, ndev=len(self._moveFnc))
         self._dof = [
             _np.array(dof) if not isinstance(dof, _np.ndarray) else dof
-            for dof in _sc.dof
+            for dof in sc.dof
         ]
         self._dofTot = (
-            _sc.devices_dof
-            if isinstance(_sc.devices_dof, list)
-            else [_sc.devices_dof] * len(self._moveFnc)
+            sc.devices_dof
+            if isinstance(sc.devices_dof, list)
+            else [sc.devices_dof] * len(self._moveFnc)
         )
-        self._idx = _sc.slices
+        self._idx = sc.slices
         self._modes2fit = _np.arange(1, 11)
-        self._modes2use = _sc.zernike_to_use
-        self._template = _sc.push_pull_template
+        self._modes2use = sc.zernike_to_use
+        self._template = sc.push_pull_template
         self._correct_cavity = True
         self._dataPath = _fn.ALIGNMENT_ROOT_FOLDER
         self._txt = _logger.TxtLogger(

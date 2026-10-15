@@ -457,7 +457,7 @@ def load_cube_from_filelist(
     return cube
 
 
-def read_phasemap(file_path: str) -> _ot.ImageData:
+def read_phasemap(file_path: str, **kwargs: dict[str, _ot.Any]) -> _ot.ImageData:
     """
     Function to read interferometric data, in the three possible formats
     (FITS, 4D, H5)
@@ -474,13 +474,15 @@ def read_phasemap(file_path: str) -> _ot.ImageData:
     """
     ext = file_path.split(".")[-1]
     if ext in ["fits", "4Ds"]:
-        image = load_fits(file_path)
+        image = load_fits(file_path, **kwargs)
     elif ext in ["4D", "h5"]:
         image = _InterferometerConverter.from_phase_cam6110(file_path)
     return image
 
 
-def load_fits(filepath: str, on_gpu: bool = False) -> _ot.FitsData | list[_ot.FitsData]:
+def load_fits(
+    filepath: str, on_gpu: bool = False, **kwargs: dict[str, _ot.Any]
+) -> _ot.FitsData | list[_ot.FitsData]:
     """
     Loads a FITS file.
 
@@ -505,7 +507,12 @@ def load_fits(filepath: str, on_gpu: bool = False) -> _ot.FitsData | list[_ot.Fi
         filepath += ".fits"
 
     multi_hdu = False
-    with _fits.open(filepath) as hdul:
+    # memmap=False: with memory mapping (astropy's default) the returned arrays
+    # are views on the mmap, which keeps a file descriptor open for as long as
+    # the data is alive, even after the `with` block exits. Loading many files
+    # (e.g. in `load_cube_from_filelist`) would then hit "Too many open files".
+    memmap = kwargs.pop("memmap", True)
+    with _fits.open(filepath, memmap=memmap, **kwargs) as hdul:
         H = len(hdul)
 
         # Simple HDU case

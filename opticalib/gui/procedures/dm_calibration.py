@@ -44,7 +44,11 @@ def _modal_base(values: Dict[str, str]) -> str:
     return values["base_file"] if values["base_file"] != "None" else values["base"]
 
 
-def _after_process(window: "DeformableMirrorCalibrationWindow", results: Dict[str, Any], values: Dict[str, str]) -> None:
+def _after_process(
+    window: "DeformableMirrorCalibrationWindow",
+    results: Dict[str, Any],
+    values: Dict[str, str],
+) -> None:
     """The interaction matrix is saved under the tracking number of the acquisition."""
     import ast
 
@@ -76,7 +80,9 @@ class DeformableMirrorCalibrationWindow(ProcedureWindow):
         """The calibration steps, then the post-processing of the interaction matrix."""
         steps = self._steps_list()
         for step in steps:
-            step.section = "Calibration" if step.key in _CALIBRATION else "Post-processing"
+            step.section = (
+                "Calibration" if step.key in _CALIBRATION else "Post-processing"
+            )
         return steps
 
     def _steps_list(self) -> List[Step]:
@@ -89,20 +95,50 @@ class DeformableMirrorCalibrationWindow(ProcedureWindow):
                 "IFFunctions (commands) and OPDImages (frames).",
                 [
                     DeviceParam("dm", "Deformable mirror", kinds=("dm",), default="dm"),
-                    DeviceParam("wfs", "Wavefront sensor", kinds=_WFS, default="interf"),
-                    ExprParam("modes", "Modes", "", placeholder="from configuration", optional=True,
-                              config_default=f"{_IFFUNC}['modes_list']"),
-                    ExprParam("amplitude", "Amplitude", "", placeholder="from configuration", optional=True,
-                              config_default=f"{_IFFUNC}['amplitude']"),
-                    ExprParam("template", "Push-pull template", "", placeholder="from configuration", optional=True,
-                              config_default=f"{_IFFUNC}['template']"),
+                    DeviceParam(
+                        "wfs", "Wavefront sensor", kinds=_WFS, default="interf"
+                    ),
+                    ExprParam(
+                        "modes",
+                        "Modes",
+                        "",
+                        placeholder="from configuration",
+                        optional=True,
+                        config_default=f"{_IFFUNC}['modes_list']",
+                    ),
+                    ExprParam(
+                        "amplitude",
+                        "Amplitude",
+                        "",
+                        placeholder="from configuration",
+                        optional=True,
+                        config_default=f"{_IFFUNC}['amplitude']",
+                    ),
+                    ExprParam(
+                        "template",
+                        "Push-pull template",
+                        "",
+                        placeholder="from configuration",
+                        optional=True,
+                        config_default=f"{_IFFUNC}['template']",
+                    ),
                     ChoiceParam(
-                        "base", "Modal base",
-                        [(None, "From configuration"), ("zonal", "Zonal (one actuator at a time)"),
-                         ("hadamard", "Hadamard"), ("mirror", "Mirror modes of the DM")],
+                        "base",
+                        "Modal base",
+                        [
+                            (None, "From configuration"),
+                            ("zonal", "Zonal (one actuator at a time)"),
+                            ("hadamard", "Hadamard"),
+                            ("mirror", "Mirror modes of the DM"),
+                        ],
                         config_default=f"{_IFFUNC}['modal_base']",
                     ),
-                    TextParam("base_file", "Custom modal base file", placeholder="file in ModalBases (overrides the choice)", optional=True),
+                    TextParam(
+                        "base_file",
+                        "Custom modal base file",
+                        placeholder="file in ModalBases (overrides the choice)",
+                        optional=True,
+                    ),
                     BoolParam("shuffle", "Shuffle the modes", False),
                     IntParam("repetitions", "Repetitions", 1, minimum=1, maximum=100),
                     VarParam("out", "Store the tracking number in", "tn_iff"),
@@ -131,7 +167,12 @@ class DeformableMirrorCalibrationWindow(ProcedureWindow):
                 "per mode and save the interaction-matrix cube in INTMatrices "
                 "(same tracking number), needed for flattening.",
                 [
-                    TnParam("tn", "Acquisition tracking number", folder_attr="IFFUNCTIONS_ROOT_FOLDER", state_key="iff_tn"),
+                    TnParam(
+                        "tn",
+                        "Acquisition tracking number",
+                        folder_attr="IFFUNCTIONS_ROOT_FOLDER",
+                        state_key="iff_tn",
+                    ),
                     BoolParam("register", "Register the frames", False),
                     IntParam("rebin", "Rebin factor", 1, minimum=1, maximum=16),
                     IntParam("nworkers", "Parallel workers", 2, minimum=1, maximum=64),
@@ -149,10 +190,19 @@ class DeformableMirrorCalibrationWindow(ProcedureWindow):
                 "and plot the singular values of the interaction matrix, to "
                 "choose how many modes to discard when flattening.",
                 [
-                    TnParam("tn", "Interaction matrix tracking number", folder_attr="INTMAT_ROOT_FOLDER", state_key="intmat_tn"),
+                    TnParam(
+                        "tn",
+                        "Interaction matrix tracking number",
+                        folder_attr="INTMAT_ROOT_FOLDER",
+                        state_key="intmat_tn",
+                    ),
                     DeviceParam("dm", "Deformable mirror", kinds=("dm",), default="dm"),
-                    DeviceParam("wfs", "Wavefront sensor", kinds=_WFS, default="interf"),
-                    IntParam("nframes", "Frames to average", 5, minimum=1, maximum=1000),
+                    DeviceParam(
+                        "wfs", "Wavefront sensor", kinds=_WFS, default="interf"
+                    ),
+                    IntParam(
+                        "nframes", "Frames to average", 5, minimum=1, maximum=1000
+                    ),
                     VarParam("out", "Store the flattening object in", "flat"),
                 ],
                 lambda v: (
@@ -174,9 +224,23 @@ class DeformableMirrorCalibrationWindow(ProcedureWindow):
                 "before and after are shown; the data are saved in Flattening.",
                 [
                     VarParam("flat", "Flattening object", "flat"),
-                    ExprParam("modes2flat", "Modes to flatten", "", placeholder="all actuators (int or list)", optional=True),
-                    ExprParam("modes2discard", "Singular values to discard", "", placeholder="none (int: smallest N)", optional=True),
-                    IntParam("nframes", "Frames to average", 5, minimum=1, maximum=1000),
+                    ExprParam(
+                        "modes2flat",
+                        "Modes to flatten",
+                        "",
+                        placeholder="all actuators (int or list)",
+                        optional=True,
+                    ),
+                    ExprParam(
+                        "modes2discard",
+                        "Singular values to discard",
+                        "",
+                        placeholder="none (int: smallest N)",
+                        optional=True,
+                    ),
+                    IntParam(
+                        "nframes", "Frames to average", 5, minimum=1, maximum=1000
+                    ),
                     VarParam("out", "Store the tracking number in", "tn_flat"),
                 ],
                 lambda v: (
@@ -197,9 +261,23 @@ class DeformableMirrorCalibrationWindow(ProcedureWindow):
                 [
                     VarParam("flat", "Flattening object", "flat"),
                     IntParam("iterations", "Iterations", 3, minimum=1, maximum=100),
-                    ExprParam("modes2flat", "Modes to flatten", "", placeholder="all actuators (int or list)", optional=True),
-                    ExprParam("modes2discard", "Singular values to discard", "", placeholder="none (int: smallest N)", optional=True),
-                    IntParam("nframes", "Frames to average", 5, minimum=1, maximum=1000),
+                    ExprParam(
+                        "modes2flat",
+                        "Modes to flatten",
+                        "",
+                        placeholder="all actuators (int or list)",
+                        optional=True,
+                    ),
+                    ExprParam(
+                        "modes2discard",
+                        "Singular values to discard",
+                        "",
+                        placeholder="none (int: smallest N)",
+                        optional=True,
+                    ),
+                    IntParam(
+                        "nframes", "Frames to average", 5, minimum=1, maximum=1000
+                    ),
                     VarParam("out", "Store the tracking numbers in", "tn_flat_loop"),
                 ],
                 lambda v: (
@@ -220,7 +298,12 @@ class DeformableMirrorCalibrationWindow(ProcedureWindow):
                 "Remove Zernike modes (e.g. piston, tip, tilt) from the "
                 "interaction matrix; the filtered matrix gets a new tracking number.",
                 [
-                    TnParam("tn", "Interaction matrix tracking number", folder_attr="INTMAT_ROOT_FOLDER", state_key="intmat_tn"),
+                    TnParam(
+                        "tn",
+                        "Interaction matrix tracking number",
+                        folder_attr="INTMAT_ROOT_FOLDER",
+                        state_key="intmat_tn",
+                    ),
                     ExprParam("zernikes", "Zernike modes", "[1, 2, 3]"),
                     VarParam("out", "Store the tracking number in", "tn_filtered"),
                 ],
@@ -234,7 +317,12 @@ class DeformableMirrorCalibrationWindow(ProcedureWindow):
                 "the segments of a segmented mirror) into one cube, with its "
                 "command matrix and modes; the stack gets a new tracking number.",
                 [
-                    TnListParam("tns", "Tracking numbers to stack", folder_attr="INTMAT_ROOT_FOLDER", minimum=2),
+                    TnListParam(
+                        "tns",
+                        "Tracking numbers to stack",
+                        folder_attr="INTMAT_ROOT_FOLDER",
+                        minimum=2,
+                    ),
                     VarParam("out", "Store the tracking number in", "tn_stacked"),
                 ],
                 lambda v: f"{v['out']} = ifp.stack_cubes({v['tns']})",
@@ -248,18 +336,44 @@ class DeformableMirrorCalibrationWindow(ProcedureWindow):
                 "(tip/tilt detrend, mean or median removal, nulling of the other "
                 "regions); the result gets a new tracking number.",
                 [
-                    TnParam("tn", "Interaction matrix tracking number", folder_attr="INTMAT_ROOT_FOLDER", state_key="intmat_tn"),
+                    TnParam(
+                        "tn",
+                        "Interaction matrix tracking number",
+                        folder_attr="INTMAT_ROOT_FOLDER",
+                        state_key="intmat_tn",
+                    ),
                     IntParam("roi", "Active ROI (index)", 0, minimum=0, maximum=1000),
-                    BoolParam("tt_detrend", "Remove tip/tilt using the other ROIs", False),
-                    BoolParam("mean_subtraction", "Subtract the mean of the active ROI", False),
-                    BoolParam("median_subtraction", "Subtract the median of the active ROI", False),
+                    BoolParam(
+                        "tt_detrend", "Remove tip/tilt using the other ROIs", False
+                    ),
+                    BoolParam(
+                        "mean_subtraction", "Subtract the mean of the active ROI", False
+                    ),
+                    BoolParam(
+                        "median_subtraction",
+                        "Subtract the median of the active ROI",
+                        False,
+                    ),
                     BoolParam("roinull", "Set the other ROIs to zero", False),
-                    ExprParam("fitting_mask", "Fitting mask", "", placeholder="none", optional=True),
+                    ExprParam(
+                        "fitting_mask",
+                        "Fitting mask",
+                        "",
+                        placeholder="none",
+                        optional=True,
+                    ),
                     VarParam("out", "Store the tracking number in", "tn_roi"),
                 ],
                 lambda v: (
                     f"{v['out']} = ifp.cube_roi_processing({v['tn']}, {v['roi']}, "
-                    + kwargs_code(v, "fitting_mask", "tt_detrend", "mean_subtraction", "median_subtraction", "roinull")
+                    + kwargs_code(
+                        v,
+                        "fitting_mask",
+                        "tt_detrend",
+                        "mean_subtraction",
+                        "median_subtraction",
+                        "roinull",
+                    )
                     + ")"
                 ),
                 outputs={"intmat_tn": "{out}"},

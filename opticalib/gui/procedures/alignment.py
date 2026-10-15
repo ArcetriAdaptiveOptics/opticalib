@@ -14,6 +14,7 @@ from .params import DeviceParam, ExprParam, IntParam, VarParam
 
 _MOVES = "This step moves the mechanical devices (e.g. the stages of the optics)."
 
+
 class AlignmentWindow(ProcedureWindow):
     """Calibrate and correct the alignment of the optics."""
 
@@ -36,8 +37,15 @@ class AlignmentWindow(ProcedureWindow):
                 "ott.parabola.setPosition); the acquisition device must "
                 "acquire phase maps.",
                 [
-                    DeviceParam("mech", "Mechanical devices", kinds=("other",), default="ott"),
-                    DeviceParam("acq", "Acquisition device", kinds=("interferometer", "wfs", "camera"), default="interf"),
+                    DeviceParam(
+                        "mech", "Mechanical devices", kinds=("other",), default="ott"
+                    ),
+                    DeviceParam(
+                        "acq",
+                        "Acquisition device",
+                        kinds=("interferometer", "wfs", "camera"),
+                        default="interf",
+                    ),
                     VarParam("out", "Store the alignment object in", "align"),
                 ],
                 lambda v: f"{v['out']} = procedures.Alignment({v['mech']}, {v['acq']})",
@@ -57,8 +65,14 @@ class AlignmentWindow(ProcedureWindow):
                 "interaction matrix under a new tracking number in Alignment.",
                 [
                     VarParam("align", "Alignment object", "align"),
-                    ExprParam("amplitudes", "Amplitudes (one per command)", "[0.1, 0.1, 0.1, 0.1, 0.1]"),
-                    IntParam("nframes", "Frames per measurement", 15, minimum=1, maximum=1000),
+                    ExprParam(
+                        "amplitudes",
+                        "Amplitudes (one per command)",
+                        "[0.1, 0.1, 0.1, 0.1, 0.1]",
+                    ),
+                    IntParam(
+                        "nframes", "Frames per measurement", 15, minimum=1, maximum=1000
+                    ),
                 ],
                 lambda v: (
                     f"{v['align']}.calibrate_alignment(list({v['amplitudes']}), n_frames={v['nframes']})\n"
@@ -75,9 +89,13 @@ class AlignmentWindow(ProcedureWindow):
                 "(nothing moves).",
                 [
                     VarParam("align", "Alignment object", "align"),
-                    ExprParam("dofs", "Degrees of freedom (command indices)", "[0, 1, 2]"),
+                    ExprParam(
+                        "dofs", "Degrees of freedom (command indices)", "[0, 1, 2]"
+                    ),
                     ExprParam("modes", "Modes to correct (indices)", "[0, 1, 2]"),
-                    IntParam("nframes", "Frames to average", 15, minimum=1, maximum=1000),
+                    IntParam(
+                        "nframes", "Frames to average", 15, minimum=1, maximum=1000
+                    ),
                     VarParam("out", "Store the command in", "align_cmd"),
                 ],
                 lambda v: (
@@ -93,9 +111,13 @@ class AlignmentWindow(ProcedureWindow):
                 "freedom by it.",
                 [
                     VarParam("align", "Alignment object", "align"),
-                    ExprParam("dofs", "Degrees of freedom (command indices)", "[0, 1, 2]"),
+                    ExprParam(
+                        "dofs", "Degrees of freedom (command indices)", "[0, 1, 2]"
+                    ),
                     ExprParam("modes", "Modes to correct (indices)", "[0, 1, 2]"),
-                    IntParam("nframes", "Frames to average", 15, minimum=1, maximum=1000),
+                    IntParam(
+                        "nframes", "Frames to average", 15, minimum=1, maximum=1000
+                    ),
                 ],
                 lambda v: (
                     f"{v['align']}.correct_alignment({v['dofs']}, {v['modes']}, "

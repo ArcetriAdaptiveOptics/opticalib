@@ -47,7 +47,7 @@ INFLUENCE.FUNCTIONS:
   DM:
     nacts: 100
     timing: 10
-    sequentialDelay: 0.1
+    sequential_delay: 0.1
   IFFUNC:
     numberofzeros: 0
     modeid: [1, 2, 3]
@@ -125,8 +125,8 @@ def mock_dm():
     """Create a mock deformable mirror device."""
     dm = MagicMock()
     dm.n_acts = 100
-    dm.nSegments = 2
-    dm.nActsPerSegment = 50
+    dm.n_segments = 2
+    dm.n_acts_per_segment = 50
     dm.mirrorModes = np.random.randn(100, 100).astype(np.float32)
     dm.name = "TestDM"
     dm._name = "TestDM"

@@ -354,6 +354,10 @@ you do in the GUI is reproducible from a script.
   - One card per entry of the `DEVICES` section, plus the simulators.
     *Connect* runs the constructor in the console; the card follows the
     variable (`dm`, `interf`, ...) and offers quick actions once connected.
+    The *Configured* and *Simulated* groups fold away with a click on their
+    header (remembered between sessions); the header keeps a summary, such
+    as "4 devices · 1 connected", so a folded group never hides a connection
+    or a failure.
 * - Workspace
   - The variables of the session; double-click an array to view it.
 * - Data
@@ -417,6 +421,58 @@ Device classes look up their entry by name: `Ingot` reads `INGOT`,
 `PetalMirror` reads `PetalDM`, `PhaseCam("6110")` reads `PhaseCam6110`. The
 lookup ignores case, so `Ingot` or `phasecam6110` work too, in the GUI and in
 scripts.
+
+Alpao entries are named after the number of actuators, `Alpao88` or
+`AlpaoDm88`. With the native SDK, fill in `serial_number` and `acfg_path`
+(`sdk_folder_path` is optional); with the `plico_dm` backend, fill in
+`plico_ip` and `plico_port`, and the GUI connects with `use_plico=True`. An
+entry named `Alpao<number>` is read by the class itself; one named
+`AlpaoDm<number>` has its values passed in the command, which you can see and
+edit in the connect dialog.
+
+### Your own device classes
+
+A device driven by a class of your own (not one of `opticalib.devices`) is
+declared in the `DEVICE.CLASSES` section, and its entries are then connected
+like the others:
+
+```{code-block} yaml
+DEVICES:
+  DEFORMABLE.MIRRORS:
+    MorfeoDM1:
+      diameter: 930
+    MorfeoDM2:
+      diameter: 1224
+
+DEVICE.CLASSES:
+  MorfeoDM:
+    module: morfeo_dm.py         # or a module name, e.g. lab.drivers
+    section: DEFORMABLE.MIRRORS  # optional: the entries it connects
+    args: "{suffix}"             # optional: constructor arguments
+```
+
+`MorfeoDM1` is connected with `from morfeo_dm import MorfeoDM` and
+`dm = MorfeoDM(1)`: entries whose name starts with the class name use it, and
+in `args` `{suffix}` is what follows the class name (`1`) and `{name}` the
+entry name. Other entries can name it with `class: MorfeoDM`. The `module` is
+an importable module or a `.py` file of the experiment folder, which the GUI
+puts on the kernel's `sys.path` (also after restarts and experiment
+switches).
+
+You do not need to write the section by hand: in the *Set up…* dialog choose
+*Custom … class*, check the class name, module and arguments it guesses
+(it looks for the class in the `.py` files of the experiment folder) and keep
+*Save the class in the configuration* ticked.
+
+### Procedures and optional sections
+
+The *Procedures* panel lists only the procedures whose section the
+configuration defines: *Deformable Mirror Calibration* needs
+`INFLUENCE.FUNCTIONS`, *Stitching* `STITCHING`, *Segments Phasing* `PHASING`
+and *Alignment* `SYSTEM.ALIGNMENT`; *Timeseries* is always listed. Delete (or
+set to `null`) the sections an experiment does not use: opticalib imports
+without them, and only the procedure that needs a missing section reports it
+when it is used.
 
 ```{note}
 The GUI needs a graphical display. Over SSH use `ssh -X`; `calpy --gui`

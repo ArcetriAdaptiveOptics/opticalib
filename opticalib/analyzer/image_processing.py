@@ -20,6 +20,38 @@ from ..ground import osutils as osu, modal_decomposer as _md
 from scipy import stats as _stats, fft as _fft, ndimage as _ndimage
 
 
+def pad_image_to_shape(
+    img: _ot.ImageData,
+    shape: tuple[int, int],
+    offset: tuple[int, int],
+    fill_value: float = 0.0,
+) -> _ot.ImageData:
+    """
+    Pads an image to a specified shape with a given offset and fill value.
+
+    Parameters
+    ----------
+    img : _ot.ImageData
+        The image to be padded.
+    shape : tuple[int, int]
+        The target shape (height, width) for the padded image.
+    offset : tuple[int, int]
+        The (y, x) offset at which to place the original image in the padded image.
+    fill_value : float, optional
+        The value to fill the padded areas with. Default is 0.
+
+    Returns
+    -------
+    padded_img : _ot.ImageData
+        The padded image.
+    """
+    padded_img = _np.full(shape, fill_value)
+    y, x = offset
+    h, w = _np.shape(img)
+    padded_img[y : y + h, x : x + w] = img.data
+    return padded_img
+
+
 def frame(idx: int, mylist: list[_ot.ImageData] | _ot.CubeData) -> _ot.ImageData:
     """
     Returns a single frame from a list of files or from a cube.
@@ -225,7 +257,7 @@ def push_pull_reduction_algorithm(
     # Template weights computation
     w = _xp.asarray(
         template.astype(_np.result_type(template, imagelist[0].data), copy=True),
-        dtype=_xp.float,
+        dtype=_ot.compute_float(),
     )
     if n_images > 2:
         w[1:-1] *= 2.0
@@ -233,9 +265,9 @@ def push_pull_reduction_algorithm(
     master_mask = _np.logical_or.reduce([ima.mask for ima in imagelist])
     # Compute weighted sum over realizations on raw data
     stack = _xp.stack(
-        [_xp.asarray(ima.data, dtype=_xp.float) for ima in imagelist],
+        [_xp.asarray(ima.data, dtype=_ot.compute_float()) for ima in imagelist],
         axis=0,
-        dtype=_xp.float,
+        dtype=_ot.compute_float(),
     )  # (n, H, W)
     image = _xp.asnumpy(_xp.tensordot(w, stack, axes=(0, 0)))  # (H, W)
 
@@ -269,13 +301,18 @@ def create_cube(fl_or_il: list[str], register: bool = False) -> _ot.CubeData:
     cube : ndarray
         Data cube containing the images/frames stacked, with shape (npx, npy, nframes).
     """
+    memmap = True
     # check it is a list
     if not isinstance(fl_or_il, list):
         raise TypeError("filelist must be a list of strings or images")
 
     # check if it is composed of file paths to load
     if all([isinstance(item, str) for item in fl_or_il]):
-        fl_or_il = [osu.read_phasemap(f) for f in fl_or_il]
+        N = len(fl_or_il)  # Number of files
+        if N > 1000:
+            memmap = False
+            print("Disabling memory mapping for large file list: N =", N)
+        fl_or_il = [osu.read_phasemap(f, memmap=memmap) for f in fl_or_il]
 
         # Is the list now full of images?
         if not any(
@@ -860,6 +897,8 @@ def rebin2_d_array(
 
 
 __all__ = [
+    "pad_image_to_shape",
+    # "into_4d_full_frame",
     "frame",
     "unwrap_piston",
     "unwrap_image",
