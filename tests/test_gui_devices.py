@@ -848,3 +848,76 @@ class TestSectionlessCustomClass:
         )
         (entry,) = reg.list_entries(str(path))
         assert entry.kind_section == "DEFORMABLE.MIRRORS" and entry.var_name == "dm"
+
+
+class TestCollapsibleGroups:
+    """The configured and simulated groups can be folded away."""
+
+    @pytest.fixture(autouse=True)
+    def _clean_settings(self):
+        from qtpy.QtCore import QSettings
+
+        settings = QSettings("ArcetriAdaptiveOptics", "CalpyGUI")
+        for key in ("ui/collapsed_devices_configured", "ui/collapsed_devices_simulated"):
+            settings.remove(key)
+        yield
+        for key in ("ui/collapsed_devices_configured", "ui/collapsed_devices_simulated"):
+            settings.remove(key)
+
+    def test_folding_hides_only_that_group(self, panel):
+        configured, simulated = panel.configured_section, panel.simulated_section
+        assert not configured.collapsed and not simulated.collapsed
+        panel.show()
+        simulated.toggle()
+        assert simulated.collapsed and simulated.body.isHidden()
+        assert not configured.body.isHidden()
+        # Folding only hides: the cards (and their state) are untouched.
+        assert panel.card("sim:alpao") is not None and len(panel.cards) >= 6
+        simulated.toggle()
+        assert not simulated.collapsed and not simulated.body.isHidden()
+
+    def test_folded_groups_take_no_room(self, panel, qapp):
+        panel.resize(380, 700)
+        panel.show()
+        panel.configured_section.set_collapsed(True)
+        panel.simulated_section.set_collapsed(True)
+        for _ in range(5):
+            qapp.processEvents()
+        header = panel.configured_section._button.sizeHint().height()
+        assert panel.configured_section.height() <= header + 12
+        assert panel.simulated_section.height() <= header + 12
+        # Both headers are stacked at the top, not spread over the panel.
+        assert panel.simulated_section.geometry().top() < 3 * header
+
+    def test_toggled_signal(self, panel):
+        seen = []
+        panel.configured_section.toggled.connect(seen.append)
+        panel.configured_section.set_collapsed(True)
+        panel.configured_section.set_collapsed(True)  # no change, no signal
+        panel.configured_section.set_collapsed(False)
+        assert seen == [True, False]
+
+    def test_state_is_remembered(self, panel, config_file):
+        panel.simulated_section.set_collapsed(True)
+        again = dp.DevicePanel(str(config_file), runner=lambda *a: None)
+        assert again.simulated_section.collapsed and not again.configured_section.collapsed
+
+    def test_summary_follows_the_cards(self, panel):
+        section = panel.simulated_section
+        assert section._summary.text() == "4 devices"
+        card = panel.card("sim:alpao")
+        card.set_status("connected")
+        assert "4 devices" in section._summary.text() and "1 connected" in section._summary.text()
+        panel.card("sim:dp").set_status("error", "boom")
+        assert "1 failed" in section._summary.text()
+        card.set_status("disconnected")
+        panel.card("sim:dp").set_status("disconnected")
+        assert section._summary.text() == "4 devices"
+        # The configured group counts only its own cards.
+        assert "connected" not in panel.configured_section._summary.text()
+
+    def test_summary_is_hidden_without_devices(self, qapp, tmp_path):
+        empty = tmp_path / "configuration.yaml"
+        empty.write_text("DEVICES: {}\n")
+        widget = dp.DevicePanel(str(empty), runner=lambda *a: None)
+        assert widget.configured_section._summary.isHidden()

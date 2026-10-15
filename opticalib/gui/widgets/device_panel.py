@@ -35,7 +35,7 @@ from qtpy.QtWidgets import (
 )
 
 from ..theme import theme
-from .common import ElidedLabel
+from .common import CollapsibleSection, ElidedLabel
 from .connect_dialog import ConnectDialog
 from .device_registry import (
     SECTION_KINDS,
@@ -356,12 +356,15 @@ class DeviceCard(QFrame):
         The user asked to edit the configuration entry.
     action_requested(str, str)
         The user picked a quick action (code, title).
+    status_changed()
+        The connection status changed.
     """
 
     connect_requested = Signal(object)
     setup_requested = Signal(object)
     edit_requested = Signal(object)
     action_requested = Signal(str, str)
+    status_changed = Signal()
 
     def __init__(self, info: DeviceInfo, parent: Optional[QWidget] = None) -> None:
         """Build the card."""
@@ -450,9 +453,12 @@ class DeviceCard(QFrame):
         message : str, optional
             Extra information (e.g. the error), shown on hover.
         """
+        changed = status != self.status
         self.status = status
         self.message = message
         self._refresh()
+        if changed:
+            self.status_changed.emit()
 
     @property
     def display_status(self) -> str:
@@ -597,20 +603,25 @@ class DevicePanel(QWidget):
         self._refresh_btn.setToolTip("Re-read the configuration file")
         self._refresh_btn.clicked.connect(self.reload)
 
+        # Each group can be folded: real and simulated devices are rarely
+        # used together, and the header keeps a summary of what is hidden.
+        self.configured_section = CollapsibleSection("CONFIGURED", "devices_configured")
+        self.configured_section.set_body_layout(self._configured_box)
+        self.configured_section.add_header_widget(self._refresh_btn)
+        self.simulated_section = CollapsibleSection("SIMULATED", "devices_simulated")
+        self.simulated_section.set_body_layout(self._simulated_box)
+        for box in (self._configured_box, self._simulated_box):
+            box.setContentsMargins(0, 0, 0, 0)
+
         content = QWidget()
         column = QVBoxLayout(content)
         column.setContentsMargins(8, 8, 8, 8)
         column.setSpacing(6)
-        header = QHBoxLayout()
-        header.addWidget(self._section_label("CONFIGURED"))
-        header.addStretch()
-        header.addWidget(self._refresh_btn)
-        column.addLayout(header)
-        column.addLayout(self._configured_box)
+        column.addWidget(self.configured_section)
         column.addSpacing(8)
-        column.addWidget(self._section_label("SIMULATED"))
-        column.addLayout(self._simulated_box)
-        column.addStretch()
+        column.addWidget(self.simulated_section)
+        # Spare room goes below the groups, so folded headers stay together.
+        column.addStretch(1)
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -627,13 +638,31 @@ class DevicePanel(QWidget):
         theme().changed.connect(
             lambda: self._refresh_btn.setIcon(theme().icon("refresh"))
         )
+        theme().changed.connect(self._refresh_summaries)
         self._refresh_btn.setIcon(theme().icon("refresh"))
+        self._refresh_summaries()
 
-    @staticmethod
-    def _section_label(text: str) -> QLabel:
-        label = QLabel(text)
-        label.setProperty("section", True)
-        return label
+    def _refresh_summaries(self) -> None:
+        """
+        Summarise each group in its header (useful while it is folded).
+
+        Shows the number of devices, and how many are connected or failed.
+        """
+        tokens = theme().tokens
+        for section, prefix in (
+            (self.configured_section, "cfg:"),
+            (self.simulated_section, "sim:"),
+        ):
+            cards = [c for k, c in self._cards.items() if k.startswith(prefix)]
+            parts = [f"{len(cards)} device{'s' if len(cards) != 1 else ''}"] if cards else []
+            for status, token, label in (
+                ("connected", "success", "connected"),
+                ("error", "danger", "failed"),
+            ):
+                count = sum(1 for c in cards if c.status == status)
+                if count:
+                    parts.append(f"<span style='color:{tokens[token]}'>{count} {label}</span>")
+            section.set_summary(" · ".join(parts))
 
     @property
     def cards(self) -> List[DeviceCard]:
@@ -707,6 +736,7 @@ class DevicePanel(QWidget):
         # The stored workspace may be stale (the refresh can be queued behind a
         # long command): use it for the new cards, but never to disconnect.
         self._apply_workspace(demote=False)
+        self._refresh_summaries()
 
     def _make_card(self, info: DeviceInfo) -> DeviceCard:
         card = DeviceCard(info)
@@ -720,6 +750,7 @@ class DevicePanel(QWidget):
         card.action_requested.connect(
             lambda code, title: self._runner(code, title, None, None)
         )
+        card.status_changed.connect(self._refresh_summaries)
         self._cards[info.key] = card
         return card
 

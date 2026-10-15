@@ -354,6 +354,10 @@ you do in the GUI is reproducible from a script.
   - One card per entry of the `DEVICES` section, plus the simulators.
     *Connect* runs the constructor in the console; the card follows the
     variable (`dm`, `interf`, ...) and offers quick actions once connected.
+    The *Configured* and *Simulated* groups fold away with a click on their
+    header (remembered between sessions); the header keeps a summary, such
+    as "4 devices · 1 connected", so a folded group never hides a connection
+    or a failure.
 * - Workspace
   - The variables of the session; double-click an array to view it.
 * - Data

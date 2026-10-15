@@ -313,6 +313,16 @@ QLabel[section="true"] {{
     font-weight: 600;
     letter-spacing: 0.5px;
 }}
+QToolButton[sectionToggle="true"] {{
+    color: {text_muted};
+    font-size: 8.5pt;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    padding: 2px 6px 2px 2px;
+}}
+QToolButton[sectionToggle="true"]:hover {{
+    color: {text};
+}}
 QFrame[card="true"] {{
     background: {surface_alt};
     border: 1px solid {border};

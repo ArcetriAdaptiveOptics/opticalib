@@ -91,7 +91,7 @@ anything that imports `qtpy`**, or qtpy may pick another installed binding.
 | `gui/widgets/data_browser.py` | 314 | GUI | `DataBrowser` (tracking-number tree), `load_array_file` |
 | `gui/widgets/plot_viewer.py` | 839 | GUI | `PlotViewer` (figures + pyqtgraph data viewer, thumbnails, pop-out, export) |
 | `gui/widgets/config_editor.py` | 556 | GUI | `ConfigEditorDialog`, `CodeEditor`, YAML highlighter, `validate_config_text` |
-| `gui/widgets/common.py` | 144 | GUI | `ElidedLabel`, `DockTitleBar` |
+| `gui/widgets/common.py` | 300 | GUI | `ElidedLabel`, `DockTitleBar`, `CollapsibleSection` (foldable group with a summary line) |
 
 Related code outside `gui/`:
 
@@ -475,6 +475,14 @@ or saved to the file on request. The `⋯` menu offers *Copy connect code*,
 `quick_actions()` (show, acquire a map or frame, show the DM command, reset a
 simulated DM, which asks for confirmation).
 
+The two groups of the panel (*Configured* and *Simulated*) are
+`CollapsibleSection`s (`widgets/common.py`): a clickable header with a chevron,
+a one-line summary and a body holding the cards. The summary is rebuilt by
+`DevicePanel._refresh_summaries` whenever a card emits `status_changed` or the
+panel reloads, and counts devices, connected ones and failed ones, so a folded
+group never hides a connection or an error. Reuse `CollapsibleSection` for any
+panel that needs foldable groups; give it a `key` to remember its state.
+
 A connected card goes back to *disconnected* when a fresh workspace shows
 that its variable is gone or holds another type (`update_workspace`,
 `demote=True`). The stored, possibly stale, workspace used by `reload()`
@@ -649,7 +657,7 @@ configuration loaded in the GUI, and the window warns when the two differ.
 | Store | Keys | Notes |
 |---|---|---|
 | `QSettings("ArcetriAdaptiveOptics", SETTINGS_APP)` | `window/geometry`, `window/state`, `recent/experiments` | per application (`SETTINGS_APP`) |
-| `QSettings("ArcetriAdaptiveOptics", "CalpyGUI")` | `ui/theme`, `activity/anchor`, `activity/offset_x`, `activity/offset_y`, `activity/pinned`, `activity/collapsed` | shared by every GUI built on opticalib |
+| `QSettings("ArcetriAdaptiveOptics", "CalpyGUI")` | `ui/theme`, `ui/collapsed_<key>` (foldable groups, e.g. `devices_configured`), `activity/anchor`, `activity/offset_x`, `activity/offset_y`, `activity/pinned`, `activity/collapsed` | shared by every GUI built on opticalib |
 | `configuration.yaml` | `DEVICES.<section>.<entry>.class`, `DEVICE.CLASSES` | written only on explicit request, line-level and atomic |
 | temp folder `calpygui-*` | kernel sockets, `view_*.npz` | deleted when the window closes |
 

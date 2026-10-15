@@ -65,6 +65,10 @@ Panels
 .. autoclass:: opticalib.gui.widgets.device_panel.DeviceCard
    :members:
 
+.. autoclass:: opticalib.gui.widgets.common.CollapsibleSection
+   :members:
+   :exclude-members: toggled
+
 .. autoclass:: opticalib.gui.widgets.connect_dialog.ConnectDialog
    :members:
 
