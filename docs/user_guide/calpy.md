@@ -418,6 +418,14 @@ Device classes look up their entry by name: `Ingot` reads `INGOT`,
 lookup ignores case, so `Ingot` or `phasecam6110` work too, in the GUI and in
 scripts.
 
+Alpao entries are named after the number of actuators, `Alpao88` or
+`AlpaoDm88`. With the native SDK, fill in `serial_number` and `acfg_path`
+(`sdk_folder_path` is optional); with the `plico_dm` backend, fill in
+`plico_ip` and `plico_port`, and the GUI connects with `use_plico=True`. An
+entry named `Alpao<number>` is read by the class itself; one named
+`AlpaoDm<number>` has its values passed in the command, which you can see and
+edit in the connect dialog.
+
 ### Your own device classes
 
 A device driven by a class of your own (not one of `opticalib.devices`) is

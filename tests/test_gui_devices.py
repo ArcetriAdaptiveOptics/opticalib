@@ -31,7 +31,8 @@ DEVICES:
       port: 1
   DEFORMABLE.MIRRORS:
     Alpao820:
-      serialNumber: BAX820
+      serial_number: BAX820
+      acfg_path: /acfg
     MyPetal:
       ip0: 1.2.3.4
   CAMERAS:
@@ -67,7 +68,7 @@ class TestResolution:
             ("INTERFEROMETERS", "AccuFiz4020", {"ip": "a", "port": 1}, "AccuFiz", "interf = devices.AccuFiz('4020')"),
             ("INTERFEROMETERS", "4DProcesser1", {"ip": "a", "port": 1}, "Processer4D", "interf = devices.Processer4D('1')"),
             ("INTERFEROMETER", "PhaseCam6110", {"ip": "a", "port": 1}, "PhaseCam", "interf = devices.PhaseCam('6110')"),
-            ("DEFORMABLE.MIRRORS", "Alpao820", {"serialNumber": "B"}, "AlpaoDm", "dm = devices.AlpaoDm(820)"),
+            ("DEFORMABLE.MIRRORS", "Alpao820", {"serial_number": "B", "acfg_path": "/a"}, "AlpaoDm", "dm = devices.AlpaoDm(820)"),
             ("DEFORMABLE.MIRRORS", "PetalDM", {"ip0": "x"}, "PetalMirror", "dm = devices.PetalMirror()"),
             ("DEFORMABLE.MIRRORS", "Splatt", {"ip": "x", "port": 1}, "SplattDm", "dm = devices.SplattDm()"),
             ("DEFORMABLE.MIRRORS", "AdOpticaDP", {}, "DP", "dm = devices.DP()"),
@@ -113,7 +114,11 @@ class TestResolution:
             ("INTERFEROMETERS", "PhaseCamX", {"ip": None, "port": ""}, "Missing: ip, port."),
             ("CAMERAS", "GigaVision", {}, "Missing: id or ip."),
             ("WFS", "Ingot", {}, "Cannot build the Ingot arguments"),
-            ("DEFORMABLE.MIRRORS", "AlpaoXXX", {}, "name the entry Alpao<number of actuators>"),
+            ("DEFORMABLE.MIRRORS", "AlpaoXXX", {"serial_number": "B", "acfg_path": "/a"}, "name the entry Alpao<number of actuators> or AlpaoDm<number of actuators>"),
+            ("DEFORMABLE.MIRRORS", "AlpaoDm", {"serial_number": "B", "acfg_path": "/a"}, "name the entry Alpao<number"),
+            ("DEFORMABLE.MIRRORS", "Alpao88", {}, "Missing: serial_number, acfg_path or plico_ip, plico_port."),
+            ("DEFORMABLE.MIRRORS", "Alpao88", {"serial_number": "B"}, "Missing: acfg_path."),
+            ("DEFORMABLE.MIRRORS", "Alpao88", {"plico_ip": "1.2.3.4"}, "Missing: plico_port."),
             ("INTERFEROMETERS", "PhaseCam", {"ip": "a", "port": 1}, "name the entry PhaseCam<model>"),
             ("DEFORMABLE.MIRRORS", "MyPetal", {"class": "PetalMirror", "ip0": "x"}, "PetalMirror reads the entry 'PetalDM'"),
         ],
@@ -701,6 +706,64 @@ class TestCustomClassDialog:
         assert not custom_panel.card("cfg:DEFORMABLE.MIRRORS:MorfeoDM2").info.needs_setup
         custom_panel.reload()
         assert custom_panel.card("cfg:DEFORMABLE.MIRRORS:MorfeoDM1").info.class_name == "MorfeoDM"
+
+
+class TestAlpao:
+    """Alpao entries: SDK or plico backend, ``Alpao<n>`` or ``AlpaoDm<n>`` names."""
+
+    SDK = {"serial_number": "BAX751", "sdk_folder_path": "/sdk", "acfg_path": "/acfg"}
+    PLICO = {"plico_ip": "10.0.0.5", "plico_port": 7000}
+
+    def _command(self, name, conf):
+        entry = reg.resolve_entry("DEFORMABLE.MIRRORS", name, conf)
+        assert entry.ready, entry.problems
+        assert entry.var_name == "dm"
+        command = reg.build_command(entry)
+        compile(command, "<connect>", "exec")
+        return command.splitlines()[-1]
+
+    def test_sdk_entry_named_alpao_is_left_to_the_class(self):
+        assert self._command("Alpao88", self.SDK) == "dm = devices.AlpaoDm(88)"
+        assert self._command("alpao88", self.SDK) == "dm = devices.AlpaoDm(88)"
+
+    def test_plico_entry_named_alpao_selects_the_backend(self):
+        assert self._command("Alpao88", self.PLICO) == "dm = devices.AlpaoDm(88, use_plico=True)"
+
+    def test_sdk_wins_when_both_backends_are_filled(self):
+        assert self._command("Alpao88", {**self.SDK, **self.PLICO}) == "dm = devices.AlpaoDm(88)"
+
+    def test_alpaodm_names_pass_the_settings_by_name(self):
+        # The class reads the entry "Alpao88": it cannot see "AlpaoDm88".
+        assert self._command("AlpaoDm88", self.SDK) == (
+            "dm = devices.AlpaoDm(88, serial_number='BAX751', sdk_folder_path='/sdk', acfg_path='/acfg')"
+        )
+        assert self._command("AlpaoDm88", self.PLICO) == (
+            "dm = devices.AlpaoDm(88, use_plico=True, plico_ip='10.0.0.5', plico_port=7000)"
+        )
+        # Empty optional fields are left out.
+        conf = {"serial_number": "B", "sdk_folder_path": None, "acfg_path": "/a"}
+        assert self._command("AlpaoDm88", conf) == (
+            "dm = devices.AlpaoDm(88, serial_number='B', acfg_path='/a')"
+        )
+
+    def test_former_serial_number_key_is_still_accepted(self):
+        conf = {"serialNumber": "BAX751", "acfg_path": "/acfg"}
+        assert self._command("Alpao88", conf) == (
+            "dm = devices.AlpaoDm(88, serial_number='BAX751', acfg_path='/acfg')"
+        )
+
+    def test_numeric_serial_number_is_quoted(self):
+        conf = {"serial_number": 751, "acfg_path": "/acfg"}
+        assert self._command("AlpaoDm88", conf).endswith("serial_number='751', acfg_path='/acfg')")
+
+    def test_the_entry_is_not_reported_as_read_elsewhere(self):
+        entry = reg.resolve_entry("DEFORMABLE.MIRRORS", "AlpaoDm88", self.SDK)
+        assert not any("reads the entry" in p for p in entry.problems)
+
+    def test_alpaodm_prefix_beats_alpao(self):
+        cls = reg.match_by_name("DEFORMABLE.MIRRORS", "AlpaoDm88")
+        assert cls.name == "AlpaoDm"
+        assert reg._suffix("AlpaoDm88", cls) == "88" and reg._suffix("Alpao88", cls) == "88"
 
 
 class TestKeywordNames:

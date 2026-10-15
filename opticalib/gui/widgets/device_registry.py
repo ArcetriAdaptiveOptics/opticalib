@@ -85,7 +85,8 @@ class DeviceClass:
     args : str
         How the constructor arguments are derived from the entry:
         ``'suffix'`` (name suffix, e.g. the model), ``'alpao'`` (number of
-        actuators from the name, or the ``serialNumber``), ``'name'`` (the
+        actuators from the name, plus the backend settings of the entry when
+        the class cannot read them itself), ``'name'`` (the
         entry name), ``'camera'`` (the ``camera`` field) or ``'none'``.
     reads : str or None
         Entry the class reads: a fixed name, ``'{suffix}'`` patterns (e.g.
@@ -157,11 +158,11 @@ DEVICE_CLASSES: List[DeviceClass] = [
     DeviceClass(
         "AlpaoDm",
         "DEFORMABLE.MIRRORS",
-        ("alpao",),
+        ("alpaodm", "alpao"),
         "alpao",
-        "Alpao{suffix}",
-        (("serialNumber",),),
-        description="Alpao deformable mirror",
+        None,  # the settings of the entry are handled by _alpao_args
+        (("serial_number", "acfg_path"), ("plico_ip", "plico_port")),
+        description="Alpao deformable mirror (native SDK or plico_dm backend)",
     ),
     DeviceClass(
         "PetalMirror",
@@ -608,6 +609,69 @@ def match_by_name(
     return _match_by_name(section, name, classes)
 
 
+#: Fields of an Alpao entry passed to the constructor by name, per backend.
+_ALPAO_SDK_FIELDS = ("serial_number", "sdk_folder_path", "acfg_path")
+_ALPAO_PLICO_FIELDS = ("plico_ip", "plico_port")
+
+
+def _alpao_settings(conf: Dict[str, Any]) -> Dict[str, Any]:
+    """The Alpao fields of an entry, with the former ``serialNumber`` key accepted."""
+    settings = dict(conf)
+    if _is_empty(settings.get("serial_number")) and not _is_empty(
+        settings.get("serialNumber")
+    ):
+        settings["serial_number"] = settings["serialNumber"]
+    return settings
+
+
+def _alpao_args(name: str, suffix: str, conf: Dict[str, Any]) -> Optional[str]:
+    """
+    Constructor arguments of an ``AlpaoDm`` entry.
+
+    ``AlpaoDm(nacts)`` reads its settings from the entry called
+    ``Alpao<nacts>``.  The entry is therefore left to the class when it has
+    that name and the current keys; the plico backend is not selected by the
+    configuration, so ``use_plico=True`` is added for it.  An entry named
+    ``AlpaoDm<nacts>`` (or one using the former ``serialNumber`` key) cannot
+    be read by the class, so its settings are passed by name.
+
+    Parameters
+    ----------
+    name : str
+        Entry name.
+    suffix : str
+        Part of the name after the class prefix (the number of actuators).
+    conf : dict
+        Entry fields.
+
+    Returns
+    -------
+    str or None
+        The arguments, or ``None`` when the name has no number of actuators.
+    """
+    if not suffix.isdigit():
+        return None
+    nacts = str(int(suffix))
+    settings = _alpao_settings(conf)
+    sdk_ready = all(not _is_empty(settings.get(f)) for f in ("serial_number", "acfg_path"))
+    plico = not sdk_ready and all(not _is_empty(settings.get(f)) for f in _ALPAO_PLICO_FIELDS)
+    own_entry = re.fullmatch(r"alpao\d+", name.lower()) is not None
+    legacy = _is_empty(conf.get("serial_number")) and not _is_empty(conf.get("serialNumber"))
+    if own_entry and not legacy:
+        return nacts + (", use_plico=True" if plico else "")
+    fields = _ALPAO_PLICO_FIELDS if plico else _ALPAO_SDK_FIELDS
+    args = [nacts] + (["use_plico=True"] if plico else [])
+    for field_name in fields:
+        value = settings.get(field_name)
+        if _is_empty(value):
+            continue
+        if field_name == "plico_port" and str(value).isdigit():
+            args.append(f"{field_name}={int(value)}")
+        else:
+            args.append(f"{field_name}={str(value)!r}")
+    return ", ".join(args)
+
+
 def _constructor_args(
     device_class: DeviceClass, name: str, conf: Dict[str, Any]
 ) -> Optional[str]:
@@ -622,10 +686,7 @@ def _constructor_args(
     if style == "suffix":
         return repr(suffix) if suffix else None
     if style == "alpao":
-        if suffix.isdigit():
-            return str(int(suffix))
-        serial = conf.get("serialNumber")
-        return f"serial_number={str(serial)!r}" if not _is_empty(serial) else None
+        return _alpao_args(name, suffix, conf)
     if style == "camera":
         camera = conf.get("camera")
         if _is_empty(camera):
@@ -656,7 +717,7 @@ def _argument_hint(device_class: DeviceClass) -> str:
             if device_class.reads
             else ""
         ),
-        "alpao": "name the entry Alpao<number of actuators> (e.g. Alpao820) or fill in serialNumber",
+        "alpao": "name the entry Alpao<number of actuators> or AlpaoDm<number of actuators> (e.g. Alpao88)",
         "camera": "fill in 'camera: CAMERAS:<camera name>'",
     }.get(device_class.args, "")
 
@@ -741,16 +802,23 @@ def resolve_entry(
             entry.problems.append(message + ": rename this entry.")
 
     if device_class.required:
+        fields = _alpao_settings(conf) if device_class.args == "alpao" else conf
         groups = [
-            [f for f in group if _is_empty(conf.get(f))]
+            [f for f in group if _is_empty(fields.get(f))]
             for group in device_class.required
         ]
         best = min(groups, key=len)
         if best:
             entry.missing = best
+            # A group that is partly filled is the one being set up: name
+            # only what it lacks; otherwise list every alternative.
+            partly = any(
+                len(missing) < len(group)
+                for missing, group in zip(groups, device_class.required)
+            )
             alternatives = (
                 " or ".join(", ".join(group) for group in device_class.required)
-                if len(device_class.required) > 1
+                if len(device_class.required) > 1 and not partly
                 else ", ".join(best)
             )
             entry.problems.append(f"Missing: {alternatives}.")

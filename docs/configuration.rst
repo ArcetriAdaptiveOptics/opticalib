@@ -95,21 +95,41 @@ Deformable Mirrors (``DEFORMABLE.MIRRORS``)
 The required keys depend on the mirror type.  All supported variants are shown
 below.
 
-**Alpao mirrors** — identified by serial number:
+**Alpao mirrors** — native SDK backend, identified by serial number:
 
 .. code-block:: yaml
 
    DEVICES:
      DEFORMABLE.MIRRORS:
        Alpao820:                # key must be Alpao{nacts} (e.g. Alpao820 for BAX751)
-         serialNumber: BAX751
+         serial_number: BAX751
          sdk_folder_path: /path/to/Linux/Samples/Python3   # parent of Lib64/
          acfg_path: /path/to/Config                        # folder with BAX751.acfg
          diameter: 13.5        # aperture in mm
 
-``serialNumber`` : *str*
+The ``plico_dm`` backend needs no serial number or SDK: it is reached over the
+network, and is selected with ``AlpaoDm(820, use_plico=True)``:
+
+.. code-block:: yaml
+
+   DEVICES:
+     DEFORMABLE.MIRRORS:
+       Alpao820:
+         plico_ip: 192.168.0.20
+         plico_port: 7000
+
+``AlpaoDm(nacts)`` reads the entry called ``Alpao{nacts}``.  The GUI also
+accepts ``AlpaoDm{nacts}`` as the entry name (e.g. ``AlpaoDm820``): it then
+passes the values of the entry to the constructor by name, so the entry is
+used by the GUI only.  The former key ``serialNumber`` is still understood by
+the GUI, but the driver reads ``serial_number``.
+
+``serial_number`` : *str*
     Hardware serial number printed on the Alpao mirror unit.  Used to open
     the SDK connection.
+
+``plico_ip``, ``plico_port`` : *str*, *int*
+    Address of the ``plico_dm`` server (plico backend only).
 
 ``sdk_folder_path`` : *str*
     Path to the **parent** folder containing the SDK's ``Lib64/``
