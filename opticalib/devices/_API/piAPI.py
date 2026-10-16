@@ -7,8 +7,8 @@ from opticalib.core.exceptions import CommandError
 
 _CMDLIMITS = {  # temporary limits to overcome the hardware connection refusal
     0: [0, 12],
-    1: [-200, 200],
-    2: [-200, 200],
+    1: [-230, 230],
+    2: [-230, 230],
 }
 
 
