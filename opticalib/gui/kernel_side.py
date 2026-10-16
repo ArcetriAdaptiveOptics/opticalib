@@ -16,7 +16,10 @@ It provides:
   ``plt.show()`` / ``plt.pause()``);
 * :func:`view`: show an array in the GUI interactive image viewer;
 * :func:`workspace` and :func:`folders`: JSON summaries queried by the GUI
-  to populate the workspace and data browser panels.
+  to populate the workspace and data browser panels;
+* :func:`require`: the type check that parameters of procedure steps
+  (:class:`~opticalib.gui.procedures.params.ImageParam`, ...) put in the
+  code they generate.
 
 Messages to the GUI are ``display_data`` outputs carrying one of the custom
 MIME types below; the GUI console intercepts them.
@@ -321,12 +324,34 @@ def _is_hidden(name: str, value: Any, hidden_ns: Dict[str, Any]) -> bool:
     )
 
 
-def workspace_items(namespace: Optional[Dict[str, Any]] = None) -> List[Dict[str, str]]:
+def _array_info(value: Any) -> Dict[str, Any]:
+    """
+    Shape, dtype and mask of an array.
+
+    ``masked`` tells whether the array has a mask at all; ``full_mask``
+    whether that mask is an array of the shape of the data, which is what
+    opticalib's image and cube types require (``np.ma.masked_array(data)``
+    has a scalar mask: masked, but not a full mask).
+    """
+    shape = [int(n) for n in getattr(value, "shape", ())]
+    mask = getattr(value, "mask", None)
+    return {
+        "shape": shape,
+        "dtype": str(getattr(value, "dtype", "")),
+        "masked": hasattr(value, "mask"),
+        "full_mask": list(getattr(mask, "shape", ())) == shape and bool(shape),
+    }
+
+
+def workspace_items(namespace: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
     """
     Describe the user variables of the kernel namespace.
 
     Modules, functions, classes, private names and the names defined by the
-    calpy bootstrap (see :func:`mark_baseline`) are left out.
+    calpy bootstrap (see :func:`mark_baseline`) are left out.  Arrays also
+    carry their ``shape`` (list of int), ``dtype`` (str), ``masked`` and
+    ``full_mask`` (bool), which the parameters of the procedure windows use
+    to suggest variables.
 
     Parameters
     ----------
@@ -337,7 +362,8 @@ def workspace_items(namespace: Optional[Dict[str, Any]] = None) -> List[Dict[str
     -------
     list of dict
         One ``{'name', 'type', 'module', 'kind', 'summary'}`` entry per
-        variable.
+        variable (plus ``'shape'``, ``'dtype'``, ``'masked'`` and
+        ``'full_mask'`` for arrays).
     """
     hidden_ns: Dict[str, Any] = {}
     if namespace is None:
@@ -359,6 +385,8 @@ def workspace_items(namespace: Optional[Dict[str, Any]] = None) -> List[Dict[str
                 "kind": kind,
                 "summary": _summary(value, kind),
             }
+            if kind == "array":
+                item.update(_array_info(value))
         except Exception:  # one odd object must not break the listing
             item = {
                 "name": name,
@@ -408,6 +436,54 @@ def folders() -> str:
             "paths": paths,
         }
     )
+
+
+def require(obj: Any, kind: str) -> Any:
+    """
+    Return *obj* if it is of the opticalib data type *kind*, else raise.
+
+    The parameters of the procedure windows wrap the variables they name in
+    this check, so the type is verified, visibly, in the console when the
+    step runs::
+
+        clean = apply_mask(_gui.require(img, 'ImageData'), _gui.require(mask, 'MaskData'))
+
+    Parameters
+    ----------
+    obj : Any
+        The object to check.
+    kind : str
+        An opticalib type name understood by
+        :func:`opticalib.core._types.isinstance_`: ``'ImageData'``,
+        ``'MaskData'``, ``'CubeData'``, ``'MatrixLike'``, or a device type.
+
+    Returns
+    -------
+    Any
+        *obj* itself.
+
+    Raises
+    ------
+    TypeError
+        If *obj* is not of type *kind*; the message says what it is.
+    ValueError
+        If *kind* is not a known type name.
+    """
+    from opticalib.core._types import isinstance_
+
+    if not isinstance_(obj, kind):
+        shape = tuple(getattr(obj, "shape", ()))
+        details = f" {shape} {getattr(obj, 'dtype', '')}".rstrip() if shape else ""
+        hint = ""
+        mask = getattr(obj, "mask", None)
+        if kind in ("ImageData", "CubeData") and shape and mask is not None:
+            if tuple(getattr(mask, "shape", ())) != shape:
+                hint = (
+                    " Its mask is not an array of the same shape: build it with "
+                    "np.ma.masked_array(data, mask=np.zeros(data.shape, bool))."
+                )
+        raise TypeError(f"Expected {kind}, got {type(obj).__name__}{details}.{hint}")
+    return obj
 
 
 def describe(value: Any, width: int = 60) -> str:

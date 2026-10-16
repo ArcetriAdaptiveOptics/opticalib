@@ -289,7 +289,8 @@ re-installs `_gui` whenever it refreshes the workspace.
 |---|---|---|
 | `view(obj, title)` | user code, procedure steps (`_gui.view(...)`) | Converts xupy/cupy/masked arrays to host numpy, writes `view_<pid>_<n>.npz` (`data`, plus `mask` if any) into `$CALPY_GUI_TMP`, publishes `IMAGE_MIME {path, title, shape, dtype}`. The GUI loads the file in a `LocalJob` and shows it in the viewer. Accepts 1-D, 2-D and 3-D arrays (cubes: frames along the **last** axis). |
 | `publish_figures()` | the `post_execute` hook, `plt.show()`, `plt.pause()` | Renders every *changed* figure to PNG (120 dpi) and publishes `FIGURE_MIME {uid, num, title, png(base64)}`. The viewer updates the item `fig:<uid>` in place. |
-| `workspace()` | GUI query after every execution | JSON list of `{name, type, module, kind, summary}` for the user variables |
+| `workspace()` | GUI query after every execution | JSON list of `{name, type, module, kind, summary}` for the user variables; arrays also have `shape` (list), `dtype`, `masked` (has a mask) and `full_mask` (the mask is an array of the shape of the data, which opticalib's image and cube types require) |
+| `require(obj, kind)` | generated code of `ImageParam`, `MaskParam`, `CubeParam` | Returns `obj` if opticalib's `isinstance_(obj, kind)` holds, else raises `TypeError` saying what it is (and, for a masked array with a scalar mask, how to build a full one) |
 | `folders()` | GUI query at start, after a config change or experiment switch | JSON `{base, config, categories: [[label, path]], paths: {ATTR: path}}` from `opticalib.core.root` |
 | `backend()` | GUI query, with the workspace | JSON `{on_gpu, available}` of xupy |
 | `describe(value)` | procedure windows (configuration hints) | Short text: integer ranges become `np.arange(a, b[, s])` and long values are cut |
@@ -601,6 +602,7 @@ optional field is left empty. It is shown as placeholder text through
 | `VarParam` | line edit | bare identifier | for output variables (`tn_iff = ...`) |
 | `DeviceParam(..., kinds, default)` | editable combo | bare identifier | lists workspace variables of the given kinds |
 | `DeviceListParam` | line edit | `[a, b]` | |
+| `ImageParam`, `MaskParam`, `CubeParam` (`KernelArrayParam` subclasses) | editable combo | `_gui.require(img, 'ImageData')` | names a kernel array; suggestions come from the workspace (`shape`, `dtype`, `full_mask`), the type is **checked in the kernel** when the step runs |
 | `TnParam(..., folder_attr, state_key)` | editable combo + refresh | `'YYYYMMDD_HHMMSS'` | lists the folders of `folders.<folder_attr>` |
 | `TnListParam(..., folder_attr, minimum)` | line edit + *Add* menu | `['tn1', 'tn2']` | |
 

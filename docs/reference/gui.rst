@@ -46,7 +46,7 @@ Inside the kernel
 These modules run in the kernel process and do not import Qt.
 
 .. automodule:: opticalib.gui.kernel_side
-   :members: view, publish_figures, workspace_items, workspace, folders, mark_baseline, install
+   :members: view, publish_figures, workspace_items, workspace, folders, mark_baseline, install, require
 
 .. automodule:: opticalib.gui.kernel_backend
    :no-members:
@@ -143,7 +143,7 @@ parameters come from :mod:`opticalib.gui.procedures.params`.
 .. autofunction:: opticalib.gui.procedures.base.kwargs_code
 
 .. automodule:: opticalib.gui.procedures.params
-   :members: Param, IntParam, FloatParam, BoolParam, ChoiceParam, TextParam, ExprParam, VarParam, DeviceParam, DeviceListParam, TnParam, ParamError
+   :members: Param, IntParam, FloatParam, BoolParam, ChoiceParam, TextParam, ExprParam, VarParam, DeviceParam, DeviceListParam, KernelArrayParam, ImageParam, MaskParam, CubeParam, TnParam, ParamError
 
 .. autoclass:: opticalib.gui.plugins.PluginPanel
    :members:

@@ -496,6 +496,183 @@ class DeviceListParam(TextParam):
         return "[" + ", ".join(self.value()) + "]"
 
 
+class KernelArrayParam(Param):
+    """
+    A kernel variable holding an array of a given opticalib data type.
+
+    Arrays live in the kernel, so the parameter does not hold one: it holds
+    the *name* of a variable, like :class:`DeviceParam` does.  The choices
+    come from the workspace (:meth:`accepts` selects the variables worth
+    suggesting, from their shape, dtype and mask; any name can also be
+    typed), and the type is *checked in the kernel* when the step runs: the
+    generated code wraps the variable in
+    :func:`opticalib.gui.kernel_side.require`, e.g.
+    ``_gui.require(img, 'ImageData')``, which uses opticalib's own
+    :func:`~opticalib.core._types.isinstance_`.  A wrong variable therefore
+    fails as an ordinary, visible error of the console.
+
+    Subclasses set :attr:`TYPE` and, to narrow the suggestions, override
+    :meth:`accepts`.
+
+    Parameters
+    ----------
+    default : str, optional
+        Preferred variable name (e.g. ``'img'``).
+    """
+
+    #: opticalib type name checked in the kernel (see ``isinstance_``).
+    TYPE = ""
+
+    def __init__(self, name, label, default: str = "", **kwargs) -> None:
+        """Create the parameter."""
+        if not self.TYPE:
+            raise TypeError(
+                f"{type(self).__name__} needs a TYPE (e.g. 'ImageData'): "
+                "use a subclass such as ImageParam or MaskParam."
+            )
+        super().__init__(name, label, **kwargs)
+        self.default = default
+
+    def accepts(self, item: Dict[str, Any]) -> bool:
+        """
+        Whether a workspace variable is worth suggesting.
+
+        Parameters
+        ----------
+        item : dict
+            Workspace entry (see
+            :func:`~opticalib.gui.kernel_side.workspace_items`); arrays have
+            ``shape`` (list), ``dtype`` (str), ``masked`` and ``full_mask``
+            (bool).
+
+        Returns
+        -------
+        bool
+            ``True`` for any array by default.
+        """
+        return item.get("kind") == "array"
+
+    def _make_widget(self) -> QWidget:
+        combo = QComboBox()
+        combo.setEditable(True)
+        combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        combo.lineEdit().setPlaceholderText(
+            "None" if self.optional else f"variable ({self.TYPE})"
+        )
+        combo.currentTextChanged.connect(lambda *_: self.changed.emit())
+        return combo
+
+    def _setup(self) -> None:
+        if self.context is not None:
+            self.context.workspace_changed.connect(self._refresh)
+            self._refresh(self.context.workspace)
+
+    def _refresh(self, items: List[Dict[str, Any]]) -> None:
+        combo = self.widget()
+        current = combo.currentText().strip()
+        accepted = [i for i in items if self.accepts(i)]
+        names = [i["name"] for i in accepted]
+        combo.blockSignals(True)
+        combo.clear()
+        for item in accepted:
+            shape = "x".join(map(str, item.get("shape", ())))
+            tip = f"{item['name']}: {shape} {item.get('dtype', '')}"
+            combo.addItem(item["name"], item["name"])
+            combo.setItemData(
+                combo.count() - 1,
+                tip + (" masked" if item.get("masked") else ""),
+                Qt.ItemDataRole.ToolTipRole,
+            )
+        choice = current or (
+            self.default if self.default in names else (names[0] if names else "")
+        )
+        combo.setEditText(choice)
+        combo.blockSignals(False)
+        self.changed.emit()
+
+    def value(self) -> Optional[str]:
+        """The variable name (``None`` when empty and optional)."""
+        text = self.widget().currentText().strip()
+        if not text:
+            if self.optional:
+                return None
+            raise self._error(
+                f"choose a variable holding {self.TYPE} (create or load it in the console)"
+            )
+        if not text.isidentifier() or keyword.iskeyword(text):
+            raise self._error(f"'{text}' is not a variable name")
+        return text
+
+    def set_value(self, value) -> None:
+        """Select the variable *value*."""
+        self.widget().setEditText("" if value is None else str(value))
+
+    def code(self) -> str:
+        """``_gui.require(name, 'TYPE')`` (or ``None``)."""
+        name = self.value()
+        return "None" if name is None else f"_gui.require({name}, {self.TYPE!r})"
+
+
+def _ndim(item: Dict[str, Any]) -> Optional[int]:
+    shape = item.get("shape")
+    return len(shape) if isinstance(shape, (list, tuple)) else None
+
+
+class ImageParam(KernelArrayParam):
+    """
+    A 2-D image with a mask (opticalib ``ImageData``): a phase map, a frame.
+
+    Suggests the 2-D arrays of the workspace whose mask is a full array (a
+    masked array built without a mask is not ``ImageData``).
+    """
+
+    TYPE = "ImageData"
+
+    def accepts(self, item: Dict[str, Any]) -> bool:
+        """Two-dimensional arrays with a full mask."""
+        return (
+            super().accepts(item)
+            and _ndim(item) == 2
+            and bool(item.get("full_mask"))
+        )
+
+
+class MaskParam(KernelArrayParam):
+    """
+    A 2-D boolean or integer mask (opticalib ``MaskData``).
+
+    Suggests the 2-D boolean and integer arrays of the workspace.
+    """
+
+    TYPE = "MaskData"
+
+    def accepts(self, item: Dict[str, Any]) -> bool:
+        """Two-dimensional ``bool`` or integer arrays."""
+        return (
+            super().accepts(item)
+            and _ndim(item) == 2
+            and str(item.get("dtype", "")).startswith(("bool", "int", "uint"))
+        )
+
+
+class CubeParam(KernelArrayParam):
+    """
+    A cube of masked images, frames along the last axis (opticalib ``CubeData``).
+
+    Suggests the 3-D arrays of the workspace whose mask is a full array.
+    """
+
+    TYPE = "CubeData"
+
+    def accepts(self, item: Dict[str, Any]) -> bool:
+        """Three-dimensional arrays with a full mask."""
+        return (
+            super().accepts(item)
+            and _ndim(item) == 3
+            and bool(item.get("full_mask"))
+        )
+
+
 class TnParam(Param):
     """
     A tracking number, typed or chosen among the folders of a data category.

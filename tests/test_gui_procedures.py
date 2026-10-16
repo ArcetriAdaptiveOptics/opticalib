@@ -545,3 +545,187 @@ def test_device_boxes_are_wide(context):
     combo = DeviceParam("dm", "Mirror", kinds=("dm",)).widget(context)
     assert combo.sizePolicy().horizontalPolicy() == QSizePolicy.Policy.Expanding
     assert combo.minimumContentsLength() >= 24
+
+
+# ---------------------------------------------------------------------------
+# Parameters that name kernel arrays (ImageParam, MaskParam, CubeParam)
+# ---------------------------------------------------------------------------
+
+
+def _array(name, shape, dtype="float64", masked=False, full_mask=None):
+    return {
+        "name": name, "type": "MaskedArray" if masked else "ndarray", "module": "numpy",
+        "kind": "array", "summary": f"{tuple(shape)} {dtype}",
+        "shape": list(shape), "dtype": dtype, "masked": masked,
+        "full_mask": masked if full_mask is None else full_mask,
+    }
+
+
+ARRAYS = [
+    _array("img", (16, 16), masked=True),
+    _array("img2", (16, 16), masked=True),
+    _array("bare", (16, 16), masked=True, full_mask=False),   # np.ma.masked_array(data)
+    _array("plain", (16, 16)),
+    _array("mask", (16, 16), "bool"),
+    _array("mask8", (16, 16), "uint8"),
+    _array("labels", (16, 16), "int64"),
+    _array("cube", (16, 16, 3), masked=True),
+    _array("vec", (16,)),
+]
+
+
+def _choices(param):
+    combo = param.widget()
+    return [combo.itemText(i) for i in range(combo.count())]
+
+
+class TestKernelArrayParams:
+    @pytest.fixture
+    def arrays(self, context):
+        context.set_workspace(context.workspace + ARRAYS)
+        return context
+
+    def test_suggestions_follow_the_type(self, arrays):
+        from opticalib.gui.procedures.params import CubeParam, ImageParam, MaskParam
+
+        image, mask, cube = (cls(n, n) for cls, n in ((ImageParam, "i"), (MaskParam, "m"), (CubeParam, "c")))
+        for param in (image, mask, cube):
+            param.widget(arrays)
+        assert _choices(image) == ["img", "img2"]      # not bare, plain, masks, cubes
+        assert _choices(mask) == ["mask", "mask8", "labels"]
+        assert _choices(cube) == ["cube"]
+
+    def test_generated_code_wraps_the_variable(self, arrays):
+        from opticalib.gui.procedures.params import CubeParam, ImageParam, MaskParam
+
+        for cls, kind, default in ((ImageParam, "ImageData", "img"), (MaskParam, "MaskData", "mask"),
+                                   (CubeParam, "CubeData", "cube")):
+            param = cls("p", "P", default=default)
+            param.widget(arrays)
+            assert param.value() == default
+            assert param.code() == f"_gui.require({default}, '{kind}')"
+
+    def test_default_falls_back_to_the_first_suggestion(self, arrays):
+        from opticalib.gui.procedures.params import ImageParam
+
+        param = ImageParam("i", "Image", default="missing")
+        param.widget(arrays)
+        assert param.value() == "img"
+        param = ImageParam("i", "Image")
+        param.widget(arrays)
+        assert param.value() == "img"
+
+    def test_typed_names_are_kept_and_validated(self, arrays):
+        from opticalib.gui.procedures.params import ImageParam, ParamError
+
+        param = ImageParam("i", "Image")
+        param.widget(arrays)
+        param.set_value("bare")                 # not suggested, but allowed: the kernel decides
+        assert param.code() == "_gui.require(bare, 'ImageData')"
+        for bad in ("2bad", "a b", "class", "None"):
+            param.set_value(bad)
+            with pytest.raises(ParamError, match="not a variable name"):
+                param.code()
+        param.set_value("")
+        with pytest.raises(ParamError, match="ImageData"):
+            param.code()
+
+    def test_optional(self, arrays):
+        from opticalib.gui.procedures.params import MaskParam
+
+        param = MaskParam("m", "Mask", optional=True)
+        param.widget(arrays)
+        param.set_value("")
+        assert param.value() is None and param.code() == "None"
+        assert param.widget().lineEdit().placeholderText() == "None"
+
+    def test_workspace_updates_keep_the_choice(self, arrays):
+        from opticalib.gui.procedures.params import ImageParam
+
+        param = ImageParam("i", "Image")
+        param.widget(arrays)
+        param.set_value("img2")
+        seen = []
+        param.changed.connect(lambda: seen.append(1))
+        arrays.set_workspace(arrays.workspace + [_array("img3", (8, 8), masked=True)])
+        assert param.value() == "img2" and _choices(param) == ["img", "img2", "img3"]
+        assert seen  # the code preview is refreshed
+        arrays.set_workspace([])                # kernel restarted: nothing to suggest...
+        assert _choices(param) == [] and param.value() == "img2"   # ...but what was typed stays
+
+    def test_items_without_array_details_are_not_suggested(self, context):
+        from opticalib.gui.procedures.params import ImageParam
+
+        context.set_workspace([{"name": "old", "type": "ndarray", "module": "numpy",
+                                "kind": "array", "summary": "(2, 2) float64"}])
+        param = ImageParam("i", "Image")
+        param.widget(context)
+        assert _choices(param) == []
+
+    def test_workspace_entries_are_not_modified(self, arrays):
+        from opticalib.gui.procedures.params import ImageParam
+
+        before = [dict(i) for i in arrays.workspace]
+        ImageParam("i", "Image").widget(arrays)
+        assert arrays.workspace == before
+
+    def test_without_a_context(self, qapp):
+        from opticalib.gui.procedures.params import ImageParam, ParamError
+
+        param = ImageParam("i", "Image")
+        param.widget()
+        with pytest.raises(ParamError):
+            param.code()
+        param.set_value("img")
+        assert param.code() == "_gui.require(img, 'ImageData')"
+
+    def test_the_base_class_needs_a_type(self, qapp):
+        from opticalib.gui.procedures.params import KernelArrayParam
+
+        with pytest.raises(TypeError, match="TYPE"):
+            KernelArrayParam("x", "X")
+
+        class Matrix(KernelArrayParam):
+            TYPE = "MatrixLike"
+
+        param = Matrix("m", "M")
+        param.widget()
+        param.set_value("cmd")
+        assert param.code() == "_gui.require(cmd, 'MatrixLike')"
+
+    def test_a_step_runs_the_check_in_the_kernel_module(self, arrays):
+        """The generated code is valid and executes against the real ``require``."""
+        import numpy as np
+
+        from opticalib.gui import kernel_side as ks
+        from opticalib.gui.procedures.base import ProcedureWindow, Step
+        from opticalib.gui.procedures.params import ImageParam, MaskParam, VarParam
+
+        class ApplyMask(ProcedureWindow):
+            TITLE = "Apply a mask"
+
+            def steps(self):
+                return [Step(
+                    "apply", "Apply", "",
+                    [ImageParam("img", "Image", default="img"), MaskParam("mask", "Mask", default="mask"),
+                     VarParam("out", "Result", "clean")],
+                    lambda v: f"{v['out']} = apply({v['img']}, {v['mask']})",
+                )]
+
+        window = ApplyMask(context=arrays)
+        code = window.step("apply").code()
+        assert code == "clean = apply(_gui.require(img, 'ImageData'), _gui.require(mask, 'MaskData'))"
+        namespace = {
+            "_gui": ks,
+            "apply": lambda image, mask: (image, mask),
+            "img": np.ma.masked_array(np.zeros((16, 16)), mask=np.zeros((16, 16), bool)),
+            "mask": np.zeros((16, 16), bool),
+        }
+        exec(code, namespace)
+        assert namespace["clean"][0] is namespace["img"]
+        namespace["mask"] = namespace["img"]            # a float image is not a mask
+        with pytest.raises(TypeError, match="Expected MaskData"):
+            exec(code, namespace)
+        namespace["mask"], namespace["img"] = np.zeros((16, 16), bool), np.zeros((16, 16))
+        with pytest.raises(TypeError, match="Expected ImageData"):
+            exec(code, namespace)
