@@ -101,9 +101,9 @@ class TestPadImageToShape:
         result = ip.pad_image_to_shape(img, (5, 6), (1, 3), fill_value=-1.0)
 
         assert result.shape == (5, 6)
-        np.testing.assert_array_equal(result[1:3, 3:5], img.data)
-        assert result[0, 0] == -1.0
-        assert result[4, 5] == -1.0
+        np.testing.assert_array_equal(result.data[1:3, 3:5], img.data)
+        assert result.data[0, 0] == -1.0
+        assert result.data[4, 5] == -1.0
 
     def test_pad_image_to_shape_default_fill_value_is_zero(self):
         """Test that the default fill value is zero outside the pasted image."""
@@ -111,8 +111,130 @@ class TestPadImageToShape:
 
         result = ip.pad_image_to_shape(img, (3, 3), (2, 1))
 
-        assert result[2, 1] == 7.0
-        assert result[0, 0] == 0.0
+        assert result.data[2, 1] == 7.0
+        assert result.data[0, 0] == 0.0
+
+    def test_pad_image_to_shape_returns_masked_array(self):
+        """Test that the output is a masked array."""
+        img = _make_image((4, 4))
+
+        result = ip.pad_image_to_shape(img, (8, 8), (2, 2))
+
+        assert isinstance(result, np.ma.MaskedArray)
+        assert result.shape == (8, 8)
+
+    def test_pad_image_to_shape_masks_padded_region(self):
+        """Test that the padded area is masked and the pasted image is not."""
+        img = ma.masked_array(np.array([[1.0, 2.0], [3.0, 4.0]]))
+
+        result = ip.pad_image_to_shape(img, (5, 6), (1, 3), fill_value=-1.0)
+
+        mask = np.ma.getmaskarray(result)
+        assert not mask[1:3, 3:5].any()
+        expected = np.ones((5, 6), dtype=bool)
+        expected[1:3, 3:5] = False
+        np.testing.assert_array_equal(mask, expected)
+
+    def test_pad_image_to_shape_masked_values_not_returned(self):
+        """Test that masked-array reductions only use the pasted image values."""
+        img = ma.masked_array(np.full((2, 2), 5.0))
+
+        result = ip.pad_image_to_shape(img, (6, 6), (2, 2), fill_value=100.0)
+
+        assert result.count() == 4
+        assert result.mean() == pytest.approx(5.0)
+
+    def test_pad_image_to_shape_pixels_equal_to_fill_value_not_masked(self):
+        """Test that pasted pixels equal to the fill value stay unmasked."""
+        img = ma.masked_array(np.array([[0.0, 2.0], [3.0, 4.0]]))
+
+        result = ip.pad_image_to_shape(img, (4, 4), (1, 1))
+
+        mask = np.ma.getmaskarray(result)
+        assert not mask[1:3, 1:3].any()
+        assert result.count() == 4
+
+    def test_pad_image_to_shape_preserves_input_mask(self):
+        """Test that the input mask is carried over inside the pasted block."""
+        img = ma.masked_array(
+            np.array([[1.0, 2.0], [3.0, 4.0]]),
+            mask=[[False, True], [False, False]],
+        )
+
+        result = ip.pad_image_to_shape(img, (5, 6), (1, 3), fill_value=-1.0)
+
+        mask = np.ma.getmaskarray(result)
+        expected = np.ones((5, 6), dtype=bool)
+        expected[1:3, 3:5] = [[False, True], [False, False]]
+        np.testing.assert_array_equal(mask, expected)
+        np.testing.assert_array_equal(result.data[1:3, 3:5], img.data)
+
+    def test_pad_image_to_shape_circular_mask_preserved(self):
+        """Test that a realistic circular mask is preserved at the offset."""
+        img = _make_image((10, 10), circular=True)
+
+        result = ip.pad_image_to_shape(img, (20, 20), (5, 5))
+
+        np.testing.assert_array_equal(
+            np.ma.getmaskarray(result)[5:15, 5:15], np.ma.getmaskarray(img)
+        )
+        assert np.ma.getmaskarray(result)[:5, :].all()
+        assert np.ma.getmaskarray(result)[15:, :].all()
+        assert result.count() == img.count()
+
+    def test_pad_image_to_shape_offset_at_far_corner(self):
+        """Test placing the image flush against the bottom-right corner."""
+        img = ma.masked_array(np.full((2, 3), 9.0))
+
+        result = ip.pad_image_to_shape(img, (4, 5), (2, 2), fill_value=-1.0)
+
+        assert result.shape == (4, 5)
+        np.testing.assert_array_equal(result.data[2:, 2:], img.data)
+        assert not np.ma.getmaskarray(result)[2:, 2:].any()
+
+    @pytest.mark.parametrize(
+        "shape, offset",
+        [
+            ((3, 3), (2, 0)),  # overflows bottom
+            ((3, 3), (0, 2)),  # overflows right
+            ((5, 5), (-1, 0)),  # negative y offset
+            ((5, 5), (0, -1)),  # negative x offset
+            ((1, 1), (0, 0)),  # target smaller than image
+        ],
+    )
+    def test_pad_image_to_shape_invalid_dimensions_raise(self, shape, offset):
+        """Test that an image not fitting in the target shape raises ValueError."""
+        img = ma.masked_array(np.ones((2, 2)))
+
+        with pytest.raises(ValueError, match="Invalid padding dimensions"):
+            ip.pad_image_to_shape(img, shape, offset)
+
+    def test_pad_image_to_shape_preserves_header(self):
+        """Test that the header of a FitsMaskedArray input is carried over."""
+        img = _make_image((3, 3))
+        img.header["TESTKEY"] = 42
+
+        result = ip.pad_image_to_shape(img, (6, 6), (1, 1))
+
+        assert result.header["TESTKEY"] == 42
+
+    def test_pad_image_to_shape_without_header(self):
+        """Test that inputs without a header (plain masked arrays) are accepted."""
+        img = ma.masked_array(np.ones((2, 2)))
+
+        result = ip.pad_image_to_shape(img, (4, 4), (1, 1))
+
+        assert result.shape == (4, 4)
+        assert isinstance(result, np.ma.MaskedArray)
+
+    def test_pad_image_to_shape_full_size_offset_zero(self):
+        """Test padding to the same shape leaves the image unmasked."""
+        img = ma.masked_array(np.arange(1.0, 10.0).reshape(3, 3))
+
+        result = ip.pad_image_to_shape(img, (3, 3), (0, 0))
+
+        np.testing.assert_array_equal(result.data, img.data)
+        assert not np.ma.getmaskarray(result).any()
 
 
 class TestPistonUnwrap:

@@ -45,11 +45,27 @@ def pad_image_to_shape(
     padded_img : _ot.ImageData
         The padded image.
     """
-    padded_img = _np.full(shape, fill_value)
-    y, x = offset
-    h, w = _np.shape(img)
-    padded_img[y : y + h, x : x + w] = img.data
-    return padded_img
+    y, x, Y, X, h, w = [*offset, *shape, *img.shape]
+    if any(p < 0 for p in [y, x, Y - h - y, X - w - x]):
+        raise ValueError("Invalid padding dimensions")
+    pad_width = ((y, Y - h - y), (x, X - w - x))
+    pimg = _np.pad(
+        img.data,
+        pad_width=pad_width,
+        mode='constant',
+        constant_values=fill_value
+    )
+    mask = _np.pad(
+        _np.ma.getmaskarray(img),
+        pad_width=pad_width,
+        mode='constant',
+        constant_values=True
+    )
+    if hasattr(img, 'header'):
+        header = img.header
+    else:
+        header = None
+    return _fa.fits_array(pimg, mask=mask, header=header)
 
 
 def frame(idx: int, mylist: list[_ot.ImageData] | _ot.CubeData) -> _ot.ImageData:

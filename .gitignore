@@ -8,6 +8,7 @@ opticalib/simulator/_API/SimData/
 notebooks/
 **/*.ipynb
 labott.code-workspace
+typings/
 
 # Type stubs generated
 typings/
