@@ -101,7 +101,7 @@ opticalib/
 
 ## Commands
 
-Environment: Python ≥ 3.10, dependencies declared in `pyproject.toml` (base: `xupy`, `arte`, `astropy`,
+Environment: Python ≥ 3.11, dependencies declared in `pyproject.toml` (base: `xupy`, `arte`, `astropy`,
 `Pyro4`, vendor SDKs like `vmbpy`/`pipython`; optional extras: `gui` = PySide6/qtconsole/pyqtgraph/...,
 `cuda12`/`cuda13` = CuPy via `xupy`, `test`, `dev`).
 
@@ -129,7 +129,7 @@ flake8 . --count --select=E9,F63,F7,F82 --max-complexity=10 --max-line-length=12
 cd docs && make html
 ```
 
-CI (`.github/workflows/tests.yml`) runs this same flake8 + pytest combination across Python 3.10–3.13 on
+CI (`.github/workflows/tests.yml`) runs this same flake8 + pytest combination across Python 3.11 (minimum) and 3.14 on
 every push.
 
 Tests live in `tests/`, one `test_<subpackage>_<module>.py` file per source module, mirroring the package

@@ -4,7 +4,7 @@ Installation
 Requirements
 ------------
 
-OptiCalib requires **Python 3.10** or newer.  The package depends on several
+OptiCalib requires **Python 3.11** or newer.  The package depends on several
 scientific Python libraries that are listed in the ``dependencies`` of
 ``pyproject.toml`` at the root of the repository.  All of them are installed
 automatically when you use ``pip``.  The graphical interface and the GPU backend

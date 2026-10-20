@@ -7,7 +7,7 @@ name = "opticalib"
 dynamic = ["version"]
 description = "This package is a python interface for laboratory adaptive optics systems, with a focus on the calibration of deformable mirrors (DMs) and the acquisition of wavefront data using wavefront sensors."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [
