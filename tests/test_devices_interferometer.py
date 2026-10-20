@@ -11,7 +11,7 @@ from opticalib.devices.interferometer import _4DInterferometer
 class Test4DInterferometerStatics:
     """Tests for static methods in _4DInterferometer."""
 
-    def test_get_camera_settings_uses_new_width_method(self, monkeypatch):
+    def test_get_camera_settings_uses_new_width_method_no_tn(self, monkeypatch):
         """Test camera settings retrieval with the renamed width accessor."""
 
         class ReaderStub:
@@ -33,12 +33,16 @@ class Test4DInterferometerStatics:
             "opticalib.devices.interferometer._confReader",
             lambda _path: ReaderStub(),
         )
+        monkeypatch.setattr(
+            "opticalib.devices.interferometer._Folds.SETTINGS_CONF_FILE",
+            "/file/to/config.ini",
+        )
 
         settings = _4DInterferometer.get_camera_settings()
 
         assert settings == [2000, 1500, 11, 22]
 
-    def test_get_frame_rate_reads_from_reader(self, monkeypatch):
+    def test_get_frame_rate_reads_from_reader_no_tn(self, monkeypatch):
         """Test frame-rate retrieval through the configured reader."""
 
         class ReaderStub:
@@ -50,6 +54,10 @@ class Test4DInterferometerStatics:
         monkeypatch.setattr(
             "opticalib.devices.interferometer._confReader",
             lambda _path: ReaderStub(),
+        )
+        monkeypatch.setattr(
+            "opticalib.devices.interferometer._Folds.SETTINGS_CONF_FILE",
+            "/file/to/config.ini",
         )
 
         frame_rate = _4DInterferometer.get_frame_rate()

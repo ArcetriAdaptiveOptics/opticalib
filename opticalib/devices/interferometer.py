@@ -340,7 +340,7 @@ class _4DInterferometer(BaseWavefrontSensor):
         )
 
     @staticmethod
-    def get_camera_settings(tn: str = None) -> list[int]:
+    def get_camera_settings(tn: str = None, filename: str = 'CameraSettings.ini') -> list[int]:
         """
         Reads the actual interferometer settings from its configuration file or
         pass in a saved configuration file from a tracking number data folder.
@@ -363,10 +363,14 @@ class _4DInterferometer(BaseWavefrontSensor):
                 setting_reader = _fn.ConfSettingReader4D(file_path)
             except Exception as e:
                 print(f"Error: {e}")
-                file_path = _os.path.join(path, "4DSettings.ini")
+                file_path = _os.path.join(path, filename)
                 setting_reader = _fn.ConfSettingReader4D(file_path)
         else:
             file_path = _Folds.SETTINGS_CONF_FILE
+            if file_path is None:
+                raise FileNotFoundError(
+                    "No interferometer connected: must pass a `tn`."
+                )
             setting_reader = _confReader(file_path)
         width_pixel = setting_reader.get_image_width_in_pixels()
         height_pixel = setting_reader.get_image_height_in_pixels()
@@ -375,7 +379,7 @@ class _4DInterferometer(BaseWavefrontSensor):
         return [width_pixel, height_pixel, offset_x, offset_y]
 
     @staticmethod
-    def get_frame_rate(tn: str = None) -> float:
+    def get_frame_rate(tn: str = None, filename: str = 'CameraSettings.ini') -> float:
         """
         Reads the frame rate the interferometer is working at, either from the
         current configuration file or from a saved configuration file associated
@@ -399,10 +403,14 @@ class _4DInterferometer(BaseWavefrontSensor):
                 setting_reader = _fn.ConfSettingReader4D(file_path)
             except Exception as e:
                 print(f"Error: {e}")
-                file_path = _os.path.join(path, "4DSettings.ini")
+                file_path = _os.path.join(path, filename)
                 setting_reader = _fn.ConfSettingReader4D(file_path)
         else:
             file_path = _Folds.SETTINGS_CONF_FILE
+            if file_path is None:
+                raise FileNotFoundError(
+                    "No interferometer connected: must pass a `tn`."
+                )
             setting_reader = _confReader(file_path)
         frame_rate = setting_reader.get_frame_rate()
         return frame_rate
@@ -427,7 +435,8 @@ class _4DInterferometer(BaseWavefrontSensor):
             Tracking number to locate the saved configuration file. If None,
             the current configuration file is used.
         config_path: str, optional
-            Path to a specific configuration file. If None, the current configuration is used.
+            Path to a specific configuration file. 
+            If None, the current configuration is used.
 
         Returns
         -------
