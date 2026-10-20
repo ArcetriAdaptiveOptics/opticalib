@@ -199,7 +199,7 @@ class BasePetalMirror:
             self._had_error = True
             raise RuntimeError("Failed to send mirror command") from err
 
-    def _check_cmd_integrity(self, cmd: _ot.ArrayLike) -> None:
+    def _check_cmd_integrity(self, cmd: _ot.ArrayLike) -> bool:
         """
         Check the integrity of the command array.
 
@@ -217,6 +217,7 @@ class BasePetalMirror:
             for ax, c in enumerate(cmd[k * 3 : k * 3 + 3]):
                 if not (_CMDLIMITS[ax][0] <= c <= _CMDLIMITS[ax][1]):
                     raise CommandError(f"Command for actuator {ax} out of bounds: {c}")
+        return True
 
     def _morning_routine(self) -> None:
         """
@@ -227,6 +228,14 @@ class BasePetalMirror:
         import time
 
         pos = self._read_act_position()
+        if not self._check_cmd_integrity(pos):
+            self._logger.warning(
+                "Initial actuator positions are not within command limits. "
+                "Setting to mid-range.")
+            midpoint = lambda v: (v[0] + v[1]) / 2
+            pos = np.asarray(
+                [midpoint(_CMDLIMITS[ax]) for ax in range(3)] * self.n_segments
+            )
         try:
             if not self._had_morning_routine:
                 self._logger.info(f"Warming up the segments piezos.")
