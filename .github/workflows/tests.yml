@@ -7,8 +7,8 @@ on:
     - cron: "0 8 * * 1"
 
 jobs:
-  pytest:
-    name: Pytest (Python ${{ matrix.python-version }})
+  test_no_gui:
+    name: Pytest (Python ${{ matrix.python-version }} - no GUI)
     runs-on: ubuntu-latest
     timeout-minutes: 90
 
@@ -33,11 +33,71 @@ jobs:
       fail-fast: false
       matrix:
         python-version:
-          # - "3.10"  # Disabled because QT tests
-          # - "3.11"  # don't work on GH Runners
-          - "3.12"
-          - "3.13.12"
+          - "3.10" # minimum version
+          - "3.14" # Latest version
           - "3.x"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[test]"
+
+      - name: Lint with flake8
+        run: |
+          pip install flake8
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --exclude ./scripts --exit-zero --max-complexity=10 --max-line-length=127
+
+      - name: Run pytest
+        shell: bash  # -eo pipefail: the exit status of pytest survives `tee`
+        run: |
+          pytest --cov=opticalib -rs 2>&1 | tee pytest.log
+
+  test_gui:
+    name: Pytest (Python ${{ matrix.python-version }} - GUI)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    continue-on-error: true
+
+    # The GUI tests run on a real (virtual) X display, started by the "Start the
+    # virtual display" step below, instead of the Qt "offscreen" platform:
+    # offscreen has no window system, no real fonts and unreliable widget
+    # geometry, which is what made the graphical tests fail at random on some
+    # runners.
+    env:
+      DISPLAY: ":99"
+      QT_QPA_PLATFORM: xcb
+      # No GPU on the runner: keep Mesa on its software rasteriser.
+      LIBGL_ALWAYS_SOFTWARE: "1"
+      # With a DISPLAY set, pyplot would pick an interactive Qt backend and a
+      # stray plt.show() (opticalib.analyzer) would block the run forever.
+      MPLBACKEND: Agg
+      # No session bus either: forbid the dbus auto-launch, which can stall the
+      # creation of the first Qt window.
+      DBUS_SESSION_BUS_ADDRESS: "disabled:"
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version:
+          - "3.10"  # test minimum version
+          - "3.14"
 
     steps:
       - name: Checkout repository
