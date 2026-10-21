@@ -354,6 +354,72 @@ machine; if the kernel ever runs elsewhere, check paths in the kernel (with a
 `CHECKS` entry or in the library function) instead.
 ```
 
+### 3.1 Parameters that refer to kernel objects
+
+Data such as phase maps and masks live in the kernel, and the GUI never holds
+them. A parameter for such data therefore holds the **name of a kernel
+variable**, suggests names from the workspace, and leaves the type check to
+the kernel. opticalib ships three, all subclasses of `KernelArrayParam`:
+
+| Parameter | opticalib type | Suggests (workspace) | Generated code |
+|---|---|---|---|
+| `ImageParam` | `ImageData` | 2-D arrays with a full mask | `_gui.require(img, 'ImageData')` |
+| `MaskParam` | `MaskData` | 2-D `bool` or integer arrays | `_gui.require(mask, 'MaskData')` |
+| `CubeParam` | `CubeData` | 3-D arrays with a full mask | `_gui.require(cube, 'CubeData')` |
+
+```python
+from opticalib.gui.procedures.params import ImageParam, MaskParam, VarParam
+
+Step(
+    "apply", "Apply a mask", "Hide the masked pixels of an image.",
+    [ImageParam("img", "Image", default="img"),
+     MaskParam("mask", "Mask", default="mask"),
+     VarParam("out", "Store the result in", "clean")],
+    lambda v: f"{v['out']} = apply_mask({v['img']}, {v['mask']})",
+)
+```
+
+generates
+
+```python
+clean = apply_mask(_gui.require(img, 'ImageData'), _gui.require(mask, 'MaskData'))
+```
+
+How it works, and what to know:
+
+- **The check is visible code.** `_gui.require(obj, kind)` calls opticalib's
+  `isinstance_`. A wrong variable fails as an ordinary error in the console
+  and in the results log, for example
+  `Expected ImageData, got ndarray (16, 16) float64.`
+- **The list is only a suggestion.** It is built from the `shape`, `dtype`,
+  `masked` and `full_mask` fields that the kernel adds to every array of the
+  workspace. Any variable name can be typed; the kernel decides.
+- **A mask must be a full array.** opticalib's `ImageData` requires the mask
+  to have the shape of the data. `np.ma.masked_array(data)` has a scalar mask,
+  so it is *not* `ImageData`; it is not suggested, and if you name it anyway
+  the error says how to build a proper one:
+  `np.ma.masked_array(data, mask=np.zeros(data.shape, bool))`.
+- **`MaskData` is strict too:** a 2-D `bool`, `uint8` or `int` array whose
+  sum does not exceed its number of pixels.
+- `optional=True` allows an empty field (rendered as `None`, with no check);
+  `default=` picks the preferred variable when it exists.
+- To pre-fill one of these from a previous step, use the step's `after=` hook
+  and `set_value`; only `TnParam` supports `state_key`.
+
+To support another type, subclass `KernelArrayParam`, set `TYPE` to any name
+`isinstance_` understands (for example `"MatrixLike"`), and override
+`accepts(item)` to narrow the suggestions:
+
+```python
+from opticalib.gui.procedures.params import KernelArrayParam
+
+class CommandMatrixParam(KernelArrayParam):
+    TYPE = "MatrixLike"
+
+    def accepts(self, item):                      # a workspace entry (dict)
+        return super().accepts(item) and len(item["shape"]) == 2 and not item["masked"]
+```
+
 ## Tutorial 4: connect proprietary hardware
 
 ### 4.1 Make the class look like an opticalib device
