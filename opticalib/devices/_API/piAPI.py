@@ -184,7 +184,8 @@ class BasePetalMirror:
             cmd = cmd.copy() + self._get_last_cmd()
 
         self._check_axes()
-        self._check_cmd_integrity(cmd)
+        if not self._check_cmd_integrity(cmd):
+            raise CommandError(f"Command out of bounds: {cmd}")
         try:
             for k, dev in enumerate(self._devices):
                 self._logger.info(
@@ -208,15 +209,15 @@ class BasePetalMirror:
         cmd: _ot.ArrayLike
             An array of commands for the actuators.
 
-        Raises
-        ------
-        CommandError
-            If any command is outside the allowed limits.
+        Returns
+        -------
+        bool
+            True if the command array is within the allowed limits, False otherwise.
         """
         for k in range(self.n_segments):
             for ax, c in enumerate(cmd[k * 3 : k * 3 + 3]):
                 if not (_CMDLIMITS[ax][0] <= c <= _CMDLIMITS[ax][1]):
-                    raise CommandError(f"Command for actuator {ax} out of bounds: {c}")
+                    return False
         return True
 
     def _morning_routine(self) -> None:
