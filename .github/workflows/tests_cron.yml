@@ -1,7 +1,6 @@
 name: Tests
 
 on:
-  push:
   schedule:
     # Every Monday at 08:00 UTC
     - cron: "0 8 * * 1"
