@@ -3,9 +3,10 @@ import configparser
 import numpy as np
 from opticalib.core.exceptions import DeviceNotFoundError
 import matplotlib.pyplot as plt
+from .base_devices import BaseDeformableMirror
 
 
-class SPLATTEngine:
+class SPLATTEngine(BaseDeformableMirror):
 
     def __init__(self, ip: str, port: int):
         """The Constructor"""

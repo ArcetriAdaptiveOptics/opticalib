@@ -2,6 +2,7 @@ import os
 import numpy as np
 from opticalib.core.root import folders as fn
 from opticalib.core import _types as ot
+from .base_devices import BaseDeformableMirror
 
 try:
     from Microgate.adopt.AOClient import AO_CLIENT  # type: ignore
@@ -15,7 +16,7 @@ actCoordFile = "ActuatorsCoordinates.fits"
 nActFile = "n_actuators.dat"
 
 
-class BaseAdOpticaDm:
+class BaseAdOpticaDm(BaseDeformableMirror):
     """
     Base class for AdOptica DM devices.
     This class is intended to be inherited by specific device classes.

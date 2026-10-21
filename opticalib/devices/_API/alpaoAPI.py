@@ -2,6 +2,7 @@ import numpy as _np
 from opticalib.core.config import get_section_config
 from opticalib.core.exceptions import CommandError
 from opticalib.core import _types as _t
+from .base_devices import BaseDeformableMirror
 
 import weakref
 
@@ -20,7 +21,7 @@ def _shutdown_dm(dm, reset: bool, logger, name: str) -> None:
             logger.error(f"[{name}] Failed to Reset the DM on close: {e}")
 
 
-class BaseAlpaoMirror:
+class BaseAlpaoMirror(BaseDeformableMirror):
     """
     Base class for Alpao deformable mirrors, connecting either through the
     native Alpao SDK or through the ``plico_dm`` backend.

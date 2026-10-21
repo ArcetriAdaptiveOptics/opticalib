@@ -4,6 +4,7 @@ from pipython import GCSDevice, GCSError
 from pipython.pidevice.interfaces.pisocket import PISocket
 from opticalib.core import config as _rc
 from opticalib.core.exceptions import CommandError
+from .base_devices import BaseDeformableMirror
 
 _CMDLIMITS = {  # temporary limits to overcome the hardware connection refusal
     0: [0, 12],
@@ -12,7 +13,7 @@ _CMDLIMITS = {  # temporary limits to overcome the hardware connection refusal
 }
 
 
-class BasePetalMirror:
+class BasePetalMirror(BaseDeformableMirror):
     """
     Base class for controlling a petal mirror device.
 
@@ -214,11 +215,17 @@ class BasePetalMirror:
         bool
             True if the command array is within the allowed limits, False otherwise.
         """
-        for k in range(self.n_segments):
-            for ax, c in enumerate(cmd[k * 3 : k * 3 + 3]):
-                if not (_CMDLIMITS[ax][0] <= c <= _CMDLIMITS[ax][1]):
-                    return False
-        return True
+        return all(
+            _CMDLIMITS[i % 3][0] <= c <= _CMDLIMITS[i % 3][1]
+            for i, c in enumerate(cmd[: self.n_segments * 3])
+        )
+        # for k in range(self.n_segments):
+        #     if not all(
+        #         _CMDLIMITS[ax][0] <= c <= _CMDLIMITS[ax][1] 
+        #          for ax, c in enumerate(cmd[k * 3 : k * 3 + 3])
+        #     ):
+        #         return False
+        # return True
 
     def _morning_routine(self) -> None:
         """
@@ -254,7 +261,8 @@ class BasePetalMirror:
             raise RuntimeError("Morning routine failed") from err
         finally:
             self._logger.info("Morning routine completed.")
-            self._mirror_command(pos, differential=False)
+            # disabled for now...
+            # self._mirror_command(pos, differential=False)
 
     def _check_servos(self) -> None:
         """

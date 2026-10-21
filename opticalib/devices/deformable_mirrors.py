@@ -15,7 +15,6 @@ Low-level SDK interaction is delegated to modules under
 import os as _os
 import numpy as _np
 import time as _time
-from ._API.base_devices import BaseDeformableMirror
 from opticalib.core import _types as _ot
 from opticalib.core import exceptions as _oe
 from contextlib import contextmanager as _contextmanager
@@ -28,10 +27,10 @@ from opticalib.ground.osutils import (
 )
 from opticalib.ground.logger import SystemLogger as _SL
 
+
 from ._API.piAPI import BasePetalMirror
 
-
-class PetalMirror(BasePetalMirror, BaseDeformableMirror):
+class PetalMirror(BasePetalMirror):
     """
     Petal Deformable Mirror interface.
 
@@ -187,8 +186,7 @@ class PetalMirror(BasePetalMirror, BaseDeformableMirror):
 
 from ._API.micAPI import BaseAdOpticaDm
 
-
-class AdOpticaDm(BaseAdOpticaDm, BaseDeformableMirror):
+class AdOpticaDm(BaseAdOpticaDm):
     """
     AdOptica Deformable Mirror interface.
 
@@ -615,8 +613,7 @@ class M4AU(AdOpticaDm):
 
 from ._API.alpaoAPI import BaseAlpaoMirror
 
-
-class AlpaoDm(BaseAlpaoMirror, BaseDeformableMirror):
+class AlpaoDm(BaseAlpaoMirror):
     """
     Alpao Deformable Mirror interface.
 
@@ -894,8 +891,7 @@ class AlpaoDm(BaseAlpaoMirror, BaseDeformableMirror):
 
 from ._API.splattAPI import SPLATTEngine
 
-
-class SplattDm(BaseDeformableMirror):
+class SplattDm(SPLATTEngine):
     """
     SPLATT deformable mirror interface.
     """
@@ -903,10 +899,8 @@ class SplattDm(BaseDeformableMirror):
     def __init__(self, ip: str = None, port: int = None):
         """The Constructor"""
         self._name = "Splatt"
-        self._dm = SPLATTEngine(ip, port)
-        self.n_acts = self._dm.n_acts
-        self.mirrorModes = self._dm.mirrorModes
-        self.act_coord = self._dm.actCoords
+        super().__init__(ip, port)
+        self.act_coord = self.actCoords
         self._cmd_history = None
         self.baseDataPath = _opdi
         self.refAct = 16
@@ -921,7 +915,7 @@ class SplattDm(BaseDeformableMirror):
         self._logger = _SL(the_class=__class__)
 
     def get_shape(self):
-        shape = self._dm.get_position()
+        shape = self.get_position()
         return shape
 
     def set_shape(
@@ -933,10 +927,10 @@ class SplattDm(BaseDeformableMirror):
     ) -> None:
         cmd = self._apply_slaving(cmd=cmd, slave=slaving)
         if differential:
-            lastCmd = self._dm.get_position_command()
+            lastCmd = self.get_position_command()
             cmd = cmd + lastCmd
         self._check_cmd_integrity(cmd)
-        self._dm.set_position(cmd)
+        self.set_position(cmd)
 
     def upload_cmd_history(self, tcmdhist: _ot.MatrixLike) -> None:
         if not _ot.isinstance_(tcmdhist, "MatrixLike"):
@@ -959,7 +953,7 @@ class SplattDm(BaseDeformableMirror):
             tn = _ts() if save is None else save
             print(f"{tn} - {self._cmd_history.shape[-1]} images to go.")
             datafold = _os.path.join(self.baseDataPath, tn)
-            s = self._dm.get_position_command()  # self._dm.flatPos # self.get_shape()
+            s = self.get_position_command()  # self.flatPos # self.get_shape()
             if read_buffers is True:
                 delay = 0.0
             if not _os.path.exists(datafold) and wfs is not None:
@@ -970,7 +964,7 @@ class SplattDm(BaseDeformableMirror):
                     cmd = cmd + s
                 self.set_shape(cmd)
                 if read_buffers is True:
-                    pos, cur, bufTN = self._dm.read_buffers(
+                    pos, cur, bufTN = self.read_buffers(
                         external=True, n_samples=300
                     )
                     path = _os.path.join(datafold, f"buffer_{i:05d}.fits")
@@ -985,21 +979,21 @@ class SplattDm(BaseDeformableMirror):
         return tn
 
     def plot_command(self, cmd: _ot.ArrayLike) -> None:
-        self._dm.plot_splatt_vec(cmd)
+        self.plot_splatt_vec(cmd)
 
     def send_buffer_command(
         self, cmd: _ot.ArrayLike, differential: bool = False, delay: int | float = 1.0
     ) -> str:
-        # cmd is a command relative to self._dm.flatPos
+        # cmd is a command relative to self.flatPos
         if differential:
-            lastCmd = self._dm.get_position_command()
+            lastCmd = self.get_position_command()
             cmd = cmd + lastCmd
         self._check_cmd_integrity(cmd)
         cmd = cmd.tolist()
-        tn = self._dm._eng.read(f"prepareCmdHistory({cmd})")
+        tn = self._eng.read(f"prepareCmdHistory({cmd})")
         # if accelerometers is not None:
         #   accelerometers.start_schedule()
-        self._dm._eng.oneway_send(f"pause({delay}); sendCmdHistory(buffer)")
+        self._eng.oneway_send(f"pause({delay}); sendCmdHistory(buffer)")
         return tn
 
     @property
@@ -1007,10 +1001,10 @@ class SplattDm(BaseDeformableMirror):
         return self.n_acts
 
     def integrate_position(self, Nits: int = 3):
-        self._dm._eng.send(f"splattIntegrateMeasPos({Nits})")
+        self._eng.send(f"splattIntegrateMeasPos({Nits})")
 
     def _check_cmd_integrity(self, cmd: _ot.ArrayLike) -> None:
-        pos = cmd + self._dm.flatPos
+        pos = cmd + self.flatPos
         if _np.max(pos) > 1.2e-3:
             raise _oe.CommandError(
                 f"End position is too high at {_np.max(pos)*1e+3:1.2f} [mm]"
