@@ -291,8 +291,8 @@ class CollapsibleSection(QWidget):
     def _refresh(self) -> None:
         self.body.setVisible(not self._collapsed)
         self._button.setIcon(
-            theme().icon("chevron-right" if self._collapsed else "chevron-down", "text_muted")
+            theme().icon(
+                "chevron-right" if self._collapsed else "chevron-down", "text_muted"
+            )
         )
-        self._button.setToolTip(
-            "Click to show" if self._collapsed else "Click to hide"
-        )
+        self._button.setToolTip("Click to show" if self._collapsed else "Click to hide")

@@ -653,10 +653,16 @@ def _alpao_args(name: str, suffix: str, conf: Dict[str, Any]) -> Optional[str]:
         return None
     nacts = str(int(suffix))
     settings = _alpao_settings(conf)
-    sdk_ready = all(not _is_empty(settings.get(f)) for f in ("serial_number", "acfg_path"))
-    plico = not sdk_ready and all(not _is_empty(settings.get(f)) for f in _ALPAO_PLICO_FIELDS)
+    sdk_ready = all(
+        not _is_empty(settings.get(f)) for f in ("serial_number", "acfg_path")
+    )
+    plico = not sdk_ready and all(
+        not _is_empty(settings.get(f)) for f in _ALPAO_PLICO_FIELDS
+    )
     own_entry = re.fullmatch(r"alpao\d+", name.lower()) is not None
-    legacy = _is_empty(conf.get("serial_number")) and not _is_empty(conf.get("serialNumber"))
+    legacy = _is_empty(conf.get("serial_number")) and not _is_empty(
+        conf.get("serialNumber")
+    )
     if own_entry and not legacy:
         return nacts + (", use_plico=True" if plico else "")
     fields = _ALPAO_PLICO_FIELDS if plico else _ALPAO_SDK_FIELDS

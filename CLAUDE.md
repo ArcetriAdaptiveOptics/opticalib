@@ -99,6 +99,121 @@ opticalib/
   the submodules (`analyzer`, `devices`, `ground`, `dmutils`, `simulator`, `visualization` aliased as `vis`).
   When adding a new public symbol, wire it through here and into `__all__`, matching the existing style.
 
+### Code tree at version 2.3.1
+
+```
+opticalib
+  ├── analyzer
+  │   ├── image_processing.py
+  │   ├── __init__.py
+  │   ├── signals.py
+  │   └── timeseries.py
+  ├── core
+  │   ├── config.py
+  │   ├── _configurations
+  │   │   ├── configuration.yaml
+  │   │   └── DOCS.md
+  │   ├── data_classes.py
+  │   ├── decorators.py
+  │   ├── exceptions.py
+  │   ├── fitsarray.py
+  │   ├── __init__.py
+  │   ├── root.py
+  │   └── _types.py
+  ├── devices
+  │   ├── _API
+  │   │   ├── alpaoAPI.py
+  │   │   ├── base_devices.py
+  │   │   ├── base_wfs.py
+  │   │   ├── i4dAPI.py
+  │   │   ├── __init__.py
+  │   │   ├── micAPI.py
+  │   │   ├── piAPI.py
+  │   │   └── splattAPI.py
+  │   ├── cameras.py
+  │   ├── deformable_mirrors.py
+  │   ├── __init__.py
+  │   ├── interferometer.py
+  │   └── wfs.py
+  ├── dmutils
+  │   ├── __actuator_identification_wip.py
+  │   ├── flattening.py
+  │   ├── iff_preparation.py
+  │   ├── iff_processing.py
+  │   ├── __init__.py
+  │   ├── _misc.py
+  │   ├── __pupil_calibration_wip.py
+  │   └── slaving.py
+  ├── ground
+  │   ├── geometry.py
+  │   ├── __init__.py
+  │   ├── logger.py
+  │   ├── modal_decomposer.py
+  │   ├── osutils.py
+  │   ├── roi.py
+  │   └── _stitching_algorithm.py
+  ├── gui
+  │   ├── activity.py
+  │   ├── app.py
+  │   ├── __init__.py
+  │   ├── kernel_backend.py
+  │   ├── kernel.py
+  │   ├── kernel_side.py
+  │   ├── plugins.py
+  │   ├── procedures
+  │   │   ├── alignment.py
+  │   │   ├── base.py
+  │   │   ├── dm_calibration.py
+  │   │   ├── __init__.py
+  │   │   ├── params.py
+  │   │   ├── phasing.py
+  │   │   ├── stitching.py
+  │   │   └── timeseries.py
+  │   ├── resources
+  │   │   ├── opticalib.ico
+  │   │   ├── opticalib.png
+  │   │   └── opticalib.svg
+  │   ├── theme.py
+  │   └── widgets
+  │       ├── common.py
+  │       ├── config_editor.py
+  │       ├── connect_dialog.py
+  │       ├── data_browser.py
+  │       ├── device_panel.py
+  │       ├── device_registry.py
+  │       ├── __init__.py
+  │       ├── plot_viewer.py
+  │       └── workspace.py
+  ├── __init__.py
+  ├── __init_script__
+  │   ├── initCalpy.py
+  ├── procedures
+  │   ├── alignment.py
+  │   ├── iff.py
+  │   ├── __init__.py
+  │   ├── measurements.py
+  │   ├── phasing.py
+  │   └── stitching.py
+  ├── py.typed
+  ├── simulator
+  │   ├── _API
+  │   │   ├── alpao_conf.yaml
+  │   │   ├── base_fake_adopticadm.py
+  │   │   ├── base_fake_alpao.py
+  │   │   ├── base_petalmirror.py
+  │   │   ├── base_simulated_dm.py
+  │   │   ├── __init__.py
+  │   │   └── simdata.py
+  │   ├── factory.py
+  │   ├── fake_dms.py
+  │   ├── fake_interf.py
+  │   ├── __init__.py
+  ├── swtree.txt
+  ├── __version__.py
+  └── visualization.py
+```
+30 directories, 358 files
+
 ## Commands
 
 Environment: Python ≥ 3.11, dependencies declared in `pyproject.toml` (base: `xupy`, `arte`, `astropy`,

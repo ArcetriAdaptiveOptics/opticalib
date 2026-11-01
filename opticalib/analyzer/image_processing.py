@@ -50,18 +50,15 @@ def pad_image_to_shape(
         raise ValueError("Invalid padding dimensions")
     pad_width = ((y, Y - h - y), (x, X - w - x))
     pimg = _np.pad(
-        img.data,
-        pad_width=pad_width,
-        mode='constant',
-        constant_values=fill_value
+        img.data, pad_width=pad_width, mode="constant", constant_values=fill_value
     )
     mask = _np.pad(
         _np.ma.getmaskarray(img),
         pad_width=pad_width,
-        mode='constant',
-        constant_values=True
+        mode="constant",
+        constant_values=True,
     )
-    if hasattr(img, 'header'):
+    if hasattr(img, "header"):
         header = img.header
     else:
         header = None

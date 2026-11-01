@@ -6,8 +6,8 @@ from ..core import _types as _ot
 def make_modal_base(
     modes: int | list[int],
     mask: _ot.MaskData,
-    im: _ot.MatrixLike|None = None,
-    rm: _ot.MatrixLike|None = None,
+    im: _ot.MatrixLike | None = None,
+    rm: _ot.MatrixLike | None = None,
     basis: str = "zernike",
 ) -> _ot.MatrixLike:
     """

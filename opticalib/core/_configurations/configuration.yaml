@@ -12,14 +12,31 @@ SYSTEM:
 DEVICES:
   # In the wavefront sensor section can be defined any Wavefront sensor used to
   # acquire phase maps.
-  WFS: 
-    INGOT:
+  WFS:
+    Ingot:
       camera: CAMERAS:GigaVision
-      camera_base_exptime: 2000 #in ms
-      camera_binning: 2
-      subapertures: 258
-      n_pupils: 3
-      pupils_centers:
+      camera_base_exptime: #in ms
+      camera_fps:  # frames per second for the camera (if supported)
+      camera_binning:  # binning factor of the camera (software)
+      sigma_threshold:  # sigma threshold for the edge filter (Canny algorythm) 
+      n_pupils:  # number of total pupils
+      subapertures:  # number of pixels across the pupil
+      delta_r: # delta px for pupil search range, centered on subapertures
+      pupils_centers: # estimate of the pupil centers, to help the search
+        - [0, 0]
+        - [0, 0]
+        - [0, 0]
+    Pyramid:
+      camera: CAMERAS:GigaVision
+      camera_base_exptime:  #in ms
+      camera_fps:  # frames per second for the camera (if supported)
+      camera_binning:  # binning factor of the camera (software)
+      sigma_threshold: # sigma threshold for the edge filter (Canny algorythm) 
+      n_pupils: # number of total pupils
+      subapertures:  # number of pixels across the pupil
+      delta_r:  # delta px for pupil search range, centered on subapertures
+      pupils_centers: # estimate of the pupil centers, to help the search
+        - [0, 0]
         - [0, 0]
         - [0, 0]
         - [0, 0]
@@ -91,10 +108,12 @@ DEVICES:
 # The motor devices usually use the `plico_motor` interface, as their SDK is 
 # not implemented in Linux.
   MOTORS:
-    TunableFilter:
+    TunableFilter: # via plico_motor
       ip: 
       port: 
-    
+    SomeMotor: # via plico_motor
+      ip: 
+      port: 
 
 # Here you can specify what you expect to see in the frame of a SPL phasing sensor
 # which is usually a camera plus a tunable filter (to be defined in the DEVICES
@@ -102,8 +121,8 @@ DEVICES:
 PHASING:
   camera: CAMERAS:GigaVision
   filter: MOTORS:TunableFilter
-  expected_psfs: 6
-  psfs_angles: [0, -60, 60, -120, 120, 180] # degrees, w.r.t. the horizontal axis of the camera
+  expected_psfs: # number of different psfs to expect in the frame
+  psfs_angles:  # degrees, w.r.t. the horizontal axis of the camera
   expected_psfs_pos: # expected coordinates of the PSFs, ordered as the angles. This is to better identify the correct centroids.
   - []
   - []
@@ -111,26 +130,26 @@ PHASING:
   - []
   - []
   - []
-  initial_crop_half_size: 150 # pixels, to be used for the first PSF detection, then refined with a photometric centroid detection
-  crop_half_size: [75, 23] # pixels, final crop. If list, is y,x
-  min_px_threshold: 30  # minimum number of pixels above the threshold to consider a PSF as detected
-  sigma_threshold: 2.0  # number of sigma above the background to use as threshold for the detection
+  initial_crop_half_size: # pixels, to be used for the first PSF detection, then refined with a photometric centroid detection
+  crop_half_size: # pixels, final crop. If list, is y,x
+  min_px_threshold:  # minimum number of pixels above the threshold to consider a PSF as detected
+  sigma_threshold:  # number of sigma above the background to use as threshold for the detection
 
 ## Influence functions configuration ##
 # Here you can set the parameters for the influence functions
 # data acquisition and processing.
 INFLUENCE.FUNCTIONS:
-  timing: 1
-  sequential_delay: 0.0
-  triggered_mode: # if not using triggerMode, put false and comment next 2 lines (for Microgate DMs)
+  timing: 1 
+  sequential_delay: 0.0 # delay, in seconds, between te command application and the wfs acquisition
+  triggered_mode: # if not available, put false and comment next 2 lines
     frequency: 5.
     cmd_delay: 0.0
   TRIGGER:
-    trailing_zeros: 0
-    modes_list: []
-    amplitude: 0.05
-    template: []
-    modal_base: hadamard
+    trailing_zeros: 0 # 0s before the modes
+    modes_list: [] # list of modes ids
+    amplitude: 0.05 # amplitude of the applied modes
+    template: [] # push-pull template
+    modal_base: hadamard # modal basis 
   REGISTRATION:
     trailing_zeros: 0
     modes_list: []
@@ -139,19 +158,20 @@ INFLUENCE.FUNCTIONS:
     modal_base: zonal
   IFFUNC:
     trailing_zeros: 0
-    padding_zeros: 5
+    padding_zeros: 5 # 0s after the modes
     modes_list: np.arange(0,88,1)
     amplitude: 0.05
     template: [1, -1, 1]
-    shuffle: false
-    n_repetitions: 1
+    shuffle: false # whether to shuffle the order of the modes
+    n_repetitions: 1 # number of times to repeat the application of each mode
     modal_base: zonal
 
 ## Stitching configuration ##
 # Here you can set the parameters for the stitching procedure.
 STITCHING:
-  pixel_scale: 0.09095 # mm/px
-  alpha: 0 # degrees
+  motor: MOTORS:SomeMotor
+  pixel_scale: 0.09095 # img pixel scale in mm/px
+  alpha: 0 # rotation angle in degrees
   starting_coords: [0, 0] # motors position in mm
   home_coords: [0, 0] # motors position in mm
 

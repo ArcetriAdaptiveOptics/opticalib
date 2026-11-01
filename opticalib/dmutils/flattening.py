@@ -469,6 +469,26 @@ class Flattening:
         self._cavityOffset = cavity_offset.copy()
         self._logger.info("Cavity offset loaded.")
 
+    def get_noise_covariance(self, plot: bool = False) -> _ot.MatrixLike:
+        """
+        Returns the reconstructed modes noise covariance matrix.
+
+        Parameters
+        ----------
+        plot : bool, optional
+            If True, plots the noise covariance matrix. Default is False.
+
+        Returns
+        -------
+        cov : MatrixLike
+            Noise covariance matrix of the RM.
+        """
+        cov = self.RM.T @ self.RM
+        if plot:
+            from ..visualization import cmdplot
+            cmdplot(cov, title="Noise Covariance Matrix", xlabel='Mode ID')
+        return _np.diag(cov)
+
     def get_svd_matrices(self) -> tuple[_ot.ArrayLike, _ot.ArrayLike, _ot.ArrayLike]:
         """
         Returns the U, S, Vt matrices from the SVD decomposition of the interaction
@@ -502,9 +522,11 @@ class Flattening:
 
         xlim = plotkwargs.pop("xlim", None)
         ylim = plotkwargs.pop("ylim", None)
+        xscale = plotkwargs.pop("xscale", "linear")
 
         plt.figure()
         plt.semilogy(self._rec._intMat_S, "o-", **plotkwargs)
+        plt.xscale(xscale)
         plt.title("Eigenvalues of the interaction matrix")
         plt.xlabel("Mode number")
         plt.ylabel("Eigenvalue")
@@ -552,7 +574,7 @@ class Flattening:
         if out:
             return img
 
-    def filter_int_cube(
+    def filter_iff_cube(
         self,
         zernModes: _ot.Optional[list[int] | _ot.ArrayLike] = None,
         mode: str = "global",

@@ -654,14 +654,20 @@ class DevicePanel(QWidget):
             (self.simulated_section, "sim:"),
         ):
             cards = [c for k, c in self._cards.items() if k.startswith(prefix)]
-            parts = [f"{len(cards)} device{'s' if len(cards) != 1 else ''}"] if cards else []
+            parts = (
+                [f"{len(cards)} device{'s' if len(cards) != 1 else ''}"]
+                if cards
+                else []
+            )
             for status, token, label in (
                 ("connected", "success", "connected"),
                 ("error", "danger", "failed"),
             ):
                 count = sum(1 for c in cards if c.status == status)
                 if count:
-                    parts.append(f"<span style='color:{tokens[token]}'>{count} {label}</span>")
+                    parts.append(
+                        f"<span style='color:{tokens[token]}'>{count} {label}</span>"
+                    )
             section.set_summary(" · ".join(parts))
 
     @property

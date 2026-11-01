@@ -332,7 +332,8 @@ def get_device_config(device_type: str, device_name: str | None = None):
     device_type : str
         Type of the device (e.g., 'CAMERAS', 'DEFORMABLE.MIRRORS', 'WFS').
     device_name : str | None
-        Name of the device. If None, returns the configuration for all devices of the specified type.
+        Name of the device. If None, returns the configuration for all devices
+        of the specified type.
 
     Returns
     -------
