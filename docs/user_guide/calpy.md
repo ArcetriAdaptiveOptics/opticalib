@@ -417,7 +417,7 @@ reason. *Set up…* opens a dialog to choose the class and the variable name,
 preview and edit the command, and optionally save the `class:` key in the
 entry (only that line is added; comments are preserved).
 
-Device classes look up their entry by name: `Ingot` reads `INGOT`,
+Device classes look up their entry by name: `Ingot` reads `Ingot`,
 `PetalMirror` reads `PetalDM`, `PhaseCam("6110")` reads `PhaseCam6110`. The
 lookup ignores case, so `Ingot` or `phasecam6110` work too, in the GUI and in
 scripts.

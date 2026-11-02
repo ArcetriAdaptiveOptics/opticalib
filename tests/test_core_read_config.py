@@ -464,8 +464,8 @@ class TestCaseInsensitiveDeviceLookup:
         return path
 
     def test_fixed_name_lookup(self, config_file):
-        # Ingot always reads the entry "INGOT".
-        assert read_config.get_device_config("WFS", "INGOT") == {"camera": "CAMERAS:GigaVision"}
+        # Ingot always reads the entry "Ingot".
+        assert read_config.get_device_config("WFS", "Ingot") == {"camera": "CAMERAS:GigaVision"}
 
     def test_derived_name_lookup(self, config_file):
         # PhaseCam("6110") reads the entry "PhaseCam6110" with a plain [] lookup.

@@ -76,7 +76,7 @@ class TestResolution:
             ("DEFORMABLE.MIRRORS", "AdOpticaDM", {}, "AdOpticaDm", "dm = devices.AdOpticaDm()"),
             ("CAMERAS", "GigaVision", {"id": "c"}, "GigaVision", "cam = devices.GigaVision('GigaVision')"),
             ("CAMERAS", "Guide", {"ip": "c"}, "GigaVision", "cam = devices.GigaVision('Guide')"),
-            ("WFS", "INGOT", {"camera": "CAMERAS:GigaVision"}, "Ingot", "wfs = devices.Ingot('GigaVision')"),
+            ("WFS", "Ingot", {"camera": "CAMERAS:GigaVision"}, "Ingot", "wfs = devices.Ingot('GigaVision')"),
             ("WFS", "Ingot", {"camera": "CAMERAS:GigaVision"}, "Ingot", "wfs = devices.Ingot('GigaVision')"),
             ("WFS", "ingot", {"camera": "CAMERAS:GigaVision"}, "Ingot", "wfs = devices.Ingot('GigaVision')"),
         ],
@@ -137,7 +137,7 @@ class TestResolution:
 
         entries = reg.list_entries(TEMPLATE_CONF_FILE)
         names = {e.name for e in entries}
-        assert {"PhaseCamX", "AccuFizX", "4DProcesser1", "AlpaoXXX", "PetalDM", "GigaVision", "INGOT"} <= names
+        assert {"PhaseCamX", "AccuFizX", "4DProcesser1", "AlpaoXXX", "PetalDM", "GigaVision", "Ingot"} <= names
         for entry in entries:
             compile(reg.build_command(entry), entry.name, "exec")
         interferometers = [e for e in entries if e.section == "INTERFEROMETERS"]

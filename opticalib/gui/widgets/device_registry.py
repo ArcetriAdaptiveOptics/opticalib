@@ -223,10 +223,10 @@ DEVICE_CLASSES: List[DeviceClass] = [
         "WFS",
         ("ingot",),
         "camera",
-        "INGOT",
+        "Ingot",
         (("camera",),),
         default=True,
-        description="INGOT wavefront sensor",
+        description="Ingot wavefront sensor",
     ),
 ]
 

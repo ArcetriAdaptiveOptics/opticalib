@@ -171,7 +171,7 @@ class DeviceSection(dict):
     Devices of a ``DEVICES`` subsection, with case-insensitive name lookup.
 
     Device classes look up their entry by a fixed or derived name (``Ingot``
-    reads ``'INGOT'``, ``PhaseCam('6110')`` reads ``'PhaseCam6110'``).  An
+    reads ``'Ingot'``, ``PhaseCam('6110')`` reads ``'PhaseCam6110'``).  An
     exact name always wins; otherwise a name matching a single entry
     regardless of case is accepted, so an entry written ``Ingot`` or
     ``phasecam6110`` is still found.  Names that match several entries

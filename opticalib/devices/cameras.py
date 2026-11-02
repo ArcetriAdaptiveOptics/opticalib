@@ -335,6 +335,94 @@ class GigaVision(BaseCamera):
                 frames = mean(frames, axis=2)
 
         return frames
+    
+    def live_view(self, **plotkwargs: dict[str,_ot.Any]):
+        """
+        Starts a live view of the camera feed.
+        
+        The live view will continue until the window is closed.
+
+        Parameters
+        ----------
+        plotkwargs : dict[str, Any]
+            Keyword arguments passed to the ``imshow`` plotting function.
+        
+        Returns
+        -------
+        timer : matplotlib.backend_bases.Timer
+            The timer object controlling the live view updates.
+        """
+        from ..visualization import surfshow
+        import threading
+        from matplotlib import pyplot as plt
+        
+        cam = self._cam
+        lock = threading.Lock()
+        exptimeInMs = max(1, int(self.get_exptime() / 1000))
+        latest_image = None
+
+        def frame_image(frame: _vmbpy.Frame):
+            image = frame.as_numpy_ndarray()[:,:,0]
+            return image.copy()
+
+        # first acquisition to initialize the live view
+        first_frame = frame_image(
+            cam.get_frame(
+               timeout_ms=int(self._base_timeout * exptimeInMs)
+            )
+        )
+
+        fig, _, surf = surfshow(
+            first_frame,
+            xlabel='px', 
+            ylabel='px',
+            clabel='adu',
+            **plotkwargs
+        )
+
+        fig.canvas.manager.set_window_title(
+            f"{self._name} live view"
+        )
+
+        # frame handler for camera: run by SDK thread
+        def get_frame(camera, stream, frame: _vmbpy.Frame):
+            nonlocal latest_image
+
+            try:
+                image = frame_image(frame)
+                with lock:
+                    latest_image = image
+            finally:
+                camera.queue_frame(frame)
+
+        # plot update: run by the matplotlib GUI thread
+        def refresh_plot():
+            nonlocal latest_image
+
+            with lock:
+                image = latest_image
+                latest_image = None
+
+            if image is not None:
+                surf.set_data(image)
+                fig.canvas.draw_idle()
+
+        # MPL backend timer for refreshing the live view (its own thread)
+        timer = fig.canvas.new_timer(interval=exptimeInMs)
+        timer.add_callback(refresh_plot)
+
+        # close event handler for the live view window
+        def on_close(event):
+            timer.stop()
+            cam.stop_streaming()
+        fig.canvas.mpl_connect("close_event", on_close)
+
+        self._logger.info("Starting live view")
+        cam.start_streaming(handler=get_frame, buffer_count=10)
+        timer.start()
+        plt.show(block=False)
+
+        return timer
 
     def set_base_timeout(self, timeout_ms: int):
         """

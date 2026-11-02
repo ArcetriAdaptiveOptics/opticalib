@@ -79,8 +79,8 @@ def surfshow(
     cut : bool, optional
         Whether to cut the image to the region of interest. Default is False.
     **kwargs
-        Additional keyword arguments to be passed to `plot_surface`, as well as some
-        additions:
+        Additional keyword arguments to be passed to `imshow` (if ``d3`` is False),
+        as well as some additions:
 
         - title: str, optional
             Title of the plot. Default is "Surface Plot".
