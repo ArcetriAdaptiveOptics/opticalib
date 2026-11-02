@@ -288,7 +288,7 @@ class Pyramid(PupilDetector):
     Pupil geometry follows the ArcetriLAB ``PupilDesc`` approach 
     (detect / FITS save-load).
 
-    The pupil order is assumed to be (A=TR, B=TL, C=BL, D=BR):
+    The pupil order is assumed to be ``-x+y`` (A=TR, B=TL, C=BL, D=BR):
     
     ```
         B <- A      ┌----> x
@@ -404,7 +404,7 @@ class Pyramid(PupilDetector):
         self,
         frames: _ot.ImageData | _ot.CubeData | list[_ot.ImageData] | int,
         detect_pupils: bool = False,
-        pupil_order: str = "-x",
+        pupil_order: str = "-x+y",
     ) -> _ot.CubeData:
         """
         Function for acquiring the Ingot WFS pupils.
@@ -426,7 +426,7 @@ class Pyramid(PupilDetector):
             for descending), while the order of the axes ('x' or 'y') indicates
             the primary and secondary sorting directions.
 
-            Default is '+y+x', which sorts bottom-to-top, left-to-right.
+            Default is '-x+y'.
 
         Returns
         -------
@@ -453,7 +453,7 @@ class Pyramid(PupilDetector):
         nframes: int = 1,
         output_type: str = "slopes",
         detect_pupils: bool = False,
-        pupil_order: str = "+y+x",
+        pupil_order: str = "-x+y",
     ) -> _ot.ImageData:
         """
         Acquires data from the Ingot WFS.
@@ -480,7 +480,7 @@ class Pyramid(PupilDetector):
             for descending), while the order of the axes ('x' or 'y') indicates
             the primary and secondary sorting directions.
 
-            Default is '+y+x', which sorts bottom-to-top, left-to-right.
+            Default is '-x+y', which sorts right-to-left, bottom-to-top.
 
         Returns
         -------
