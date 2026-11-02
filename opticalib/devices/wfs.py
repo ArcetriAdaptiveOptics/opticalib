@@ -289,7 +289,7 @@ class Pyramid(PupilDetector):
     (detect / FITS save-load).
 
     The pupil order is assumed to be ``-x+y`` (A=TR, B=TL, C=BL, D=BR):
-    
+
     ```
         B <- A      ┌----> x
         |    |      |           (in the `origin='upper'` convention)
@@ -313,7 +313,7 @@ class Pyramid(PupilDetector):
         
         If None, the one defined in the experiment's configuration will be used.
     """
-    
+
     def __init__(
         self,
         name: str = "Pyramid",
@@ -399,7 +399,7 @@ class Pyramid(PupilDetector):
             Number of frames to average. Default is 1.
         """
         return self._camera.acquire_frames(nframes)
-    
+
     def acquire_pupils(
         self,
         frames: _ot.ImageData | _ot.CubeData | list[_ot.ImageData] | int,
@@ -447,7 +447,7 @@ class Pyramid(PupilDetector):
 
         pupil_images = self._extract_pupils(frames)
         return pupil_images
-    
+
     def acquire_map(
         self,
         nframes: int = 1,
@@ -495,7 +495,7 @@ class Pyramid(PupilDetector):
         the_output = self.acquire_pupils(
             frames=image, detect_pupils=detect_pupils, pupil_order=pupil_order
         )
-        
+
         if output_type == "slopes":
             Sx, Sy = self._compute_slopes_from_pupils(the_output)
             the_output = _np.vstack([Sx, Sy])
@@ -545,7 +545,7 @@ class Pyramid(PupilDetector):
         #     sy = (B + C - A - D) * factor
 
         return Sx, Sy
-    
+
     def __repr__(self):
         return (
             f"{__class__.__name__}(camera={self._camera._name}, n_pupils={self.n_pupils},"
