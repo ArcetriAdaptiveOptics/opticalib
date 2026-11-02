@@ -123,7 +123,7 @@ class TestFlattening:
     @patch("opticalib.dmutils.flattening._ifp.remove_zernike_from_iff")
     @patch("opticalib.dmutils.flattening.Flattening._load_cmd_mat")
     @patch("opticalib.dmutils.flattening.Flattening._load_reconstructor")
-    def test_filter_int_cube(self, mock_rec, mock_cmd, mock_filter, sample_int_matrix_folder):
+    def test_filter_iff_cube(self, mock_rec, mock_cmd, mock_filter, sample_int_matrix_folder):
         """Test filtering interaction cube."""
         import os
         from opticalib.ground import osutils
@@ -155,7 +155,7 @@ class TestFlattening:
         mock_rec.return_value = mock_reconstructor
         f._rec = mock_reconstructor
 
-        result = f.filter_int_cube(zernModes=[1, 2, 3])
+        result = f.filter_iff_cube(zernModes=[1, 2, 3])
 
         assert result is f  # Should return self
         # Verify that remove_zernike_from_iff was called

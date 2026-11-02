@@ -34,7 +34,7 @@ DEVICES:
   # In the wavefront sensor section can be defined any Wavefront sensor used to
   # acquire phase maps.
   WFS: 
-    INGOT:
+    Ingot:
       camera: CAMERAS:GigaVision
       camera_base_exptime: 2000 #in ms
       camera_binning: 2
