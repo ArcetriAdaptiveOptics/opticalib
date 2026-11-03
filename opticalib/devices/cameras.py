@@ -9,14 +9,24 @@ and frame retrieval.
 """
 
 import time as _time
-
 import vmbpy as _vmbpy
+import threading as _th
 
 from ..core import _types as _ot
 from ..core.decorators import allow_reconnect as _ar
 from ..ground.logger import SystemLogger as _sl
 from ..core.config import get_cameras_config as _gcc
 from ._API.base_devices import BaseCamera
+from ._API.cameras.frame_buffer import FrameBuffer as _FrameBuffer
+from ._API.cameras.GigE_live_viewer import ViewerProcess as _ViewerProcess
+
+
+def _frame_to_array(frame: _vmbpy.Frame) -> _ot.ImageData:
+    """Copy a Vimba frame into a numpy array: (H, W) mono, (C, H, W) color."""
+    img = frame.as_numpy_ndarray()  # a *view* on the SDK buffer, shape (H, W, C)
+    img = img[:, :, 0] if img.shape[2] == 1 else img.transpose(2, 0, 1)
+    # copy: the SDK reuses the buffer as soon as the frame is re-queued
+    return img.copy()
 
 
 class GigaVision(BaseCamera):
@@ -35,6 +45,17 @@ class GigaVision(BaseCamera):
         self._cam_config = _gcc(device_name=self._name)
         self._logger = _sl(__class__)
         self._base_timeout = 2000  # milliseconds
+
+        # Streaming state, shared between threads:
+        # - _buffer: latest frames, filled by the SDK thread (see _on_frame);
+        # - _viewer: live viewer process handle, or None. Read by the SDK
+        #   thread, set/cleared by user threads: guarded by _viewer_lock;
+        # - _stream_lock: serializes start/stop of streaming, which can be
+        #   requested by the user and by the viewer watcher thread at once.
+        self._buffer = _FrameBuffer(self._cam_config.get("buffer_size") or 100)
+        self._viewer = None
+        self._viewer_lock = _th.Lock()
+        self._stream_lock = _th.Lock()
 
         # retrieve device ID or IP
         try:
@@ -149,6 +170,18 @@ class GigaVision(BaseCamera):
         ensures that even if the camera is in a disconnected or error state,
         the cleanup completes without raising exceptions.
         """
+        # the viewer and the stream must go before the camera they depend on
+        # (getattr: close() may run on a half-initialized object; try: the
+        # camera may already be dead, e.g. when called by reconnect())
+        try:
+            if getattr(self, "_viewer", None) is not None:
+                self._logger.warning("Closing camera: live view stopped")
+                self.stop_live_view()
+            if getattr(self, "_stream_lock", None) is not None:
+                self.stop_streaming()
+        except Exception as e:
+            self._logger.debug(f"Exception while stopping stream: {e}")
+
         if hasattr(self, "_cam") and self._cam is not None:
             try:
                 self._cam.__exit__(None, None, None)
@@ -168,19 +201,6 @@ class GigaVision(BaseCamera):
                 )
             finally:
                 self._vimba = None
-
-    def __del__(self):
-        """
-        Ensure connection is closed upon object deletion.
-
-        This method is called when the object is garbage collected.
-        It safely closes the connection without raising exceptions,
-        even if the camera is already in a disconnected state.
-        """
-        try:
-            self.close()
-        except Exception:
-            pass
 
     @_ar(error_instance=(_vmbpy.VmbFeatureError, AttributeError))
     def get_exptime(self) -> float:
@@ -216,6 +236,75 @@ class GigaVision(BaseCamera):
         exptimeFeat = self._cam.get_feature_by_name("ExposureTimeAbs")
         exptimeFeat.set(exptime_us)
         self._exptime = exptime_us
+        # frames stored so far were exposed with the old value: drop them.
+        # (A frame already being exposed may still arrive with the old value.)
+        self._buffer.clear()
+
+    # ------------------------------------------------------------------ #
+    # Streaming: the camera pushes frames continuously into self._buffer #
+    # ------------------------------------------------------------------ #
+    @property
+    def is_streaming(self) -> bool:
+        """Whether the camera is currently streaming frames."""
+        return self._cam is not None and self._cam.is_streaming()
+
+    def start_streaming(self, allocation_mode: int = 0) -> None:
+        """
+        Start continuous acquisition into the internal frame buffer.
+
+        Frames are delivered by the Vimba SDK on its own thread (see
+        ``_on_frame``): this call returns immediately.
+
+        Parameters
+        ----------
+        allocation_mode : int
+            0 for buffers allocated by ``vmbpy``, 1 for buffers allocated by
+            the Transport Layer.
+        """
+        with self._stream_lock:
+            if self.is_streaming:
+                return
+            am = (
+                _vmbpy.AllocationMode.AnnounceFrame
+                if allocation_mode == 0
+                else _vmbpy.AllocationMode.AllocAndAnnounceFrame
+            )
+            self._buffer.clear()
+            self._logger.info("Starting streaming")
+            self._cam.start_streaming(
+                handler=self._on_frame, buffer_count=10, allocation_mode=am
+            )
+
+    def stop_streaming(self) -> None:
+        """Stop continuous acquisition (blocks until the SDK thread is done)."""
+        with self._stream_lock:
+            if self.is_streaming:
+                self._logger.info("Stopping streaming")
+                self._cam.stop_streaming()
+                self._buffer.interrupt()  # waiters raise now, not at timeout
+                self._buffer.clear()  # free the memory of the stored frames
+
+    def _on_frame(self, cam: _vmbpy.Camera, stream: _vmbpy.Stream, frame: _vmbpy.Frame):
+        """
+        Frame handler: runs in the **Vimba SDK thread**, once per frame.
+
+        It must be fast and must never block: the SDK owns only a few frame
+        buffers (``buffer_count``) and each one comes back to the camera only
+        when we re-queue it. Do not call ``stop_streaming`` from here: it waits
+        for this very handler to return, i.e. it would deadlock.
+        """
+        try:
+            if frame.get_status() == _vmbpy.FrameStatus.Complete:
+                img = _frame_to_array(frame)
+                self._buffer.push(img)
+                # hold the lock while writing, so that the viewer cannot be
+                # closed (and its shared memory freed) in the middle of it
+                with self._viewer_lock:
+                    if self._viewer is not None:
+                        self._viewer.write(img)
+        finally:
+            # always give the buffer back to the camera, even on errors
+            cam.queue_frame(frame)
 
     @_ar(error_instance=(_vmbpy.VmbCameraError, _vmbpy.VmbTimeout, AttributeError))
     def acquire_frames(
@@ -228,12 +317,18 @@ class GigaVision(BaseCamera):
         """
         Acquire frames from the camera.
 
+        If the camera is streaming (e.g. a live view is open), the frames are
+        taken from the stream, whatever the ``mode``: the call waits for
+        ``nframes`` frames delivered *after* it started (never older ones).
+        In this case ``nframes`` cannot exceed the buffer size (config key
+        ``buffer_size``, default 100).
+
         Parameters
         ----------
         nframes : int | None
                 The number of frames to acquire. If in `sync` mode and None,
                 acquires a single frame, while if in `async` mode and None,
-                acquires frames until stopped.
+                acquires frames until Enter is pressed.
         multiframe_out_mode : str
                 The output mode for multiple frames. Can be 'cube' to return
                 a cube of frames, or 'mean' to return the mean frame.
@@ -255,11 +350,26 @@ class GigaVision(BaseCamera):
                 Acquired frame(s) as numpy array or cube depending on
                 multiframe_out_mode.
         """
+        if mode not in ("sync", "async"):
+            self._logger.error("Invalid acquisition mode specified")
+            raise ValueError("Invalid mode. Choose either 'sync' or 'async'.")
+
         frames = []
         cam = self._cam
+        exptimeInMs = max(1, int(self.get_exptime() / 1000))
 
-        if mode == "sync":
-            exptimeInMs = max(1, int(self.get_exptime() / 1000))
+        def timeout_s(n: int) -> float:
+            # timeout for n frames, in seconds (same budget as the sync path)
+            return self._base_timeout * exptimeInMs * n / 1000
+
+        if self.is_streaming:
+            # The camera is busy streaming: get_frame() would fail, so wait
+            # for fresh frames in the buffer filled by the SDK thread.
+            n = nframes or 1
+            self._logger.info(f"Acquiring {n} frames from the running stream")
+            frames = self._buffer.wait_new(n, timeout=timeout_s(n))
+
+        elif mode == "sync":
             self._logger.info("Starting synchronous acquisition")
             self._logger.info(
                 f"Acquiring {nframes} frames with timeout {self._base_timeout*exptimeInMs} ms"
@@ -281,44 +391,25 @@ class GigaVision(BaseCamera):
                     .transpose(2, 0, 1)
                 )
 
-        elif mode == "async":
-            import time
-
-            exposure_time = self.get_exptime()
-
+        else:  # async: stream just for this acquisition, then stop
             self._logger.info("Starting asynchronous acquisition")
-            self._logger.info(f"Acquiring frames until Enter is pressed")
-            aframes = []
-
-            def frame_handler(
-                cam: _vmbpy.Camera, stream: _vmbpy.Stream, frame: _vmbpy.Frame
-            ):
-                print("{} acquired {}".format(cam, frame), flush=True)
-                aframes.append(frame)
-                cam.queue_frame(frame)
-
-            am = (
-                _vmbpy.AllocationMode.AnnounceFrame
-                if allocation_mode == 0
-                else _vmbpy.AllocationMode.AllocAndAnnounceFrame
-            )
-            self._logger.info("Waiting for stop trigger (Enter)...")
-            cam.start_streaming(
-                handler=frame_handler, buffer_count=10, allocation_mode=am
-            )
-            if nframes is None:
-                input()  # wait until Enter is pressed
-                cam.stop_streaming()
-            else:
-                while len(aframes) < nframes:
-                    time.sleep(exposure_time / 1_000_000)
-                cam.stop_streaming()
-
-            frames = [f.as_numpy_ndarray().transpose(2, 0, 1) for f in aframes]
-
-        else:
-            self._logger.error("Invalid acquisition mode specified")
-            raise ValueError("Invalid mode. Choose either 'sync' or 'async'.")
+            self.start_streaming(allocation_mode=allocation_mode)
+            try:
+                if nframes is None:
+                    start = self._buffer.count
+                    # the SDK thread fills the buffer while we wait here
+                    input("Acquiring frames: press Enter to stop...")
+                    frames = self._buffer.snapshot()
+                    if not frames:
+                        raise RuntimeError("No frames acquired before stopping.")
+                    if self._buffer.count - start > self._buffer.capacity:
+                        self._logger.warning(
+                            f"Only the last {self._buffer.capacity} frames kept"
+                        )
+                else:
+                    frames = self._buffer.wait_new(nframes, timeout=timeout_s(nframes))
+            finally:
+                self.stop_streaming()
 
         # Remove first dimension, since it's 1
         frames = [f.squeeze(0) if f.shape[0] == 1 else f for f in frames]
@@ -335,94 +426,95 @@ class GigaVision(BaseCamera):
                 frames = mean(frames, axis=2)
 
         return frames
-    
-    def live_view(self, **plotkwargs: dict[str,_ot.Any]):
+
+    # ------------------------------------------------------------------ #
+    # Live view: a separate process displaying the stream               #
+    # ------------------------------------------------------------------ #
+    @property
+    def is_live(self) -> bool:
+        """Whether a live view window is open."""
+        return self._viewer is not None
+
+    def live_view(self, interval_ms: int = 40, **plotkwargs: dict[str, _ot.Any]):
         """
-        Starts a live view of the camera feed.
-        
-        The live view will continue until the window is closed.
+        Open a live view of the camera feed, in a separate process.
+
+        Returns immediately: the terminal stays usable, and busy commands do
+        not freeze the window. Streaming is started if needed, and stopped
+        again when the view is closed (by the window or ``stop_live_view``)
+        if it was started here. While live, ``acquire_frames`` reads from the
+        stream.
 
         Parameters
         ----------
+        interval_ms : int, optional
+            Refresh period of the window in milliseconds. Default 40 (25 Hz).
         plotkwargs : dict[str, Any]
-            Keyword arguments passed to the ``imshow`` plotting function.
-        
-        Returns
-        -------
-        timer : matplotlib.backend_bases.Timer
-            The timer object controlling the live view updates.
+            ``title``, ``xlabel``, ``ylabel``, ``clabel`` and any keyword
+            accepted by ``imshow`` (e.g. ``cmap``, ``vmin``, ``vmax``). Must
+            be JSON-serializable. Giving ``vmin``/``vmax`` disables
+            autoscaling.
         """
-        from ..visualization import surfshow
-        import threading
-        from matplotlib import pyplot as plt
-        
-        cam = self._cam
-        lock = threading.Lock()
-        exptimeInMs = max(1, int(self.get_exptime() / 1000))
-        latest_image = None
-
-        def frame_image(frame: _vmbpy.Frame):
-            image = frame.as_numpy_ndarray()[:,:,0]
-            return image.copy()
-
-        # first acquisition to initialize the live view
-        first_frame = frame_image(
-            cam.get_frame(
-               timeout_ms=int(self._base_timeout * exptimeInMs)
+        if self.is_live:
+            self._logger.info("Live view already running")
+            return
+        owns_stream = not self.is_streaming
+        self.start_streaming()
+        try:
+            exptimeInMs = max(1, int(self.get_exptime() / 1000))
+            # the first frame tells us the shape/dtype of the shared memory
+            first = self._buffer.wait_new(1, timeout=self._base_timeout * exptimeInMs / 1000)[0]
+            if first.ndim != 2:
+                raise ValueError("Live view supports only monochrome cameras.")
+            viewer = _ViewerProcess(
+                first.shape, first.dtype, f"{self._name} live view", plotkwargs, interval_ms
             )
-        )
+        except Exception:
+            if owns_stream:
+                self.stop_streaming()
+            raise
+        viewer.owns_stream = owns_stream
+        viewer.write(first)
+        with self._viewer_lock:
+            self._viewer = viewer  # from now on, _on_frame feeds the viewer
 
-        fig, _, surf = surfshow(
-            first_frame,
-            xlabel='px', 
-            ylabel='px',
-            clabel='adu',
-            **plotkwargs
-        )
+        # A "watcher" thread blocks on the child process, so that closing the
+        # window cleans up without anyone polling. daemon=True: it does not
+        # keep the interpreter alive at exit.
+        _th.Thread(
+            target=self._watch_viewer, args=(viewer,), name=f"{self._name}-viewer-watch", daemon=True
+        ).start()
+        self._logger.info("Live view started")
 
-        fig.canvas.manager.set_window_title(
-            f"{self._name} live view"
-        )
+    def stop_live_view(self) -> None:
+        """Close the live view window (no-op if none is open)."""
+        viewer = self._viewer
+        if viewer is not None:
+            self._detach_viewer(viewer)
 
-        # frame handler for camera: run by SDK thread
-        def get_frame(camera, stream, frame: _vmbpy.Frame):
-            nonlocal latest_image
+    def _watch_viewer(self, viewer: _ViewerProcess) -> None:
+        """Runs in the watcher thread: wait for the window to close."""
+        viewer.wait()  # blocks this thread only
+        self._detach_viewer(viewer)
 
-            try:
-                image = frame_image(frame)
-                with lock:
-                    latest_image = image
-            finally:
-                camera.queue_frame(frame)
-
-        # plot update: run by the matplotlib GUI thread
-        def refresh_plot():
-            nonlocal latest_image
-
-            with lock:
-                image = latest_image
-                latest_image = None
-
-            if image is not None:
-                surf.set_data(image)
-                fig.canvas.draw_idle()
-
-        # MPL backend timer for refreshing the live view (its own thread)
-        timer = fig.canvas.new_timer(interval=exptimeInMs)
-        timer.add_callback(refresh_plot)
-
-        # close event handler for the live view window
-        def on_close(event):
-            timer.stop()
-            cam.stop_streaming()
-        fig.canvas.mpl_connect("close_event", on_close)
-
-        self._logger.info("Starting live view")
-        cam.start_streaming(handler=get_frame, buffer_count=10)
-        timer.start()
-        plt.show(block=False)
-
-        return timer
+    def _detach_viewer(self, viewer: _ViewerProcess) -> None:
+        """
+        Disconnect and close ``viewer``. Safe to call from several threads:
+        only the first caller for a given viewer does the cleanup.
+        """
+        with self._viewer_lock:
+            # "check and set" must be atomic, hence inside the lock. The
+            # identity check also stops an old watcher from closing a newer
+            # viewer opened in the meantime.
+            if self._viewer is not viewer:
+                return
+            self._viewer = None
+        # outside the lock: these calls can take a while, and _on_frame needs
+        # the lock for every frame
+        viewer.close()
+        if viewer.owns_stream:
+            self.stop_streaming()
+        self._logger.info("Live view stopped")
 
     def set_base_timeout(self, timeout_ms: int):
         """
@@ -434,6 +526,19 @@ class GigaVision(BaseCamera):
             The base timeout in milliseconds.
         """
         self._base_timeout = timeout_ms
+
+    def __del__(self):
+        """
+        Ensure connection is closed upon object deletion.
+
+        This method is called when the object is garbage collected.
+        It safely closes the connection without raising exceptions,
+        even if the camera is already in a disconnected state.
+        """
+        try:
+            self.close()
+        except Exception:
+            pass
 
     def __str__(self):
         """

@@ -14,7 +14,7 @@ from ..core import _types as _ot
 from ..core import exceptions as _oe
 from ..devices import cameras as _cam
 from ..ground.logger import SystemLogger as _SL
-from ._API.base_wfs import PupilDetector
+from ._API.wfs.pupil_detector import PupilDetector
 from ..core.config import get_device_config as _gdc
 from ..analyzer.image_processing import mode_rebinner as _modeRebinner
 
