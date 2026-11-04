@@ -24,6 +24,7 @@ from concurrent.futures import ThreadPoolExecutor as _tpe
 from ..analyzer import image_processing as _ip
 from ..ground import modal_decomposer as _zern, osutils as _osu, roi as _roi
 from ..core.decorators import expand_list_arguments as _expand_list_arguments
+from . import _modes_normalization as _mn
 
 _fn = folders
 _config = _cp.ConfigParser()
@@ -49,6 +50,7 @@ def process(
     save: bool = False,
     rebin: int = 1,
     *,
+    normalization: _ot.Optional[_ot.Number|bool|str] = True,
     trigger_roi: int | None = None,
     nworkers: int = 2,
     nmode_prefetch: int = 1,
@@ -70,6 +72,22 @@ def process(
     rebin : int, optional
         Rebinning factor to apply to the images before stacking them into the
         cube. The default is 1, which means no rebinning.
+    normalization : number or bool or str, optional
+        Normalization to apply to the processed final images.
+        - If a number is provided, it is used as a scaling factor.
+        - If True, automatic normalization is applied.
+        - If False, no normalization is applied.
+        - If a string, it specifies a particular normalization method. (NIY)
+        
+        The default is True, which defaults to the normalization factor:
+
+        ..math::
+            \text{norm_{i}} = 2\\,max(T-1,1) \\cdot A_i
+        
+        where
+        - T is the number of frames in the push-pull template sequence.
+        - A_i is the amplitude of the i-th mode.
+        - norm_i is the corresponding normalization factor for the i-th mode.
     trigger_roi : int, optional
         If not None, it defines the size of the square ROI to be used for the
         registration algorithm. The default is None.
@@ -108,6 +126,7 @@ def process(
         modeList=info["IFFUNC"]["modes_list"],
         template=info["FILES"]["template"],
         n_repetitions=info["FILES"]["n_repetitions"],
+        normalization=normalization,
         io_workers=nworkers,
         prefetch=nmode_prefetch,
     )
@@ -593,6 +612,7 @@ def iff_redux(
     modeList: _ot.ArrayLike,
     template: _ot.ArrayLike,
     n_repetitions: int = 1,
+    normalization: _ot.Number|bool|str = True,
     *,
     io_workers: int = 1,
     prefetch: int = 0,
@@ -621,6 +641,9 @@ def iff_redux(
         Template for the push-pull command actuation.
     n_repetitions : int, optional
         Number of repetitions for each mode. The default is 1.
+    normalization : number or bool or str, optional
+        Normalization factor or method to be used for the push-pull analysis. 
+        The default is True.
     io_workers : int, optional
         Number of threads to use for I/O prefetching. The default is 1.
     prefetch : int, optional
@@ -669,6 +692,9 @@ def iff_redux(
     # just to be sure...
     io_workers = max(1, int(io_workers))
     prefetch = max(0, int(prefetch))
+    
+    # defining the normalization factor
+    factor = _mn.resolve(normalization)
 
     with _tpe(max_workers=io_workers) as ex:
         futures: dict[int, _ot.Any] = {}
