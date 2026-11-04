@@ -28,26 +28,26 @@ class PupilDetector(BaseWavefrontSensor):
     method in the subclass to compute the slopes from the detected pupils.
     """
 
-    def __init__(self, config_dict: dict[str, _ot.Any]):
+    def __init__(self, config_dict: dict[str, _ot.Any], n_pupils: int = 0):
         """The constructor"""
         _ATTRMAP = {
-            "n_pupils": "n_pupils",
-            "_dr": "delta_r",
-            "sigma_threshold": "sigma_threshold",
-            "_pupil_diameter": "subapertures",
-            "_pupil_centers": "pupils_centers",
-            "_camera_binning": "camera_binning",
-            "_camera_base_exptime": "camera_base_exptime",
-            "_camera_fps": "camera_fps",
-            "exposure_time": -1,  # placeholder to set None
-            "pupil_data": -1,  # placeholder to set None
+            "n_pupils": ("n_pupils", n_pupils),
+            "_dr": ("delta_r",0),
+            "sigma_threshold": ("sigma_threshold",2),
+            "_pupil_diameter": ("subapertures",0),
+            "_pupil_centers": ("pupils_centers",None),
+            "_camera_binning": ("camera_binning",1),
+            "_camera_base_exptime": ("camera_base_exptime",1),
+            "_camera_fps": ("camera_fps",1),
+            "_exptime": (-1,None),  # placeholder to set None
+            "pupil_data": (-1,None),  # placeholder to set None
         }
-        for attr, key in _ATTRMAP.items():
-            setattr(self, attr, config_dict.get(key, None))
+        for attr, (ckey, default) in _ATTRMAP.items():
+            setattr(self, attr, config_dict.get(ckey, default))
 
-        self._pupil_radius = self._pupil_diameter / 2
-        self._rmin = self._pupil_radius - self._dr
-        self._rmax = self._pupil_radius + self._dr
+        self._pupil_radius = self._pupil_diameter // 2
+        self._rmax = int(self._pupil_radius + self._dr)
+        self._rmin = int(self._pupil_radius - self._dr)
 
         self._pup_dtype = [("xc", float), ("yc", float), ("radius", float)]
 
@@ -69,7 +69,7 @@ class PupilDetector(BaseWavefrontSensor):
     def pupil_info(self):
         return self._pupil_info
 
-    def _detect_pupils(self, image: _ot.ImageData, pupil_order: str = "+y+x"):
+    def _detect_pupils(self, image: _ot.ImageData, pupil_order: str):
         """
         Detect pupils in the given image using the Hough Transform.
 
@@ -86,10 +86,6 @@ class PupilDetector(BaseWavefrontSensor):
             The sign indicates the direction of sorting ('+' for ascending, '-'
             for descending), while the order of the axes ('x' or 'y') indicates
             the primary and secondary sorting directions.
-
-            Default is '+y+x', which sorts in the increasing y direction 
-            (bottom-to-top), and then in the increasing x direction 
-            (left-to-right).
 
         Raises
         ------
@@ -173,13 +169,17 @@ class PupilDetector(BaseWavefrontSensor):
         r = int(self._pupil_info["radius"][0])
         shape = tuple([2 * r + 1] * 2)
         pupil = _dcp(shape, r)
-        pupils = _np.ma.zeros((self.n_pupils, shape[0], shape[1]))
+        data = _np.zeros((self.n_pupils, shape[0], shape[1]))
 
         for pp in range(self.n_pupils):
             xc = int(self._pupil_info["xc"][pp])
             yc = int(self._pupil_info["yc"][pp])
-            pupils[pp, :, :] = image[(yc - r) : (yc + r + 1), (xc - r) : (xc + r + 1)]
-            pupils[pp, pupil] = _np.nan
-            pupils[pp, :, :].mask = pupil
+            data[pp] = image[(yc - r) : (yc + r + 1), (xc - r) : (xc + r + 1)]
+
+        # Applied after filling: masked-array masks are soft, so assigning into
+        # a masked position would silently unmask it.
+        mask = _np.broadcast_to(pupil, data.shape).copy()
+        data[mask] = _np.nan
+        pupils = _np.ma.masked_array(data, mask=mask)
 
         return pupils

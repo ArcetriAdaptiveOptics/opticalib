@@ -1,12 +1,8 @@
 """
-Wavefront sensor drivers — INGO-T WFS and shared base
-======================================================
+Wavefront sensor drivers
+========================
 
-Drivers for wavefront sensors used on adaptive-optics benches.  The
-INGO-T WFS (Ingot) implements the :class:`~opticalib.core._types._WFSProtocol`
-interface and inherits from
-:class:`~opticalib.devices._API.base_devices.BaseWavefrontSensor`.
-
+Drivers for wavefront sensors used on adaptive-optics benches.
 """
 
 import numpy as _np
@@ -20,7 +16,7 @@ from ..analyzer.image_processing import mode_rebinner as _modeRebinner
 
 
 class Ingot(PupilDetector):
-    """
+    r"""
     Class for the Ingot Wavefront Sensor (IWS).
 
     The I-WFS is a new class of WFS customized to the 3D geometry of the Laser
@@ -80,9 +76,9 @@ class Ingot(PupilDetector):
                 "No valid camera configuration found for Ingot WFS."
             )
         # 2. initialize all the needed parameters
-        super().__init__(config)
+        super().__init__(config, n_pupils=3)
         # 3. Set initial exposure time for the camera
-        self.set_exptime(getattr(self, "_camera_base_exptime", 2000))
+        self.set_exptime(getattr(self, "_camera_base_exptime", 1))
 
     def set_exptime(self, exposure_ms: int) -> None:
         """
@@ -93,8 +89,8 @@ class Ingot(PupilDetector):
         exposure_ms : int
             The desired exposure time in milliseconds.
         """
-        if not exposure_ms == self.exposure_time:
-            self.exposure_time = exposure_ms
+        if not exposure_ms == self._exptime:
+            self._exptime = exposure_ms
             self._camera.set_exptime(
                 exposure_ms * 1000
             )  # Convert ms to microseconds for the camera API
@@ -111,7 +107,7 @@ class Ingot(PupilDetector):
         exposure_ms : int
             The current exposure time in milliseconds.
         """
-        return self.exposure_time
+        return self._exptime
 
     def acquire_detector(self, nframes: int = 1) -> _ot.ImageData:
         """
@@ -135,7 +131,7 @@ class Ingot(PupilDetector):
         self,
         frames: _ot.ImageData | _ot.CubeData | list[_ot.ImageData] | int,
         detect_pupils: bool = False,
-        pupil_order: str = "+y+x",
+        pupil_order: str = "+x+y",
     ) -> _ot.CubeData:
         """
         Function for acquiring the Ingot WFS pupils.
@@ -157,7 +153,7 @@ class Ingot(PupilDetector):
             for descending), while the order of the axes ('x' or 'y') indicates
             the primary and secondary sorting directions.
 
-            Default is '+y+x', which sorts bottom-to-top, left-to-right.
+            Default is '+x+y', which sorts left-to-right, top-to-bottom.
 
         Returns
         -------
@@ -184,7 +180,7 @@ class Ingot(PupilDetector):
         nframes: int = 1,
         output_type: str = "slopes",
         detect_pupils: bool = False,
-        pupil_order: str = "+y+x",
+        pupil_order: str = "+x+y",
     ) -> _ot.ImageData:
         """
         Acquires data from the Ingot WFS.
@@ -211,7 +207,8 @@ class Ingot(PupilDetector):
             for descending), while the order of the axes ('x' or 'y') indicates
             the primary and secondary sorting directions.
 
-            Default is '+y+x', which sorts bottom-to-top, left-to-right.
+            Default is '+x+y', which sorts left-to-right, top-to-bottom (origin 
+            lower-left).
 
         Returns
         -------
@@ -229,7 +226,7 @@ class Ingot(PupilDetector):
 
         if output_type == "slopes":
             Sx, Sy = self._compute_slopes_from_pupils(the_output)
-            the_output = _np.vstack([Sx, Sy])
+            the_output = _np.ma.vstack([Sx, Sy])
 
         return the_output
 
@@ -259,41 +256,39 @@ class Ingot(PupilDetector):
         Sx, Sy : ImageData, ImageData
             The computed slopes Sx and Sy.
         """
-        A = pupil_images[0, :, :]
-        B = pupil_images[1, :, :]
-        C = pupil_images[2, :, :]
-        # Suppress/hide the warning
-        _np.seterr(invalid="ignore")
-        I_tot = A + B + C
-        Sx = (B - C) / I_tot
-        Sy = A / I_tot
-        mask_Sx = _np.isnan(Sx)
-        mask_Sy = _np.isnan(Sy)
-        Sx = _np.ma.masked_array(Sx, mask=mask_Sx)
-        Sy = _np.ma.masked_array(Sy, mask=mask_Sy)
+        with _np.errstate(invalid="ignore"):
+            A = pupil_images[0, :, :]
+            B = pupil_images[1, :, :]
+            C = pupil_images[2, :, :]
+            I_tot = A + B + C
+            Sx = (B - C) / I_tot
+            Sy = A / I_tot
+            mask_Sx = _np.isnan(Sx)
+            mask_Sy = _np.isnan(Sy)
+            Sx = _np.ma.masked_array(Sx, mask=mask_Sx)
+            Sy = _np.ma.masked_array(Sy, mask=mask_Sy)
         return Sx, Sy
 
     def __repr__(self) -> str:
         """The string representation of the Ingot WFS object."""
         return (
-            f"{__class__.__name__}(camera={self._camera._name}, n_pupils={self.n_pupils},"
-            f" exposure_time={self.exposure_time}ms)"
+            f"{__class__.__name__}(camera={self._camera.__repr__()}, n_pupils={self.n_pupils})"
         )
 
 
 class Pyramid(PupilDetector):
-    """
+    r"""
     Pyramid Wavefront Sensor (PWFS) with four circular pupils.
 
     Pupil geometry follows the ArcetriLAB ``PupilDesc`` approach 
     (detect / FITS save-load).
 
-    The pupil order is assumed to be ``-x+y`` (A=TR, B=TL, C=BL, D=BR):
+    The pupil order is assumed to be ``-x+y`` (A=TR, B=TL, C=BR, D=BL):
 
     ```
         B <- A      ┌----> x
-        |    |      |           (in the `origin='upper'` convention)
-        C -> D    y v
+          \         |           (in the `origin='upper'` convention)
+        D <- C    y v
     ```
 
     And slopes are computed as:
@@ -341,12 +336,12 @@ class Pyramid(PupilDetector):
             self._camera = _cam.GigaVision(camera)
         else:
             raise _oe.DeviceNotFoundError(
-                "No valid camera configuration found for Ingot WFS."
+                "No valid camera configuration found for Pyramid WFS."
             )
         # 2. initialize all the needed parameters
-        super().__init__(config)
+        super().__init__(config, n_pupils=4)
         # 3. Set initial exposure time for the camera
-        self.set_exptime(getattr(self, "_camera_base_exptime", 2000))
+        self.set_exptime(getattr(self, "_camera_base_exptime", 1))
 
     def set_exptime(self, exposure_ms: int | float) -> None:
         """
@@ -357,8 +352,8 @@ class Pyramid(PupilDetector):
         exposure_ms : int | float
             Exposure time in milliseconds.
         """
-        if not exposure_ms == self.exposure_time:
-            self.exposure_time = exposure_ms
+        if not exposure_ms == self._exptime:
+            self._exptime = exposure_ms
             self._camera.set_exptime(float(exposure_ms) * 1000.0)
             self._logger.info(
                 f"Pyramid camera integration profile modified to: {exposure_ms}ms"
@@ -366,7 +361,7 @@ class Pyramid(PupilDetector):
 
     def get_exptime(self) -> int | float:
         """Return the configured exposure time in milliseconds."""
-        return self.exposure_time
+        return self._exptime
 
     def set_fps(self, fps: int | float) -> None:
         """
@@ -377,17 +372,17 @@ class Pyramid(PupilDetector):
         fps : int | float
             Frame rate in Hz.
         """
-        if not fps == self.fps:
-            self.fps = float(fps)
+        if not fps == self._camera_fps:
+            self._camera_fps = float(fps)
             if hasattr(self._camera, "set_fps"):
-                self._camera.set_fps(self.fps)
+                self._camera.set_fps(self._camera_fps)
             else:
-                self._camera._cam.setParameter("fps", self.fps)
-            self._logger.info(f"Pyramid camera frame rate set to: {self.fps} Hz")
+                self._camera._cam.setParameter("fps", self._camera_fps)
+            self._logger.info(f"Pyramid camera frame rate set to: {self._camera_fps} Hz")
 
     def get_fps(self) -> float | None:
         """Return the configured camera frame rate in Hz."""
-        return self.fps
+        return self._camera_fps or (1/self._exptime)
 
     def acquire_detector(self, nframes: int = 1) -> _ot.ImageData:
         """
@@ -407,7 +402,7 @@ class Pyramid(PupilDetector):
         pupil_order: str = "-x+y",
     ) -> _ot.CubeData:
         """
-        Function for acquiring the Ingot WFS pupils.
+        Function for acquiring the Pyramid WFS pupils.
 
         It acquires a frame from the camera and extract the pupils in it by using
         the defined pupils informations. If ``detect_pupils`` is set to True,
@@ -456,7 +451,7 @@ class Pyramid(PupilDetector):
         pupil_order: str = "-x+y",
     ) -> _ot.ImageData:
         """
-        Acquires data from the Ingot WFS.
+        Acquires data from the Pyramid WFS.
 
         It can either acquire the pupils, making it equal to the ``acquire_pupils``
         method, or compute the slopes from the pupils, depending on the
@@ -498,25 +493,31 @@ class Pyramid(PupilDetector):
 
         if output_type == "slopes":
             Sx, Sy = self._compute_slopes_from_pupils(the_output)
-            the_output = _np.vstack([Sx, Sy])
+            the_output = _np.ma.vstack([Sx, Sy])
 
         return the_output     
 
-    def _compute_slopes_from_frame(
+    def _compute_slopes_from_pupils(
         self, 
         pupil_images: _ot.CubeData,
     ) -> _np.ndarray:
         """
         Compute slopes from pupil images using the specified pupil geometry.
         """
-        A = pupil_images[0]
-        B = pupil_images[1]
-        C = pupil_images[2]
-        D = pupil_images[3]
+        with _np.errstate(invalid="ignore"):
+            A = pupil_images[0]
+            B = pupil_images[1]
+            C = pupil_images[2]
+            D = pupil_images[3]
 
-        I_tot = A + B + C + D
-        Sx = (A + B - C - D) / I_tot
-        Sy = (B + C - A - D) / I_tot
+            I_tot = A + B + C + D
+            Sx = (A + B - C - D) / I_tot
+            Sy = (B + D - A - C) / I_tot
+
+            mask_Sx = _np.isnan(Sx)
+            mask_Sy = _np.isnan(Sy)
+            Sx = _np.ma.masked_array(Sx, mask=mask_Sx)
+            Sy = _np.ma.masked_array(Sy, mask=mask_Sy)
 
         # if self.norm == "fixed":
         #     if self.norm_factor is None or self.norm_factor == 0:
@@ -548,8 +549,7 @@ class Pyramid(PupilDetector):
 
     def __repr__(self):
         return (
-            f"{__class__.__name__}(camera={self._camera._name}, n_pupils={self.n_pupils},"
-            f" fps={self._camera_fps})"
+            f"{__class__.__name__}(camera={self._camera.__repr__()}, n_pupils={self.n_pupils})"
         )
 
 
