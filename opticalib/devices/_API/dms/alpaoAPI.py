@@ -2,7 +2,7 @@ import numpy as _np
 from opticalib.core.config import get_section_config
 from opticalib.core.exceptions import CommandError
 from opticalib.core import _types as _t
-from .base_devices import BaseDeformableMirror
+from ..base_devices import BaseDeformableMirror
 
 import weakref
 
@@ -387,7 +387,7 @@ class BaseAlpaoMirror(BaseDeformableMirror):
         """
         import os
         import sys
-        from ...core.root import CONFIGURATION_FOLDER
+        from ....core.root import CONFIGURATION_FOLDER
 
         self.serial_number = serial_number
         self.sdk_folder_path = sdk_folder_path

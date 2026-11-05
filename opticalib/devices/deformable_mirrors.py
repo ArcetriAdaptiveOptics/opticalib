@@ -28,7 +28,7 @@ from opticalib.ground.osutils import (
 from opticalib.ground.logger import SystemLogger as _SL
 
 
-from ._API.piAPI import BasePetalMirror
+from ._API.dms.piAPI import BasePetalMirror
 
 
 class PetalMirror(BasePetalMirror):
@@ -185,7 +185,7 @@ class PetalMirror(BasePetalMirror):
             dev.checkerror()
 
 
-from ._API.micAPI import BaseAdOpticaDm
+from ._API.dms.micAPI import BaseAdOpticaDm
 
 
 class AdOpticaDm(BaseAdOpticaDm):
@@ -613,7 +613,7 @@ class M4AU(AdOpticaDm):
             self._borderIds = []
 
 
-from ._API.alpaoAPI import BaseAlpaoMirror
+from ._API.dms.alpaoAPI import BaseAlpaoMirror
 
 
 class AlpaoDm(BaseAlpaoMirror):
@@ -892,7 +892,7 @@ class AlpaoDm(BaseAlpaoMirror):
         return f"{self._name}(n_acts={self.n_acts}, serial='{self.serial_number}')"
 
 
-from ._API.splattAPI import SPLATTEngine
+from ._API.dms.splattAPI import SPLATTEngine
 
 
 class SplattDm(SPLATTEngine):

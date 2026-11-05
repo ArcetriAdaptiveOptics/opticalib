@@ -1,6 +1,6 @@
 import numpy as _np
 from opticalib.core import _types as _ot
-from .base_devices import BaseWavefrontSensor
+from ..base_devices import BaseWavefrontSensor
 from skimage import transform as _transform, feature as _sfeat
 from opticalib.ground.geometry import draw_circular_pupil as _dcp
 

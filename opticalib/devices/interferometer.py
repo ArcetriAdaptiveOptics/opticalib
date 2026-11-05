@@ -17,7 +17,7 @@ import shutil as _sh
 import subprocess as _sb
 
 from ._API.base_devices import BaseWavefrontSensor
-from ._API.i4dAPI import I4D
+from ._API.wfs.i4dAPI import I4D
 from opticalib.core import _types as _ot
 from opticalib.core import root as _fn
 from opticalib.ground import osutils as _osu

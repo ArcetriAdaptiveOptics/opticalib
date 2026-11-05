@@ -103,7 +103,8 @@ DEVICES:
   CAMERAS:
     GigaVision: # example camera
       id: DEV_000F314DE425
-      ip: 
+      ip:
+      buffer_size: # frames kept in memory while streaming (default 100)
   
 # The motor devices usually use the `plico_motor` interface, as their SDK is 
 # not implemented in Linux.

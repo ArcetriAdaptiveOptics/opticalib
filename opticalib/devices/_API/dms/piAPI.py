@@ -4,7 +4,7 @@ from pipython import GCSDevice, GCSError
 from pipython.pidevice.interfaces.pisocket import PISocket
 from opticalib.core import config as _rc
 from opticalib.core.exceptions import CommandError
-from .base_devices import BaseDeformableMirror
+from ..base_devices import BaseDeformableMirror
 
 _CMDLIMITS = {  # temporary limits to overcome the hardware connection refusal
     0: [0, 12],
