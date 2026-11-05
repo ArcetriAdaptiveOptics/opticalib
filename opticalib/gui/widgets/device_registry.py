@@ -87,7 +87,9 @@ class DeviceClass:
         ``'suffix'`` (name suffix, e.g. the model), ``'alpao'`` (number of
         actuators from the name, plus the backend settings of the entry when
         the class cannot read them itself), ``'name'`` (the
-        entry name), ``'camera'`` (the ``camera`` field) or ``'none'``.
+        entry name), ``'camera'`` (the ``camera`` field as a keyword,
+        preceded by the entry name when it is not the class name) or
+        ``'none'``.
     reads : str or None
         Entry the class reads: a fixed name, ``'{suffix}'`` patterns (e.g.
         ``'PhaseCam{suffix}'``), ``'*'`` (the entry passed by name) or
@@ -223,10 +225,10 @@ DEVICE_CLASSES: List[DeviceClass] = [
         "WFS",
         ("ingot",),
         "camera",
-        "INGOT",
+        "*",
         (("camera",),),
         default=True,
-        description="INGOT wavefront sensor",
+        description="Ingot wavefront sensor",
     ),
 ]
 
@@ -653,10 +655,16 @@ def _alpao_args(name: str, suffix: str, conf: Dict[str, Any]) -> Optional[str]:
         return None
     nacts = str(int(suffix))
     settings = _alpao_settings(conf)
-    sdk_ready = all(not _is_empty(settings.get(f)) for f in ("serial_number", "acfg_path"))
-    plico = not sdk_ready and all(not _is_empty(settings.get(f)) for f in _ALPAO_PLICO_FIELDS)
+    sdk_ready = all(
+        not _is_empty(settings.get(f)) for f in ("serial_number", "acfg_path")
+    )
+    plico = not sdk_ready and all(
+        not _is_empty(settings.get(f)) for f in _ALPAO_PLICO_FIELDS
+    )
     own_entry = re.fullmatch(r"alpao\d+", name.lower()) is not None
-    legacy = _is_empty(conf.get("serial_number")) and not _is_empty(conf.get("serialNumber"))
+    legacy = _is_empty(conf.get("serial_number")) and not _is_empty(
+        conf.get("serialNumber")
+    )
     if own_entry and not legacy:
         return nacts + (", use_plico=True" if plico else "")
     fields = _ALPAO_PLICO_FIELDS if plico else _ALPAO_SDK_FIELDS
@@ -691,7 +699,11 @@ def _constructor_args(
         camera = conf.get("camera")
         if _is_empty(camera):
             return None
-        return repr(str(camera).split(":")[-1].strip())
+        camera_arg = f"camera={str(camera).split(':')[-1].strip()!r}"
+        # The entry name is the first argument, defaulting to the class name.
+        if name.lower() == device_class.name.lower():
+            return camera_arg
+        return f"{name!r}, {camera_arg}"
     return None
 
 

@@ -417,8 +417,11 @@ reason. *Set up…* opens a dialog to choose the class and the variable name,
 preview and edit the command, and optionally save the `class:` key in the
 entry (only that line is added; comments are preserved).
 
-Device classes look up their entry by name: `Ingot` reads `INGOT`,
-`PetalMirror` reads `PetalDM`, `PhaseCam("6110")` reads `PhaseCam6110`. The
+Device classes look up their entry by name: `Ingot` reads `Ingot` (or the
+entry passed as `name`, its first argument), `PetalMirror` reads `PetalDM`,
+`PhaseCam("6110")` reads `PhaseCam6110`. A `WFS` entry with a `camera` field
+connects as `Ingot(camera='GigaVision')`, or `Ingot('LabWFS', camera=...)`
+when the entry has another name. The
 lookup ignores case, so `Ingot` or `phasecam6110` work too, in the GUI and in
 scripts.
 

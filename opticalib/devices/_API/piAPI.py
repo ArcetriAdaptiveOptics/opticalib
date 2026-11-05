@@ -221,7 +221,7 @@ class BasePetalMirror(BaseDeformableMirror):
         )
         # for k in range(self.n_segments):
         #     if not all(
-        #         _CMDLIMITS[ax][0] <= c <= _CMDLIMITS[ax][1] 
+        #         _CMDLIMITS[ax][0] <= c <= _CMDLIMITS[ax][1]
         #          for ax, c in enumerate(cmd[k * 3 : k * 3 + 3])
         #     ):
         #         return False
@@ -239,7 +239,8 @@ class BasePetalMirror(BaseDeformableMirror):
         if not self._check_cmd_integrity(pos):
             self._logger.warning(
                 "Initial actuator positions are not within command limits. "
-                "Setting to mid-range.")
+                "Setting to mid-range."
+            )
             midpoint = lambda v: (v[0] + v[1]) / 2
             pos = np.asarray(
                 [midpoint(_CMDLIMITS[ax]) for ax in range(3)] * self.n_segments

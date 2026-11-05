@@ -30,6 +30,7 @@ from opticalib.ground.logger import SystemLogger as _SL
 
 from ._API.piAPI import BasePetalMirror
 
+
 class PetalMirror(BasePetalMirror):
     """
     Petal Deformable Mirror interface.
@@ -185,6 +186,7 @@ class PetalMirror(BasePetalMirror):
 
 
 from ._API.micAPI import BaseAdOpticaDm
+
 
 class AdOpticaDm(BaseAdOpticaDm):
     """
@@ -613,6 +615,7 @@ class M4AU(AdOpticaDm):
 
 from ._API.alpaoAPI import BaseAlpaoMirror
 
+
 class AlpaoDm(BaseAlpaoMirror):
     """
     Alpao Deformable Mirror interface.
@@ -891,6 +894,7 @@ class AlpaoDm(BaseAlpaoMirror):
 
 from ._API.splattAPI import SPLATTEngine
 
+
 class SplattDm(SPLATTEngine):
     """
     SPLATT deformable mirror interface.
@@ -964,9 +968,7 @@ class SplattDm(SPLATTEngine):
                     cmd = cmd + s
                 self.set_shape(cmd)
                 if read_buffers is True:
-                    pos, cur, bufTN = self.read_buffers(
-                        external=True, n_samples=300
-                    )
+                    pos, cur, bufTN = self.read_buffers(external=True, n_samples=300)
                     path = _os.path.join(datafold, f"buffer_{i:05d}.fits")
                     hdr_dict = {"BUF_TN": str(bufTN)}
                     _sf(path, [pos, cur], hdr_dict)

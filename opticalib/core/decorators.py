@@ -246,4 +246,4 @@ def _build_call_arguments(
     return args, kwargs
 
 
-__all__ = ["expand_list_arguments", "vmbpy_reconnect", "ReconnectionError"]
+__all__ = ["expand_list_arguments", "allow_reconnect", "ReconnectionError"]

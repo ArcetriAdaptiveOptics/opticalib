@@ -631,9 +631,7 @@ class ImageParam(KernelArrayParam):
     def accepts(self, item: Dict[str, Any]) -> bool:
         """Two-dimensional arrays with a full mask."""
         return (
-            super().accepts(item)
-            and _ndim(item) == 2
-            and bool(item.get("full_mask"))
+            super().accepts(item) and _ndim(item) == 2 and bool(item.get("full_mask"))
         )
 
 
@@ -667,9 +665,7 @@ class CubeParam(KernelArrayParam):
     def accepts(self, item: Dict[str, Any]) -> bool:
         """Three-dimensional arrays with a full mask."""
         return (
-            super().accepts(item)
-            and _ndim(item) == 3
-            and bool(item.get("full_mask"))
+            super().accepts(item) and _ndim(item) == 3 and bool(item.get("full_mask"))
         )
 
 
