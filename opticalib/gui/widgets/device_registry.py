@@ -87,7 +87,9 @@ class DeviceClass:
         ``'suffix'`` (name suffix, e.g. the model), ``'alpao'`` (number of
         actuators from the name, plus the backend settings of the entry when
         the class cannot read them itself), ``'name'`` (the
-        entry name), ``'camera'`` (the ``camera`` field) or ``'none'``.
+        entry name), ``'camera'`` (the ``camera`` field as a keyword,
+        preceded by the entry name when it is not the class name) or
+        ``'none'``.
     reads : str or None
         Entry the class reads: a fixed name, ``'{suffix}'`` patterns (e.g.
         ``'PhaseCam{suffix}'``), ``'*'`` (the entry passed by name) or
@@ -223,7 +225,7 @@ DEVICE_CLASSES: List[DeviceClass] = [
         "WFS",
         ("ingot",),
         "camera",
-        "Ingot",
+        "*",
         (("camera",),),
         default=True,
         description="Ingot wavefront sensor",
@@ -697,7 +699,11 @@ def _constructor_args(
         camera = conf.get("camera")
         if _is_empty(camera):
             return None
-        return repr(str(camera).split(":")[-1].strip())
+        camera_arg = f"camera={str(camera).split(':')[-1].strip()!r}"
+        # The entry name is the first argument, defaulting to the class name.
+        if name.lower() == device_class.name.lower():
+            return camera_arg
+        return f"{name!r}, {camera_arg}"
     return None
 
 

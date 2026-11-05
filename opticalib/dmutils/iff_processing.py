@@ -1034,7 +1034,7 @@ def _resolve_normalization_factor(
             return 1.0
         return  2 * max(T - 1, 1) * A
     # Flat scaling factor applied to the data
-    if _ot.isinstance_(normalization, "Number"):
+    if _ot.isinstance_(normalization, "RealNumber"):
         return normalization
 
     raise ValueError(f"Unsupported normalization type: {type(normalization)}")

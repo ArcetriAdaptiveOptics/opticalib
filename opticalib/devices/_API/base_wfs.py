@@ -34,7 +34,7 @@ class PupilDetector(BaseWavefrontSensor):
             "n_pupils": ("n_pupils", n_pupils),
             "_dr": ("delta_r",0),
             "sigma_threshold": ("sigma_threshold",2),
-            "_pupil_diameter": ("subapertures",0),
+            "_pupil_diameter": ("subapertures",1),
             "_pupil_centers": ("pupils_centers",None),
             "_camera_binning": ("camera_binning",1),
             "_camera_base_exptime": ("camera_base_exptime",1),

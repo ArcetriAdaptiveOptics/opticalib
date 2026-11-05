@@ -171,7 +171,7 @@ class TestConstructor:
         assert w.sigma_threshold == 2
         assert w._pupil_radius == 0
         assert w._dr == 0
-        assert w._pupil_diameter == 0
+        assert w._pupil_diameter == 1
         assert w._camera_fps == 1
         assert w._camera_base_exptime == 1
         assert w.pupil_info is None
@@ -345,9 +345,9 @@ class TestPyramidFps:
         assert cam.params == {"fps": 25.0}
 
     def test_get_fps_from_exptime_when_unset(self, pyramid):
-        """With no fps configured, fps = 1/exptime."""
+        """With no fps configured, fps = 1000/exptime (exptime in ms)."""
         w, _ = pyramid
-        assert w.get_fps() == pytest.approx(1 / 5)
+        assert w.get_fps() == pytest.approx(1000.0 / 5)
 
 
 class TestAcquireDetector:

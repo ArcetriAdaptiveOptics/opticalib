@@ -383,13 +383,6 @@ def superimshow(
     if not isinstance(data, np.ndarray):
         data = np.ma.dstack(data)
 
-    # Some kind of check to ensure the cube has the correct shape and orientation
-    # but it's weak
-    if _ot.isinstance_(data, "CubeData"):
-        H, W, N = data.shape
-        if not all((dim > N for dim in (H, W)) and (H == W)):
-            data = data.transpose(1,2,0)
-
     Nplots = data.shape[-1]
     titles = (
         [f"{i}" for i in range(Nplots)]

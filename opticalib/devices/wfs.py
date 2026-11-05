@@ -180,7 +180,7 @@ class Ingot(PupilDetector):
         nframes: int = 1,
         output_type: str = "slopes",
         detect_pupils: bool = False,
-        pupil_order: str = "+x+y",
+        pupil_order: str = "+y+x",
     ) -> _ot.ImageData:
         """
         Acquires data from the Ingot WFS.
@@ -207,7 +207,7 @@ class Ingot(PupilDetector):
             for descending), while the order of the axes ('x' or 'y') indicates
             the primary and secondary sorting directions.
 
-            Default is '+x+y', which sorts left-to-right, top-to-bottom (origin 
+            Default is '+y+x', which sorts top-to-bottom, left-to-right (origin 
             lower-left).
 
         Returns
@@ -374,15 +374,18 @@ class Pyramid(PupilDetector):
         """
         if not fps == self._camera_fps:
             self._camera_fps = float(fps)
-            if hasattr(self._camera, "set_fps"):
-                self._camera.set_fps(self._camera_fps)
-            else:
-                self._camera._cam.setParameter("fps", self._camera_fps)
+            try:
+                if hasattr(self._camera, "set_fps"):
+                    self._camera.set_fps(self._camera_fps)
+                else:
+                    self._camera._cam.setParameter("fps", self._camera_fps)
+            except Exception as e:
+                self._logger.error(f"Failed to set Pyramid camera frame rate: {e}")
             self._logger.info(f"Pyramid camera frame rate set to: {self._camera_fps} Hz")
 
     def get_fps(self) -> float | None:
         """Return the configured camera frame rate in Hz."""
-        return self._camera_fps or (1/self._exptime)
+        return self._camera_fps or (1000.0/self._exptime)
 
     def acquire_detector(self, nframes: int = 1) -> _ot.ImageData:
         """
