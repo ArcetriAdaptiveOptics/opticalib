@@ -43,7 +43,7 @@ from typing import (
 )
 import collections.abc
 import numpy as _np
-from numpy.typing import ArrayLike, DTypeLike
+from numpy.typing import ArrayLike, DTypeLike 
 from astropy.io.fits import Header
 
 if TYPE_CHECKING:
@@ -397,6 +397,22 @@ class InstanceCheck:
         if class_name not in generic_class_map:
             raise ValueError(f"Class {class_name} not found in the current context.")
         return isinstance(obj, generic_class_map[class_name])
+    
+    @staticmethod
+    def is_number(obj: Any, class_name: str) -> bool:
+        """
+        Checks whether the passed objects conform to the ``Number`` type 
+        (real number).
+        """
+        import numbers
+        
+        if "Real" in class_name:
+            type = numbers.Real
+        else:
+            type = numbers.Number
+
+        return isinstance(obj, type)
+        
 
     @classmethod
     def isinstance_(cls, obj: Any, class_name: str) -> bool:
@@ -418,6 +434,8 @@ class InstanceCheck:
             True if obj is an instance of the specified class, otherwise False.
         """
         checks: dict[str, Callable[..., bool]] = {
+            "RealNumber": cls.is_number,
+            "Number": cls.is_number,
             "MatrixLike": cls.is_matrix_like,
             "MaskData": cls.is_mask_like,
             "ImageData": cls.is_image_like,

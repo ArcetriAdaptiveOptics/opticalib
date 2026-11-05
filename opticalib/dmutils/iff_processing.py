@@ -8,9 +8,6 @@ amplitude extraction, and cube assembly.  The main entry point is
 :func:`process`, keyed by tracking number.
 
 """
-
-import os as _os
-
 import os as _os
 import numpy as _np
 import shutil as _sh
@@ -22,7 +19,11 @@ from opticalib.core import _types as _ot
 from ..core import config as _rif
 from concurrent.futures import ThreadPoolExecutor as _tpe
 from ..analyzer import image_processing as _ip
-from ..ground import modal_decomposer as _zern, osutils as _osu, roi as _roi
+from ..ground import (
+    modal_decomposer as _zern,
+    osutils as _osu,
+    roi as _roi
+)
 from ..core.decorators import expand_list_arguments as _expand_list_arguments
 
 _fn = folders
@@ -49,6 +50,7 @@ def process(
     save: bool = False,
     rebin: int = 1,
     *,
+    normalization: _ot.Number|bool = True,
     trigger_roi: int | None = None,
     nworkers: int = 2,
     nmode_prefetch: int = 1,
@@ -70,13 +72,33 @@ def process(
     rebin : int, optional
         Rebinning factor to apply to the images before stacking them into the
         cube. The default is 1, which means no rebinning.
+    normalization : number or bool or str, optional
+        Normalization to apply to the processed final images.
+        - If a number is provided, it is used as a scaling factor.
+        - If True, automatic normalization is applied.
+        - If False, no normalization is applied.
+        
+        The default is True, which defaults to the normalization factor:
+
+        ..math::
+            \text{norm_{i}} = 2\\,max(T-1,1) \\cdot A_i
+        
+        where
+        - T is the number of frames in the push-pull template sequence.
+        - A_i is the amplitude of the i-th mode.
+        - norm_i is the corresponding normalization factor for the i-th mode.
     trigger_roi : int, optional
-        If not None, it defines the size of the square ROI to be used for the
-        registration algorithm. The default is None.
+        If not None, it defines the roi to which the trigger mode is applied
+        at the start of the sequence. The default is None.
     nworkers : int, optional
-        Number of workers to use for the processing. The default is 2.
+        Number of workers (threads) to use for the processing. A higher value
+        will assign more threads for the parallel modes prefetching. 
+        
+        The default is 2.
     nmode_prefetch : int, optional
-        Number of modes to prefetch during the processing. The default is 1.
+        Number of modes to prefetch during the processing. 
+        
+        The default is 1.
     """
     info = _get_acq_par(tn)
     if not info["FILES"]["modes_list"].dtype.type is _np.int_:
@@ -108,6 +130,7 @@ def process(
         modeList=info["IFFUNC"]["modes_list"],
         template=info["FILES"]["template"],
         n_repetitions=info["FILES"]["n_repetitions"],
+        normalization=normalization,
         io_workers=nworkers,
         prefetch=nmode_prefetch,
     )
@@ -593,6 +616,7 @@ def iff_redux(
     modeList: _ot.ArrayLike,
     template: _ot.ArrayLike,
     n_repetitions: int = 1,
+    normalization: _ot.Number|bool = True,
     *,
     io_workers: int = 1,
     prefetch: int = 0,
@@ -621,6 +645,15 @@ def iff_redux(
         Template for the push-pull command actuation.
     n_repetitions : int, optional
         Number of repetitions for each mode. The default is 1.
+    normalization : number or bool, optional
+        Normalization factor or method to be used for the push-pull analysis.
+        - If a number is provided, it is used as a flat scaling factor.
+        - If True, the default normalization is applied provided by the differential
+            algorithm formula, which scales by 2 * max(T - 1, 1) * A.
+        - If False, no normalization is applied and a flat scaling factor of 1 
+        is used.
+
+        The default is True.
     io_workers : int, optional
         Number of threads to use for I/O prefetching. The default is 1.
     prefetch : int, optional
@@ -628,7 +661,6 @@ def iff_redux(
 
     Notes on performance
     --------------------
-
     - I/O is overlapped with computation via a small prefetch window.
     - io_workers controls the number of threads used to prefetch mode blocks.
     - prefetch controls how many future modes to keep in-flight.
@@ -669,7 +701,7 @@ def iff_redux(
     # just to be sure...
     io_workers = max(1, int(io_workers))
     prefetch = max(0, int(prefetch))
-
+    
     with _tpe(max_workers=io_workers) as ex:
         futures: dict[int, _ot.Any] = {}
 
@@ -692,13 +724,16 @@ def iff_redux(
 
             sum_data: _ot.ImageData = None
             union_mask = None
+            normfact = _resolve_normalization_factor(
+                normalization, T=T, A=ampVect[mode_idx]
+            )
 
             for rep_idx in range(N):
                 imgs = futures.pop((rep_idx, mode_idx)).result()
                 red = push_pull_reduction_algorithm(
                     imgs,
                     template,
-                    normalization=max(len(template) - 1, 1) * 2 * ampVect[mode_idx],
+                    normalization=normfact,
                 )
 
                 if sum_data is None:
@@ -841,8 +876,10 @@ def get_trigger_frame(
         rr2check = _np.nanstd(zfit.remove_zernike(img1 - img0, [1, 2, 3]))
         print(f"Frame {i-1}: std = {rr2check:.2e}")
         if go > infoT["trailing_zeros"] + 1:
-            msg = f"Frame {go}. Heading Zeros exceeded: std = {rr2check:.2e} < {thresh:.2e} (Amp/sqrt(3))"
-            raise RuntimeError(msg)
+            raise RuntimeError(
+                f"Frame {go}. Heading Zeros exceeded: std = "
+                f"{rr2check:.2e} < {thresh:.2e} (Amp/sqrt(3))"
+            )
         if rr2check > thresh:
             print(f"↑ Trigger Frame found!")
             go = 0
@@ -969,6 +1006,38 @@ def get_iff_file_matrix(tn: str, info: dict[str, _ot.Any]) -> _ot.ArrayLike:
     )  # [N, M, T]
     return iffMat
 
+def _resolve_normalization_factor(
+    normalization: _ot.Number|bool,
+    T: int,
+    A: float,
+) -> _ot.Number|callable:
+    """
+    Resolve the normalization factor based on the input type.
+
+    Parameters
+    ----------
+    normalization : number or bool
+        The normalization parameter to resolve.
+    T : int
+        The template length, used for default normalization.
+    A : float
+        The amplitude, used for default normalization.
+
+    Returns
+    -------
+    norm : float
+        The resolved normalization factor or function.
+    """
+    # Default normalization method based on the push-pull template sequence length
+    if isinstance(normalization, bool):
+        if not normalization:
+            return 1.0
+        return  2 * max(T - 1, 1) * A
+    # Flat scaling factor applied to the data
+    if _ot.isinstance_(normalization, "RealNumber"):
+        return normalization
+
+    raise ValueError(f"Unsupported normalization type: {type(normalization)}")
 
 def _modes_matrix_reorganization(
     modesMat: _ot.MatrixLike, info: dict[str, _ot.Any]

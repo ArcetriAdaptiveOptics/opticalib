@@ -76,9 +76,11 @@ class TestResolution:
             ("DEFORMABLE.MIRRORS", "AdOpticaDM", {}, "AdOpticaDm", "dm = devices.AdOpticaDm()"),
             ("CAMERAS", "GigaVision", {"id": "c"}, "GigaVision", "cam = devices.GigaVision('GigaVision')"),
             ("CAMERAS", "Guide", {"ip": "c"}, "GigaVision", "cam = devices.GigaVision('Guide')"),
-            ("WFS", "Ingot", {"camera": "CAMERAS:GigaVision"}, "Ingot", "wfs = devices.Ingot('GigaVision')"),
-            ("WFS", "Ingot", {"camera": "CAMERAS:GigaVision"}, "Ingot", "wfs = devices.Ingot('GigaVision')"),
-            ("WFS", "ingot", {"camera": "CAMERAS:GigaVision"}, "Ingot", "wfs = devices.Ingot('GigaVision')"),
+            ("WFS", "Ingot", {"camera": "CAMERAS:GigaVision"}, "Ingot", "wfs = devices.Ingot(camera='GigaVision')"),
+            ("WFS", "ingot", {"camera": "CAMERAS:GigaVision"}, "Ingot", "wfs = devices.Ingot(camera='GigaVision')"),
+            ("WFS", "Ingot2", {"camera": "CAMERAS:GigaVision"}, "Ingot", "wfs = devices.Ingot('Ingot2', camera='GigaVision')"),
+            ("WFS", "LabWFS", {"camera": "CAMERAS:GigaVision"}, "Ingot", "wfs = devices.Ingot('LabWFS', camera='GigaVision')"),
+            ("WFS", "LabWFS", {"class": "Ingot", "camera": "Guide"}, "Ingot", "wfs = devices.Ingot('LabWFS', camera='Guide')"),
         ],
     )
     def test_ready_entries(self, section, name, conf, cls, command):
@@ -114,6 +116,7 @@ class TestResolution:
             ("INTERFEROMETERS", "PhaseCamX", {"ip": None, "port": ""}, "Missing: ip, port."),
             ("CAMERAS", "GigaVision", {}, "Missing: id or ip."),
             ("WFS", "Ingot", {}, "Cannot build the Ingot arguments"),
+            ("WFS", "LabWFS", {"camera": ""}, "Missing: camera."),
             ("DEFORMABLE.MIRRORS", "AlpaoXXX", {"serial_number": "B", "acfg_path": "/a"}, "name the entry Alpao<number of actuators> or AlpaoDm<number of actuators>"),
             ("DEFORMABLE.MIRRORS", "AlpaoDm", {"serial_number": "B", "acfg_path": "/a"}, "name the entry Alpao<number"),
             ("DEFORMABLE.MIRRORS", "Alpao88", {}, "Missing: serial_number, acfg_path or plico_ip, plico_port."),
@@ -269,7 +272,7 @@ class TestDevicePanel:
         ready = panel.card("cfg:WFS:Ingot")
         assert ready.display_status == "disconnected"
         assert ready._button.text() == "Connect"
-        assert ready.connect_code().endswith("wfs = devices.Ingot('GigaVision')")
+        assert ready.connect_code().endswith("wfs = devices.Ingot(camera='GigaVision')")
         setup = panel.card("cfg:INTERFEROMETERS:PhaseCamX")
         assert setup.display_status == "setup"
         assert setup._button.text() == "Set up…"

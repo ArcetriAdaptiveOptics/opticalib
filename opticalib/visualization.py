@@ -377,13 +377,12 @@ def superimshow(
     axs : numpy.ndarray
         Array of axes objects corresponding to each subplot.
     """
-    # TODO: add the possibility to set the axis off. Useful for small images.
-
     import matplotlib.pyplot as plt
     from mpl_toolkits.axes_grid1 import make_axes_locatable
 
     if not isinstance(data, np.ndarray):
         data = np.ma.dstack(data)
+
     Nplots = data.shape[-1]
     titles = (
         [f"{i}" for i in range(Nplots)]
