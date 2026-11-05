@@ -519,32 +519,6 @@ class Pyramid(PupilDetector):
             Sx = _np.ma.masked_array(Sx, mask=mask_Sx)
             Sy = _np.ma.masked_array(Sy, mask=mask_Sy)
 
-        # if self.norm == "fixed":
-        #     if self.norm_factor is None or self.norm_factor == 0:
-        #         raise ValueError("norm='fixed' requires a non-zero norm_factor")
-        #     factor = 1.0 / float(self.norm_factor)
-        #     sx = (A + B - C - D) * factor
-        #     sy = (B + C - A - D) * factor
-        # elif self.norm == "shlike":
-        #     sx = A + B - C - D
-        #     sy = B + C - A - D
-        #     flux_clamped = _np.where(I_tot > 0, I_tot, 1.0)
-        #     sx = sx / flux_clamped
-        #     sy = sy / flux_clamped
-        # elif self.norm == "none":
-        #     if I_tot <= 0 or A.size == 0:
-        #         raise ValueError("Invalid flux: total intensity must be positive"
-        #                          " and number of subapertures must be non-zero")    
-        #     sx = _np.zeros(A.size, dtype=_np.float64)
-        #     sy = _np.zeros(A.size, dtype=_np.float64)
-        # else:  # norm == "total"
-        #     if I_tot <= 0 or A.size == 0:
-        #         raise ValueError("Invalid flux: total intensity must be positive"
-        #                          " and number of subapertures must be non-zero")
-        #     factor = A.size / I_tot
-        #     sx = (A + B - C - D) * factor
-        #     sy = (B + C - A - D) * factor
-
         return Sx, Sy
 
     def __repr__(self):
