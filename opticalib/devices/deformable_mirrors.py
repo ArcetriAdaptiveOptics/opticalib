@@ -141,6 +141,7 @@ class PetalMirror(BasePetalMirror):
                 else:
                     tn = save
                     datafold = _os.path.join(_opdi, tn)
+                    _os.makedirs(datafold, exist_ok=True)
                 print(f"{tn} - {self._cmd_history.shape[-1]} images to go.")
 
             self._logger.info(f"Acquiring {tn} - {self._cmd_history.shape[-1]} images")
@@ -157,7 +158,7 @@ class PetalMirror(BasePetalMirror):
                 self.set_shape(cmd, **setshape_kwargs, slaving=slaving)
 
                 if wfs is not None:
-                    _time.sleep(iff_config["delay"])
+                    _time.sleep(iff_config["sequential_delay"])
                     img = wfs.acquire_map()
                     _sf(_os.path.join(datafold, f"image_{i:05d}.fits"), img)
 

@@ -17,7 +17,7 @@ from ..analyzer.image_processing import mode_rebinner as _modeRebinner
 
 class Ingot(PupilDetector):
     r"""
-    Class for the Ingot Wavefront Sensor (IWS).
+    Class for the Ingot Wavefront Sensor (IWFS).
 
     The I-WFS is a new class of WFS customized to the 3D geometry of the Laser
     Guide Stars (LGS). It consists of a prismatic structure that splits the LGS
@@ -278,7 +278,7 @@ class Ingot(PupilDetector):
 
 class Pyramid(PupilDetector):
     r"""
-    Pyramid Wavefront Sensor (PWFS) with four circular pupils.
+    Pyramid Wavefront Sensor (PyWFS) with four circular pupils.
 
     Pupil geometry follows the ArcetriLAB ``PupilDesc`` approach 
     (detect / FITS save-load).

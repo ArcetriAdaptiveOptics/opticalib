@@ -453,6 +453,8 @@ def load_cube_from_filelist(
         fl = get_file_list(fold=fold, key=key)
     else:
         fl = tn_or_fl
+    if len(fl) == 1:
+        return _np.expand_dims(_fa.fits_array(fl[0]), axis=2)
     cube = create_cube(fl)
     return cube
 

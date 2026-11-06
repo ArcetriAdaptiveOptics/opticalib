@@ -329,9 +329,10 @@ def cube_roi_processing(
     )
     load_path = _os.path.join(_fn.INTMAT_ROOT_FOLDER, tn)
 
-    cube = _osu.load_fits(_os.path.join(load_path, "IMCube.fits")).transpose(2, 0, 1)
+    cube = _osu.load_fits(_os.path.join(load_path, _CUBE_FILE)).transpose(2, 0, 1)
     cmdmat = _osu.load_fits(_os.path.join(load_path, _MATRIX_FILE))
     modesvec = _osu.load_fits(_os.path.join(load_path, _MODES_FILE))
+    ampvec = _osu.load_fits(_os.path.join(load_path, _AMP_FILE))
 
     zfitter = _zern.ZernikeFitter(fitting_mask)
 
@@ -341,7 +342,7 @@ def cube_roi_processing(
         activeRoi = _roi.roi_generator(v).pop(activeRoiID)  # type: ignore
 
         # We do Global ROI Fitting here:
-        # Doing Local ROI fitting is equivalent (then right) only the there are
+        # Doing Local ROI fitting is equivalent (then right) only when there are
         # two ROIs, which is not the case in general.
         if tt_detrend:
             r2rImage = v.copy()
@@ -385,9 +386,10 @@ def cube_roi_processing(
     if not _os.path.exists(save_path):
         _os.makedirs(save_path)
 
-    _osu.save_fits(_os.path.join(save_path, "IMCube.fits"), newcube, overwrite=True)
+    _osu.save_fits(_os.path.join(save_path, _CUBE_FILE), newcube, overwrite=True)
     _osu.save_fits(_os.path.join(save_path, _MATRIX_FILE), cmdmat, overwrite=True)
     _osu.save_fits(_os.path.join(save_path, _MODES_FILE), modesvec, overwrite=True)
+    _osu.save_fits(_os.path.join(save_path, _AMP_FILE), ampvec, overwrite=True)
 
     return newtn
 
@@ -537,9 +539,6 @@ def add_mode_to_cube(
     mode_img : ImageData
         Image of the mode to add.
 
-    Returns
-    -------
-    None
     """
     cube_path = _os.path.join(_intMatFold, tn, _CUBE_FILE)
     cmdmat_path = _os.path.join(_intMatFold, tn, _MATRIX_FILE)
