@@ -61,6 +61,10 @@ _NREP = "n_repetitions"
 _items = [_TZERO, _MODEID, _MODEAMP, _TEMPLATE, _MODALBASE, _SHUFFLE, _NREP]
 _IFSECTIONS = ["TRIGGER", "REGISTRATION", "IFFUNC"]
 
+### ------------------------------------------------------------------------ ###
+# |              Path and YAML loading/dumping utilities                      |#
+### ------------------------------------------------------------------------ ###
+
 
 def _paths_equal(a: str, b: str) -> bool:
     """Return True when *a* and *b* refer to the same path (OS-normalized)."""
@@ -144,7 +148,7 @@ def dump(config: dict[str, _Any], path: str | None = None) -> None:
     ----------
     config : dict
         The configuration dictionary to write.
-    bpath : str, optional
+    path : str, optional
         Base path of the file to write. Default points to the configuration root folder.
     """
     fname = _resolve_config_path(path)
@@ -164,6 +168,11 @@ def dump_yaml_config(config: dict[str, _Any], path: str | None = None) -> None:
     Backward-compatible wrapper for :func:`dump`.
     """
     dump(config, path)
+
+
+### ------------------------------------------------------------------------ ###
+# |                   General configuration section handling                  |#
+### ------------------------------------------------------------------------ ###
 
 
 class DeviceSection(dict):
@@ -217,6 +226,52 @@ class DeviceSection(dict):
 
     def get(self, name: _Any, default: _Any = None) -> _Any:
         return dict.get(self, self.resolve(name), default)
+
+
+class LazySection(_Mapping):
+    """
+    A section of ``configuration.yaml``, read when it is used.
+
+    Modules that need a section at import time use it instead of reading the
+    file immediately, so that an experiment that does not define the
+    section (or sets it to ``null``) can still import opticalib.  A missing
+    section reads as empty; ``section[key]`` then raises a ``KeyError``
+    naming the section.  The file is read on every access, so the values
+    follow :func:`opticalib.set_configuration_file`.
+
+    Parameters
+    ----------
+    section : str
+        Top-level section name.
+    """
+
+    def __init__(self, section: str) -> None:
+        """Remember the section; nothing is read yet."""
+        self._section = section
+
+    def _load(self) -> dict[str, _Any]:
+        try:
+            data = get_section_config(self._section)
+        except KeyError:
+            data = None
+        return dict(data) if isinstance(data, dict) else {}
+
+    def __getitem__(self, key: str) -> _Any:
+        data = self._load()
+        if key not in data:
+            raise KeyError(
+                f"`{key}` not found in the `{self._section}` section of the configuration file"
+            )
+        return data[key]
+
+    def __iter__(self):
+        return iter(self._load())
+
+    def __len__(self) -> int:
+        return len(self._load())
+
+    def __repr__(self) -> str:
+        return f"LazySection({self._section!r})"
 
 
 def _get_section_config(
@@ -277,52 +332,6 @@ def get_section_config(section: str, sub_section: str | None = None) -> dict[str
     return _get_section_config(section=section, sub_section=sub_section, path=_cfile)
 
 
-class LazySection(_Mapping):
-    """
-    A section of ``configuration.yaml``, read when it is used.
-
-    Modules that need a section at import time use it instead of reading the
-    file immediately, so that an experiment that does not define the
-    section (or sets it to ``null``) can still import opticalib.  A missing
-    section reads as empty; ``section[key]`` then raises a ``KeyError``
-    naming the section.  The file is read on every access, so the values
-    follow :func:`opticalib.set_configuration_file`.
-
-    Parameters
-    ----------
-    section : str
-        Top-level section name.
-    """
-
-    def __init__(self, section: str) -> None:
-        """Remember the section; nothing is read yet."""
-        self._section = section
-
-    def _load(self) -> dict[str, _Any]:
-        try:
-            data = get_section_config(self._section)
-        except KeyError:
-            data = None
-        return dict(data) if isinstance(data, dict) else {}
-
-    def __getitem__(self, key: str) -> _Any:
-        data = self._load()
-        if key not in data:
-            raise KeyError(
-                f"`{key}` not found in the `{self._section}` section of the configuration file"
-            )
-        return data[key]
-
-    def __iter__(self):
-        return iter(self._load())
-
-    def __len__(self) -> int:
-        return len(self._load())
-
-    def __repr__(self) -> str:
-        return f"LazySection({self._section!r})"
-
-
 def get_device_config(device_type: str, device_name: str | None = None):
     """
     Retrieves the device configuration from the YAML configuration file.
@@ -351,20 +360,9 @@ def get_device_config(device_type: str, device_name: str | None = None):
     return config
 
 
-def get_phasing_config():
-    """
-    Retrieves the phasing configuration from the YAML configuration file.
-
-    Returns
-    -------
-    config : dict
-        The phasing configuration dictionary.
-    """
-    try:
-        return get_section_config("PHASING")
-    except KeyError:
-        raise KeyError("Phasing configuration not found in the YAML file.")
-
+### ------------------------------------------------------------------------ ###
+# |              IFF configuration section handling                           |#
+### ------------------------------------------------------------------------ ###
 
 def get_iff_config(key: str | None, bpath: str = _cfold):
     """
@@ -493,128 +491,22 @@ def update_iff_config(tn: str, item: str | list[str], value: _Any | list[_Any]):
         config[key][item] = str(value)
     dump(config, file)
 
+### ------------------------------------------------------------------------ ###
+# |                           General utilities                               |#
+### ------------------------------------------------------------------------ ###
 
-def update_config_file(key: str, item: str, value: _Any, bpath: str = _cfold):
+def get_configuration_version() -> str:
     """
-    Updates the YAML configuration file for the IFF acquisition.
-    The key passed is within the INFLUENCE.FUNCTIONS section.
-
-    Parameters
-    ----------
-    key : str
-        Key of the block to update (e.g., 'TRIGGER', 'REGISTRATION', 'IFFUNC').
-    item : str
-        The configuration item to update.
-    value : any
-        New value to update.
-    bpath : str, optional
-        Base path of the configuration file.
-    """
-    import warnings
-
-    warnings.warn(
-        "update_config_file is deprecated. Use update_iff_config instead.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    if _iff_config_file not in bpath:
-        fname = _os.path.join(bpath, _iff_config_file)
-    else:
-        fname = bpath
-    config = load(bpath)
-    if key not in config["INFLUENCE.FUNCTIONS"]:
-        raise KeyError(f"Configuration section `{key}` not found in the YAML file")
-    if item not in _items:
-        raise KeyError(f"Item `{item}` not found in the configuration file")
-    # Update the value (convert np.ndarray to list if needed)
-    if isinstance(value, _np.ndarray):
-        vmax = _np.max(value)
-        vmin = _np.min(value)
-        if _np.array_equal(value, _np.arange(vmin, vmax + 1)):
-            config["INFLUENCE.FUNCTIONS"][key][
-                item
-            ] = f'"np.arange({vmin}, {vmax + 1})"'
-        else:
-            config["INFLUENCE.FUNCTIONS"][key][item] = str(value.tolist())
-    else:
-        config["INFLUENCE.FUNCTIONS"][key][item] = str(value)
-    dump(config, bpath)
-
-
-def get_n_acts(bpath: str = _cfold):
-    """
-    Retrieves the number of actuators from the YAML configuration file.
-
-    Parameters
-    ----------
-    bpath : str, optional
-        Base path of the configuration file.
+    Retrieves the version of the configuration from the YAML configuration file.
 
     Returns
     -------
-    nacts : int
-        Number of DM actuators.
+    version : str
+        Version of the configuration as a string.
     """
-    dm_config = _get_section_config(
-        section="INFLUENCE.FUNCTIONS",
-        sub_section="DM",
-        path=bpath,
-    )
-    nacts = int(dm_config["nacts"])
-    return nacts
-
-
-def get_timing(bpath: str = _cfold):
-    """
-    Retrieves timing information from the YAML configuration file.
-
-    Parameters
-    ----------
-    bpath : str, optional
-        Base path of the configuration file.
-
-    Returns
-    -------
-    timing : int
-        Timing used for synchronization.
-    """
-    dm_config = _get_section_config(
-        section="INFLUENCE.FUNCTIONS",
-        sub_section="DM",
-        path=bpath,
-    )
-    timing = int(dm_config["timing"])
-    return timing
-
-
-def get_cmd_delay(bpath: str = _cfold):
-    """
-    Retrieves the command delay from the YAML configuration file.
-
-    Parameters
-    ----------
-    bpath : str, optional
-        Base path of the configuration file.
-
-    Returns
-    -------
-    cmdDelay : float
-        Command delay for the interferometer synchronization.
-    """
-    dm_config = _get_section_config(
-        section="INFLUENCE.FUNCTIONS",
-        sub_section="DM",
-        path=bpath,
-    )
-    if "sequential_delay" in dm_config:
-        cmdDelay = float(dm_config["sequential_delay"])
-    elif "delay" in dm_config:
-        cmdDelay = float(dm_config["delay"])
-    elif "triggeredMode" in dm_config and "cmdDelay" in dm_config["triggeredMode"]:
-        cmdDelay = float(dm_config["triggeredMode"]["cmdDelay"])
-    else:
-        raise KeyError("Command delay not found in INFLUENCE.FUNCTIONS/DM.")
-    return cmdDelay
+    config = get_section_config(section='SYSTEM')
+    version = config.get("version", None)
+    return version
 
 
 def _parse_val(val: _Any):
@@ -657,6 +549,41 @@ def _parse_val(val: _Any):
         else:
             raise ValueError(f"Value type {type(val)} could not be recognized.")
     return val
+
+### ------------------------------------------------------------------------ ###
+# |              Legacy configuration handling. To be checked                 |#
+### ------------------------------------------------------------------------ ###
+
+def get_cmd_delay(bpath: str = _cfold):
+    """
+    Retrieves the command delay from the YAML configuration file.
+
+    Parameters
+    ----------
+    bpath : str, optional
+        Base path of the configuration file.
+
+    Returns
+    -------
+    cmdDelay : float
+        Command delay for the interferometer synchronization.
+    """
+    dm_config = _get_section_config(
+        section="INFLUENCE.FUNCTIONS",
+        sub_section="DM",
+        path=bpath,
+    )
+    if "sequential_delay" in dm_config:
+        cmdDelay = float(dm_config["sequential_delay"])
+    elif "delay" in dm_config:
+        cmdDelay = float(dm_config["delay"])
+    elif "triggeredMode" in dm_config and "cmdDelay" in dm_config["triggeredMode"]:
+        cmdDelay = float(dm_config["triggeredMode"]["cmdDelay"])
+    else:
+        raise KeyError("Command delay not found in INFLUENCE.FUNCTIONS/DM.")
+    return cmdDelay
+
+
 
 
 def get_cameras_config(device_name: str = None):
@@ -776,3 +703,20 @@ def get_stitching_config():
     """
     config = get_section_config("STITCHING")
     return config
+
+
+
+
+def get_phasing_config():
+    """
+    Retrieves the phasing configuration from the YAML configuration file.
+
+    Returns
+    -------
+    config : dict
+        The phasing configuration dictionary.
+    """
+    try:
+        return get_section_config("PHASING")
+    except KeyError:
+        raise KeyError("Phasing configuration not found in the YAML file.")

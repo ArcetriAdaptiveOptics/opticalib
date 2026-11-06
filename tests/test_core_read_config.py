@@ -170,166 +170,6 @@ class TestGetIffConfig:
         assert isinstance(config["template"], np.ndarray)
         assert config["modal_base"] == "test_base"
 
-
-class TestGetDmConfig:
-    """Test get_dm_config function."""
-
-    def test_get_dm_config_success(self, temp_dir, monkeypatch):
-        """Test getting DM configuration successfully."""
-        config_file = os.path.join(temp_dir, "configuration.yaml")
-        config_data = {
-            "DEVICES": {
-                "DEFORMABLE.MIRRORS": {"TestDM": {"ip": "127.0.0.1", "port": 9090}}
-            }
-        }
-        with open(config_file, "w") as f:
-            yaml.dump(config_data, f)
-
-        monkeypatch.setattr(read_config, "_cfile", config_file)
-        config = read_config.get_dm_config("TestDM")
-
-        assert config["ip"] == "127.0.0.1"
-        assert config["port"] == 9090
-
-    def test_get_dm_config_not_found(self, temp_dir, monkeypatch):
-        """Test getting DM configuration when device not found."""
-        config_file = os.path.join(temp_dir, "configuration.yaml")
-        config_data = {"DEVICES": {"DEFORMABLE.MIRRORS": {}}}
-        with open(config_file, "w") as f:
-            yaml.dump(config_data, f)
-
-        monkeypatch.setattr(read_config, "_cfile", config_file)
-
-        with pytest.raises(DeviceNotFoundError):
-            read_config.get_dm_config("NonExistentDM")
-
-
-class TestGetInterfConfig:
-    """Test get_interf_config function."""
-    def test_get_interf_config_success(self, temp_dir, monkeypatch):
-        """Test getting interferometer configuration successfully."""
-        config_file = os.path.join(temp_dir, "configuration.yaml")
-        config_data = {
-            "DEVICES": {
-                "INTERFEROMETERS": {"TestInterf": {"ip": "127.0.0.1", "port": 8011}}
-            }
-        }
-        with open(config_file, "w") as f:
-            yaml.dump(config_data, f)
-
-        monkeypatch.setattr(read_config, "_cfile", config_file)
-        config = read_config.get_interf_config("TestInterf")
-
-        assert config["ip"] == "127.0.0.1"
-        assert config["port"] == 8011
-
-    def test_get_interf_config_not_found(self, temp_dir, monkeypatch):
-        """Test getting interferometer configuration when device not found."""
-        config_file = os.path.join(temp_dir, "configuration.yaml")
-        config_data = {"DEVICES": {"INTERFEROMETERS": {}}}
-        with open(config_file, "w") as f:
-            yaml.dump(config_data, f)
-
-        monkeypatch.setattr(read_config, "_cfile", config_file)
-
-        with pytest.raises(DeviceNotFoundError):
-            read_config.get_interf_config("NonExistentInterf")
-
-
-class TestGetCamerasConfig:
-    """Test get_cameras_config function."""
-
-    def test_get_cameras_config_all(self, temp_dir, monkeypatch):
-        """Test getting all cameras configuration."""
-        config_file = os.path.join(temp_dir, "configuration.yaml")
-        config_data = {
-            "DEVICES": {"CAMERAS": {"Cam1": {"id": "cam1"}, "Cam2": {"id": "cam2"}}}
-        }
-        with open(config_file, "w") as f:
-            yaml.dump(config_data, f)
-
-        monkeypatch.setattr(read_config, "_cfile", config_file)
-        config = read_config.get_cameras_config()
-
-        assert "Cam1" in config
-        assert "Cam2" in config
-
-    def test_get_cameras_config_specific(self, temp_dir, monkeypatch):
-        """Test getting specific camera configuration."""
-        config_file = os.path.join(temp_dir, "configuration.yaml")
-        config_data = {"DEVICES": {"CAMERAS": {"TestCam": {"id": "test_cam"}}}}
-        with open(config_file, "w") as f:
-            yaml.dump(config_data, f)
-
-        monkeypatch.setattr(read_config, "_cfile", config_file)
-        config = read_config.get_cameras_config("TestCam")
-
-        assert config["id"] == "test_cam"
-
-    def test_get_cameras_config_not_found(self, temp_dir, monkeypatch):
-        """Test getting camera configuration when device not found."""
-        config_file = os.path.join(temp_dir, "configuration.yaml")
-        config_data = {"DEVICES": {"CAMERAS": {}}}
-        with open(config_file, "w") as f:
-            yaml.dump(config_data, f)
-
-        monkeypatch.setattr(read_config, "_cfile", config_file)
-
-        with pytest.raises(DeviceNotFoundError):
-            read_config.get_cameras_config("NonExistentCam")
-
-
-class TestGetNActs:
-    """Test get_n_acts function."""
-
-    def test_get_nacts(self, temp_dir, monkeypatch):
-        """Test getting number of actuators."""
-        config_file = os.path.join(temp_dir, "configuration.yaml")
-        config_data = {"INFLUENCE.FUNCTIONS": {"DM": {"nacts": 100}}}
-        with open(config_file, "w") as f:
-            yaml.dump(config_data, f)
-
-        monkeypatch.setattr(read_config, "_cfold", temp_dir)
-        nacts = read_config.get_n_acts(bpath=temp_dir)
-
-        assert nacts == 100
-        assert isinstance(nacts, int)
-
-
-class TestGetTiming:
-    """Test get_timing function."""
-
-    def test_get_timing(self, temp_dir, monkeypatch):
-        """Test getting timing configuration."""
-        config_file = os.path.join(temp_dir, "configuration.yaml")
-        config_data = {"INFLUENCE.FUNCTIONS": {"DM": {"timing": 10}}}
-        with open(config_file, "w") as f:
-            yaml.dump(config_data, f)
-
-        monkeypatch.setattr(read_config, "_cfold", temp_dir)
-        timing = read_config.get_timing(bpath=temp_dir)
-
-        assert timing == 10
-        assert isinstance(timing, int)
-
-
-class TestGetCmdDelay:
-    """Test get_cmd_delay function."""
-
-    def test_get_cmd_delay(self, temp_dir, monkeypatch):
-        """Test getting command delay."""
-        config_file = os.path.join(temp_dir, "configuration.yaml")
-        config_data = {"INFLUENCE.FUNCTIONS": {"DM": {"sequential_delay": 0.1}}}
-        with open(config_file, "w") as f:
-            yaml.dump(config_data, f)
-
-        monkeypatch.setattr(read_config, "_cfold", temp_dir)
-        cmd_delay = read_config.get_cmd_delay(bpath=temp_dir)
-
-        assert cmd_delay == 0.1
-        assert isinstance(cmd_delay, float)
-
-
 class TestParseVal:
     """Test _parse_val function."""
 
@@ -404,45 +244,6 @@ class TestUpdateIffConfig:
         assert saved["IFFUNC"]["modeid"] == "np.arange(1, 5, 1)"
 
 
-class TestGetAlignmentConfig:
-    """Test get_alignment_config function."""
-
-    def test_get_alignment_config(self, temp_dir, monkeypatch):
-        """Test getting alignment configuration."""
-        config_file = os.path.join(temp_dir, "configuration.yaml")
-        config_data = {
-            "SYSTEM.ALIGNMENT": {
-                "slices": [{"start": 0, "stop": 100}, {"start": 100, "stop": 200}]
-            }
-        }
-        with open(config_file, "w") as f:
-            yaml.dump(config_data, f)
-
-        monkeypatch.setattr(read_config, "_cfile", config_file)
-        config = read_config.get_alignment_config()
-
-        assert hasattr(config, "slices")
-        assert len(config.slices) == 2
-        assert isinstance(config.slices[0], slice)
-
-
-class TestGetStitchingConfig:
-    """Test get_stitching_config function."""
-
-    def test_get_stitching_config(self, temp_dir, monkeypatch):
-        """Test getting stitching configuration."""
-        config_file = os.path.join(temp_dir, "configuration.yaml")
-        config_data = {"STITCHING": {"overlap": 0.1, "method": "test_method"}}
-        with open(config_file, "w") as f:
-            yaml.dump(config_data, f)
-
-        monkeypatch.setattr(read_config, "_cfile", config_file)
-        config = read_config.get_stitching_config()
-
-        assert config["overlap"] == 0.1
-        assert config["method"] == "test_method"
-
-
 class TestCaseInsensitiveDeviceLookup:
     """Device entries are found regardless of the case of their name."""
 
@@ -466,18 +267,6 @@ class TestCaseInsensitiveDeviceLookup:
     def test_fixed_name_lookup(self, config_file):
         # Ingot always reads the entry "Ingot".
         assert read_config.get_device_config("WFS", "Ingot") == {"camera": "CAMERAS:GigaVision"}
-
-    def test_derived_name_lookup(self, config_file):
-        # PhaseCam("6110") reads the entry "PhaseCam6110" with a plain [] lookup.
-        section = read_config.get_section_config("DEVICES", "INTERFEROMETERS")
-        assert section["PhaseCam6110"]["port"] == 8011
-        assert "PHASECAM6110" in section
-        assert section.get("phaseCAM6110")["ip"] == "1.2.3.4"
-        assert read_config.get_interf_config("PhaseCam6110")["port"] == 8011
-
-    def test_exact_name_wins(self, config_file):
-        assert read_config.get_cameras_config("cam") == {"id": 2}
-        assert read_config.get_cameras_config("Cam") == {"id": 1}
 
     def test_ambiguous_name(self, config_file):
         section = read_config.get_section_config("DEVICES", "CAMERAS")
@@ -522,12 +311,6 @@ class TestOptionalSections:
     def test_null_section_reads_as_empty(self, temp_dir, monkeypatch):
         self._write(temp_dir, monkeypatch, {"PHASING": None})
         assert dict(read_config.LazySection("PHASING")) == {}
-
-    @pytest.mark.parametrize("data", [{}, {"SYSTEM.ALIGNMENT": None}])
-    def test_missing_alignment_section(self, temp_dir, monkeypatch, data):
-        self._write(temp_dir, monkeypatch, data)
-        with pytest.raises(KeyError, match="SYSTEM.ALIGNMENT"):
-            read_config.get_alignment_config()
 
     def test_alignment_config_still_importable(self, temp_dir, monkeypatch):
         """Packages such as M4 import ``_sc``; it is now read when imported."""

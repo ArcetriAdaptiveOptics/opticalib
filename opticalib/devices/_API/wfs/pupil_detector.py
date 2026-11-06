@@ -32,15 +32,15 @@ class PupilDetector(BaseWavefrontSensor):
         """The constructor"""
         _ATTRMAP = {
             "n_pupils": ("n_pupils", n_pupils),
-            "_dr": ("delta_r",0),
-            "sigma_threshold": ("sigma_threshold",2),
-            "_pupil_diameter": ("subapertures",1),
-            "_pupil_centers": ("pupils_centers",None),
-            "_camera_binning": ("camera_binning",1),
-            "_camera_base_exptime": ("camera_base_exptime",1),
-            "_camera_fps": ("camera_fps",1),
-            "_exptime": (-1,None),  # placeholder to set None
-            "pupil_data": (-1,None),  # placeholder to set None
+            "_dr": ("delta_r", 0),
+            "sigma_threshold": ("sigma_threshold", 2),
+            "_pupil_diameter": ("subapertures", 1),
+            "_pupil_centers": ("pupils_centers", None),
+            "_camera_binning": ("camera_binning", 1),
+            "_camera_base_exptime": ("camera_base_exptime", 1),
+            "_camera_fps": ("camera_fps", 1),
+            "_exptime": (-1, None),  # placeholder to set None
+            "pupil_data": (-1, None),  # placeholder to set None
         }
         for attr, (ckey, default) in _ATTRMAP.items():
             setattr(self, attr, config_dict.get(ckey, default))

@@ -469,7 +469,9 @@ class Flattening:
         self._cavityOffset = cavity_offset.copy()
         self._logger.info("Cavity offset loaded.")
 
-    def get_reconstructed_covariance(self, plot: bool = False) -> tuple[_ot.MatrixLike, _ot.MatrixLike]:
+    def get_reconstructed_covariance(
+        self, plot: bool = False
+    ) -> tuple[_ot.MatrixLike, _ot.MatrixLike]:
         """
         Returns the reconstructed modes noise covariance matrix and variance.
 
@@ -489,7 +491,8 @@ class Flattening:
         var = _np.diag(cov)
         if plot:
             from ..visualization import cmdplot
-            cmdplot(var, title="Noise Covariance Matrix", xlabel='Mode ID')
+
+            cmdplot(var, title="Noise Covariance Matrix", xlabel="Mode ID")
         return cov, var
 
     def get_svd_matrices(self) -> tuple[_ot.ArrayLike, _ot.ArrayLike, _ot.ArrayLike]:

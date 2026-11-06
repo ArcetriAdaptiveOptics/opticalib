@@ -8,6 +8,7 @@ amplitude extraction, and cube assembly.  The main entry point is
 :func:`process`, keyed by tracking number.
 
 """
+
 import os as _os
 import numpy as _np
 import shutil as _sh
@@ -19,11 +20,7 @@ from opticalib.core import _types as _ot
 from ..core import config as _rif
 from concurrent.futures import ThreadPoolExecutor as _tpe
 from ..analyzer import image_processing as _ip
-from ..ground import (
-    modal_decomposer as _zern,
-    osutils as _osu,
-    roi as _roi
-)
+from ..ground import modal_decomposer as _zern, osutils as _osu, roi as _roi
 from ..core.decorators import expand_list_arguments as _expand_list_arguments
 
 _fn = folders
@@ -50,7 +47,7 @@ def process(
     save: bool = False,
     rebin: int = 1,
     *,
-    normalization: _ot.Number|bool = True,
+    normalization: _ot.Number | bool = True,
     trigger_roi: int | None = None,
     nworkers: int = 2,
     nmode_prefetch: int = 1,
@@ -77,12 +74,12 @@ def process(
         - If a number is provided, it is used as a scaling factor.
         - If True, automatic normalization is applied.
         - If False, no normalization is applied.
-        
+
         The default is True, which defaults to the normalization factor:
 
         ..math::
             \text{norm_{i}} = 2\\,max(T-1,1) \\cdot A_i
-        
+
         where
         - T is the number of frames in the push-pull template sequence.
         - A_i is the amplitude of the i-th mode.
@@ -92,12 +89,12 @@ def process(
         at the start of the sequence. The default is None.
     nworkers : int, optional
         Number of workers (threads) to use for the processing. A higher value
-        will assign more threads for the parallel modes prefetching. 
-        
+        will assign more threads for the parallel modes prefetching.
+
         The default is 2.
     nmode_prefetch : int, optional
-        Number of modes to prefetch during the processing. 
-        
+        Number of modes to prefetch during the processing.
+
         The default is 1.
     """
     info = _get_acq_par(tn)
@@ -615,7 +612,7 @@ def iff_redux(
     modeList: _ot.ArrayLike,
     template: _ot.ArrayLike,
     n_repetitions: int = 1,
-    normalization: _ot.Number|bool = True,
+    normalization: _ot.Number | bool = True,
     *,
     io_workers: int = 1,
     prefetch: int = 0,
@@ -649,7 +646,7 @@ def iff_redux(
         - If a number is provided, it is used as a flat scaling factor.
         - If True, the default normalization is applied provided by the differential
             algorithm formula, which scales by 2 * max(T - 1, 1) * A.
-        - If False, no normalization is applied and a flat scaling factor of 1 
+        - If False, no normalization is applied and a flat scaling factor of 1
         is used.
 
         The default is True.
@@ -700,7 +697,7 @@ def iff_redux(
     # just to be sure...
     io_workers = max(1, int(io_workers))
     prefetch = max(0, int(prefetch))
-    
+
     with _tpe(max_workers=io_workers) as ex:
         futures: dict[int, _ot.Any] = {}
 
@@ -1005,11 +1002,12 @@ def get_iff_file_matrix(tn: str, info: dict[str, _ot.Any]) -> _ot.ArrayLike:
     )  # [N, M, T]
     return iffMat
 
+
 def _resolve_normalization_factor(
-    normalization: _ot.Number|bool,
+    normalization: _ot.Number | bool,
     T: int,
     A: float,
-) -> _ot.Number|callable:
+) -> _ot.Number | callable:
     """
     Resolve the normalization factor based on the input type.
 
@@ -1031,12 +1029,13 @@ def _resolve_normalization_factor(
     if isinstance(normalization, bool):
         if not normalization:
             return 1.0
-        return  2 * max(T - 1, 1) * A
+        return 2 * max(T - 1, 1) * A
     # Flat scaling factor applied to the data
     if _ot.isinstance_(normalization, "RealNumber"):
         return normalization
 
     raise ValueError(f"Unsupported normalization type: {type(normalization)}")
+
 
 def _modes_matrix_reorganization(
     modesMat: _ot.MatrixLike, info: dict[str, _ot.Any]

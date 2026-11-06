@@ -38,6 +38,7 @@ from . import (
     simulator,
     visualization,
 )
+vis = visualization
 
 from .devices.interferometer import _4DInterferometer
 
@@ -47,7 +48,29 @@ del _4DInterferometer
 
 from .devices import *
 
-vis = visualization
+# ---------------------------------------------------------------------------- #
+# Checking configuration version compatibility with the current package version
+# ---------------------------------------------------------------------------- #
+_conf_version = config.get_configuration_version()
+if _conf_version is not None:
+    v = tuple(int(i) for i in __version__[:5].split('.'))
+    cv = tuple(int(i) for i in _conf_version[:5].split('.'))
+    if any(cvx < vx for vx, cvx in zip(cv, v)):
+        import warnings
+        
+        warnings.warn(
+            f"  WARNING!\nYour experiment's configuration version `{_conf_version}` "
+            f"is older than the current package version `{__version__}`. "
+            "Please, ensure that nothing has changed in the configuration format "
+            "and, in case, update it manually.",
+            UserWarning
+        )
+        
+        del warnings
+
+    del v, cv, _conf_version
+# ---------------------------------------------------------------------------- #
+# ---------------------------------------------------------------------------- #
 
 __all__ = [
     "analyzer",

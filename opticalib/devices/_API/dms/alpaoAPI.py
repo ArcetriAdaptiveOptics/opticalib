@@ -16,6 +16,7 @@ _DMCOORDS_SCHEMA = {
     "dm820": [10, 14, 18, 20, 22, 24, 26, 28, 28, 30, 30, 32],
 }
 
+
 def _shutdown_dm(dm, reset: bool, logger, name: str) -> None:
     """Stop (and optionally Reset) a raw SDK handle. Module-level so it
     holds no reference to the wrapper object."""
