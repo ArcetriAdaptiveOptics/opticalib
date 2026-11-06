@@ -6,6 +6,15 @@ from ..base_devices import BaseDeformableMirror
 
 import weakref
 
+_DMCOORDS_SCHEMA = {
+    "dm88": [6, 8, 10],
+    "dm97": [5, 7, 9, 11],
+    "dm192": [4, 8, 12, 12, 16, 16, 18],
+    "dm277": [7, 9, 11, 13, 15, 17, 19],
+    "dm292": [4, 8, 12, 14, 16, 16, 18, 18, 20],
+    "dm468": [8, 12, 16, 18, 20, 20, 22, 22, 24],
+    "dm820": [10, 14, 18, 20, 22, 24, 26, 28, 28, 30, 30, 32],
+}
 
 def _shutdown_dm(dm, reset: bool, logger, name: str) -> None:
     """Stop (and optionally Reset) a raw SDK handle. Module-level so it
@@ -63,7 +72,7 @@ class BaseAlpaoMirror(BaseDeformableMirror):
 
     def __init__(
         self,
-        nacts: int | str,
+        nacts: int | str | None,
         sdk_params: tuple[str | None, str | None, str | None] | None,
         plico_params: tuple[bool, str | None, int | None] | None,
     ) -> None:
@@ -101,16 +110,6 @@ class BaseAlpaoMirror(BaseDeformableMirror):
             Any hardware-level exception raised by the underlying backend
             on connection failure is propagated to the caller.
         """
-        self._dmCoords = {
-            "dm88": [6, 8, 10],
-            "dm97": [5, 7, 9, 11],
-            "dm192": [4, 8, 12, 12, 16, 16, 18],
-            "dm277": [7, 9, 11, 13, 15, 17, 19],
-            "dm292": [4, 8, 12, 14, 16, 16, 18, 18, 20],
-            "dm468": [8, 12, 16, 18, 20, 20, 22, 22, 24],
-            "dm820": [10, 14, 18, 20, 22, 24, 26, 28, 28, 30, 30, 32],
-        }
-        self._name = f"Alpao{nacts}"
         self._resolve_init(sdk_params, plico_params)
         self._is_plico = bool(plico_params[0])
 
@@ -119,7 +118,10 @@ class BaseAlpaoMirror(BaseDeformableMirror):
             if self._is_plico
             else int(self._sdk_dm.Get("NbOfActuator"))
         )
+        if nacts is None:
+            nacts = self.n_acts
 
+        self._name = f"Alpao{nacts}"
         if self.n_acts != int(nacts):
             import warnings
 
@@ -292,7 +294,7 @@ class BaseAlpaoMirror(BaseDeformableMirror):
             coordinates, or an empty array if the model is unknown.
         """
         try:
-            nacts_row_sequence = self._dmCoords[f"dm{self.n_acts}"]
+            nacts_row_sequence = _DMCOORDS_SCHEMA[f"dm{self.n_acts}"]
         except KeyError:
             self.act_coord = _np.array([], dtype=int)
             return

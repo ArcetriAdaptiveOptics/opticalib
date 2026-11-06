@@ -30,7 +30,6 @@ from opticalib.ground.logger import SystemLogger as _SL
 
 from ._API.dms.piAPI import BasePetalMirror
 
-
 class PetalMirror(BasePetalMirror):
     """
     Petal Deformable Mirror interface.
@@ -186,7 +185,6 @@ class PetalMirror(BasePetalMirror):
 
 
 from ._API.dms.micAPI import BaseAdOpticaDm
-
 
 class AdOpticaDm(BaseAdOpticaDm):
     """
@@ -615,7 +613,6 @@ class M4AU(AdOpticaDm):
 
 from ._API.dms.alpaoAPI import BaseAlpaoMirror
 
-
 class AlpaoDm(BaseAlpaoMirror):
     """
     Alpao Deformable Mirror interface.
@@ -640,7 +637,7 @@ class AlpaoDm(BaseAlpaoMirror):
 
     def __init__(
         self,
-        nacts: int | str,
+        nacts: int | str | None = None,
         serial_number: _ot.Optional[str] = None,
         sdk_folder_path: str | None = None,
         acfg_path: str | None = None,
@@ -659,12 +656,11 @@ class AlpaoDm(BaseAlpaoMirror):
 
         Parameters
         ----------
-        nacts : int or str
-            Number of actuators. Required: it is used to look up the device
-            in the configuration file (block ``Alpao{nacts}``), where
-            ``serial_number``, ``sdk_folder_path`` and ``acfg_path`` (SDK
-            backend) or ``plico_ip`` and ``plico_port`` (plico backend) may
-            be defined.
+        nacts : int or str, optional
+            Number of actuators. If passed down, it is used to resolve the
+            ``Alpao{nacts}`` block in the configuration file and to validate the
+            actuator count reported back once connected. If not passed, the number
+            of actuators is retrieved from the actual connected DM.
         serial_number : str, optional
             Hardware serial number of the DM, for the native SDK backend. If
             not provided, it is read from the ``Alpao{nacts}`` block of the
@@ -818,7 +814,6 @@ class AlpaoDm(BaseAlpaoMirror):
                         tn.append(img)
 
         else:
-
             if wfs is not None:
                 if save is None:
                     datafold, tn = _cdf(base_path=_opdi, get_tn=True)
@@ -827,6 +822,8 @@ class AlpaoDm(BaseAlpaoMirror):
                     datafold = _os.path.join(_opdi, tn)
                     _os.makedirs(datafold, exist_ok=True)
                 print(f"{tn} - {self._cmd_history.shape[-1]} images to go.")
+            else:
+                tn = None
 
             for i, cmd in enumerate(self._cmd_history.T):
                 print(f"{i+1}/{self._cmd_history.shape[-1]}", end="\r", flush=True)

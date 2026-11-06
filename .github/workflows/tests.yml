@@ -2,130 +2,95 @@ name: Tests
 
 on:
   push:
+  workflow_dispatch:
+  # tests_cron.yml runs this same workflow every week (without the pip cache).
+  workflow_call:
+
+# Every job installs opticalib into its own virtual environment
+# ($RUNNER_TEMP/venv), never into the interpreter of actions/setup-python.
+# On GitHub each job gets a fresh VM, so this changes nothing there. Under
+# `act` it matters: /opt/hostedtoolcache is a Docker volume shared by every
+# job, every run and every repository. Packages installed there by one job
+# (PySide6 from the GUI job, an editable rbfgpu from another project's run)
+# leak into all the others, and jobs running in parallel on the same Python
+# version pip-install into the same site-packages at the same time.
+
+env:
+  # With a DISPLAY set, pyplot would pick an interactive Qt backend and a
+  # stray plt.show() (opticalib.analyzer) would block the run forever.
+  MPLBACKEND: Agg
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  PYTHONUNBUFFERED: "1"
 
 jobs:
   test_no_gui:
     name: Pytest (Python ${{ matrix.python-version }} - no GUI)
     runs-on: ubuntu-latest
     timeout-minutes: 90
-
-    # The GUI tests run on a real (virtual) X display, started by the "Start the
-    # virtual display" step below, instead of the Qt "offscreen" platform:
-    # offscreen has no window system, no real fonts and unreliable widget
-    # geometry, which is what made the graphical tests fail at random on some
-    # runners.
-    env:
-      DISPLAY: ":99"
-      QT_QPA_PLATFORM: xcb
-      # No GPU on the runner: keep Mesa on its software rasteriser.
-      LIBGL_ALWAYS_SOFTWARE: "1"
-      # With a DISPLAY set, pyplot would pick an interactive Qt backend and a
-      # stray plt.show() (opticalib.analyzer) would block the run forever.
-      MPLBACKEND: Agg
-      # No session bus either: forbid the dbus auto-launch, which can stall the
-      # creation of the first Qt window.
-      DBUS_SESSION_BUS_ADDRESS: "disabled:"
+    # The latest CPython ("3.x") is a canary: it may run before every
+    # dependency publishes wheels for it, so it must not fail the workflow.
+    continue-on-error: ${{ matrix.experimental }}
 
     strategy:
       fail-fast: false
       matrix:
         python-version:
           - "3.11" # minimum version
-          - "3.14" # Latest stable version
+          - "3.14" # latest version supported by every dependency
+        experimental: [false]
+        include:
+          - python-version: "3.x" # latest CPython release
+            experimental: true
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Set up Python
+        id: python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      
-      - name: Cache dependencies
+
+      - name: Install HDF5 headers (latest Python only)
+        # A new CPython can come out before h5py publishes wheels for it;
+        # pip then builds h5py from source, which needs the HDF5 library.
+        if: matrix.experimental
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libhdf5-dev pkg-config
+
+      - name: Create the virtual environment
+        run: |
+          python -m venv "$RUNNER_TEMP/venv"
+          echo "VIRTUAL_ENV=$RUNNER_TEMP/venv" >> "$GITHUB_ENV"
+          echo "$RUNNER_TEMP/venv/bin" >> "$GITHUB_PATH"
+
+      - name: Cache pip downloads
+        # The weekly run (schedule) deliberately downloads everything afresh.
+        if: github.event_name != 'schedule'
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('pyproject.toml') }}
+          key: pip-${{ runner.os }}-py${{ steps.python.outputs.python-version }}-nogui-${{ hashFiles('pyproject.toml') }}
           restore-keys: |
-            ${{ runner.os }}-pip-
+            pip-${{ runner.os }}-py${{ steps.python.outputs.python-version }}-nogui-
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[test]"
+          pip install flake8
+          python -c "import sys; print(sys.prefix)"
 
       - name: Lint with flake8
         run: |
-          pip install flake8
-          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --exclude ./scripts --exit-zero --max-complexity=10 --max-line-length=127
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --exclude ./scripts,./build --exit-zero --max-complexity=10 --max-line-length=127
 
       - name: Run pytest
         shell: bash  # -eo pipefail: the exit status of pytest survives `tee`
         run: |
-          pytest --cov=opticalib -rs 2>&1 | tee pytest.log
-
-  test_python_latest:
-    name: Pytest (Python ${{ matrix.python-version }} - no GUI)
-    runs-on: ubuntu-latest
-    timeout-minutes: 90
-    continue-on-error: True
-
-    # The GUI tests run on a real (virtual) X display, started by the "Start the
-    # virtual display" step below, instead of the Qt "offscreen" platform:
-    # offscreen has no window system, no real fonts and unreliable widget
-    # geometry, which is what made the graphical tests fail at random on some
-    # runners.
-    env:
-      DISPLAY: ":99"
-      QT_QPA_PLATFORM: xcb
-      # No GPU on the runner: keep Mesa on its software rasteriser.
-      LIBGL_ALWAYS_SOFTWARE: "1"
-      # With a DISPLAY set, pyplot would pick an interactive Qt backend and a
-      # stray plt.show() (opticalib.analyzer) would block the run forever.
-      MPLBACKEND: Agg
-      # No session bus either: forbid the dbus auto-launch, which can stall the
-      # creation of the first Qt window.
-      DBUS_SESSION_BUS_ADDRESS: "disabled:"
-
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version:
-          - "3.x"
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-      
-      - name: Cache dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('pyproject.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[test]"
-
-      - name: Lint with flake8
-        run: |
-          pip install flake8
-          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --exclude ./scripts --exit-zero --max-complexity=10 --max-line-length=127
-
-      - name: Run pytest
-        shell: bash  # -eo pipefail: the exit status of pytest survives `tee`
-        run: |
-          pytest --cov=opticalib -rs 2>&1 | tee pytest.log
-
+          pytest --cov=opticalib -rs --verbosity=1 2>&1 | tee "$RUNNER_TEMP/pytest.log"
 
   test_gui:
     name: Pytest (Python ${{ matrix.python-version }} - GUI)
@@ -143,9 +108,6 @@ jobs:
       QT_QPA_PLATFORM: xcb
       # No GPU on the runner: keep Mesa on its software rasteriser.
       LIBGL_ALWAYS_SOFTWARE: "1"
-      # With a DISPLAY set, pyplot would pick an interactive Qt backend and a
-      # stray plt.show() (opticalib.analyzer) would block the run forever.
-      MPLBACKEND: Agg
       # No session bus either: forbid the dbus auto-launch, which can stall the
       # creation of the first Qt window.
       DBUS_SESSION_BUS_ADDRESS: "disabled:"
@@ -162,17 +124,10 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Python
+        id: python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      
-      - name: Cache dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('pyproject.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
 
       - name: Install Qt/X11 system libraries (GUI tests)
         # PySide6 needs the whole X11/xcb + OpenGL/EGL stack to start on a
@@ -206,28 +161,49 @@ jobs:
           sudo mkdir -p /tmp/.X11-unix
           sudo chmod 1777 /tmp/.X11-unix
           Xvfb "$DISPLAY" -screen 0 1920x1080x24 -ac +extension GLX +render -noreset \
-            > /tmp/xvfb.log 2>&1 &
+            > "$RUNNER_TEMP/xvfb.log" 2>&1 &
           for _ in $(seq 1 30); do
             if xdpyinfo -display "$DISPLAY" > /dev/null 2>&1; then break; fi
             sleep 1
           done
-          if ! xdpyinfo -display "$DISPLAY" > /tmp/xdpyinfo.txt 2>&1; then
+          if ! xdpyinfo -display "$DISPLAY" > "$RUNNER_TEMP/xdpyinfo.txt" 2>&1; then
             echo "::error::Xvfb is not answering on DISPLAY=$DISPLAY"
-            cat /tmp/xvfb.log
+            cat "$RUNNER_TEMP/xvfb.log"
             exit 1
           fi
-          head -6 /tmp/xdpyinfo.txt
+          head -6 "$RUNNER_TEMP/xdpyinfo.txt"
+
+      - name: Create the virtual environment
+        run: |
+          python -m venv "$RUNNER_TEMP/venv"
+          echo "VIRTUAL_ENV=$RUNNER_TEMP/venv" >> "$GITHUB_ENV"
+          echo "$RUNNER_TEMP/venv/bin" >> "$GITHUB_PATH"
+
+      - name: Cache pip downloads
+        # The weekly run (schedule) deliberately downloads everything afresh.
+        if: github.event_name != 'schedule'
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ runner.os }}-py${{ steps.python.outputs.python-version }}-gui-${{ hashFiles('pyproject.toml') }}
+          restore-keys: |
+            pip-${{ runner.os }}-py${{ steps.python.outputs.python-version }}-gui-
 
       - name: Install dependencies
+        # PySide6 6.12.0 over-releases None when QTimer.singleShot(0, obj.method)
+        # fires after obj's C++ object was deleted (opticalib.gui.activity does
+        # this): on Python < 3.12, where None is not immortal, the interpreter
+        # aborts with "none_dealloc: deallocating None". Remove the pin once a
+        # fixed PySide6 is out.
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[gui,test]"
+          pip install -e ".[gui,test]" "PySide6-Essentials<6.12; python_version < '3.12'"
+          pip install flake8
+          python -c "import sys; print(sys.prefix)"
 
       - name: Lint with flake8
         run: |
-          pip install flake8
-          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --exclude ./scripts --exit-zero --max-complexity=10 --max-line-length=127
-
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --exclude ./scripts,./build --exit-zero --max-complexity=10 --max-line-length=127
 
       - name: Check the Qt GUI stack
         # Fail fast, with a clear message, if Qt cannot draw on the virtual
@@ -254,25 +230,45 @@ jobs:
       - name: Run pytest
         # The GUI tests inherit DISPLAY/QT_QPA_PLATFORM from the job and draw on
         # the virtual display (tests/test_gui_app.py pins "offscreen" for its
-        # own subprocess, which needs no display).
+        # own subprocess, which needs no display). --verbosity=1 prints each
+        # test id before running it, so a hard crash (Qt abort) shows the culprit.
         shell: bash  # -eo pipefail: the exit status of pytest survives `tee`
         run: |
-          pytest --cov=opticalib -rs 2>&1 | tee pytest.log
+          pytest --cov=opticalib -rs --verbosity=1 \
+            --junitxml="$RUNNER_TEMP/pytest-results.xml" \
+            2>&1 | tee "$RUNNER_TEMP/pytest.log"
 
       - name: Check that the GUI tests really ran
         # A skipped graphical test means the Qt stack is incomplete again.
-        if: always() && hashFiles('pytest.log') != ''
+        if: ${{ !cancelled() }}
         run: |
-          skipped=$(grep -cE '^SKIPPED .*tests/(test_gui_|conftest\.py)' pytest.log || true)
-          executed=$(grep -cE '^tests/test_gui_.* (PASSED|FAILED|ERROR)' pytest.log || true)
-          echo "GUI tests executed: $executed"
-          if [ "$skipped" -ne 0 ]; then
-            echo "::error::$skipped GUI skip reason(s): the Qt/X11 stack is incomplete"
-            grep -E '^SKIPPED' pytest.log
-            exit 1
-          fi
-          if [ "$executed" -eq 0 ]; then
-            echo "::error::no GUI test was executed"
-            exit 1
-          fi
+          python - "$RUNNER_TEMP/pytest-results.xml" <<'PY'
+          import os, sys
+          import xml.etree.ElementTree as ET
 
+          report = sys.argv[1]
+          if not os.path.isfile(report):
+              print("::error::pytest wrote no report: it crashed before the end of the run")
+              sys.exit(1)
+          def ident(case):
+              # A module skipped at import (pytest.importorskip) is reported
+              # as classname="" name="tests.test_gui_x", a test as
+              # classname="tests.test_gui_x" name="test_y".
+              return ".".join(p for p in (case.get("classname"), case.get("name")) if p)
+
+          cases = [
+              c for c in ET.parse(report).getroot().iter("testcase")
+              if ident(c).startswith("tests.test_gui_")
+          ]
+          skipped = [c for c in cases if c.find("skipped") is not None]
+          executed = len(cases) - len(skipped)
+          print(f"GUI tests executed: {executed}, skipped: {len(skipped)}")
+          for c in skipped:
+              print(f"  SKIPPED {ident(c)}: {c.find('skipped').text}")
+          if skipped:
+              print(f"::error::{len(skipped)} GUI test(s) skipped: the Qt/X11 stack is incomplete")
+              sys.exit(1)
+          if executed == 0:
+              print("::error::no GUI test was executed")
+              sys.exit(1)
+          PY
