@@ -265,7 +265,7 @@ def patched_process(tmp_path):
     ), patch.object(
         ifp, "_modes_matrix_reorganization", side_effect=lambda m, i: m
     ), patch.object(
-        ifp, "_intMatFold", str(tmp_path)
+        ifp, "_IMFOLD", str(tmp_path)
     ), patch.object(
         ifp, "iff_redux"
     ) as redux, patch.object(

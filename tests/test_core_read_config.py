@@ -353,13 +353,13 @@ class TestCheckConfigurationVersion:
             yaml.dump({"SYSTEM": system}, f)
         return path
 
-    @pytest.mark.parametrize("version", ["2.5", "2.5.0-dev1", "2.5.3"])
+    @pytest.mark.parametrize("version", ["2.4", "2.4.0-dev1", "2.4.3"])
     def test_equal_is_silent(self, temp_dir, version, recwarn):
         path = self._write(temp_dir, {"data_path": "", "version": version})
         read_config.check_configuration_version(path)
         assert not [w for w in recwarn if issubclass(w.category, UserWarning)]
 
-    @pytest.mark.parametrize("version", ["2.4.2-dev0", "2.4", "1.9"])
+    @pytest.mark.parametrize("version", ["2.3.2-dev0", "2.3", "1.9"])
     def test_older_warns(self, temp_dir, version):
         path = self._write(temp_dir, {"version": version})
         with pytest.warns(UserWarning, match="older"):
@@ -383,7 +383,7 @@ class TestCheckConfigurationVersion:
             read_config.check_configuration_version(path)
 
     def test_message_contents(self, temp_dir):
-        path = self._write(temp_dir, {"version": "2.4"})
+        path = self._write(temp_dir, {"version": "2.3"})
         with pytest.warns(UserWarning) as rec:
             read_config.check_configuration_version(path)
         msg = str(rec[0].message)

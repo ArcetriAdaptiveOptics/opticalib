@@ -16,7 +16,7 @@ class TestFlattening:
         """Test Flattening initialization."""
         tn, tn_folder = sample_int_matrix_folder
 
-        # The Flattening class uses _ifp._intMatFold which should be patched by the fixture
+        # The Flattening class uses _ifp._IMFOLD which should be patched by the fixture
         f = flt.Flattening(tn)
 
         assert f.tn == tn

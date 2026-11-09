@@ -26,7 +26,7 @@ class TestSaveCube:
         int_folder = os.path.join(temp_dir, "INTMatrices")
         os.makedirs(int_folder, exist_ok=True)
         monkeypatch.setattr(folders, "INTMAT_ROOT_FOLDER", int_folder)
-        monkeypatch.setattr(ifp, "_intMatFold", int_folder)
+        monkeypatch.setattr(ifp, "_IMFOLD", int_folder)
         iff_folder = os.path.dirname(tn_folder)
 
         def fake_get_file_list(tn_arg=None, fold=None, key=None):
@@ -58,7 +58,7 @@ class TestSaveCube:
         int_folder = os.path.join(temp_dir, "INTMatrices")
         os.makedirs(int_folder, exist_ok=True)
         monkeypatch.setattr(folders, "INTMAT_ROOT_FOLDER", int_folder)
-        monkeypatch.setattr(ifp, "_intMatFold", int_folder)
+        monkeypatch.setattr(ifp, "_IMFOLD", int_folder)
         iff_folder = os.path.dirname(tn_folder)
 
         def fake_get_file_list(tn_arg=None, fold=None, key=None):
@@ -100,7 +100,7 @@ class TestSaveCube:
         int_folder = os.path.join(temp_dir, "INTMatrices")
         os.makedirs(int_folder, exist_ok=True)
         monkeypatch.setattr(folders, "INTMAT_ROOT_FOLDER", int_folder)
-        monkeypatch.setattr(ifp, "_intMatFold", int_folder)
+        monkeypatch.setattr(ifp, "_IMFOLD", int_folder)
         iff_folder = os.path.dirname(tn_folder)
 
         def fake_get_file_list(tn_arg=None, fold=None, key=None):
@@ -288,9 +288,9 @@ class TestAddModeToCube:
 
         ifp.add_mode_to_cube(tn, mode_id, mode_vect, mode_img)
 
-        cube_path = os.path.join(ifp._intMatFold, tn, ifp._CUBE_FILE)
-        cmdmat_path = os.path.join(ifp._intMatFold, tn, ifp._MATRIX_FILE)
-        modesvec_path = os.path.join(ifp._intMatFold, tn, ifp._MODES_FILE)
+        cube_path = os.path.join(ifp._IMFOLD, tn, ifp._CUBE_FILE)
+        cmdmat_path = os.path.join(ifp._IMFOLD, tn, ifp._MATRIX_FILE)
+        modesvec_path = os.path.join(ifp._IMFOLD, tn, ifp._MODES_FILE)
 
         assert mock_load_fits.call_args_list == [
             ((cube_path,), {}),
@@ -320,7 +320,7 @@ class TestGetAcqPar:
 
         # Ensure the module-level _ifFold is patched
         iff_folder = os.path.join(osutils._OPTDATA, "IFFunctions")
-        monkeypatch.setattr(ifp, "_ifFold", iff_folder)
+        monkeypatch.setattr(ifp, '_IFFOLD', iff_folder)
 
         tn, tn_folder = sample_iff_folder_structure
 

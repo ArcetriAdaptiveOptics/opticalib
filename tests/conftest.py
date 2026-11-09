@@ -191,7 +191,7 @@ def sample_iff_folder_structure(temp_dir, monkeypatch):
     os.makedirs(iff_folder, exist_ok=True)
     monkeypatch.setattr(folders, "IFFUNCTIONS_ROOT_FOLDER", iff_folder)
     # Also patch the module-level variable
-    monkeypatch.setattr(ifp, "_ifFold", iff_folder)
+    monkeypatch.setattr(ifp, '_IFFOLD', iff_folder)
 
     # Create tracking number folder
     tn = "20240101_120000"
@@ -242,8 +242,8 @@ def sample_int_matrix_folder(temp_dir, monkeypatch, sample_int_cube):
     os.makedirs(int_folder, exist_ok=True)
     monkeypatch.setattr(folders, "INTMAT_ROOT_FOLDER", int_folder)
     # Also patch the module-level variables
-    monkeypatch.setattr(ifp, "_intMatFold", int_folder)
-    monkeypatch.setattr(flt._ifp, "_intMatFold", int_folder)
+    monkeypatch.setattr(ifp, '_IMFOLD', int_folder)
+    monkeypatch.setattr(flt._ifp, '_IMFOLD', int_folder)
 
     tn = "20240101_120000"
     tn_folder = os.path.join(int_folder, tn)

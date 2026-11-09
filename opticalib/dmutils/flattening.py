@@ -68,7 +68,7 @@ class Flattening:
         self._wfs = wfs
         self._logger = _SL(__class__)
 
-        self._path = _os.path.join(_ifp._intMatFold, self.tn)
+        self._path = _os.path.join(_ifp._IMFOLD, self.tn)
 
         ## Flat related attributes
         self.shape2flat: _ot.ImageData = None
@@ -864,7 +864,7 @@ class Flattening:
             New tracking number.
         """
         self.tn = tn
-        self._path = _os.path.join(_ifp._intMatFold, self.tn)
+        self._path = _os.path.join(_ifp._IMFOLD, self.tn)
 
     def __repr__(self) -> str:
         """
