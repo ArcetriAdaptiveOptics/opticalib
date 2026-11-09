@@ -463,11 +463,17 @@ class GigaVision(BaseCamera):
         try:
             exptimeInMs = max(1, int(self.get_exptime() / 1000))
             # the first frame tells us the shape/dtype of the shared memory
-            first = self._buffer.wait_new(1, timeout=self._base_timeout * exptimeInMs / 1000)[0]
+            first = self._buffer.wait_new(
+                1, timeout=self._base_timeout * exptimeInMs / 1000
+            )[0]
             if first.ndim != 2:
                 raise ValueError("Live view supports only monochrome cameras.")
             viewer = _ViewerProcess(
-                first.shape, first.dtype, f"{self._name} live view", plotkwargs, interval_ms
+                first.shape,
+                first.dtype,
+                f"{self._name} live view",
+                plotkwargs,
+                interval_ms,
             )
         except Exception:
             if owns_stream:
@@ -482,7 +488,10 @@ class GigaVision(BaseCamera):
         # window cleans up without anyone polling. daemon=True: it does not
         # keep the interpreter alive at exit.
         _th.Thread(
-            target=self._watch_viewer, args=(viewer,), name=f"{self._name}-viewer-watch", daemon=True
+            target=self._watch_viewer,
+            args=(viewer,),
+            name=f"{self._name}-viewer-watch",
+            daemon=True,
         ).start()
         self._logger.info("Live view started")
 

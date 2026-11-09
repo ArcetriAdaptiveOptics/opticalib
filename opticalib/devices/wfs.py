@@ -42,14 +42,12 @@ class Ingot(PupilDetector):
         The camera device to use for acquiring images. Can be a string
         representing the camera name defined in the experiment's configuration
         file or an instance of an object compatible with the ``opticalib.CameraDevice``.
-        
+
         If None, the one defined in the experiment's configuration will be used.
     """
 
     def __init__(
-        self,
-        name: str = "Ingot",
-        camera: _ot.Optional[str | _ot.CameraDevice] = None
+        self, name: str = "Ingot", camera: _ot.Optional[str | _ot.CameraDevice] = None
     ):
         """
         The constructor initializes local network bindings and matches alignment
@@ -207,7 +205,7 @@ class Ingot(PupilDetector):
             for descending), while the order of the axes ('x' or 'y') indicates
             the primary and secondary sorting directions.
 
-            Default is '+y+x', which sorts top-to-bottom, left-to-right (origin 
+            Default is '+y+x', which sorts top-to-bottom, left-to-right (origin
             lower-left).
 
         Returns
@@ -271,16 +269,14 @@ class Ingot(PupilDetector):
 
     def __repr__(self) -> str:
         """The string representation of the Ingot WFS object."""
-        return (
-            f"{__class__.__name__}(camera={self._camera.__repr__()}, n_pupils={self.n_pupils})"
-        )
+        return f"{__class__.__name__}(camera={self._camera.__repr__()}, n_pupils={self.n_pupils})"
 
 
 class Pyramid(PupilDetector):
     r"""
     Pyramid Wavefront Sensor (PyWFS) with four circular pupils.
 
-    Pupil geometry follows the ArcetriLAB ``PupilDesc`` approach 
+    Pupil geometry follows the ArcetriLAB ``PupilDesc`` approach
     (detect / FITS save-load).
 
     The pupil order is assumed to be ``-x+y`` (A=TR, B=TL, C=BR, D=BL):
@@ -292,12 +288,12 @@ class Pyramid(PupilDetector):
     ```
 
     And slopes are computed as:
-    
+
     .. math::
         Sx = \dfrac{A + B - C - D}{A + B + C + D}
         Sy = \dfrac{B + C - A - D}{A + B + C + D}
 
-    The order can be changed by modifying the pupil 
+    The order can be changed by modifying the pupil
 
     Parameters
     ----------
@@ -305,7 +301,7 @@ class Pyramid(PupilDetector):
         The camera device to use for acquiring images. Can be a string
         representing the camera name defined in the experiment's configuration
         file or an instance of an object compatible with the ``opticalib.CameraDevice``.
-        
+
         If None, the one defined in the experiment's configuration will be used.
     """
 
@@ -381,11 +377,13 @@ class Pyramid(PupilDetector):
                     self._camera._cam.setParameter("fps", self._camera_fps)
             except Exception as e:
                 self._logger.error(f"Failed to set Pyramid camera frame rate: {e}")
-            self._logger.info(f"Pyramid camera frame rate set to: {self._camera_fps} Hz")
+            self._logger.info(
+                f"Pyramid camera frame rate set to: {self._camera_fps} Hz"
+            )
 
     def get_fps(self) -> float | None:
         """Return the configured camera frame rate in Hz."""
-        return self._camera_fps or (1000.0/self._exptime)
+        return self._camera_fps or (1000.0 / self._exptime)
 
     def acquire_detector(self, nframes: int = 1) -> _ot.ImageData:
         """
@@ -498,10 +496,10 @@ class Pyramid(PupilDetector):
             Sx, Sy = self._compute_slopes_from_pupils(the_output)
             the_output = _np.ma.vstack([Sx, Sy])
 
-        return the_output     
+        return the_output
 
     def _compute_slopes_from_pupils(
-        self, 
+        self,
         pupil_images: _ot.CubeData,
     ) -> _np.ndarray:
         """
@@ -525,9 +523,7 @@ class Pyramid(PupilDetector):
         return Sx, Sy
 
     def __repr__(self):
-        return (
-            f"{__class__.__name__}(camera={self._camera.__repr__()}, n_pupils={self.n_pupils})"
-        )
+        return f"{__class__.__name__}(camera={self._camera.__repr__()}, n_pupils={self.n_pupils})"
 
 
-class ShackHartmann(): ...
+class ShackHartmann: ...

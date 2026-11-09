@@ -30,6 +30,7 @@ from opticalib.ground.logger import SystemLogger as _SL
 
 from ._API.dms.piAPI import BasePetalMirror
 
+
 class PetalMirror(BasePetalMirror):
     """
     Petal Deformable Mirror interface.
@@ -186,6 +187,7 @@ class PetalMirror(BasePetalMirror):
 
 
 from ._API.dms.micAPI import BaseAdOpticaDm
+
 
 class AdOpticaDm(BaseAdOpticaDm):
     """
@@ -613,6 +615,7 @@ class M4AU(AdOpticaDm):
 
 
 from ._API.dms.alpaoAPI import BaseAlpaoMirror
+
 
 class AlpaoDm(BaseAlpaoMirror):
     """

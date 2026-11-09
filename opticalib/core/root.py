@@ -132,10 +132,13 @@ def create_configuration_file(path: str = "", data_path: str | bool = False) -> 
     _copy(TEMPLATE_CONF_FILE, file)
     print(f"Configuration file created in {path}")
     if data_path:
+        from ..__version__ import __version__
+
         data_path = _os.path.dirname(file)
         with open(file, "r") as _f:
             config = _gyml.load(_f)
         config["SYSTEM"]["data_path"] = data_path
+        config["SYSTEM"]["version"] = __version__
         with open(file, "w") as _f:
             _gyml.dump(config, _f)
         with open(file, "r") as _f:
