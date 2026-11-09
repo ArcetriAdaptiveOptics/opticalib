@@ -53,11 +53,14 @@ from .devices import *
 # ---------------------------------------------------------------------------- #
 _conf_version = config.get_configuration_version()
 if _conf_version is not None:
+    import warnings
+    
     v = tuple(int(i) for i in __version__[:5].split('.'))
     cv = tuple(int(i) for i in _conf_version[:5].split('.'))
-    if any(cvx < vx for vx, cvx in zip(cv, v)):
-        import warnings
-        
+    version_lower = any(cvx < vx for cvx, vx in zip(cv, v))
+    version_equal = all(cvx == vx for cvx, vx in zip(cv, v))
+    if version_lower:
+
         warnings.warn(
             f"  WARNING!\nYour experiment's configuration version `{_conf_version}` "
             f"is older than the current package version `{__version__}`. "
@@ -65,11 +68,24 @@ if _conf_version is not None:
             "and, in case, update it manually.",
             UserWarning
         )
-        
-        del warnings
 
-    del v, cv, _conf_version
-# ---------------------------------------------------------------------------- #
+    elif version_equal:
+
+        if len(__version__) > 5 and len(_conf_version) > 5:
+            devc = int(_conf_version.split('-')[-1][-1])
+            devv = int(__version__.split('-')[-1][-1])
+            if devc < devv:
+                warnings.warn(
+                    f"  WARNING!\nYour experiment's configuration version `{_conf_version}` "
+                    f"is older than the current package version `{__version__}`. "
+                    "Beeing a development version, it might have changes not"
+                    " reflected in your configuration.",
+                    UserWarning
+                )
+            del devv, devc
+
+    del v, cv, _conf_version, warnings, version_lower, version_equal
+# ____________________________________________________________________________ #
 # ---------------------------------------------------------------------------- #
 
 __all__ = [
