@@ -51,9 +51,10 @@ from .devices import *
 # ---------------------------------------------------------------------------- #
 # Checking configuration version compatibility with the current package version
 # ---------------------------------------------------------------------------- #
+import warnings
+
 _conf_version = config.get_configuration_version()
 if _conf_version is not None:
-    import warnings
     
     v = tuple(int(i) for i in __version__[:5].split('.'))
     cv = tuple(int(i) for i in _conf_version[:5].split('.'))
@@ -84,7 +85,16 @@ if _conf_version is not None:
                 )
             del devv, devc
 
-    del v, cv, _conf_version, warnings, version_lower, version_equal
+    del v, cv, _conf_version, version_lower, version_equal
+
+else:
+    warnings.warn(
+        "Version not found in configuration file. Most likely an old "
+        "version, and probably need aligment.",
+        UserWarning
+    )
+
+del warnings
 # ____________________________________________________________________________ #
 # ---------------------------------------------------------------------------- #
 
