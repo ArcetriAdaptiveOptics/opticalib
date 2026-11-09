@@ -112,6 +112,40 @@ The output is written to ``docs/_build/html/``.  Open
 
 .. _Read the Docs: https://readthedocs.org/projects/opticalib/
 
+Versioning and releases
+-----------------------
+
+The version of ``opticalib`` is not stored in the source: it is derived from
+the git tags by `setuptools-scm`_.  There are no "bump the version" commits.
+
+* A commit exactly on a release tag ``vX.Y.Z`` is versioned ``X.Y.Z``.
+* Any other commit is a development version, such as ``2.5.0.dev12+g1a2b3c4``
+  (``devN`` is the number of commits since the last anchor tag, ``g<hash>`` the
+  commit).
+* A new development cycle is opened with a ``.dev0`` *anchor* tag, on the
+  first commit of the cycle::
+
+      git tag v2.6.0.dev0
+      git push origin v2.6.0.dev0
+
+* A release is made by creating a GitHub release with the tag ``vX.Y.Z`` on
+  ``main``.  Publishing the release triggers the workflow that builds the
+  package and uploads it to PyPI; it fails if the built version does not match
+  the tag.
+
+``opticalib.__version__`` is read from a ``_version.py`` file generated at
+build/install time.  In an editable install it is refreshed only on
+reinstall, so run ``pip install -e .`` again to update it after new commits or
+tags.
+
+.. note::
+   This is unrelated to the *configuration schema version*
+   (``opticalib.core.config.CONFIG_SCHEMA_VERSION``), which describes the
+   layout of ``configuration.yaml``.  It is bumped only when that layout
+   changes; see the configuration documentation.
+
+.. _setuptools-scm: https://setuptools-scm.readthedocs.io/
+
 Reporting issues
 ----------------
 

@@ -99,6 +99,28 @@ def _update_interf_paths(paths: dict[str, str]) -> None:
     CAPTURE_FOLDER_NAME_LOCAL_PC = paths["capture"]
 
 
+def _stamp_created_with(file: str, data_path: str | None = None) -> None:
+    """
+    Stamp ``SYSTEM.created_with`` (package version, provenance only) in *file*.
+
+    Optionally sets ``SYSTEM.data_path`` too. YAML comments are preserved.
+    """
+    from ..__version__ import __version__
+
+    try:
+        with open(file, "r") as _f:
+            config = _gyml.load(_f)
+        config["SYSTEM"]["created_with"] = str(__version__)
+        if data_path is not None:
+            config["SYSTEM"]["data_path"] = data_path
+        with open(file, "w") as _f:
+            _gyml.dump(config, _f)
+    except (OSError, KeyError, TypeError) as exc:
+        import warnings
+
+        warnings.warn(f"Could not stamp `{file}`: {exc}", UserWarning)
+
+
 def create_configuration_file(path: str = "", data_path: str | bool = False) -> None:
     """
     Create a configuration file in the specified path.
@@ -131,18 +153,11 @@ def create_configuration_file(path: str = "", data_path: str | bool = False) -> 
         _create_folder(_os.path.dirname(path))
     _copy(TEMPLATE_CONF_FILE, file)
     print(f"Configuration file created in {path}")
+    if not data_path:
+        _stamp_created_with(file)
     if data_path:
-        from ..__version__ import __version__
-
         data_path = _os.path.dirname(file)
-        with open(file, "r") as _f:
-            config = _gyml.load(_f)
-        config["SYSTEM"]["data_path"] = data_path
-        config["SYSTEM"]["version"] = __version__
-        with open(file, "w") as _f:
-            _gyml.dump(config, _f)
-        with open(file, "r") as _f:
-            _config = _gyml.load(_f)
+        _stamp_created_with(file, data_path)
         create_folder_tree(data_path)
         from shutil import move
 
@@ -171,6 +186,7 @@ if BASE_DATA_PATH == _fallback_bdp:
     )
     if not _os.path.exists(CONFIGURATION_FILE):
         _copy(TEMPLATE_CONF_FILE, CONFIGURATION_FILE)
+        _stamp_created_with(CONFIGURATION_FILE)
     with open(CONFIGURATION_FILE, "r") as _f:
         _config = _gyml.load(_f)
 
@@ -565,6 +581,8 @@ def set_configuration_file(config_path: str) -> None:
             raise RuntimeError(
                 f"Failed to reload runtime module '{module_name}'"
             ) from exc
+
+    read_config_module.check_configuration_version()
 
 
 def unset_configuration_file() -> None:

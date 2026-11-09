@@ -49,52 +49,9 @@ del _4DInterferometer
 from .devices import *
 
 # ---------------------------------------------------------------------------- #
-# Checking configuration version compatibility with the current package version
+# Checking configuration schema version compatibility
 # ---------------------------------------------------------------------------- #
-import warnings
-
-_conf_version = config.get_configuration_version()
-if _conf_version is not None:
-    
-    v = tuple(int(i) for i in __version__[:5].split('.'))
-    cv = tuple(int(i) for i in _conf_version[:5].split('.'))
-    version_lower = any(cvx < vx for cvx, vx in zip(cv, v))
-    version_equal = all(cvx == vx for cvx, vx in zip(cv, v))
-    if version_lower:
-
-        warnings.warn(
-            f"  WARNING!\nYour experiment's configuration version `{_conf_version}` "
-            f"is older than the current package version `{__version__}`. "
-            "Please, ensure that nothing has changed in the configuration format "
-            "and, in case, update it manually.",
-            UserWarning
-        )
-
-    elif version_equal:
-
-        if len(__version__) > 5 and len(_conf_version) > 5:
-            devc = int(_conf_version.split('-')[-1][-1])
-            devv = int(__version__.split('-')[-1][-1])
-            if devc < devv:
-                warnings.warn(
-                    f"  WARNING!\nYour experiment's configuration version `{_conf_version}` "
-                    f"is older than the current package version `{__version__}`. "
-                    "Beeing a development version, it might have changes not"
-                    " reflected in your configuration.",
-                    UserWarning
-                )
-            del devv, devc
-
-    del v, cv, _conf_version, version_lower, version_equal
-
-else:
-    warnings.warn(
-        "Version not found in configuration file. Most likely an old "
-        "version, and probably need aligment.",
-        UserWarning
-    )
-
-del warnings
+config.check_configuration_version()
 # ____________________________________________________________________________ #
 # ---------------------------------------------------------------------------- #
 

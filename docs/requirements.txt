@@ -13,6 +13,13 @@
 # available -- or useful -- in a documentation build environment.
 # ============================================================================
 
+# --- 0. Build backend and version handling -----------------------------------
+# .readthedocs.yaml installs the project with ``--no-build-isolation``, so the
+# build backend must already be present in this environment.
+setuptools>=77
+setuptools-scm>=8
+packaging                   # used by docs/conf.py to parse the version
+
 # --- 1. Sphinx toolchain -----------------------------------------------------
 sphinx>=8.1
 furo>=2024.8.6

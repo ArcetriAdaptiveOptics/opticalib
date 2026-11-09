@@ -341,3 +341,58 @@ class TestOptionalSections:
             capture_output=True, text=True, env=env, cwd=str(tmp_path), timeout=300,
         )
         assert proc.stdout.strip().endswith("ok"), proc.stderr[-3000:]
+
+
+class TestCheckConfigurationVersion:
+    """Test configuration schema version checking."""
+
+    @staticmethod
+    def _write(temp_dir, system):
+        path = os.path.join(temp_dir, "configuration.yaml")
+        with open(path, "w") as f:
+            yaml.dump({"SYSTEM": system}, f)
+        return path
+
+    @pytest.mark.parametrize("version", ["2.5", "2.5.0-dev1", "2.5.3"])
+    def test_equal_is_silent(self, temp_dir, version, recwarn):
+        path = self._write(temp_dir, {"data_path": "", "version": version})
+        read_config.check_configuration_version(path)
+        assert not [w for w in recwarn if issubclass(w.category, UserWarning)]
+
+    @pytest.mark.parametrize("version", ["2.4.2-dev0", "2.4", "1.9"])
+    def test_older_warns(self, temp_dir, version):
+        path = self._write(temp_dir, {"version": version})
+        with pytest.warns(UserWarning, match="older"):
+            read_config.check_configuration_version(path)
+
+    @pytest.mark.parametrize("version", ["2.10", "3.0", "3.0.0"])
+    def test_newer_warns(self, temp_dir, version):
+        path = self._write(temp_dir, {"version": version})
+        with pytest.warns(UserWarning, match="newer"):
+            read_config.check_configuration_version(path)
+
+    @pytest.mark.parametrize("system", [{"data_path": ""}, {"version": ""}])
+    def test_missing_warns(self, temp_dir, system):
+        path = self._write(temp_dir, system)
+        with pytest.warns(UserWarning, match="No configuration version"):
+            read_config.check_configuration_version(path)
+
+    def test_unparseable_warns(self, temp_dir):
+        path = self._write(temp_dir, {"version": "not-a-version"})
+        with pytest.warns(UserWarning, match="Unparseable"):
+            read_config.check_configuration_version(path)
+
+    def test_message_contents(self, temp_dir):
+        path = self._write(temp_dir, {"version": "2.4"})
+        with pytest.warns(UserWarning) as rec:
+            read_config.check_configuration_version(path)
+        msg = str(rec[0].message)
+        assert path in msg and "2.4" in msg and read_config.CONFIG_SCHEMA_VERSION in msg
+
+    def test_template_matches_schema(self):
+        from opticalib.core import root
+
+        with open(root.TEMPLATE_CONF_FILE) as f:
+            tpl = yaml.safe_load(f)
+        assert tpl["SYSTEM"]["version"] == read_config.CONFIG_SCHEMA_VERSION
+        assert "created_with" in tpl["SYSTEM"]

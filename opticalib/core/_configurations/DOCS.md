@@ -5,7 +5,7 @@
 - Pietro Ferraiuolo : written in 2025 (pietro.ferraiuolo@inaf.it)
 
 ### General description
-The `configuration.yaml` is, as the name suggests, a configuration file for the optimal functioning of the `OptiCalib` python package, which, as of version `2.4.x`, includes the following main sections:
+The `configuration.yaml` is, as the name suggests, a configuration file for the optimal functioning of the `OptiCalib` python package, which includes the following main sections:
 
 - [System](#system-section)
 - [Devices](#devices-section)
@@ -23,7 +23,7 @@ The `configuration.yaml` is, as the name suggests, a configuration file for the 
 
 ## System Section
 ### Description
-In this first section of the configuration file, under the `SYSTEM` key, there are the general definitions the software needs to properly operate. Here we find the base data path, where obtained data and configurations are stored and retrieved, and the version of the configuration file.
+In this first section of the configuration file, under the `SYSTEM` key, there are the general definitions the software needs to properly operate. Here we find the base data path, where obtained data and configurations are stored and retrieved, and the schema version of the configuration file.
 
 ### Variables Overview
 - **data_path : str**
@@ -38,7 +38,16 @@ In this first section of the configuration file, under the `SYSTEM` key, there a
 
 - **version : str**
 
-    The version of the configuration file (e.g. `'2.4.2-dev0'`). It is set by the package and at import time it is compared with the installed package version, raising a warning if the configuration is older.
+    The *configuration schema version*, in `MAJOR.MINOR` format (e.g. `'2.5'`). It is independent of the package version and is bumped by hand (`CONFIG_SCHEMA_VERSION` in `opticalib.core.config`) only when the layout of the configuration file changes (sections or keys added, renamed or removed). At import time (and after `set_configuration_file`) only `MAJOR.MINOR` is compared with the schema version expected by the installed package, and a `UserWarning` is raised if:
+    - the key is missing or unparseable (legacy file, may need alignment);
+    - the configuration is *older* than expected: check this document, update the file and set `version` to the expected value;
+    - the configuration is *newer* than expected: it was written for a newer `opticalib`, upgrade the package.
+
+    Always quote the value (`version: '2.5'`): unquoted, YAML reads `2.10` as the number `2.1`.
+
+- **created_with : str**
+
+    The version of the `opticalib` package which created the file. Provenance only, it is never compared with anything.
 
 ## Devices Section
 ### Description

@@ -4,7 +4,8 @@
 
 SYSTEM:
   data_path: ''
-  version: '2.4.2-dev0'
+  version: '2.4'
+  created_with: ''
 
 ## Devices configuration ##
 # In this section you can add the configuration of your devices.
