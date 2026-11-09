@@ -5,57 +5,110 @@
 - Pietro Ferraiuolo : written in 2025 (pietro.ferraiuolo@inaf.it)
 
 ### General description
-The `configuration.yaml` is, as the name suggests, a configuration file for the optimal functioning of the `OptiCalib` python package, which, as of version `0.5.0`, includes four main sections:
+The `configuration.yaml` is, as the name suggests, a configuration file for the optimal functioning of the `OptiCalib` python package, which, as of version `2.4.x`, includes the following main sections:
 
 - [System](#system-section)
 - [Devices](#devices-section)
-    - [Interferometer](#variables-overview-interferometers)
+    - [Wavefront Sensors](#variables-overview-wfs)
+    - [Interferometers](#variables-overview-interferometers)
     - [Deformable Mirrors](#variables-overview-deformablemirrors)
+    - [Cameras](#variables-overview-cameras)
+    - [Motors](#variables-overview-motors)
+- [Phasing](#phasing-section)
 - [Influence Functions](#iff-section)
+- [Stitching](#stitching-section)
 - [Alignment](#alignment-section)
+
+<ins>NOTE</ins>: every section is optional. A section which is missing (or set to `null`) does not prevent the package from being imported, but the procedures which need it will raise an error when used.
 
 ## System Section
 ### Description
-In this first section of the configuration file, under the `SYSTEM` key, there are the general definitions the software needs to properly operate. Here we find the base data path, where obtained data and configurations are stored and retrieved, as well as various device configurations.
+In this first section of the configuration file, under the `SYSTEM` key, there are the general definitions the software needs to properly operate. Here we find the base data path, where obtained data and configurations are stored and retrieved, and the version of the configuration file.
 
 ### Variables Overview
 - **data_path : str**
 
     This is the base bath for the construction of the folder tree of the package.
-    A copy of the `configuration.yaml` will be done inside the specified path, so that
-    for future modifications there will be non need to touch the "root" configuration file.
-    If left undefined, the package will automatically asign as base data path the home directory: 
+    If left undefined (empty string), the package will automatically asign as base data path the hidden folder in the home directory, and will use the copy of the `configuration.yaml` stored in its `SysConfig` folder (created from the template if not present), so that
+    for future modifications there will be non need to touch the "root" configuration file:
 
-    `~/opticalib_data/`
+    `~/.opticalib/`
 
-- **simulated.devices : bool**
+    The folder tree (`OPTData`, `Logging`, `SysConfig`) is created at import time.
 
-    Here there is the indication on whether the devices are simulated or not.
+- **version : str**
 
-    - **dm**
-
-        Sets the deformable mirror device to simulated (`true`) or not (`false`).
-
-    - **interf**
-
-        Sets the interferometer device as simulated (`true`) or not (`false`).
+    The version of the configuration file (e.g. `'2.4.2-dev0'`). It is set by the package and at import time it is compared with the installed package version, raising a warning if the configuration is older.
 
 ## Devices Section
 ### Description
-The devices part of the configuration file is divided into two main sections (soon to be 3?), one related to the Interferometers devices (under `INTERFEROMETERS`) and another for the Deformable Mirrors devices (under `DEFORMABLE.MIRRORS`). This section of the configuration serves to define key elements for the connection with the instruments, such as their `ip:port` adresses for ethernet connection.
+The devices part of the configuration file, under the `DEVICES` key, is divided into five sub-sections: Wavefront Sensors (`WFS`), Interferometers (`INTERFEROMETERS`), Deformable Mirrors (`DEFORMABLE.MIRRORS`), Cameras (`CAMERAS`) and Motors (`MOTORS`). This section of the configuration serves to define key elements for the connection with the instruments, such as their `ip:port` adresses for ethernet connection.
+
+Each device is identified by its name, which is the key under which its parameters are defined. The lookup of a device by name is case-insensitive (i.e. an entry named `phasecam6110` is found when asking for `PhaseCam6110`), as long as it is not ambiguous.
+
+Devices can refer to other devices with the `TYPE:name` notation, for example `camera: CAMERAS:GigaVision` indicates the `GigaVision` device defined in the `CAMERAS` sub-section.
+
+### Variables Overview: `WFS`
+The wavefront sensors (currently the `Ingot` three pupils sensor and the `Pyramid` four pupils sensor), which are based on a camera and a pupil detection algorithm. The parameters are the same for each device:
+
+- **camera : str**
+
+    The camera used by the sensor, in the `CAMERAS:name` notation.
+
+- **camera_base_exptime : float**
+
+    The base exposure time of the camera, in ms.
+
+- **camera_fps : float**
+
+    Frames per second of the camera (if supported).
+
+- **camera_binning : int**
+
+    Software binning factor of the camera.
+
+- **sigma_threshold : float**
+
+    Sigma threshold used by the edge filter (Canny algorithm) for the pupil detection.
+
+- **n_pupils : int**
+
+    The total number of pupils (3 for `Ingot`, 4 for `Pyramid`).
+
+- **subapertures : int**
+
+    The number of pixels across the pupil.
+
+- **delta_r : int**
+
+    The delta, in pixels, for the pupil search range, which is centered on `subapertures`.
+
+- **pupils_centers : list of [int, int]**
+
+    An estimate of the centers of the pupils, to help the search. It has one `[x, y]` element for each pupil.
 
 ### Variables Overview: `INTERFEROMETERS`
-- **i4d_ip : str**
+Each interferometer is defined by its own name (e.g. `PhaseCamX`, `AccuFizX`, `4DProcesser1`), under which are present the following variables:
+
+- **ip : str**
 
     This is the IP address of the interferometer instrument.
 
-- **i4d_port : int**
+- **port : int**
 
     This is the network PORT of the interferometer.
 
 - **Paths**
 
     In this sub-section are all the necessary paths to work with the interferometer.
+
+    - **settings : str**
+
+        This is the path to the `AppSettings.ini` configuration file of the interferometer, which needs to be network-mounted into the user's machine.
+
+    - **copied_settings : str**
+
+        This is the file name (e.g. `CameraSettings.ini`) given to the copy of the interferometer `AppSettings.ini` file, which is saved along with the acquired data.
 
     - **capture_4dpc : str**
 
@@ -69,14 +122,16 @@ The devices part of the configuration file is divided into two main sections (so
 
         This is the destination folder for the `produce`, which is in the user's machine.
 
-    - **settings : str**
+    - **capture : str**
 
-        This is the path to the `AppSettings.ini` configuration file of the interferometer, which needs to be network-mounted into the user's machine.
+        This is the destination folder for the `capture`, which is in the user's machine.
 
 
 ### Variables Overview: `DEFORMABLE.MIRRORS`
 
-- **"device_name"** (Here goes the device name that has been defined, i.e. Splatt)
+- **"device_name"** (Here goes the device name that has been defined, i.e. `AlpaoXXX` or `PetalDM`)
+
+    The variables depend on the kind of device. Those shared by (almost) all of them are:
 
     - **ip : str**
 
@@ -86,33 +141,154 @@ The devices part of the configuration file is divided into two main sections (so
 
         Network `PORT` of the DM device to be connected
 
+    - **slave_ids : list of int**
+
+        The indices of the actuators to be slaved (see the actuator slaving of the `slave` option when commanding the DM).
+
+    - **border_ids : list of int**
+
+        The indices of the border actuators of the DM, used by the slaving algorithms.
+
+    The `Alpao` DMs (named `Alpao<nacts>`, e.g. `Alpao97`) can be controlled via two different backends, and the variables depend on the one in use:
+
+    - Native SDK backend:
+
+        - **serial_number : str**
+
+            The serial number of the DM, in the form `BAX<YYY>`.
+
+        - **sdk_folder_path : str**
+
+            The parent folder containing `Lib64/` (e.g. `.../Linux/Samples/Python3`).
+
+        - **acfg_path : str**
+
+            The folder containing the `.acfg` hardware configuration file (it sets the `ACECFG` environment variable).
+
+    - `plico_dm` backend:
+
+        - **plico_ip : str**
+
+            The `IP` address of the `plico_dm` server.
+
+        - **plico_port : int**
+
+            The `PORT` of the `plico_dm` server.
+
+    - **diameter : float**
+
+        The (optical) diameter of the DM.
+
+    The `PetalDM` is made of six segments, each one with its own address:
+
+    - **ip0, ..., ip5 : str**
+
+        The `IP` address of each one of the six petals.
+
 <ins>NOTE</ins>: multiple devices can be defined in the configuration file, and actually it is recommended to define ahead all the possible available devices, to have a smoother experience on instancing the DM objects.
 
+### Variables Overview: `CAMERAS`
+
+- **"device_name"** (Here goes the camera name that has been defined, i.e. `GigaVision`)
+
+    - **id : str**
+
+        The identifier of the camera (e.g. `DEV_000F314DE425`).
+
+    - **ip : str**
+
+        The `IP` address of the camera, if applicable.
+
+    - **buffer_size : int**
+
+        The number of frames kept in memory while streaming. If left undefined, it defaults to `100`.
+
+### Variables Overview: `MOTORS`
+The motor devices usually use the `plico_motor` interface, as their SDK is not implemented in Linux.
+
+- **"device_name"** (Here goes the motor name that has been defined, i.e. `TunableFilter`)
+
+    - **ip : str**
+
+        The `IP` address of the `plico_motor` server.
+
+    - **port : int**
+
+        The `PORT` of the `plico_motor` server.
+
+## Phasing Section
+### Description
+In this section of the configuration file, under the `PHASING` key, are defined the parameters for the SPL phasing sensor, which is usually a camera plus a tunable filter (both to be defined in the `DEVICES` section), looking at a frame in which a certain number of PSFs is expected.
+
+### Variables Overview
+- **camera : str**
+
+    The camera of the sensor, in the `CAMERAS:name` notation.
+
+- **filter : str**
+
+    The tunable filter of the sensor, in the `MOTORS:name` notation.
+
+- **expected_psfs : int**
+
+    The number of different PSFs to expect in the frame.
+
+- **psfs_angles : list of float**
+
+    The angles of the PSFs, in degrees, with respect to the horizontal axis of the camera.
+
+- **expected_psfs_pos : list of lists**
+
+    The expected coordinates of the PSFs, ordered as the angles. This is used to better identify the correct centroids.
+
+- **initial_crop_half_size : int**
+
+    Half size, in pixels, of the crop used for the first PSF detection, which is then refined with a photometric centroid detection.
+
+- **crop_half_size : int or list of int**
+
+    Half size, in pixels, of the final crop. If a list, it is `[y, x]`.
+
+- **min_px_threshold : int**
+
+    The minimum number of pixels above the threshold to consider a PSF as detected.
+
+- **sigma_threshold : float**
+
+    The number of sigma above the background to use as threshold for the detection.
 
 ## IFF Section
 ### Description
-In this section of the configuration file, under the `INFLUENCE.FUNCTIONs` key, are defined all the essential parameters needed to acquire the influence function for a deformable mirror.
+In this section of the configuration file, under the `INFLUENCE.FUNCTIONS` key, are defined all the essential parameters needed to acquire the influence function for a deformable mirror. For each acquisition, a copy of this section is saved along with the data (`iffConfig.yaml`), for provenance.
 
 ### Variables Overview
-There are four main parameter classes to define for the IFF acquisition:
+There are two groups of parameters to define for the IFF acquisition: the general ones, which are related to the synchronization between the deformable mirror and the sensor, and three parameter classes defining the command to apply.
 
-#### `DM`
-In here we find information related to the hardware behaviour of the deformable mirror:
-
-- **nacts : int**
-
-    The number of actuators of the deformable mirror in use for the acquisition
+#### General parameters
+In here we find information related to the hardware behaviour of the deformable mirror and its synchronization with the acquisition:
 
 - **timing : int**
 
-    The timing information is needed for the synchronization between the dm and the interferometer acquisition, ad is effectively done by repeating each column of the `timed command history` by the amount specified in this parameter. This is a tentative of replacement for the interferometer trigger line, which is the best way to perform synchronization between interferometer and Deformable Mirror's command actuation.
+    The timing information is needed for the synchronization between the dm and the interferometer acquisition, and is effectively done by repeating each column of the `timed command history` by the amount specified in this parameter. This is a tentative of replacement for the interferometer trigger line, which is the best way to perform synchronization between interferometer and Deformable Mirror's command actuation.
 
-- **delay : float**
+- **sequential_delay : float**
 
-    This is the delay artificially introduced between an actuated command and it's subsequent interferometer acquisition, useful if the device at hand has a setting time for the commanded shape.
+    This is the delay, in seconds, artificially introduced between an actuated command and it's subsequent sensor acquisition, useful if the device at hand has a setting time for the commanded shape.
+
+- **triggered_mode**
+
+    The parameters for the triggered acquisition, in which the DM runs the command history by itself, synchronized with the sensor. If it is not available, set it to `false` and comment the next two lines.
+
+    - **frequency : float**
+
+        The frequency, in Hz, at which the commands are applied.
+
+    - **cmd_delay : float**
+
+        The delay, in seconds, between the start of the command history and the start of the acquisition.
 
 #### `TRIGGER - REGISTRATION - IFFUNC`
-The following three parameter classes share the same identical structure, and define how is the `Timed Command Matrix History` (TCMH) os built, that is the command matrix that will be uploaded and run by the deformable mirror.
+The following three parameter classes share almost the same structure, and define how is the `Timed Command Matrix History` (TCMH) is built, that is the command matrix that will be uploaded and run by the deformable mirror.
 
 - `TRIGGER`
 
@@ -128,30 +304,30 @@ The following three parameter classes share the same identical structure, and de
 
 As for the variables iside each parameter class, they are:
 
-- **numberofzeros : int**
+- **trailing_zeros : int**
 
     This is the number of zeros at the start of each section. Serves as a sort of "spacing" between sections of the `TCMH`.
 
-- **modeid : list or str**
+- **modes_list : list or str**
 
     This variables indicates the modes to command. It can be an hand-written list or, more conveniently in the case of modes equal to the number of actuators of the DM, a string can be used to form an array in python, like
 
     ```yaml
-    modeid : np.arange(0,88)
+    modes_list : np.arange(0,88,1)
     ```
 
-    In this way, `modeid` is the list of integers from 0 to 87, which tells the system to run all the modes from 1 to 88 on the selected modal base.
+    In this way, `modes_list` is the list of integers from 0 to 87, which tells the system to run all the modes from 1 to 88 on the selected modal base. Only the `np.arange(start, stop[, step])` expression is accepted.
 
-- **modeamp : float or list**
+- **amplitude : float or list**
 
     This is the amplitude each command receives.<br> 
-    If passed as a single float number, it is then transformed into an array with lenght equal to the number of measured modes, while if passed as list, it must have same size as the `modeid` array, as each value corresponds to the amplitude of the command at same inxed position.
+    If passed as a single float number, it is then transformed into an array with lenght equal to the number of measured modes, while if passed as list, it must have same size as the `modes_list` array, as each value corresponds to the amplitude of the command at same inxed position.
 
 - **template : list of int**
 
     A list of integers defining how each mode is executed. Usually is `[1,-1,1]`, which means that each mode is executed in a `push-pull-push` way.
 
-- **modalbase : str**
+- **modal_base : str**
 
     This string defines the modal base to use for the calibration. There are several options:
 
@@ -169,12 +345,50 @@ As for the variables iside each parameter class, they are:
 
     - **"custom"**
 
-        A custom modal base is admitted, as long as the string put in the `modalbase` variable corresponds to the name of the actual modal base `.fits` file in the `ModalBases` folder.
+        A custom modal base is admitted, as long as the string put in the `modal_base` variable corresponds to the name of the actual modal base `.fits` file in the `ModalBases` folder.
 
+Only the `IFFUNC` class has the following additional variables:
+
+- **padding_zeros : int**
+
+    The number of zeros after the modes.
+
+- **shuffle : bool**
+
+    Whether to shuffle the order of the commanded modes.
+
+- **n_repetitions : int**
+
+    The number of times the application of each mode is repeated.
+
+## Stitching Section
+### Description
+In this section of the configuration file, under the `STITCHING` key, are defined the parameters for the stitching procedure, in which a motorized stage moves the sensor (or the optic) to acquire different sub-apertures of a larger surface.
+
+### Variables Overview
+- **motor : str**
+
+    The motor device which moves the stage, in the `MOTORS:name` notation.
+
+- **pixel_scale : float**
+
+    The pixel scale of the image, in mm/px.
+
+- **alpha : float**
+
+    The rotation angle, in degrees, between the motor axes and the image.
+
+- **starting_coords : list of float**
+
+    The motors position, in mm, at which the stitching procedure starts.
+
+- **home_coords : list of float**
+
+    The motors position, in mm, of the "home" position.
 
 ## Alignment Section
 ### Description
-In this section of the configuration files, are defined all the parameters and function calls of the various devices for the optical alignment of the system.
+In this section of the configuration file, under the `SYSTEM.ALIGNMENT` key, are defined all the parameters and function calls of the various devices for the optical alignment of the system.
 
 ### <ins>Important Notes</ins>
 The element order of the lists is <ins>**essential**</ins>, as the code will use the same index
@@ -265,7 +479,7 @@ the second for every list in this configuration file.
 
 - **commandMatrix : str**
     
-    Control matrix file name, which must be a `.fits` file located under the `base_data_path/Alignment/ControlMatrices` folder.
+    Control matrix file name, which must be a `.fits` file located under the `base_data_path/OPTData/Alignment/ControlMatrices` folder.
 
 - **fitting_surface : str**
     
