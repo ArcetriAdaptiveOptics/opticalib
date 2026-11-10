@@ -317,7 +317,10 @@ def create_cube(fl_or_il: list[str]|list[_ot.ImageData], register: bool = False)
     memmap = True
     # check it is a list
     if not isinstance(fl_or_il, list):
-        raise TypeError("filelist must be a list of strings or images")
+        if isinstance(fl_or_il, str) or _ot.isinstance_(fl_or_il, "ImageData"):
+            fl_or_il = [fl_or_il]
+        else:
+            raise TypeError("filelist must be a list of strings or images")
 
     # check if it is composed of file paths to load
     if all([isinstance(item, str) for item in fl_or_il]):
