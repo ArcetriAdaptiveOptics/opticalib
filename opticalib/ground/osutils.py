@@ -453,6 +453,9 @@ def load_cube_from_filelist(
         fl = get_file_list(fold=fold, key=key)
     else:
         fl = tn_or_fl
+    
+    if isinstance(fl, str):
+        fl = [fl]
 
     cube = create_cube(fl)
     return cube

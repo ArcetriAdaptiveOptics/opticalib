@@ -263,6 +263,12 @@ instead of hand-rolling temp dirs or mocks. Hardware-dependent code should be te
 
 ## Rules
 
+- **Versioning**: the version comes from git tags via `setuptools-scm` (`vX.Y.Z` releases, `vX.Y.Z.dev0`
+  anchor tags to open a dev cycle); never edit it by hand. `opticalib/_version.py` is generated at
+  build/install time and git-ignored (editable installs refresh it only on `pip install -e .`).
+  `opticalib.__version__` is distinct from the configuration schema version
+  (`core.config.CONFIG_SCHEMA_VERSION`).
+
 - Hardware side effects are real: device classes talk to physical DMs/interferometers over the network.
   Never assume a change is safe to exercise interactively against real hardware — use `opticalib.simulator`
   or the `mock_dm`/`mock_interferometer` fixtures unless explicitly told a real bench is available.
@@ -297,8 +303,7 @@ instead of hand-rolling temp dirs or mocks. Hardware-dependent code should be te
 - Commit messages use the project's own format: `` `<mod> <type>: <subject>` ``, where `<mod>` is the
   module/file/class touched (no path or extension), `<type>` is one of
   `feat|fix|docs|style|refactor|perf|test|chore`, and `<subject>` is a concise, informative description.
-  If a function is added, name it in the subject; if `__version__` changes, mention the new version and a
-  summary of what's included. Examples:
+  If a function is added, name it in the subject; Versions come from git tags, so do not make version-bump commits. Examples:
   - `iff_processing refactor: optimized mode matrix processing for generalized use cases and better performance`
   - `ComputeReconstructor perf: improved performance of reconstructor computation by optimizing matrix operations`
   - `AlpaoDm feat: add plico_dm backend support with IP/PORT configuration`

@@ -14,21 +14,19 @@ import numpy as _np
 import shutil as _sh
 import configparser as _cp
 from tqdm import tqdm as _tqdm
-from ..core.root import folders
-from ..core import fitsarray as _fa
-from opticalib.core import _types as _ot
 from ..core import config as _rif
-from concurrent.futures import ThreadPoolExecutor as _tpe
+from ..core import fitsarray as _fa
+from ..core.root import folders as _fn
+from opticalib.core import _types as _ot
 from ..analyzer import image_processing as _ip
+from concurrent.futures import ThreadPoolExecutor as _tpe
 from ..ground import modal_decomposer as _zern, osutils as _osu, roi as _roi
 from ..core.decorators import expand_list_arguments as _expand_list_arguments
 
-_fn = folders
 _config = _cp.ConfigParser()
-_ifFold = _fn.IFFUNCTIONS_ROOT_FOLDER
-_intMatFold = _fn.INTMAT_ROOT_FOLDER
+_IFFOLD = _fn.IFFUNCTIONS_ROOT_FOLDER
+_IMFOLD = _fn.INTMAT_ROOT_FOLDER
 _frameCenter = [200, 200]
-_ts = _osu.newtn
 
 _MODES_FILE = "modes_list.fits"
 _MATRIX_FILE = "cmd_matrix.fits"
@@ -103,7 +101,7 @@ def process(
 
     info.update(_get_acq_info(tn))
 
-    new_fold = _os.path.join(_intMatFold, tn)
+    new_fold = _os.path.join(_IMFOLD, tn)
     if not _os.path.exists(new_fold):
         _os.mkdir(new_fold)
 
@@ -201,7 +199,7 @@ def piston_process(
 
     info.update(_get_acq_info(tn))
 
-    fold = _os.path.join(_ifFold, tn)
+    fold = _os.path.join(_IFFOLD, tn)
     if not _os.path.exists(fold):
         _os.mkdir(fold)
 
@@ -420,8 +418,8 @@ def save_cube(
     cube : masked_array
         Data cube of the images, with shape (npx, npx, nmodes).
     """
-    cube = _osu.load_cube_from_filelist(tn_or_fl=tn, fold=_ifFold, key="mode_")
-    new_fold = _os.path.join(_intMatFold, tn)
+    cube = _osu.load_cube_from_filelist(tn_or_fl=tn, fold=_IFFOLD, key="mode_")
+    new_fold = _os.path.join(_IMFOLD, tn)
     _os.makedirs(new_fold, exist_ok=True)
 
     ## TODO ??
@@ -475,8 +473,8 @@ def stack_cubes(tnlist: list[str], cube_names: _ot.Optional[list[str]] = None) -
     tn : str
         New tracking number of the stacked cube.
     """
-    new_tn = _ts()
-    stacked_cube_fold = _os.path.join(_intMatFold, new_tn)
+    new_tn = _osu.newtn()
+    stacked_cube_fold = _os.path.join(_IMFOLD, new_tn)
     _os.mkdir(stacked_cube_fold)
 
     # Get cube parameters and validation info
@@ -537,9 +535,9 @@ def add_mode_to_cube(
         Image of the mode to add.
 
     """
-    cube_path = _os.path.join(_intMatFold, tn, _CUBE_FILE)
-    cmdmat_path = _os.path.join(_intMatFold, tn, _MATRIX_FILE)
-    modesvec_path = _os.path.join(_intMatFold, tn, _MODES_FILE)
+    cube_path = _os.path.join(_IMFOLD, tn, _CUBE_FILE)
+    cmdmat_path = _os.path.join(_IMFOLD, tn, _MATRIX_FILE)
+    modesvec_path = _os.path.join(_IMFOLD, tn, _MODES_FILE)
 
     cube = _osu.load_fits(cube_path)
     cmdmat = _osu.load_fits(cmdmat_path)
@@ -584,10 +582,10 @@ def remove_zernike_from_iff(
     new_tn : str
         Tracking Number of the new folder where the filtered cube is saved.
     """
-    new_tn = _os.path.join(_intMatFold, _ts())
-    CmdMat = _os.path.join(_intMatFold, tn, _MATRIX_FILE)
-    ModesVec = _os.path.join(_intMatFold, tn, _MODES_FILE)
-    cube = _fa.FitsMaskedArray.from_fits(_os.path.join(_intMatFold, tn, _CUBE_FILE))
+    new_tn = _os.path.join(_IMFOLD, _osu.newtn())
+    CmdMat = _os.path.join(_IMFOLD, tn, _MATRIX_FILE)
+    ModesVec = _os.path.join(_IMFOLD, tn, _MODES_FILE)
+    cube = _fa.FitsMaskedArray.from_fits(_os.path.join(_IMFOLD, tn, _CUBE_FILE))
     zern_modes = zern_modes if zern_modes is not None else [1, 2, 3]
     from opticalib.analyzer import remove_zernike_from_cube
 
@@ -663,7 +661,7 @@ def iff_redux(
     """
     from opticalib.analyzer import push_pull_reduction_algorithm
 
-    fold = _os.path.join(_ifFold, tn)
+    fold = _os.path.join(_IFFOLD, tn)
 
     N, M, T = fileMat.shape
 
@@ -786,7 +784,7 @@ def registration_redux(tn: str, fileMat: list[str]) -> list[_ot.ImageData]:
         img = push_pull_reduction_algorithm(imgs, template)
         imglist.append(img)
     # cube = _np.ma.masked_array(imglist)
-    # _osu.save_fits(_os.path.join(_intMatFold, tn, "regActCube.fits"), cube)
+    # _osu.save_fits(_os.path.join(_IMFOLD, tn, "regActCube.fits"), cube)
     return imglist
 
 
@@ -811,7 +809,7 @@ def find_frame_offset(
     dp: float
         Position difference
     """
-    actCoordFile = _os.path.join(_ifFold, tn, _COORD_FILE)
+    actCoordFile = _os.path.join(_IFFOLD, tn, _COORD_FILE)
     act_coord = _osu.load_fits(actCoordFile)
     xy = _fa.find_frame_coord(imglist, actlist, act_coord)  # type: ignore
     dp = xy - _frameCenter
@@ -1150,8 +1148,8 @@ def _copy_from_iff_to_im(name: str, tn: str) -> None:
     tn : str
         Tracking number of the data.
     """
-    opd_path = _os.path.join(_ifFold, tn, name)
-    iff_path = _os.path.join(_intMatFold, tn, name)
+    opd_path = _os.path.join(_IFFOLD, tn, name)
+    iff_path = _os.path.join(_IMFOLD, tn, name)
     _os.makedirs(_os.path.dirname(iff_path), exist_ok=True)
     _sh.copy2(opd_path, iff_path)
 
@@ -1189,7 +1187,7 @@ def _get_cube_list(
     if cubeNames is None:
         cubeNames = [_CUBE_FILE] * len(tnlist)
     for tn, cname in zip(tnlist, cubeNames):
-        fold = _os.path.join(_intMatFold, tn)
+        fold = _os.path.join(_IMFOLD, tn)
         cube_name = _os.path.join(fold, cname)
         matrix_name = _os.path.join(fold, _MATRIX_FILE)
         modesVec_name = _os.path.join(fold, _MODES_FILE)
@@ -1234,7 +1232,7 @@ def _get_acq_par(tn: str) -> dict[str, _ot.ArrayLike | bool | int]:
     - n_repetitions : int
         Number of repetitions for each mode's push-pull packet.
     """
-    base = _os.path.join(_ifFold, tn)
+    base = _os.path.join(_IFFOLD, tn)
     modes_vector = _osu.load_fits(_os.path.join(base, _MODES_FILE))
     indexList = _osu.load_fits(_os.path.join(base, _INDEXLIST_FILE))
     ampVector = _osu.load_fits(_os.path.join(base, _AMP_FILE))
@@ -1272,7 +1270,7 @@ def _get_acq_info(
     info : dict
         Information read from the iffConfig.ini file.
     """
-    path = _os.path.join(_ifFold, tn) if tn is not None else _fn.CONFIGURATION_FOLDER
+    path = _os.path.join(_IFFOLD, tn) if tn is not None else _fn.CONFIGURATION_FOLDER
     info = _rif.get_iff_config(None, bpath=path)
     return info
 

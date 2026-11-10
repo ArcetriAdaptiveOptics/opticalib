@@ -15,14 +15,13 @@ Key entry points: :meth:`Flattening.compute_rec_mat`,
 
 import os as _os
 import numpy as _np
-from opticalib.core import _types as _ot
 from . import iff_processing as _ifp
+from opticalib.core import _types as _ot
 from opticalib.ground import osutils as _osu
 from opticalib.core.root import folders as _fn
-from opticalib.ground import reconstructor as _crec
 from ..ground.logger import SystemLogger as _SL
+from opticalib.ground import reconstructor as _crec
 from ..analyzer.image_processing import mode_rebinner as _rebin
-from opticalib.core.data_classes import FlatData
 
 
 class Flattening:
@@ -69,7 +68,7 @@ class Flattening:
         self._wfs = wfs
         self._logger = _SL(__class__)
 
-        self._path = _os.path.join(_ifp._intMatFold, self.tn)
+        self._path = _os.path.join(_ifp._IMFOLD, self.tn)
 
         ## Flat related attributes
         self.shape2flat: _ot.ImageData = None
@@ -210,8 +209,9 @@ class Flattening:
         wfs: _ot.Optional[_ot.InterferometerDevice | _ot.WFSDevice] = None,
         modes2flat: _ot.Optional[int | _ot.ArrayLike] = None,
         modes2discard: _ot.Optional[int] = None,
+        *,
         img: _ot.Optional[_ot.ImageData] = None,
-        nframes: int = 5,
+        nframes: int|tuple[int] = 5,
         save: bool = True,
         **setshape_kwargs: dict[str, _ot.Any],
     ) -> _ot.Optional[str]:
@@ -225,15 +225,20 @@ class Flattening:
             Deformable mirror object.
         wfs : InterferometerDevice | WFSDevice, optional
             Wavefront sensor object to acquire phasemaps.
-        img : ImageData, optional
-            Image to flatten. If not provided, it will acquired using the provided
-            wavefront sensor.
         modes2flat : int | ArrayLike, optional
             Modes to flatten.
         modes2discard : int, optional
             Number of modes to discard when computing the reconstruction matrix. Default is 3.
-        nframes : int, optional
-            Number of frames to average for phasemap acquisition. Default is 5.
+        img : ImageData, optional
+            Image to flatten. If not provided, it will acquired using the provided
+            wavefront sensor.
+        nframes : int or tuple, optional
+            Number of frames to average for phasemap acquisition. If a tuple of 
+            two ints, the first is the number of frames used for acquisition and
+            flattening computation, while the second is for the verification 
+            acquisition. 
+            
+            Default is 5 (both `in` and `out`).
         save : bool, optional
             Whether to save the computed flat command and related data. Default is True.
         setshape_kwargs : dict, optional
@@ -277,8 +282,13 @@ class Flattening:
 
         self._logger.info("Acquiring starting image from wavefront sensor...")
 
+        if isinstance(nframes, tuple):
+            nframes_in, nframes_out = nframes
+        elif isinstance(nframes, int):
+            nframes_in = nframes_out = nframes
+
         if img is None:
-            self._startImg = wfs.acquire_map(nframes)
+            self._startImg = wfs.acquire_map(nframes_in)
             img2pass = _rebin(self._startImg, self.rebin)
         else:
             self._startImg = img2pass = img.copy()
@@ -287,14 +297,14 @@ class Flattening:
         self.compute_rec_mat(modes2discard)
         deltacmd = self.compute_flat_cmd(modes2flat)
 
-        # handle diverse DM set_shape args
+        # handle the DM's `set_shape` args
         _ = setshape_kwargs.pop("differential", None)
         self._logger.info(f"Applying flat command to the {self._dm._name}")
         self._dm.set_shape(deltacmd, differential=True, **setshape_kwargs)
 
-        cmd = self._dm.get_shape()  # TODO: check if this is correct for DP
+        cmd = self._dm.get_shape()
 
-        self._lastFlatImg = wfs.acquire_map(nframes)
+        self._lastFlatImg = wfs.acquire_map(nframes_out)
 
         fold = None
         if save:
@@ -854,7 +864,7 @@ class Flattening:
             New tracking number.
         """
         self.tn = tn
-        self._path = _os.path.join(_ifp._intMatFold, self.tn)
+        self._path = _os.path.join(_ifp._IMFOLD, self.tn)
 
     def __repr__(self) -> str:
         """

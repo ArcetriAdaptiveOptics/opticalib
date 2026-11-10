@@ -45,6 +45,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history + tags: setuptools-scm derives the version
 
       - name: Set up Python
         id: python
@@ -122,6 +124,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history + tags: setuptools-scm derives the version
 
       - name: Set up Python
         id: python
@@ -271,4 +275,62 @@ jobs:
           if executed == 0:
               print("::error::no GUI test was executed")
               sys.exit(1)
+          PY
+
+  build:
+    # Builds the sdist and the wheel and checks their content.  This replaces
+    # publishing dev builds to TestPyPI: it catches packaging breakage (missing
+    # data files, stray dev files, version not derived from the tags) on every
+    # push, without any credentials.
+    name: Build sdist + wheel
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history + tags: setuptools-scm derives the version
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine
+          python -m build
+          twine check dist/*
+
+      - name: Check the built distributions
+        run: |
+          python - <<'PY'
+          import glob, tarfile, zipfile
+
+          wheel = glob.glob("dist/*.whl")
+          sdist = glob.glob("dist/*.tar.gz")
+          assert len(wheel) == 1 and len(sdist) == 1, (wheel, sdist)
+
+          version = wheel[0].split("-")[1]
+          print("built version:", version)
+          assert not version.startswith("0.0.0"), "version fell back: no git tags?"
+
+          names = set(zipfile.ZipFile(wheel[0]).namelist())
+          required = [
+              "opticalib/_version.py",
+              "opticalib/core/_configurations/configuration.yaml",
+              "opticalib/simulator/_API/alpao_conf.yaml",
+              "opticalib/py.typed",
+              "opticalib/gui/resources/opticalib.svg",
+              "setup_calpy.py",
+          ]
+          missing = [n for n in required if n not in names]
+          assert not missing, f"missing from the wheel: {missing}"
+
+          files = tarfile.open(sdist[0]).getnames()
+          stray = [n for n in files if "/docs/" in n or "/.github/" in n]
+          assert not stray, f"dev-only files in the sdist: {stray[:5]}"
+          print("distributions OK")
           PY

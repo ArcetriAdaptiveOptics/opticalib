@@ -47,6 +47,12 @@ def _update_imports():
 
 _update_imports()
 
+#: Configuration *schema* version (``MAJOR.MINOR``). to be bumped by hand ONLY when
+#: the ``configuration.yaml`` layout changes (sections/keys added, renamed or
+#: removed), and update ``SYSTEM.version`` in the template in the same commit.
+#: It is independent of the package version.
+CONFIG_SCHEMA_VERSION: str = "2.4"
+
 yaml_config_file = "configuration.yaml"
 _iff_config_file = "iffConfig.yaml"
 
@@ -495,18 +501,113 @@ def update_iff_config(tn: str, item: str | list[str], value: _Any | list[_Any]):
 # |                           General utilities                               |#
 ### ------------------------------------------------------------------------ ###
 
-def get_configuration_version() -> str:
+def get_configuration_version(path: str | None = None) -> str | None:
     """
     Retrieves the version of the configuration from the YAML configuration file.
 
+    The value is the *configuration schema version*, not the package version.
+
+    Parameters
+    ----------
+    path : str | None, optional
+        Configuration file (or folder) to read. If ``None``, the active
+        configuration file is used.
+
     Returns
     -------
-    version : str
-        Version of the configuration as a string.
+    version : str | None
+        Version of the configuration as a string, or ``None`` if not defined.
     """
-    config = get_section_config(section='SYSTEM')
+    config = _get_section_config(section="SYSTEM", path=path)
     version = config.get("version", None)
-    return version
+    return None if version is None else str(version)
+
+
+def check_configuration_version(path: str | None = None) -> None:
+    """
+    Check a configuration file against the expected schema version.
+
+    Only the ``(major, minor)`` components of ``SYSTEM.version`` are compared
+    with those of :data:`CONFIG_SCHEMA_VERSION`. The package version is never
+    involved. Problems are reported as :class:`UserWarning`, never raised.
+
+    Parameters
+    ----------
+    path : str | None, optional
+        Configuration file (or folder) to check. If ``None``, the active
+        configuration file is used.
+    """
+    import warnings
+
+    try:
+        _check_configuration_version(path)
+    except Exception as exc:  # never break ``import opticalib``
+        warnings.warn(
+            f"Could not check the configuration version: {exc!r}",
+            UserWarning,
+            stacklevel=2,
+        )
+
+
+def _check_configuration_version(path: str | None = None) -> None:
+    """
+    Implementation of :func:`check_configuration_version`; may raise.
+
+    Parameters
+    ----------
+    path : str | None, optional
+        Configuration file (or folder) to check. If ``None``, the active
+        configuration file is used.
+    """
+    import warnings
+    from packaging.version import Version, InvalidVersion
+
+    fname = _resolve_config_path(path)
+    expected = CONFIG_SCHEMA_VERSION
+    found = get_configuration_version(path)
+    if found is None or str(found).strip() == "":
+        warnings.warn(
+            f"No configuration version found in `{fname}`. Most likely a legacy "
+            "configuration file which may need alignment. Check the configuration "
+            f"documentation and set `SYSTEM.version` to the schema version "
+            f"`{expected}` (CONFIG_SCHEMA_VERSION).",
+            UserWarning,
+            stacklevel=3,
+        )
+        return
+    try:
+        release = Version(str(found).strip()).release
+    except InvalidVersion:
+        warnings.warn(
+            f"Unparseable configuration version `{found}` in `{fname}`. "
+            f"Expected a schema version like `{expected}`.",
+            UserWarning,
+            stacklevel=3,
+        )
+        return
+
+    def _mm(rel: tuple[int, ...]) -> tuple[int, int]:
+        return (rel[0], rel[1] if len(rel) > 1 else 0)
+
+    got = _mm(release)
+    want = _mm(Version(expected).release)
+    if got < want:
+        warnings.warn(
+            f"The configuration format of `{fname}` (version `{found}`) is older "
+            f"than what this opticalib expects (schema `{expected}`). Check the "
+            "configuration DOCS, update the file accordingly, then set "
+            f"`SYSTEM.version` to `{expected}`.",
+            UserWarning,
+            stacklevel=3,
+        )
+    elif got > want:
+        warnings.warn(
+            f"The configuration `{fname}` (version `{found}`) was written for a "
+            f"newer opticalib (this one expects schema `{expected}`). Please "
+            "upgrade the opticalib package.",
+            UserWarning,
+            stacklevel=3,
+        )
 
 
 def _parse_val(val: _Any):

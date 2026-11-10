@@ -14,13 +14,15 @@ The file is divided into the following top-level sections: ``SYSTEM``,
 SYSTEM
 ------
 
-The ``SYSTEM`` section contains global settings. As of now, only the global data
-path of the experiment is configurable.
+The ``SYSTEM`` section contains global settings: the global data path of the
+experiment and the configuration file version information.
 
 .. code-block:: yaml
 
    SYSTEM:
      data_path: ''
+     version: '2.5'
+     created_with: ''
 
 ``data_path`` : *str*
     Base path used to build the package's data folder tree (see
@@ -28,6 +30,25 @@ path of the experiment is configurable.
     ``configuration.yaml`` is written there automatically so future edits do
     not need to touch the root file.  Leave empty to fall back to
     ``~/opticalib_data/``.
+
+``version`` : *str*
+    Configuration *schema* version, in ``MAJOR.MINOR`` format.  It is
+    independent of the package version and is bumped by hand
+    (``CONFIG_SCHEMA_VERSION`` in :mod:`opticalib.core.config`) only when the
+    layout of the file changes (sections or keys added, renamed or removed).
+    At import time, and after ``set_configuration_file``, only ``MAJOR.MINOR``
+    is compared with the schema version expected by the installed package.
+    A ``UserWarning`` is issued if the key is missing or unparseable (legacy
+    file, which may need alignment), if the file is older than expected
+    (update it following this page and set ``version`` accordingly) or if it
+    is newer than expected (written for a newer opticalib: upgrade the
+    package).
+    Always quote the value (``version: '2.5'``): unquoted, YAML reads
+    ``2.10`` as the number ``2.1``.
+
+``created_with`` : *str*
+    Version of the opticalib package which created the file.  Provenance
+    only: it is never compared with anything.
 
 ----
 

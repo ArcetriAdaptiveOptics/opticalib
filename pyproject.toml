@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=77"]
+requires = ["setuptools>=77", "setuptools-scm>=8"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -48,6 +48,7 @@ dependencies = [
     "tqdm",
     "matplotlib",
     "numpy",
+    "packaging",
     "rbfgpu",
     "xupy>=2.0",
     "ipython",  # the ``calpy`` shell (``python -m IPython``); used to come with ipykernel
@@ -103,5 +104,10 @@ opticalib = [
     "gui/resources/*",
 ]
 
-[tool.setuptools.dynamic]
-version = { attr = "opticalib.__version__.__version__" }
+# The version comes from the git tags (``vX.Y.Z`` for releases).  Between
+# releases, ``vX.Y.Z.dev0`` "anchor" tags open a new development cycle: commits
+# after the anchor are versioned ``X.Y.Z.devN+g<hash>``.  Never edit the version
+# by hand.  ``_version.py`` is generated at build/install time (git-ignored).
+[tool.setuptools_scm]
+version_file = "opticalib/_version.py"
+fallback_version = "0.0.0+unknown"

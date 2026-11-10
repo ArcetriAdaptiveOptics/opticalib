@@ -29,6 +29,10 @@ To install the bleeding-edge version directly from GitHub::
 .. warning::
    The development version may contain bugs or incomplete features.
 
+.. note::
+   Development installs report versions such as ``2.5.0.dev12+g1a2b3c4``,
+   derived from the git tags (see :doc:`contributing`).
+
 Installing from source
 -----------------------
 

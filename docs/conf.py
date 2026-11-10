@@ -104,10 +104,18 @@ current_year = datetime.now().year
 copyright = f"2025-{current_year}, {author}"  # noqa: A001 - Sphinx reserved name
 
 try:
-    from opticalib.__version__ import __version__ as release
+    from opticalib.__version__ import __version__ as _raw_version
 except Exception:  # pragma: no cover - fallback when package is not importable
-    release = "0.0.0"
-version = ".".join(release.split(".")[:2])
+    _raw_version = "0.0.0"
+try:
+    from packaging.version import Version as _Version
+
+    _parsed_version = _Version(_raw_version)
+    release = _parsed_version.public  # no local segment (+g<hash>)
+    version = ".".join(str(n) for n in _parsed_version.release[:2])
+except Exception:  # pragma: no cover - unparsable version string
+    release = _raw_version.split("+")[0]
+    version = ".".join(release.split(".")[:2])
 
 # -- General configuration ---------------------------------------------------
 extensions = [

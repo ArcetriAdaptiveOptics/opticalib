@@ -12,10 +12,10 @@ zero-padding, using parameters from
 
 import os as _os
 import numpy as _np
-from opticalib.ground import osutils as _osu
-from opticalib.core import config as _rif
-from opticalib.core.fitsarray import fits_array as _fa
 from opticalib.core import _types as _ot
+from opticalib.core import config as _rif
+from opticalib.ground import osutils as _osu
+from opticalib.core.fitsarray import fits_array as _fa
 
 
 class IFFCapturePreparation:

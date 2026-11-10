@@ -13,6 +13,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history + tags: setuptools-scm derives the version
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -22,10 +24,22 @@ jobs:
       - name: Install build tooling
         run: |
           python -m pip install --upgrade pip
-          pip install build twine
+          pip install build twine packaging
 
       - name: Build dist package
         run: python -m build
+
+      - name: Check the built version matches the tag
+        run: |
+          expected=$(python -c "import sys; from packaging.version import Version; print(Version(sys.argv[1]))" "${GITHUB_REF_NAME#v}")
+          case "$expected" in
+            *+*) echo "::error::Version $expected has a local part"; exit 1 ;;
+          esac
+          if [ ! -f "dist/opticalib-${expected}.tar.gz" ] || ! compgen -G "dist/opticalib-${expected}-*.whl" > /dev/null; then
+            echo "::error::dist/ does not contain version ${expected} (tag ${GITHUB_REF_NAME}):"
+            ls dist
+            exit 1
+          fi
 
       - name: Publish to PyPI
         env:
