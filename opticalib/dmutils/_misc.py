@@ -5,7 +5,7 @@ from ..core import _types as _ot
 
 def make_modal_base(
     modes: int | list[int],
-    mask: _ot.MaskData,
+    pupil: _ot.MaskData,
     im: _ot.MatrixLike | None = None,
     rm: _ot.MatrixLike | None = None,
     basis: str = "zernike",
@@ -21,8 +21,8 @@ def make_modal_base(
         The reconstruction matrix (npix, nacts).
     modes : int or list of int
         The number of modes to compute, or the list of mode indices to compute.
-    mask : MaskData
-        The mask where to define the modal base.
+    pupil : MaskData
+        The pupil mask where to define the modal base.
     basis : str, optional
         The type of modal base to compute. Options are:
 
@@ -49,22 +49,22 @@ def make_modal_base(
         case "zernike":
             if isinstance(modes, int):
                 modes_list = list(range(1, modes + 1))
-            fit = _md.ZernikeFitter(mask)
+            fit = _md.ZernikeFitter(pupil)
         case "kl":
             if not isinstance(modes, int):
                 raise ValueError("For KL modes, modes must be an integer.")
             modes_list = list(range(0, modes))
-            fit = _md.KLFitter(modes, mask)
+            fit = _md.KLFitter(modes, pupil)
         case _:
             raise ValueError(f"Unknown basis: {basis}")
 
-    validpix = _np.sum(mask == 0)
+    validpix = _np.sum(pupil == 0)
 
     nmodes = len(modes_list)
     mat = _np.zeros((nmodes, validpix))
     for i in range(nmodes):
         surf = fit.make_surface([modes_list[i]])
-        masked_data = surf[~mask]
+        masked_data = surf[~pupil]
         mat[i, :] = masked_data
 
     if rm is not None:

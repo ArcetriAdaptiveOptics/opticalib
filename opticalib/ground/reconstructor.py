@@ -128,6 +128,10 @@ class ComputeReconstructor:
     def RM(self):
         return self._recMat
 
+    @property
+    def analysis_mask(self):
+        return self._analysisMask
+
     def run(
         self, sv_threshold: _ot.Optional[int | float] = None, interactive: bool = False
     ) -> _ot.MatrixLike:

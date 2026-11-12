@@ -50,13 +50,14 @@ def matshow(matrix: _ot.MatrixLike, **kwargs: dict[str, _ot.Any]):
     title = kwargs.pop("title", "Matrix")
     xlabel = kwargs.pop("xlabel", "X [px]")
     ylabel = kwargs.pop("ylabel", "Y [px]")
+    clabel = kwargs.pop("clabel", "adu")
 
     fig, ax = plt.subplots()
     im = ax.matshow(matrix, **kwargs)
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
     ax.set_title(title)
-    fig.colorbar(im, ax=ax)
+    fig.colorbar(im, ax=ax, label=clabel)
 
     return fig, ax, im
 
