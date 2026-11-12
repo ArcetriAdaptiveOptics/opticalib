@@ -111,6 +111,11 @@ class BaseAlpaoMirror(BaseDeformableMirror):
             Any hardware-level exception raised by the underlying backend
             on connection failure is propagated to the caller.
         """
+        if nacts is not None:
+            self._name = f"Alpao{nacts}"
+        else:
+            self._name = "Alpao"
+
         self._resolve_init(sdk_params, plico_params)
         self._is_plico = bool(plico_params[0])
 
