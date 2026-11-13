@@ -523,3 +523,105 @@ class TestExtraPanels:
 
         window = make_window(CalpyGUI)
         assert list(window.docks) == ["devices", "procedures", "workspace", "data", "console"]
+
+
+class TestProcedurePanels:
+    """Extra panels of procedure cards (add_procedure_panel)."""
+
+    @pytest.fixture
+    def make_window(self, qapp, tmp_path, monkeypatch):
+        from qtpy.QtCore import QSettings
+
+        from opticalib.gui.kernel import KernelBridge
+
+        monkeypatch.setattr(KernelBridge, "start", lambda self: None)
+        QSettings("ArcetriAdaptiveOptics", "ProcedurePanelsTest").remove("window")
+        config = tmp_path / "Exp" / "configuration.yaml"
+        config.parent.mkdir()
+        config.write_text("SYSTEM:\n  data_path: ''\nDEVICES: {}\n")
+        windows = []
+
+        def make(cls):
+            window = cls(config_path=str(config))
+            window._confirm_close = False
+            windows.append(window)
+            return window
+
+        make.config = config
+        yield make
+        for window in windows:
+            for child in list(window._plugin_windows):
+                child.close()
+            window.close()
+            window.deleteLater()
+
+    @staticmethod
+    def _gui_class():
+        from opticalib.gui import CalpyGUI, Procedure
+        from opticalib.gui.procedures.base import ProcedureWindow
+
+        class ActionsWindow(ProcedureWindow):
+            TITLE = "Actions"
+
+        class CalibWindow(ProcedureWindow):
+            TITLE = "Calibration"
+
+        class TwoPanelGUI(CalpyGUI):
+            SETTINGS_APP = "ProcedurePanelsTest"
+            PROCEDURES = [Procedure("Mirror", "mirror", "Actions.", ActionsWindow)]
+
+            def add_panels(self):
+                self.calibrations = self.add_procedure_panel(
+                    "calibrations",
+                    "Calibrations",
+                    [
+                        Procedure("Mirror", "mirror", "Calibrate it.", CalibWindow),
+                        Procedure("Stitch", "image", "Needs STITCHING.", CalibWindow, "STITCHING"),
+                    ],
+                    caption="Calibrate the bench.",
+                )
+
+        return TwoPanelGUI, ActionsWindow, CalibWindow
+
+    def test_panel_is_docked_with_procedures(self, make_window):
+        cls, _, _ = self._gui_class()
+        window = make_window(cls)
+        docks = window.docks
+        assert docks["calibrations"].widget() is window.calibrations
+        assert docks["calibrations"] in window.tabifiedDockWidgets(docks["procedures"])
+        assert window.procedure_panels == [window.plugin_panel, window.calibrations]
+        assert window.calibrations._caption.text() == "Calibrate the bench."
+        assert window.plugin_panel._caption.text() == window.plugin_panel.CAPTION
+
+    def test_cards_open_their_own_window(self, make_window):
+        cls, actions, calib = self._gui_class()
+        window = make_window(cls)
+        window.calibrations._selection_callback("Mirror")
+        window.plugin_panel._selection_callback("Mirror")
+        assert [type(w) for w in window._plugin_windows] == [calib, actions]
+        # By name, the first panel wins (compatibility with plugin names).
+        window._open_plugin_window("Stitch")
+        assert type(window._plugin_windows[-1]) is calib
+
+    def test_panels_follow_the_configuration(self, make_window):
+        cls, _, _ = self._gui_class()
+        window = make_window(cls)
+        assert window.calibrations.available() == ["Mirror"]
+        make_window.config.write_text(
+            "SYSTEM:\n  data_path: ''\nDEVICES: {}\nSTITCHING:\n  overlap: 1\n"
+        )
+        window._on_config_saved()
+        assert window.calibrations.available() == ["Mirror", "Stitch"]
+
+    def test_late_calls_are_refused(self, make_window):
+        cls, _, _ = self._gui_class()
+        window = make_window(cls)
+        with pytest.raises(RuntimeError, match="add_panels"):
+            window.add_procedure_panel("late", "Late", [])
+        assert len(window.procedure_panels) == 2
+
+    def test_empty_caption_is_hidden(self, qapp):
+        from opticalib.gui.plugins import PluginPanel
+
+        panel = PluginPanel(lambda name: None, procedures=[], caption="")
+        assert panel._caption.isHidden()

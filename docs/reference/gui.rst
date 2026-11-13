@@ -176,6 +176,10 @@ overriding its class attributes:
 Extra panels are added by overriding :meth:`~opticalib.gui.app.CalpyGUI.add_panels`
 and calling :meth:`~opticalib.gui.app.CalpyGUI.add_dock` from it; they are
 listed in *View*, saved with the layout and restored by *Reset layout*.
+Another panel of procedure cards, like *Procedures*, is added from
+``add_panels`` with :meth:`~opticalib.gui.app.CalpyGUI.add_procedure_panel`:
+its cards open their windows and follow the configuration file like those
+of *Procedures*, and by default it shares their tab group.
 
 Here an example is shown with the M4 use and customization of the opticalib GUI.
 
@@ -196,11 +200,22 @@ Here an example is shown with the M4 use and customization of the opticalib GUI.
                      confirm="This moves the reference mirror."),
             ]
 
+    class CalibWindow(ProcedureWindow):
+        TITLE = "Calibration"  # its steps() as above
+
     class M4GUI(CalpyGUI):
         APP_NAME = "M4 CalpyGUI"
         SETTINGS_APP = "M4CalpyGUI"
         INIT_SCRIPTS = ["/path/to/initM4GUI.py"]
         PROCEDURES = [Procedure("OTT", "telescope", "OTT user scripts.", OttWindow)] + PROCEDURES
+
+        def add_panels(self):
+            # A second panel of cards, in a tab next to "Procedures".
+            self.add_procedure_panel(
+                "calibrations", "Calibrations",
+                [Procedure("Calibration", "tune", "Calibrate the OTT.", CalibWindow)],
+                caption="Calibrate the bench.",
+            )
 
     launch_gui("/path/to/configuration.yaml", window_class=M4GUI)
 

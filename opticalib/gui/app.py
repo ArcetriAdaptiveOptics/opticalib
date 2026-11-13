@@ -32,7 +32,7 @@ import os
 import shutil
 import sys
 import tempfile
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Sequence
 
 import qtpy
 
@@ -654,11 +654,9 @@ class CalpyGUI(QMainWindow):
         self.setCentralWidget(self.plot_viewer)
 
         self.device_panel = DevicePanel(self._config_path, runner=self._run)
-        self.plugin_panel = PluginPanel(
-            selection_callback=self._open_plugin_window,
-            config_path=self._config_path,
-            procedures=self.PROCEDURES,
-        )
+        # Every panel of procedure cards (see add_procedure_panel).
+        self._procedure_panels: List[PluginPanel] = []
+        self.plugin_panel = self._make_procedure_panel(self.PROCEDURES, None)
         self.workspace_view = WorkspaceView()
         self.data_browser = DataBrowser()
 
@@ -803,6 +801,90 @@ class CalpyGUI(QMainWindow):
             )
             self.addDockWidget(self.DOCK_AREAS[area], dock, orientation)
         return dock
+
+    def add_procedure_panel(
+        self,
+        name: str,
+        title: str,
+        procedures: Sequence[Procedure],
+        caption: Optional[str] = None,
+        area: str = "left",
+        tabify_with: Optional[str] = "procedures",
+    ) -> PluginPanel:
+        """
+        Add a panel of procedure cards, like *Procedures*.
+
+        Only from :meth:`add_panels` (see :meth:`add_dock`).  Its cards open
+        their windows like those of *Procedures*, and the panel follows the
+        configuration file (cards whose section is missing are hidden).
+
+        Parameters
+        ----------
+        name : str
+            Unique identifier of the panel (see :meth:`add_dock`).
+        title : str
+            Title of the panel and its tab.
+        procedures : sequence of Procedure
+            The cards, in order.
+        caption : str, optional
+            Text above the cards (default: that of *Procedures*; empty for
+            none).
+        area : str, optional
+            Dock area, used when *tabify_with* is ``None``.
+        tabify_with : str or None, optional
+            Panel to share a tab group with (default: ``'procedures'``).
+
+        Returns
+        -------
+        PluginPanel
+            The panel.
+
+        Examples
+        --------
+        ::
+
+            class MyGUI(CalpyGUI):
+                def add_panels(self):
+                    self.add_procedure_panel(
+                        "calibrations", "Calibrations", CALIBRATIONS,
+                        caption="Calibrate the bench.",
+                    )
+        """
+        if hasattr(self, "_default_state"):
+            raise RuntimeError(
+                "add_procedure_panel() can only be called from add_panels()."
+            )
+        panel = self._make_procedure_panel(procedures, caption)
+        try:
+            self.add_dock(name, title, panel, area=area, tabify_with=tabify_with)
+        except ValueError:
+            self._procedure_panels.remove(panel)
+            panel.deleteLater()
+            raise
+        return panel
+
+    @property
+    def procedure_panels(self) -> List[PluginPanel]:
+        """Every panel of procedure cards, *Procedures* first (a copy)."""
+        return list(self._procedure_panels)
+
+    def _make_procedure_panel(
+        self, procedures: Sequence[Procedure], caption: Optional[str]
+    ) -> PluginPanel:
+        # A card opens the window of its own panel (names may repeat across
+        # panels): the callback finds the panel once it exists.
+        owner: List[PluginPanel] = []
+        panel = PluginPanel(
+            selection_callback=lambda name: self._open_procedure(
+                owner[0].window_class(name), name
+            ),
+            config_path=self._config_path,
+            procedures=procedures,
+            caption=caption,
+        )
+        owner.append(panel)
+        self._procedure_panels.append(panel)
+        return panel
 
     @property
     def docks(self) -> Dict[str, QDockWidget]:
@@ -1264,7 +1346,8 @@ class CalpyGUI(QMainWindow):
     def _on_config_saved(self) -> None:
         """Refresh the panels and reload the configuration in the kernel."""
         self.device_panel.reload()
-        self.plugin_panel.reload()
+        for panel in self._procedure_panels:
+            panel.reload()
         self._run(
             "import opticalib\n"
             f"opticalib.set_configuration_file({self._config_path!r})",
@@ -1421,7 +1504,8 @@ class CalpyGUI(QMainWindow):
             code=f"{KERNEL_SIDE}.use_experiment({config_path!r})",
         )
         self.device_panel.set_config_path(config_path)
-        self.plugin_panel.set_config_path(config_path)
+        for panel in self._procedure_panels:
+            panel.set_config_path(config_path)
         self._remember_experiment(config_path)
         self._refresh_folders()
         self._refresh_workspace()
@@ -1437,9 +1521,21 @@ class CalpyGUI(QMainWindow):
         Parameters
         ----------
         plugin_name : str
-            Display label selected in the plugin panel.
+            Name of a card, looked up in every panel of procedure cards
+            (the first match wins).
         """
-        window_cls = self.plugin_panel.window_class(plugin_name)
+        window_cls = next(
+            (
+                p.window_class(plugin_name)
+                for p in self._procedure_panels
+                if p.window_class(plugin_name) is not None
+            ),
+            None,
+        )
+        self._open_procedure(window_cls, plugin_name)
+
+    def _open_procedure(self, window_cls: Optional[type], plugin_name: str) -> None:
+        """Open a procedure window (warn when *window_cls* is ``None``)."""
         if window_cls is None:
             QMessageBox.warning(
                 self,

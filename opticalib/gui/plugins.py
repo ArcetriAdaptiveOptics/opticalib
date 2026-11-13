@@ -155,9 +155,14 @@ class PluginPanel(QWidget):
         not listed (all are listed without a file).
     procedures : sequence of Procedure, optional
         The cards, in order (default: :data:`PROCEDURES`).
+    caption : str, optional
+        Text above the cards (default: :attr:`CAPTION`; empty for none).
     parent : QWidget, optional
         Parent widget.
     """
+
+    #: Default text above the cards.
+    CAPTION = "Open a dedicated window for a bench procedure."
 
     def __init__(
         self,
@@ -166,6 +171,7 @@ class PluginPanel(QWidget):
         *,
         config_path: Optional[str] = None,
         procedures: Optional[Sequence[Procedure]] = None,
+        caption: Optional[str] = None,
     ) -> None:
         """Build one card per plugin."""
         super().__init__(parent)
@@ -182,10 +188,11 @@ class PluginPanel(QWidget):
         column = QVBoxLayout(content)
         column.setContentsMargins(8, 8, 8, 8)
         column.setSpacing(6)
-        caption = QLabel("Open a dedicated window for a bench procedure.")
-        caption.setProperty("muted", True)
-        caption.setWordWrap(True)
-        column.addWidget(caption)
+        self._caption = QLabel(self.CAPTION if caption is None else caption)
+        self._caption.setProperty("muted", True)
+        self._caption.setWordWrap(True)
+        self._caption.setVisible(bool(self._caption.text()))
+        column.addWidget(self._caption)
         for procedure in self.procedures:
             name, icon_name, description = (
                 procedure.name,
