@@ -1016,12 +1016,13 @@ class NACODm(NACOMirror, BaseDeformableMirror):
             dm_config = _rc.get_device_config("DEFORMABLE.MIRRORS", self._name)
             host = dm_config.get("host", [])
             port = dm_config.get("port", [])
+            reply_timeout = float(dm_config.get("reply_timeout", 1.0))
         except KeyError:
             raise _oe.DeviceNotFoundError(
                 f"Configuration for {self._name} not found in the configuration file."
             )
         self._logger = _SL(the_class=__class__)
-        super().__init__(host, port)
+        super().__init__(host, port, reply_timeout=reply_timeout)
         self.set_zeros_to_acts()
         self.is_segmented = False
 

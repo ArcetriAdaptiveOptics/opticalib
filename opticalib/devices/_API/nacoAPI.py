@@ -25,6 +25,7 @@ class NACOMirror:
         self,
         host: str,
         port: int,
+        reply_timeout: float = 1.0,
     ) -> None:
         """
         Initialize the NACO mirror interface.
@@ -36,16 +37,22 @@ class NACOMirror:
             IP address or hostname of the NACO mirror.
         port : int
             Port number for the PLC connection.
+        reply_timeout : float, optional
+            Seconds to wait for the PLC reply after each command.
+            Default is 1.0.
 
         Raises
         ------
-        Exception
-            Any hardware-level exception raised by ``asdk.DM()`` on
-            connection failure is propagated to the caller.
+        socket.gaierror
+            If *host* cannot be resolved.
         """
         self._host = host
         self._port = port
+        self._reply_timeout = reply_timeout
+        # A connected UDP socket only receives datagrams from the PLC
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self._sock.connect((host, port))
+        self.last_reply: _t.ArrayLike | None = None
 
         self.n_acts = 185
         self._dmCoords = {
@@ -84,6 +91,11 @@ class NACOMirror:
         Data is sent as an UDP packet with 185 values in raw float32 format.
         The PLC will convert the values to the appropriate DAC units and send them to the mirror.
 
+        The PLC replies to every packet: with the 185 computed actuator
+        commands (raw float32) on success, or with a short error string
+        if the packet was malformed. This method waits for that reply and
+        stores the returned commands in ``last_reply``.
+
         Parameters
         ----------
         cmd : array_like
@@ -93,7 +105,8 @@ class NACOMirror:
         ------
         CommandError
             If the length of *cmd* does not match the number of
-            actuators.
+            actuators, if no reply is received from the PLC within
+            the timeout, or if the PLC replies with an error.
         """
         cmd = _np.asarray(cmd, dtype=float)
         if cmd.size != self.n_acts:
@@ -101,8 +114,25 @@ class NACOMirror:
                 f"Command length {cmd.size} does not match the number "
                 f"of actuators ({self.n_acts})."
             )
-        # Send UDP packet to PLC (raw float32)
-        self._sock.sendto(cmd.astype(_np.float32).tobytes(), (self._host, self._port))
+        # Discard stale replies (e.g. a late answer to a timed-out command)
+        self._sock.setblocking(False)
+        try:
+            while True:
+                self._sock.recv(65535)
+        except OSError:  # nothing left to read
+            pass
+        self._sock.settimeout(self._reply_timeout)
+        # Send UDP packet to PLC (raw float32) and wait for its reply
+        self._sock.send(cmd.astype(_np.float32).tobytes())
+        try:
+            reply = self._sock.recv(65535)
+        except OSError as e:  # timeout, or ICMP port unreachable
+            raise CommandError(
+                f"No reply from NACO PLC at {self._host}:{self._port}: {e!r}"
+            ) from e
+        if len(reply) != 4 * self.n_acts:
+            raise CommandError(f"NACO PLC rejected the command, reply: {reply!r}")
+        self.last_reply = _np.frombuffer(reply, dtype=_np.float32).astype(float)
         self._last_cmd = cmd.copy()
 
     # ------------------------------------------------------------------
