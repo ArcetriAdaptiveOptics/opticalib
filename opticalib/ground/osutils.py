@@ -1,12 +1,10 @@
 """
-Module containing various utility functions for handling files and directories,
-especially related to tracking numbers and interferometric data, within the
-Opticalib framework.
+OS and file utilities — tracking numbers, FITS/HDF5 I/O and data management
+===========================================================================
 
-Author(s)
----------
-- Chiara Selmi:  written in 2019
-- Pietro Ferraiuolo: updated in 2025
+Helpers for file-system operations used throughout the library:
+tracking-number generation and discovery, FITS and HDF5 read/write,
+file listing, folder synchronisation, and data archiving.
 
 """
 
@@ -395,7 +393,7 @@ def get_kwargs(
     ----------
     possible_keys : tuple[str]
         Tuple containing all the possible names of a variable which can be passed
-        as a **kwargs argument.
+        as a ``**kwargs`` argument.
     default : _ot.Any
         The default value to assign the requested key if it doesn't exist.
     kwargs : dict[str,_ot.Any]
@@ -455,11 +453,15 @@ def load_cube_from_filelist(
         fl = get_file_list(fold=fold, key=key)
     else:
         fl = tn_or_fl
+    
+    if isinstance(fl, str):
+        fl = [fl]
+
     cube = create_cube(fl)
     return cube
 
 
-def read_phasemap(file_path: str) -> _ot.ImageData:
+def read_phasemap(file_path: str, **kwargs: dict[str, _ot.Any]) -> _ot.ImageData:
     """
     Function to read interferometric data, in the three possible formats
     (FITS, 4D, H5)
@@ -476,13 +478,15 @@ def read_phasemap(file_path: str) -> _ot.ImageData:
     """
     ext = file_path.split(".")[-1]
     if ext in ["fits", "4Ds"]:
-        image = load_fits(file_path)
+        image = load_fits(file_path, **kwargs)
     elif ext in ["4D", "h5"]:
         image = _InterferometerConverter.from_phase_cam6110(file_path)
     return image
 
 
-def load_fits(filepath: str, on_gpu: bool = False) -> _ot.FitsData | list[_ot.FitsData]:
+def load_fits(
+    filepath: str, on_gpu: bool = False, **kwargs: dict[str, _ot.Any]
+) -> _ot.FitsData | list[_ot.FitsData]:
     """
     Loads a FITS file.
 
@@ -507,7 +511,12 @@ def load_fits(filepath: str, on_gpu: bool = False) -> _ot.FitsData | list[_ot.Fi
         filepath += ".fits"
 
     multi_hdu = False
-    with _fits.open(filepath) as hdul:
+    # memmap=False: with memory mapping (astropy's default) the returned arrays
+    # are views on the mmap, which keeps a file descriptor open for as long as
+    # the data is alive, even after the `with` block exits. Loading many files
+    # (e.g. in `load_cube_from_filelist`) would then hit "Too many open files".
+    memmap = kwargs.pop("memmap", True)
+    with _fits.open(filepath, memmap=memmap, **kwargs) as hdul:
         H = len(hdul)
 
         # Simple HDU case
@@ -637,7 +646,7 @@ def update_fits_header(
         ) from exc
 
 
-def read_fits_header(filepath: str) -> _fits.Header:
+def read_fits_header(filepath: str, out: bool = True) -> _fits.Header:
     """
     Reads the header of a FITS file.
 
@@ -645,6 +654,8 @@ def read_fits_header(filepath: str) -> _fits.Header:
     ----------
     filepath : str
         Path to the FITS file.
+    out : bool, optional
+        If True, returns the header. If False, prints the header. Default is True.
 
     Returns
     -------
@@ -656,9 +667,11 @@ def read_fits_header(filepath: str) -> _fits.Header:
     FileNotFoundError
         If the specified FITS file does not exist.
     """
-    header = load_fits(filepath).header
+    header = _fits.getheader(filepath)
+    if out:
+        return header
     print(f"Header of {filepath}:")
-    print(header.__repr__())
+    print(header)
 
 
 def save_h5(
@@ -830,6 +843,7 @@ def get_h5file_info(filepath: str) -> dict[str, _ot.Any]:
     -------
     info: dict[str, Any]
         Dictionary containing:
+
         - 'keys': list of dataset names
         - 'n_keys': number of datasets
         - 'creation_date': tracking number when file was created
@@ -969,6 +983,7 @@ def _ensure_on_cpu(data: _ot.ArrayLike) -> _ot.ArrayLike:
     ----------
     data : ArrayLike
         Input data which may be on GPU or CPU. Handles:
+
         - numpy arrays / masked arrays (CPU)
         - xupy arrays / masked arrays (GPU)
         - FitsArray and FitsMaskedArray (CPU)
@@ -1016,13 +1031,14 @@ def _reduce_dtype_safely(
     Reduces the dtype of an array to save space, with safety checks.
 
     This function performs intelligent dtype reduction:
+
     - Checks if data range fits in smaller dtype
     - Estimates precision loss for floating point conversions
     - Preserves float64 if precision loss is significant
 
     Parameters
     ----------
-    data: np.ndarray
+    data: numpy.ndarray
         Input array to reduce precision
     preserve_float64: bool, optional
         If True, keeps float64 when conversion would cause significant
@@ -1030,10 +1046,11 @@ def _reduce_dtype_safely(
 
     Returns
     -------
-    reduced_data: np.ndarray
+    reduced_data: numpy.ndarray
         Array with reduced precision dtype
     info: dict[str, Any], optional
         Information about the conversion:
+
         - 'conversion': description of the conversion performed
         - 'precision_loss': estimated relative precision loss (for floats)
         - 'space_saving_ratio': ratio of reduced size to original

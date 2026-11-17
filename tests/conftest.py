@@ -10,6 +10,11 @@ import numpy as np
 import numpy.ma as ma
 from pathlib import Path
 
+# GUI tests use the Qt binding of the application (see opticalib.gui): it must
+# be selected before any test module imports qtpy, qtawesome or pyqtgraph.
+os.environ.setdefault("QT_API", "pyside6")
+os.environ.setdefault("PYQTGRAPH_QT_LIB", "PySide6")
+
 
 @pytest.fixture
 def temp_dir():
@@ -42,7 +47,7 @@ INFLUENCE.FUNCTIONS:
   DM:
     nacts: 100
     timing: 10
-    sequentialDelay: 0.1
+    sequential_delay: 0.1
   IFFUNC:
     numberofzeros: 0
     modeid: [1, 2, 3]
@@ -120,10 +125,11 @@ def mock_dm():
     """Create a mock deformable mirror device."""
     dm = MagicMock()
     dm.n_acts = 100
-    dm.nSegments = 2
-    dm.nActsPerSegment = 50
+    dm.n_segments = 2
+    dm.n_acts_per_segment = 50
     dm.mirrorModes = np.random.randn(100, 100).astype(np.float32)
     dm.name = "TestDM"
+    dm._name = "TestDM"
     dm.upload_cmd_history = Mock()
     dm.run_cmd_history = Mock()
     dm.get_shape = Mock(return_value=np.zeros(100))
@@ -136,6 +142,7 @@ def mock_interferometer():
     """Create a mock interferometer device."""
     interf = MagicMock()
     interf.name = "TestInterf"
+    interf._name = "TestInterf"
     interf.acquire_map = Mock(
         return_value=ma.masked_array(
             np.random.randn(200, 200).astype(np.float32),
@@ -184,7 +191,7 @@ def sample_iff_folder_structure(temp_dir, monkeypatch):
     os.makedirs(iff_folder, exist_ok=True)
     monkeypatch.setattr(folders, "IFFUNCTIONS_ROOT_FOLDER", iff_folder)
     # Also patch the module-level variable
-    monkeypatch.setattr(ifp, "_ifFold", iff_folder)
+    monkeypatch.setattr(ifp, '_IFFOLD', iff_folder)
 
     # Create tracking number folder
     tn = "20240101_120000"
@@ -235,8 +242,8 @@ def sample_int_matrix_folder(temp_dir, monkeypatch, sample_int_cube):
     os.makedirs(int_folder, exist_ok=True)
     monkeypatch.setattr(folders, "INTMAT_ROOT_FOLDER", int_folder)
     # Also patch the module-level variables
-    monkeypatch.setattr(ifp, "_intMatFold", int_folder)
-    monkeypatch.setattr(flt._ifp, "_intMatFold", int_folder)
+    monkeypatch.setattr(ifp, '_IMFOLD', int_folder)
+    monkeypatch.setattr(flt._ifp, '_IMFOLD', int_folder)
 
     tn = "20240101_120000"
     tn_folder = os.path.join(int_folder, tn)
@@ -276,3 +283,46 @@ def sample_int_matrix_folder(temp_dir, monkeypatch, sample_int_cube):
     )
 
     return tn, tn_folder
+
+
+# Fixtures for GUI tests (opticalib.gui)
+
+
+@pytest.fixture(scope="session")
+def qapp(tmp_path_factory):
+    """
+    Offscreen QApplication with Qt settings redirected to a temporary folder.
+
+    ``QSettings(org, app)`` always uses the native format, so both the
+    native and the INI locations are redirected; GUI tests can never touch
+    the user's real settings.
+    """
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    import opticalib.gui  # noqa: F401  (selects the default Qt binding)
+
+    pytest.importorskip("qtpy.QtWidgets", exc_type=ImportError)
+    from qtpy.QtCore import QSettings
+    from qtpy.QtWidgets import QApplication
+
+    settings_dir = str(tmp_path_factory.mktemp("qt_settings"))
+    for fmt in (QSettings.Format.NativeFormat, QSettings.Format.IniFormat):
+        QSettings.setPath(fmt, QSettings.Scope.UserScope, settings_dir)
+    return QApplication.instance() or QApplication([])
+
+
+@pytest.fixture
+def qt_wait(qapp):
+    """Return ``wait(condition, timeout=10)`` processing Qt events meanwhile."""
+    import time
+
+    from qtpy.QtCore import QEventLoop
+
+    def wait(condition, timeout=10.0):
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            if condition():
+                return True
+            qapp.processEvents(QEventLoop.ProcessEventsFlag.AllEvents, 20)
+        return bool(condition())
+
+    return wait

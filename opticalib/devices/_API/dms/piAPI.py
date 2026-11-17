@@ -1,0 +1,348 @@
+import numpy as np
+from opticalib.core import _types as _ot
+from pipython import GCSDevice, GCSError
+from pipython.pidevice.interfaces.pisocket import PISocket
+from opticalib.core import config as _rc
+from opticalib.core.exceptions import CommandError
+from ..base_devices import BaseDeformableMirror
+
+_CMDLIMITS = {  # temporary limits to overcome the hardware connection refusal
+    0: [0, 12],
+    1: [-230, 230],
+    2: [-230, 230],
+}
+
+
+class BasePetalMirror(BaseDeformableMirror):
+    """
+    Base class for controlling a petal mirror device.
+
+    Parameters
+    ----------
+    ip_addresses : list[str], optional
+        List of IP addresses for the petal mirror segments. If None, the addresses
+        will be retrieved from the configuration file.
+    """
+
+    def __init__(self, ip_addresses: list[str] = None):
+        """
+        Initialize the petal mirror device with the given addresses.
+        """
+        ptl_config = _rc.get_device_config("DEFORMABLE.MIRRORS", "PetalDM")
+
+        self._had_error = False
+        self.is_segmented = True
+        self.n_segments = 6
+        self.n_acts_per_segment = 3
+        self.n_acts = self.n_segments * self.n_acts_per_segment
+        self._slaveIds = ptl_config.get("slave_ids", [])
+        self._borderIds = ptl_config.get("border_ids", [])
+
+        if ip_addresses is None:
+            ips = [ptl_config.get(f"ip{i}") for i in range(6)]
+            self._ip_addresses = [ip for ip in ips if ip is not None]
+        else:
+            self._ip_addresses = ip_addresses
+
+        self._gateways = [PISocket(host=ip) for ip in self._ip_addresses]
+        self._devices = [
+            GCSDevice(gateway=gateway).gcsdevice for gateway in self._gateways
+        ]
+
+        if not all([dev.connected for dev in self._devices]):
+            self._logger.error("Some connection did not get established")
+            raise RuntimeError("Some connection did not get established")
+        else:
+            if not hasattr(self, "_had_morning_routine"):
+                self._had_morning_routine = False
+            self._logger.info("All connections to petal mirror segments established")
+            self._check_servos()
+            self._morning_routine()
+
+    @property
+    def slave_ids(self):
+        """Get the IDs of the slave segments."""
+        return self._slaveIds
+
+    @property
+    def border_ids(self):
+        """Get the IDs of the border segments."""
+        return self._borderIds
+
+    # def get_acc(self) -> float:
+    #     """
+    #     Get the acceleration setting for the piezo actuators.
+
+    #     Returns
+    #     -------
+    #     float
+    #         The acceleration value.
+    #     """
+    #     self._check_axes()
+    #     try:
+    #         acc = []
+    #         for k, dev in enumerate(self._devices):
+    #             self._logger.info(
+    #                 f"Getting acceleration from segment {k} : {self._ip_addresses[k]}"
+    #             )
+    #             accx = dev.qACC()
+    #             accx = [accx["1"], accx["2"], accx["3"]]
+    #             acc.extend(accx)
+    #         return np.asarray(acc)
+    #     except GCSError as err:
+    #         self._logger.error(f"Error getting acceleration: {err}")
+    #         self._had_error = True
+    #         raise RuntimeError("Failed to get acceleration") from err
+
+    # TODO: Is this needed?
+    # def set_acc(self, acc: float|_ot.ArrayLike) -> None:
+    #     """
+    #     Set the acceleration for all piezo actuators.
+
+    #     Parameters
+    #     ----------
+    #     acc: float
+    #         The acceleration value to set.
+    #     """
+    #     self._check_axes()
+    #     try:
+    #         for k, dev in enumerate(self._devices):
+    #             L.log(20, f"Setting acceleration for segment {k} : {self._ip_addresses[k]}")
+    #             odict = {"1": acc, "2": acc, "3": acc}
+    #             dev.ACC(odict)
+    #             dev.checkerror()
+    #     except GCSError as err:
+    #         L.error(f"Error setting acceleration: {err}")
+    #         self._had_error = True
+    #         raise RuntimeError("Failed to set acceleration") from err
+
+    def _read_act_position(self) -> _ot.ArrayLike:
+        """
+        Read the current actuator positions from all segments.
+
+        Returns
+        -------
+        numpy.ndarray
+            An array containing the positions of all actuators.
+        """
+        self._check_axes()
+        try:
+            pos = []
+            for k, dev in enumerate(self._devices):
+                self._logger.info(
+                    f"Reading position from segment {k} : {self._ip_addresses[k]}"
+                )
+                posx = dev.qPOS()
+                posx = [posx["1"], posx["2"], posx["3"]]
+                pos.extend(posx)
+            return np.asarray(pos)
+        except GCSError as err:
+            self._logger.error(f"Error reading actuator positions: {err}")
+            self._had_error = True
+            raise RuntimeError("Failed to read actuator positions") from err
+
+    def _get_last_cmd(self) -> _ot.ArrayLike:
+        """
+        Get the last command sent to the mirror.
+
+        Returns
+        -------
+        numpy.ndarray
+            An array containing the last command for all actuators.
+        """
+        self._check_axes()
+        try:
+            pos = []
+            for k, dev in enumerate(self._devices):
+                self._logger.info(
+                    f"Getting target position from segment {k} : {self._ip_addresses[k]}"
+                )
+                posx = dev.qMOV()
+                posx = [posx["1"], posx["2"], posx["3"]]
+                pos.extend(posx)
+            return np.asarray(pos)
+        except GCSError as err:
+            self._logger.error(f"Error getting last command positions: {err}")
+            self._had_error = True
+            raise RuntimeError("Failed to get last command positions") from err
+
+    def _mirror_command(self, cmd: _ot.ArrayLike, differential: bool = False) -> None:
+        """
+        Send commands to set the mirror shape.
+
+        Parameters
+        ----------
+        cmd: _ot.ArrayLike
+            An array of commands for the actuators.
+        differential: bool, optional
+            If True, the command is treated as a differential adjustment to the current shape.
+        """
+
+        if not len(cmd) == self.n_acts:
+            raise CommandError(f"command length must be {self.n_acts}")
+
+        if differential:
+            cmd = cmd.copy() + self._get_last_cmd()
+
+        self._check_axes()
+        if not self._check_cmd_integrity(cmd):
+            raise CommandError(f"Command out of bounds: {cmd}")
+        try:
+            for k, dev in enumerate(self._devices):
+                self._logger.info(
+                    f"Commanding position for segment {k} : {self._ip_addresses[k]}"
+                )
+                segcmd = cmd[k * 3 : k * 3 + 3]
+                odict = {"1": segcmd[0], "2": segcmd[1], "3": segcmd[2]}
+                dev.MOV(odict)
+                dev.checkerror()
+        except GCSError as err:
+            self._logger.error(f"Error sending mirror command: {err}")
+            self._had_error = True
+            raise RuntimeError("Failed to send mirror command") from err
+
+    def _check_cmd_integrity(self, cmd: _ot.ArrayLike) -> bool:
+        """
+        Check the integrity of the command array.
+
+        Parameters
+        ----------
+        cmd: _ot.ArrayLike
+            An array of commands for the actuators.
+
+        Returns
+        -------
+        bool
+            True if the command array is within the allowed limits, False otherwise.
+        """
+        return all(
+            _CMDLIMITS[i % 3][0] <= c <= _CMDLIMITS[i % 3][1]
+            for i, c in enumerate(cmd[: self.n_segments * 3])
+        )
+        # for k in range(self.n_segments):
+        #     if not all(
+        #         _CMDLIMITS[ax][0] <= c <= _CMDLIMITS[ax][1]
+        #          for ax, c in enumerate(cmd[k * 3 : k * 3 + 3])
+        #     ):
+        #         return False
+        # return True
+
+    def _morning_routine(self) -> None:
+        """
+        On system startup, this will warm up the piezos by moving the piston
+        mode back and forth from `start->mid->end->mid->start` a few times,
+        settling at mid range in the end.
+        """
+        import time
+
+        pos = self._read_act_position()
+        if not self._check_cmd_integrity(pos):
+            self._logger.warning(
+                "Initial actuator positions are not within command limits. "
+                "Setting to mid-range."
+            )
+            midpoint = lambda v: (v[0] + v[1]) / 2
+            pos = np.asarray(
+                [midpoint(_CMDLIMITS[ax]) for ax in range(3)] * self.n_segments
+            )
+        try:
+            if not self._had_morning_routine:
+                self._logger.info(f"Warming up the segments piezos.")
+                routine = [0, 6, 12, 6] * 4
+                for c in routine:
+                    for dev in self._devices:
+                        dev.MOV({"1": c})
+                        time.sleep(0.05)
+                        dev.checkerror()
+                self._had_morning_routine = True
+                self._mirror_command(pos, differential=False)
+        except GCSError as err:
+            self._logger.error(f"Error during warming up: {err}")
+            self._had_error = True
+            raise RuntimeError("Morning routine failed") from err
+        finally:
+            self._logger.info("Morning routine completed.")
+            # disabled for now...
+            # self._mirror_command(pos, differential=False)
+
+    def _check_servos(self) -> None:
+        """
+        Check the servo status of all segments.
+
+        If servos are disabled, enable them.
+        """
+        self._check_axes()
+        try:
+            for k, dev in enumerate(self._devices):
+                self._logger.info(
+                    f"Checking servos for segment {k} : {self._ip_addresses[k]}"
+                )
+                status = dev.qSVO()
+                self._logger.info(f"Servo status for segment {k}: {status}")
+                if all(value == 0 for value in status.values()):
+                    self._logger.info(f"Enabling servos for segment {k}")
+                    dev.SVO({"1": 1, "2": 1, "3": 1})
+                    dev.checkerror()
+        except GCSError as err:
+            self._logger.error(f"Error checking/enabling servos: {err}")
+            self._had_error = True
+            raise RuntimeError("Failed to check/enable servos") from err
+
+    def _check_axes(self) -> None:
+        """
+        Check the axis status of all segments.
+
+        If any axis is disabled, enable it.
+        """
+        if self._had_error:
+            self._logger.warning("Previous error detected, trying to reconnect...")
+            for i in range(10):
+                print(f"Reinitialization attempt {i+1}/10...", end="\r", flush=True)
+                try:
+                    self = self.__init__()
+                    break
+                except ConnectionRefusedError as err:
+                    self._logger.error(f"Error reinitializing: {err}")
+            else:
+                self = self.__init__()
+
+    def _enable_axes(self) -> None:
+        """
+        Enable axes.
+
+        - GCS3: use EAX/qEAX.
+        - GCS2 fallback: use SVO/qSVO (servo on).
+        """
+        try:
+            for k, dev in enumerate(self._devices):
+                self._logger.info(f"Checking segment {k} : {self._ip_addresses[k]}")
+                try:
+                    # Preferred for GCS3.x
+                    status = dev.qEAX()
+                    self._logger.info(f"         Axis status (EAX): {status}")
+                    for axis, value in status.items():
+                        if value == 0:
+                            self._logger.info(f"         Enabling axis {axis} via EAX")
+                            dev.EAX({axis: 1})
+                            dev.checkerror()
+                except (AttributeError, GCSError) as err:
+                    # Fallback for GCS2.x
+                    self._logger.info(
+                        f"EAX/qEAX not supported ({err}); falling back to SVO"
+                    )
+                    status = dev.qSVO()
+                    self._logger.info(f"         Servo status (SVO): {status}")
+                    to_enable = {ax: 1 for ax, val in status.items() if val == 0}
+                    if to_enable:
+                        self._logger.info(
+                            f"         Enabling servos via SVO: {to_enable}"
+                        )
+                        dev.SVO(to_enable)
+                        dev.checkerror()
+        except GCSError as err:
+            self._logger.error(f"Error checking/enabling axes: {err}")
+            self._had_error = True
+            raise RuntimeError("Failed to check/enable axes") from err
+
+    def __repr__(self):
+        return f"PetalMirror(n_segments={self.n_segments}, n_acts_per_segment={self.n_acts_per_segment})"

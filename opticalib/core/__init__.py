@@ -1,21 +1,17 @@
 """
-CORE module
-===========
-2024
+Core — configuration, data folders, shared types and I/O
+========================================================
 
-Author(s):
-----------
-- Pietro Ferraiuolo: pietro.ferraiuolo@inaf.it
+The :mod:`opticalib.core` package is the foundation of the library.  It
+owns the YAML configuration file, the on-disk data folder tree, the
+exception hierarchy, shared decorators, structured data classes for
+passing calibration results between components, and the FITS-aware masked
+array wrappers.
 
-Description:
-------------
-This module contains the core functionalities of the opticalib package,
-such as path management, configuration handling and custom exceptions.
+Every other area of the library depends on core.  Importing it reads
+``AOCONF``, opens the configuration file, and calls
+:func:`~opticalib.core.root.create_folder_tree` — set the environment
+variable before import (or use the ``calpy`` entry point, which handles
+it automatically).
 
-Contents:
----------
-- `root.py`: Module for managing the `opticalib` file paths.
-- `config.py`: Module for handling the `opticalib` main configuration file.
-- `exceptions.py`: Module for defining custom exceptions.
-- `data_classes.py`: Module for shared package dataclasses.
 """

@@ -98,14 +98,14 @@ class TestIffDataAcquisition:
         modes = [1, 2, 3, 4, 5]
         amplitude = 0.1
         tn = iff_module.iff_data_acquisition(
-            mock_dm, mock_interferometer, modesList=modes, amplitude=amplitude
+            mock_dm, mock_interferometer, modeslist=modes, amplitude=amplitude
         )
 
         assert tn == "20240101_120000"
         # Verify modes and amplitude were passed
         mock_prep.create_timed_cmd_history.assert_called_once()
         call_args = mock_prep.create_timed_cmd_history.call_args
-        assert np.array_equal(call_args.kwargs['modesList'], modes) or call_args.kwargs['modesList'] == modes
+        assert np.array_equal(call_args.kwargs['modeslist'], modes) or call_args.kwargs['modeslist'] == modes
 
     @patch("opticalib.procedures.iff._ifa.IFFCapturePreparation")
     @patch("opticalib.procedures.iff._osu.newtn")

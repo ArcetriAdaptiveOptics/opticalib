@@ -1,11 +1,9 @@
 import os
-import tempfile
-from opticalib.core.exceptions import CommandError
 import xupy as xp
 import numpy as np
 
 # from scipy.interpolate import RBFInterpolator
-from ._rbf_gpu import RBFInterpolator
+from rbfgpu import RBFInterpolator
 
 # from scipy.interpolate import Rbf
 from opticalib.core.root import folders as fp
@@ -14,13 +12,34 @@ from opticalib.ground import geometry as geo
 from opticalib.ground import osutils as osu
 from opticalib.ground import roi
 from opticalib.core import config as _rc
-from opticalib.ground.modal_decomposer import ZernikeFitter as _ZF
 from .simdata import get_simdata_file
+from .base_simulated_dm import BaseSimulatedDM
 
 join = os.path.join
 
 
-class BaseFakeM4:
+class BaseFakeM4(BaseSimulatedDM):
+    """
+    Shared behaviour of the simulated ELT M4 Actuator Unit (M4AU).
+
+    Holds the mirror geometry and the actuator-to-pixel mapping, and turns a
+    command vector into a synthetic wavefront.  Subclasses -- notably
+    :class:`opticalib.simulator.fake_dms.M4AU` -- provide the device-protocol
+    entry points (``set_shape``, ``get_shape``, ...) on top of this.
+
+    The actuator coordinates and the mirror mask are loaded from the bundled
+    simulated-data files on construction; if the interaction and Zernike
+    matrices are missing they are recomputed once and cached on disk.
+
+    Attributes
+    ----------
+    mirrorModes : numpy.ndarray
+        Command matrix mapping modal coefficients to actuator commands.
+    ff : numpy.ndarray
+        Feed-forward matrix of the simulated mirror.
+    n_acts : int
+        Number of actuators.
+    """
 
     def __init__(self):
         """The constuctor"""
@@ -31,18 +50,16 @@ class BaseFakeM4:
 
         ## -- DM properties -- ##
         self.is_segmented = True
-        self.nSegments = 6
-        self.nActsPerSegment = 892
-        self.n_acts = self.nActsPerSegment * self.nSegments
+        self.n_segments = 6
+        self.n_acts_per_segment = 892
+        self.n_acts = self.n_acts_per_segment * self.n_segments
 
         ## -- INITIALIZATION -- ##
-        self.cmdHistory = None
+        super().__init__()
         self._shape = (
             np.ma.masked_array(self._mask * 0, mask=self._mask, dtype=float)
         ).flatten()
         self._seg_masks = roi.roi_generator(self._shape)
-        self._actPos = np.zeros(self.n_acts)
-        self._zern = _ZF(self._mask)
 
     @property
     def act_coord(self) -> _t.ArrayLike:
@@ -66,7 +83,7 @@ class BaseFakeM4:
     m4 = M4AU()
     ZM = []
     for mask in m4._seg_masks:
-        ZM.append(generate_zernike_matrix(m4.nActsPerSegment, mask))
+        ZM.append(generate_zernike_matrix(m4.n_acts_per_segment, mask))
 """
             )
         return self._ZM
@@ -74,45 +91,6 @@ class BaseFakeM4:
     @zm.setter
     def zm(self, value: list[_t.MatrixLike]):
         self._ZM = value
-
-    def _mirror_command(self, cmd: _t.ArrayLike, diff: bool, modal: bool):
-        """
-        Applies the given command to the deformable mirror.
-
-        Parameters
-        ----------
-        cmd : np.array
-            Command to be processed by the deformable mirror.
-
-        diff : bool
-            If True, process the command differentially.
-
-        Returns
-        -------
-        np.array
-            Processed shape based on the command.
-        """
-        if not len(cmd) == self.n_acts:
-            raise CommandError(
-                f"Command length {len(cmd)} does not match the number of actuators {self.n_acts}."
-            )
-
-        nsag = self.nActsPerSegment
-
-        for seg in range(self.nSegments):
-            idx = self._idx[seg]
-
-            if modal and self.zm is not None:
-                mode_img = np.dot(self.zm[seg], cmd[seg * nsag : (seg + 1) * nsag])
-                cmd_amp = np.dot(mode_img, self.rm[seg])
-            else:
-                cmd_amp = cmd[seg * nsag : (seg + 1) * nsag]
-
-            if not diff:
-                cmd_amp = cmd_amp - self._actPos[seg * nsag : (seg + 1) * nsag]
-
-            self._shape[idx] += np.dot(cmd_amp, self.im[seg])
-            self._actPos[seg * nsag : (seg + 1) * nsag] += cmd_amp
 
     def _load_m4_data(self):
         """
@@ -128,7 +106,7 @@ class BaseFakeM4:
         idxs = []
         ims = []
 
-        for sect in range(6):
+        for sect in range(self.n_segments):
             idxs.append(datadict[f"idx{sect}"])
             ims.append(datadict[f"IM{sect}"])
 
@@ -169,6 +147,7 @@ class BaseFakeM4:
         ----------
         **kwargs : dict, optional
             Additional keyword arguments for customization.
+
             - zernike : int ,
                 Zernike mode to be removed from the wavefront.
             - surf : bool ,
@@ -179,27 +158,42 @@ class BaseFakeM4:
 
         Returns
         -------
-        wf : np.array
+        wf : numpy.ndarray
             Phase map of the interferometer.
         """
-        zernike = kwargs.get("zernike", None)
-        surf = kwargs.get("surf", True)
-        noisy = kwargs.get("noisy", False)
-        img = self._shape.copy().reshape(self._mask.shape)
-        if zernike is not None:
-            img = self._zern.remove_zernike(img, zernike)
-        if not surf:
-            Ilambda = 632.8e-9
-            phi = np.random.uniform(-0.25 * np.pi, 0.25 * np.pi) if noisy else 0
-            wf = np.sin(2 * np.pi / Ilambda * img.copy() + phi)
-            A = np.std(img) / np.std(wf)
-            wf *= A
-            img = wf.copy()
-            del wf
+        img = super()._wavefront(**kwargs)
         return geo.rotate_image(img, angle_deg=-30)
 
 
-class BaseFakeDp:
+class BaseFakeDp(BaseSimulatedDM):
+    """
+    Shared behaviour of the simulated AdOptica Deformable Prototype (DP).
+
+    The DP is a *slaved* mirror: a subset of its actuators cannot be commanded
+    directly and follow their neighbours through a feed-forward matrix.  This
+    base loads the command and feed-forward matrices from the bundled simulated
+    data, builds the pupil mask and actuator coordinates, and synthesises a
+    wavefront from a command vector taking the slaving into account.
+
+    Subclasses -- notably :class:`opticalib.simulator.fake_dms.DP` -- provide the
+    device-protocol entry points (``set_shape``, ``get_shape``,
+    ``upload_cmd_history``, ``run_cmd_history``) on top of this.
+
+    Parameters
+    ----------
+    force_recompute : bool, optional
+        Recompute the Zernike, interaction and reconstruction matrices even if
+        cached copies already exist on disk.
+
+    Attributes
+    ----------
+    mirrorModes : numpy.ndarray
+        Command matrix mapping modal coefficients to actuator commands.
+    ff : numpy.ndarray
+        Feed-forward matrix used to derive the slaved actuator commands.
+    n_acts : int
+        Number of actuators.
+    """
 
     def __init__(self, force_recompute: bool = False):
         """The constuctor"""
@@ -207,16 +201,13 @@ class BaseFakeDp:
         self.mirrorModes = osu.load_fits(get_simdata_file("dp_cmdmat.fits"))
         self.ff = osu.load_fits(get_simdata_file("dp_ffwd.fits"))
         self.n_acts = self.mirrorModes.shape[0]
+        self.n_segments = 2
+        self.n_acts_per_segment = self.n_acts // self.n_segments
         self._create_dp_mask_and_coords()
-        self.cmdHistory = None
-        self._shape = np.ma.masked_array(self._mask * 0, mask=self._mask, dtype=float)
         self._idx0, self._idx1 = self._get_segments_idx()
         self._load_matrices(force_recompute=force_recompute)
-        self._zern = _ZF(self._mask)
-        self._actPos = [np.zeros(self.n_acts // 2), np.zeros(self.n_acts // 2)]
         self._ccalcurve = self._get_capsens_calibration()
         self._biasCmd = self._get_bias_cmd()
-        self.set_shape(np.zeros(self.n_acts))  # initialize to flat + offset
         try:
             dmc = _rc.get_device_config("DEFORMABLE.MIRRORS", self._name)
             self._slaveIds = dmc.get("slave_ids", [])
@@ -224,6 +215,9 @@ class BaseFakeDp:
         except Exception:
             self._slaveIds = []
             self._borderIds = []
+        super().__init__()
+        self._act_pos = [np.zeros(self.n_acts // 2), np.zeros(self.n_acts // 2)]
+        self.set_shape(np.zeros(self.n_acts))  # initialize to flat + offset
 
     @property
     def slave_ids(self) -> list[int]:
@@ -249,6 +243,7 @@ class BaseFakeDp:
         ----------
         **kwargs : dict, optional
             Additional keyword arguments for customization.
+
             - zernike : int ,
                 Zernike mode to be removed from the wavefront.
             - surf : bool ,
@@ -259,7 +254,7 @@ class BaseFakeDp:
 
         Returns
         -------
-        wf : np.array
+        wf : numpy.ndarray
             Phase map of the interferometer.
         """
         zernike = kwargs.get("zernike", None)
@@ -299,7 +294,7 @@ class BaseFakeDp:
 
         Parameters
         ----------
-        cmd : np.array
+        cmd : numpy.ndarray
             Command to be processed by the deformable mirror.
 
         diff : bool
@@ -307,7 +302,7 @@ class BaseFakeDp:
 
         Returns
         -------
-        np.array
+        numpy.ndarray
             Processed shape based on the command.
         """
         # cmd = self._applyCSCalibration(cmd)
@@ -322,9 +317,9 @@ class BaseFakeDp:
                 cmx = np.dot(mode_img, self.rm[s])
             cmd_amp = cmx
             if not diff:
-                cmd_amp = cmx - self._actPos[s]
+                cmd_amp = cmx - self._act_pos[s]
             self._shape[idx] += np.dot(cmd_amp, self.im[s])
-            self._actPos[s] += cmd_amp
+            self._act_pos[s] += cmd_amp
 
     def _load_matrices(self, force_recompute: bool = False):
         """
@@ -384,7 +379,7 @@ class BaseFakeDp:
                         (self._iffCube[:, :, i, s].data)[mask == 0]
                         for i in range(self._iffCube.shape[2])
                     ],
-                    dtype=xp.float,
+                    dtype=_t.compute_float(),
                 )
                 ims.append(im)
                 rms.append(xp.asnumpy(xp.linalg.pinv(im)))

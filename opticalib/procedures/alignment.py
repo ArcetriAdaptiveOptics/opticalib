@@ -1,82 +1,12 @@
 """
-ALIGNMENT module
-================
-2024
+Alignment — beam centring and rotation correction on the detector
+==================================================================
 
-Author(s):
-----------
-- Pietro Ferraiuolo : pietro.ferraiuolo@inaf.it
-
-Description
------------
-This module provides the `Alignment` class and related functions for performing
-alignment procedures, including calibration and correction.
-
-How to Use it
--------------
-This module contains the class `Alignment`, which manages, alone, both the calibration
-and the correction of the alignment of the system. The class is initialized with the
-mechanical and acquisition devices used for alignment. These devices, which, for example, in
-the case of the M4 project are the OTT and the interferometer, are passed as arguments
-and configured through the `configuration.yaml` file, under the `ALIGNMENT` section.
-
-Usage Example
--------------
-Given the OTT (with Parabola, Reference Mirror and M4 Hexapode) as mechanical device
-and the interferometer as acquisition device, we can initialize the class as follows:
-
-.. code-block:: python
-
-    from opticalib.alignment import Alignment
-    align = Alignment(ott, interf)
-    # At this point the alignment is ready to be calibrated, given the command amplitude
-    amps = [0,7, 10, 10, 6, 6, 4, 4] # example, verosimilar, amplitudes
-    align.calibrate_alignment(amps)
-    [...]
-    "Ready for Alignment..."
-
-At this point, the calibration is complete and an ``InteractionMatrix.fits`` file
-was created, saved and stored in the Alignment class. It is ready to compute
-and apply corrections.
-
-.. code-block:: python
-
-    modes2correct = [3,4] # Reference Mirror DoF
-    zern2correct = [0,1] # tip & tilt
-    align.correct_alignment(modes2correct, zern2correct, apply=True)
-
-If we already have an ``InteractionMatrix.fits`` file, we can load it and apply
-corrections based off the loaded calibration. All to do is to load the calibration
-to the class:
-
-.. code-block:: python
-
-    tn_cal = '20241122_160000' # example, tracking number
-    align.load_calibration(tn_cal) # load the calibration
-    align.correct_alignment(modes2correct, zern2correct, apply=True)
-
-It can also be instanced with a calibration:
-
-.. code-block:: python
-
-    tn_cal = '20241122_160000' # example, tracking number
-    align = Alignment(ott, interf, calibtn=tn_cal)
-    align.correct_alignment(modes2correct, zern2correct, apply=True)
-
-Notes
------
-Note that the calibration process can be done uploading to the class
-a ``calibrated cavity``, so that a different algorithm for the Zernike fitting is
-performed. This can be done through the ``load_fitting_surface`` method.
-
-.. code-block:: python
-
-    cavity_tn = '20241122_160000' # example, tracking number
-    align.load_fitting_surface(cavity_tn) # load the calibrated cavity
-
-When working with segmented system (e.g. a segmented mirror), the Zernike modes
-shall be computed as global coefficients, which are basically the average of the
-local amplitude measured on each of the segment.
+The :class:`Alignment` class manages the optical alignment of the bench:
+calibration of the mechanical degrees of freedom (tip/tilt/rotation of
+motors and stages) and closed-loop correction using interferometer
+feedback.  Configuration is read from the ``ALIGNMENT`` section of
+``configuration.yaml``.
 
 """
 
@@ -90,8 +20,19 @@ from ..ground import osutils as _osu
 from ..core import _types as _ot
 from ..analyzer import push_pull_reduction_algorithm as _ppr
 
-_sc = _gac()
 _np.set_printoptions(precision=2, suppress=False)
+
+
+def __getattr__(name: str):
+    """
+    Serve ``_sc``, the alignment configuration, when it is asked for.
+
+    It used to be read at import time, which failed for experiments without
+    an alignment section; packages such as M4 still import it.
+    """
+    if name == "_sc":
+        return _gac()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 class Alignment:
@@ -116,23 +57,14 @@ class Alignment:
     recMat : numpy.ndarray or None
         The reconstruction matrix, initialized as None.
 
-    Methods
-    -------
-    correct_alignment(modes2correct, zern2correct, tn=None, apply=False, n_frames=15)
-        Corrects the alignment of the system based on Zernike coefficients.
-    calibrate_alignment(cmdAmp, n_frames=15, template=None, n_repetitions=1, save=True)
-        Calibrates the alignment of the system using the provided command amplitude and template.
-    read_positions(show=True)
-        Reads the current positions of the devices.
-    reload_calibrated_parabola(tn)
-        Reloads the calibrated parabola from the given tracking number.
-
     """
 
     def __init__(
         self,
         mechanical_devices: list[_ot.GenericDevice],
-        acquisition_devices: list[_ot.InterferometerDevice|_ot.CameraDevice|_ot.WFSDevice],
+        acquisition_devices: list[
+            _ot.InterferometerDevice | _ot.CameraDevice | _ot.WFSDevice
+        ],
         calibtn: _ot.Optional[str] = None,
     ):
         """
@@ -149,38 +81,39 @@ class Alignment:
         calibtn : str, optional
             The tracking number of the alignment calibration to be used.
         """
+        # Read here, not at import: experiments without an alignment section
+        # can still import opticalib.
+        sc = _gac()
         self.mdev = mechanical_devices
         self.ccd = acquisition_devices
         self.cmdMat = _osu.load_fits(
-            _os.path.join(_fn.CONTROL_MATRIX_FOLDER, _sc.command_matrix)
+            _os.path.join(_fn.CONTROL_MATRIX_FOLDER, sc.command_matrix)
         )
         self._calibtn = calibtn
         self.intMat = self.__load_int_mat(calibtn)
         self.recMat = None
         self._cmdAmp = None
         self._surface = (
-            _osu.load_fits(_sc.fitting_surface)
-            if not _sc.fitting_surface == ""
-            else None
+            _osu.load_fits(sc.fitting_surface) if not sc.fitting_surface == "" else None
         )
         self._fitter = _zfitter(self._surface)
-        self._moveFnc = self.__get_callables(self.mdev, _sc.devices_move_calls)
-        self._readFnc = self.__get_callables(self.mdev, _sc.devices_read_calls)
-        self._acquire = self.__get_callables(self.ccd, _sc.ccd_acquisition)
-        self._devName = self.__get_dev_names(_sc.names, ndev=len(self._moveFnc))
+        self._moveFnc = self.__get_callables(self.mdev, sc.devices_move_calls)
+        self._readFnc = self.__get_callables(self.mdev, sc.devices_read_calls)
+        self._acquire = self.__get_callables(self.ccd, sc.ccd_acquisition)
+        self._devName = self.__get_dev_names(sc.names, ndev=len(self._moveFnc))
         self._dof = [
             _np.array(dof) if not isinstance(dof, _np.ndarray) else dof
-            for dof in _sc.dof
+            for dof in sc.dof
         ]
         self._dofTot = (
-            _sc.devices_dof
-            if isinstance(_sc.devices_dof, list)
-            else [_sc.devices_dof] * len(self._moveFnc)
+            sc.devices_dof
+            if isinstance(sc.devices_dof, list)
+            else [sc.devices_dof] * len(self._moveFnc)
         )
-        self._idx = _sc.slices
+        self._idx = sc.slices
         self._modes2fit = _np.arange(1, 11)
-        self._modes2use = _sc.zernike_to_use
-        self._template = _sc.push_pull_template
+        self._modes2use = sc.zernike_to_use
+        self._template = sc.push_pull_template
         self._correct_cavity = True
         self._dataPath = _fn.ALIGNMENT_ROOT_FOLDER
         self._txt = _logger.TxtLogger(
@@ -346,7 +279,9 @@ class Alignment:
             print(logMsg)
         return pos
 
-    def load_fitting_surface(self, filepath: str) -> None:
+    def load_fitting_surface(
+        self, filepath: str | None = None, surf: _ot.ImageData | None = None
+    ) -> None:
         """
         This function let you load the mask to use for zernike fitting. In the case of
         M$, for example, here the calibrated parabola is loaded, so that zernike modes are
@@ -355,18 +290,18 @@ class Alignment:
 
         Parameters
         ----------
-        filepath : str
+        filepath : str, optional
             The file path to the parabola file.
-
-        Returns
-        -------
-        str
-            A message indicating the successful loading of the file.
+        surf : ImageLike, optional
+            The surface to be used for zernike fitting.
         """
-        self._logger.info(f"Loading fitting surface from '{filepath}'")
-        surf = _osu.load_fits(filepath)
-        self._surface = surf
-        print(f"Fitting surface '{filepath}' loaded")
+        if filepath is not None:
+            self._logger.info(f"Loading fitting surface from '{filepath}'")
+            surface = _osu.load_fits(filepath)
+        if surf is not None:
+            surface = surf.copy()
+            print(f"Fitting surface loaded")
+        self._surface = surface
 
     def load_calibration(self, tn: str) -> None:
         """

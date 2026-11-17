@@ -16,7 +16,7 @@ class TestFlattening:
         """Test Flattening initialization."""
         tn, tn_folder = sample_int_matrix_folder
 
-        # The Flattening class uses _ifp._intMatFold which should be patched by the fixture
+        # The Flattening class uses _ifp._IMFOLD which should be patched by the fixture
         f = flt.Flattening(tn)
 
         assert f.tn == tn
@@ -120,10 +120,10 @@ class TestFlattening:
         assert isinstance(S, np.ndarray)
         assert isinstance(Vt, np.ndarray)
 
-    @patch("opticalib.dmutils.flattening._ifp.filter_zernike_cube")
+    @patch("opticalib.dmutils.flattening._ifp.remove_zernike_from_iff")
     @patch("opticalib.dmutils.flattening.Flattening._load_cmd_mat")
     @patch("opticalib.dmutils.flattening.Flattening._load_reconstructor")
-    def test_filter_int_cube(self, mock_rec, mock_cmd, mock_filter, sample_int_matrix_folder):
+    def test_filter_iff_cube(self, mock_rec, mock_cmd, mock_filter, sample_int_matrix_folder):
         """Test filtering interaction cube."""
         import os
         from opticalib.ground import osutils
@@ -155,10 +155,10 @@ class TestFlattening:
         mock_rec.return_value = mock_reconstructor
         f._rec = mock_reconstructor
 
-        result = f.filter_int_cube(zernModes=[1, 2, 3])
+        result = f.filter_iff_cube(zernModes=[1, 2, 3])
 
         assert result is f  # Should return self
-        # Verify that filter_zernike_cube was called
+        # Verify that remove_zernike_from_iff was called
         mock_filter.assert_called_once_with(tn, [1, 2, 3], mode='global')
 
     def test_load_new_tn(self, sample_int_matrix_folder):

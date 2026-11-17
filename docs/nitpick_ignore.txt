@@ -1,0 +1,143 @@
+# Known-unresolvable cross-reference targets, consumed by docs/conf.py.
+#
+# FORMAT -- one entry per line, blank lines and '#' comments ignored:
+#   <domain:role>  <pattern>          exact/regex match
+#   re:<domain:role> <pattern>        regex match (lines prefixed with "re:")
+#
+# IMPORTANT: Sphinx matches these with ``re.fullmatch`` (see
+# sphinx/transforms/post_transforms/__init__.py::_matches_ignore), so a pattern
+# must cover the WHOLE target.  Use ``foo\..*`` -- NOT ``^foo\.`` -- and do not
+# bother with ``^``/``$`` anchors.  A leading ``^`` silently disables the rule.
+#
+# Entries here are deliberate: they cover third-party packages that publish no
+# intersphinx inventory (xupy, cupy, vendor SDKs, Qt) and a handful of prose
+# words that napoleon/autodoc mistake for type names.  Do not add entries to
+# silence real bugs -- prefer fixing the reference or documenting the module.
+
+# --- Mocked / inventory-less third-party packages --------------------------
+re:py:class   xupy\..*
+re:py:class   cupy\..*
+re:py:class   torch\..*
+re:py:class   arte\..*
+re:py:class   vmbpy\..*
+re:py:class   PyQt5\..*
+re:py:class   qtconsole\..*
+re:py:class   Pyro4\..*
+re:py:class   pipython\..*
+re:py:class   plico_motor\..*
+re:py:class   asdk\..*
+re:py:class   Microgate\..*
+re:py:obj     xupy\..*
+re:py:obj     cupy\..*
+re:py:obj     arte\..*
+re:py:obj     torch\..*
+re:py:obj     vmbpy\..*
+re:py:obj     PyQt5\..*
+re:py:obj     qtconsole\..*
+re:py:obj     Pyro4\..*
+re:py:obj     pipython\..*
+re:py:obj     plico_motor\..*
+re:py:meth    xupy\..*
+re:py:meth    cupy\..*
+re:py:meth    arte\..*
+re:py:func    xupy\..*
+re:py:func    cupy\..*
+re:py:func    arte\..*
+re:py:data    xupy\..*
+re:py:data    cupy\..*
+re:py:mod     xupy
+re:py:mod     cupy
+re:py:mod     arte
+re:py:mod     torch
+re:py:mod     vmbpy
+re:py:mod     PyQt5\..*
+re:py:mod     qtconsole\..*
+re:py:mod     Pyro4
+re:py:mod     pipython\..*
+re:py:mod     plico_motor\..*
+re:py:mod     asdk
+re:py:mod     Microgate\..*
+
+# Bare Qt class names that appear in opticalib.gui signatures.
+py:class      QWidget
+py:class      QMainWindow
+py:class      QGroupBox
+py:class      QFrame
+py:class      QDialog
+py:class      QApplication
+py:class      QSettings
+
+# --- numpy/scipy/astropy internals without intersphinx targets --------------
+py:class      numpy._typing._array_like.ArrayLike
+py:class      numpy.typing.ArrayLike
+re:py:class   numpy\._typing\..*
+re:py:class   numpy\.ma\..*
+py:class      ndarray
+py:class      masked_array
+py:class      ArrayLike
+py:class      DtypeLike
+py:class      fits.Header
+py:class      astropy.io.fits.Header
+py:class      matplotlib.axes._subplots.Axes3DSubplot
+py:class      matplotlib.surface.Poly3DCollection
+
+# --- stdlib / typing --------------------------------------------------------
+py:class      builtins.Ellipsis
+py:class      None
+py:class      ellipsis
+py:class      object
+re:py:class   typing\..*
+re:py:class   collections\.abc\..*
+re:py:class   builtins\..*
+re:py:class   __future__\..*
+re:py:class   pathlib\..*
+
+# --- Docstring prose misread as a type name ---------------------------------
+# These come from free-text in Parameters/Returns sections.  The long-term fix
+# is to tighten the docstrings; they are listed so nitpicky stays usable.
+py:class      optional
+py:class      callable
+py:class      ints
+py:class      flaot
+py:class      Number
+py:class      number
+py:class      threads
+py:class      Refer
+py:class      -
+py:class      s
+re:py:class   .*\;$
+re:py:class   .*\)$
+re:py:class   .*\]$
+re:py:class   .*\($
+re:py:class   .*,$
+re:py:class   \[.*
+re:py:class   .*\].*
+re:py:class   \(.*
+re:py:class   .* .*
+
+# --- opticalib internals kept out of the public reference --------------------
+# ``Reconstructor`` in opticalib/core/_types.py is
+# ``Union["ComputeReconstructor", None]``, where ``ComputeReconstructor`` is a
+# TYPE_CHECKING-only forward reference.  sphinx-autodoc-typehints renders the
+# raw forward-ref string, which resolves relative to ``opticalib.core._types``
+# -- where no such name is documented.  The class itself is fully documented on
+# the Ground reference page; the alias is described in the table on the Type
+# System page.  Qualifying the string in _types.py is not an option because it
+# would break typing.get_type_hints() at runtime.
+py:class      ComputeReconstructor
+
+re:py:class   opticalib\.devices\._API\..*
+re:py:obj     opticalib\.devices\._API\..*
+re:py:class   opticalib\.ground\._stitching_algorithm\..*
+re:py:obj     opticalib\.ground\._stitching_algorithm\..*
+re:py:class   opticalib\.dmutils\.__.*
+re:py:obj     opticalib\.dmutils\.__.*
+re:py:class   opticalib\.core\._types\.__.*
+re:py:class   _ot\..*
+re:py:class   _t\..*
+re:py:class   _np\..*
+re:py:class   _xp\..*
+re:py:obj     _ot\..*
+re:py:obj     _np\..*
+re:py:obj     _xp\..*
+

@@ -26,7 +26,7 @@ class TestSaveCube:
         int_folder = os.path.join(temp_dir, "INTMatrices")
         os.makedirs(int_folder, exist_ok=True)
         monkeypatch.setattr(folders, "INTMAT_ROOT_FOLDER", int_folder)
-        monkeypatch.setattr(ifp, "_intMatFold", int_folder)
+        monkeypatch.setattr(ifp, "_IMFOLD", int_folder)
         iff_folder = os.path.dirname(tn_folder)
 
         def fake_get_file_list(tn_arg=None, fold=None, key=None):
@@ -58,7 +58,7 @@ class TestSaveCube:
         int_folder = os.path.join(temp_dir, "INTMatrices")
         os.makedirs(int_folder, exist_ok=True)
         monkeypatch.setattr(folders, "INTMAT_ROOT_FOLDER", int_folder)
-        monkeypatch.setattr(ifp, "_intMatFold", int_folder)
+        monkeypatch.setattr(ifp, "_IMFOLD", int_folder)
         iff_folder = os.path.dirname(tn_folder)
 
         def fake_get_file_list(tn_arg=None, fold=None, key=None):
@@ -77,6 +77,50 @@ class TestSaveCube:
         assert cube is not None
         # Rebinning should reduce size
         assert cube.shape[0] < 50
+
+    def test_save_cube_wfs(self, sample_iff_folder_structure, temp_dir, monkeypatch):
+        """Test that WFS data is saved as an interaction matrix instead of a cube."""
+        from opticalib.core.root import folders
+
+        tn, tn_folder = sample_iff_folder_structure
+
+        # Re-write the mode files as WFS acquisitions
+        for i in range(3):
+            mode_img = ma.masked_array(
+                np.random.randn(50, 50).astype(np.float32),
+                mask=np.zeros((50, 50), dtype=bool),
+            )
+            osutils.save_fits(
+                os.path.join(tn_folder, f"mode_{i:04d}.fits"),
+                mode_img,
+                overwrite=True,
+                header={"CAMTYPE": ("wfs", "type of optical sensor used")},
+            )
+
+        int_folder = os.path.join(temp_dir, "INTMatrices")
+        os.makedirs(int_folder, exist_ok=True)
+        monkeypatch.setattr(folders, "INTMAT_ROOT_FOLDER", int_folder)
+        monkeypatch.setattr(ifp, "_IMFOLD", int_folder)
+        iff_folder = os.path.dirname(tn_folder)
+
+        def fake_get_file_list(tn_arg=None, fold=None, key=None):
+            folder = os.path.join(iff_folder, tn)
+            files = sorted(
+                os.path.join(folder, f)
+                for f in os.listdir(folder)
+                if key is None or key in f
+            )
+            return files
+
+        monkeypatch.setattr(osutils, "get_file_list", fake_get_file_list)
+
+        im = ifp.save_cube(tn)
+
+        assert im is not None
+        # One row per mode, one column per valid pupil pixel
+        assert np.squeeze(im).shape == (3, 50 * 50)
+        assert os.path.exists(os.path.join(int_folder, tn, "IM.fits"))
+        assert not os.path.exists(os.path.join(int_folder, tn, "IMCube.fits"))
 
 
 class TestStackCubes:
@@ -146,9 +190,9 @@ class TestStackCubes:
 
 
 class TestFilterZernikeCube:
-    """Test filter_zernike_cube function."""
+    """Test remove_zernike_from_iff function."""
 
-    def test_filter_zernike_cube_basic(self, sample_int_matrix_folder):
+    def test_remove_zernike_from_iff_basic(self, sample_int_matrix_folder):
         """Test filtering Zernike modes from cube."""
         import shutil
 
@@ -163,7 +207,7 @@ class TestFilterZernikeCube:
                 except:
                     pass
 
-        ffcube, new_tn = ifp.filter_zernike_cube(tn, zern_modes=[1, 2, 3], save=True)
+        ffcube, new_tn = ifp.remove_zernike_from_iff(tn, zern_modes=[1, 2, 3], save=True)
 
         assert ffcube is not None
         assert isinstance(ffcube, ma.MaskedArray)
@@ -172,7 +216,7 @@ class TestFilterZernikeCube:
         new_tn_folder = os.path.join(os.path.dirname(tn_folder), new_tn)
         assert os.path.exists(os.path.join(new_tn_folder, "IMCube.fits"))
 
-    def test_filter_zernike_cube_custom_modes(self, sample_int_matrix_folder):
+    def test_remove_zernike_from_iff_custom_modes(self, sample_int_matrix_folder):
         """Test filtering custom Zernike modes."""
         import shutil
 
@@ -187,12 +231,12 @@ class TestFilterZernikeCube:
                 except:
                     pass
 
-        ffcube, new_tn = ifp.filter_zernike_cube(tn, zern_modes=[1, 2, 3, 4], save=True)
+        ffcube, new_tn = ifp.remove_zernike_from_iff(tn, zern_modes=[1, 2, 3, 4], save=True)
 
         assert ffcube is not None
         assert new_tn is not None
 
-    def test_filter_zernike_cube_no_save(self, sample_int_matrix_folder):
+    def test_remove_zernike_from_iff_no_save(self, sample_int_matrix_folder):
         """Test filtering without saving."""
         import shutil
 
@@ -207,7 +251,7 @@ class TestFilterZernikeCube:
                 except:
                     pass
 
-        ffcube, new_tn = ifp.filter_zernike_cube(tn, zern_modes=[1, 2, 3], save=False)
+        ffcube, new_tn = ifp.remove_zernike_from_iff(tn, zern_modes=[1, 2, 3], save=False)
 
         assert ffcube is not None
         assert new_tn is not None
@@ -244,9 +288,9 @@ class TestAddModeToCube:
 
         ifp.add_mode_to_cube(tn, mode_id, mode_vect, mode_img)
 
-        cube_path = os.path.join(ifp._intMatFold, tn, ifp._CUBE_FILE)
-        cmdmat_path = os.path.join(ifp._intMatFold, tn, ifp._MATRIX_FILE)
-        modesvec_path = os.path.join(ifp._intMatFold, tn, ifp._MODES_FILE)
+        cube_path = os.path.join(ifp._IMFOLD, tn, ifp._CUBE_FILE)
+        cmdmat_path = os.path.join(ifp._IMFOLD, tn, ifp._MATRIX_FILE)
+        modesvec_path = os.path.join(ifp._IMFOLD, tn, ifp._MODES_FILE)
 
         assert mock_load_fits.call_args_list == [
             ((cube_path,), {}),
@@ -276,7 +320,7 @@ class TestGetAcqPar:
 
         # Ensure the module-level _ifFold is patched
         iff_folder = os.path.join(osutils._OPTDATA, "IFFunctions")
-        monkeypatch.setattr(ifp, "_ifFold", iff_folder)
+        monkeypatch.setattr(ifp, '_IFFOLD', iff_folder)
 
         tn, tn_folder = sample_iff_folder_structure
 

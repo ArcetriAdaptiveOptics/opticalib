@@ -35,7 +35,7 @@ def find_actuator(image: _ot.ImageData) -> _np.ndarray:
 
     Return
     -------
-    pos: np.ndarray
+    pos: numpy.ndarray
         Coordinates of the actuator
     """
     imgw = extract_peak(image, radius=50)
@@ -81,16 +81,16 @@ def fit_trasformation_parameter(cghf, ottf, forder=10):
 
     Parameters
     ----------
-    cghf: np.ndarray
+    cghf: numpy.ndarray
         Coordinates in the cghf system
-    ottf: np.ndarray
+    ottf: numpy.ndarray
         Coordinates in the ottf system
     forder: int, optional
         Order of the polynomial fit (default is 10)
 
     Returns
     -------
-    polycoeff: np.ndarray
+    polycoeff: numpy.ndarray
         Coefficients of the polynomial transformation
     """
 

@@ -1,0 +1,440 @@
+"""
+Tests for the kernel-side helpers of CalpyGUI (opticalib.gui.kernel_side and
+opticalib.gui.kernel_backend), and for the pure helpers of the kernel bridge.
+
+The kernel-side code runs inside the IPython kernel in production; here it
+is exercised in-process with an injected publisher.
+"""
+
+import json
+import os
+
+import numpy as np
+import pytest
+
+from opticalib.gui import kernel_side as ks
+
+
+@pytest.fixture
+def mpl_backend():
+    """Switch pyplot to the CalpyGUI kernel backend for one test."""
+    import matplotlib.pyplot as plt
+
+    previous = plt.get_backend()
+    plt.close("all")
+    plt.switch_backend("module://opticalib.gui.kernel_backend")
+    yield plt
+    plt.close("all")
+    plt.switch_backend(previous)
+
+
+@pytest.fixture
+def published(monkeypatch):
+    """Collect the display_data payloads instead of publishing them."""
+    messages = []
+    monkeypatch.setattr(ks, "_default_publisher", messages.append)
+    return messages
+
+
+class TestFigures:
+    """Tests for the figure publication."""
+
+    def test_new_figure_is_published_once(self, mpl_backend, published):
+        plt = mpl_backend
+        plt.figure()
+        plt.plot([1, 2, 3])
+        plt.title("ramp")
+        assert ks.publish_figures() == 1
+        payload = published[-1][ks.FIGURE_MIME]
+        assert payload["title"] == "ramp"
+        import base64
+
+        assert base64.b64decode(payload["png"]).startswith(b"\x89PNG")
+        # Nothing changed: nothing published.
+        assert ks.publish_figures() == 0
+
+    def test_changed_figure_is_republished_in_place(self, mpl_backend, published):
+        plt = mpl_backend
+        fig = plt.figure()
+        plt.plot([1, 2])
+        ks.publish_figures()
+        uid = published[-1][ks.FIGURE_MIME]["uid"]
+        plt.plot([2, 1])
+        assert ks.publish_figures() == 1
+        assert published[-1][ks.FIGURE_MIME]["uid"] == uid
+        assert fig._calpy_uid == uid
+
+    def test_empty_figure_is_skipped(self, mpl_backend, published):
+        mpl_backend.figure()
+        assert ks.publish_figures() == 0
+
+    def test_show_and_pause_publish(self, mpl_backend, published):
+        plt = mpl_backend
+        plt.figure()
+        plt.plot([0, 1])
+        plt.show()
+        assert len(published) == 1
+        plt.plot([1, 0])
+        plt.pause(0.01)
+        assert len(published) == 2
+
+    def test_each_figure_has_its_own_uid(self, mpl_backend, published):
+        plt = mpl_backend
+        for i in range(2):
+            plt.figure()
+            plt.plot([i, i + 1])
+        ks.publish_figures()
+        uids = {m[ks.FIGURE_MIME]["uid"] for m in published}
+        assert len(uids) == 2
+
+
+class TestView:
+    """Tests for :func:`kernel_side.view`."""
+
+    def test_masked_image(self, tmp_path, monkeypatch, published):
+        monkeypatch.setenv("CALPY_GUI_TMP", str(tmp_path))
+        mask = np.zeros((4, 5), bool)
+        mask[0, 0] = True
+        img = np.ma.masked_array(np.arange(20.0).reshape(4, 5), mask=mask)
+        path = ks.view(img, "img")
+        payload = published[-1][ks.IMAGE_MIME]
+        assert payload["title"] == "img"
+        assert payload["shape"] == [4, 5]
+        assert os.path.dirname(path) == str(tmp_path)
+        with np.load(path) as npz:
+            assert npz["mask"][0, 0]
+            np.testing.assert_array_equal(npz["data"], img.data)
+
+    def test_unmasked_cube(self, tmp_path, monkeypatch, published):
+        monkeypatch.setenv("CALPY_GUI_TMP", str(tmp_path))
+        path = ks.view(np.zeros((3, 4, 2)))
+        with np.load(path) as npz:
+            assert "mask" not in npz.files
+        assert "3-D array" in published[-1][ks.IMAGE_MIME]["title"]
+
+    @pytest.mark.parametrize("bad", [np.zeros((2, 2, 2, 2)), np.array(["a", "b"])])
+    def test_rejects_unviewable(self, bad, published):
+        with pytest.raises((ValueError, TypeError)):
+            ks.view(bad)
+
+
+class _FakeDM:
+    n_acts = 3
+
+    def set_shape(self, cmd, differential=False):
+        pass
+
+    def get_shape(self):
+        return np.zeros(3)
+
+
+class _FakeInterf:
+    def acquire_map(self, nframes=1, delay=0, rebin=1):
+        return np.zeros((2, 2))
+
+
+class TestWorkspace:
+    """Tests for the workspace description."""
+
+    def test_classification_and_filtering(self):
+        import types
+
+        ks._baseline.clear()
+        ns = {
+            "img": np.zeros((2, 3)),
+            "dm": _FakeDM(),
+            "interf": _FakeInterf(),
+            "n": 42,
+            "_private": 1,
+            "np": np,
+            "fn": lambda: None,
+            "cls": dict,
+            "mod": types,
+        }
+        items = {i["name"]: i for i in ks.workspace_items(ns)}
+        assert set(items) == {"img", "dm", "interf", "n"}
+        assert items["img"]["kind"] == "array"
+        assert items["img"]["summary"] == "(2, 3) float64"
+        assert items["dm"]["kind"] == "dm"
+        assert items["interf"]["kind"] == "interferometer"
+        assert items["n"]["kind"] == "other"
+        assert items["dm"]["module"] == __name__
+
+    def test_baseline_names_are_hidden(self):
+        value = object()
+        ks._baseline.clear()
+        ks._baseline["preset"] = id(value)
+        try:
+            names = [i["name"] for i in ks.workspace_items({"preset": value})]
+            assert names == []
+            # Rebinding the name makes it visible again.
+            names = [i["name"] for i in ks.workspace_items({"preset": object()})]
+            assert names == ["preset"]
+        finally:
+            ks._baseline.clear()
+
+    def test_folders(self):
+        info = json.loads(ks.folders())
+        assert set(info) == {"base", "config", "categories", "paths"}
+        assert "IFFUNCTIONS_ROOT_FOLDER" in info["paths"]
+        labels = [label for label, _ in info["categories"]]
+        assert "OPD images" in labels and "IF functions" in labels
+
+
+class TestBridgeHelpers:
+    """Tests for the pure helpers of opticalib.gui.kernel."""
+
+    @pytest.fixture(autouse=True)
+    def _kernel_module(self, qapp):
+        pytest.importorskip("qtconsole", exc_type=ImportError)
+        from opticalib.gui import kernel
+
+        self.kernel = kernel
+
+    @pytest.mark.parametrize(
+        "text, fraction, detail",
+        [
+            ("1/88\r2/88\r3/88\r", 3 / 88, "3/88"),
+            ("Computing interaction matrix...\n", None, "Computing interaction matrix..."),
+            (" 42%|████      | 42/100 [00:01<00:02]", 0.42, " 42%|████      | 42/100 [00:01<00:02]".strip()),
+            ("\x1b[32m7/10\x1b[0m\n", 0.7, "7/10"),
+            ("", None, ""),
+            ("value 12/0", None, "value 12/0"),
+        ],
+    )
+    def test_parse_progress(self, text, fraction, detail):
+        got_fraction, got_detail = self.kernel.parse_progress(text)
+        if fraction is None:
+            assert got_fraction is None
+        else:
+            assert got_fraction == pytest.approx(fraction)
+        assert got_detail == detail
+
+    def test_parse_user_expressions(self):
+        payload = json.dumps([{"name": "x"}])
+        replies = {
+            "json": {"status": "ok", "data": {"text/plain": repr(payload)}},
+            "number": {"status": "ok", "data": {"text/plain": "42"}},
+            "text": {"status": "ok", "data": {"text/plain": "<object at 0x1>"}},
+            "fail": {"status": "error", "ename": "NameError", "evalue": "x"},
+        }
+        results = self.kernel._parse_user_expressions(replies)
+        assert results["json"] == [{"name": "x"}]
+        assert results["number"] == 42
+        assert results["text"] == "<object at 0x1>"
+        assert isinstance(results["fail"], RuntimeError)
+
+    def test_task_lifecycle(self):
+        done, failed = [], []
+        task = self.kernel.Task("x = 1", on_done=done.append, on_error=failed.append)
+        assert task.state == "queued" and task.title == "x = 1"
+        task._start("m1")
+        task._update_output("5/10\r")
+        assert task.progress == pytest.approx(0.5)
+        task._finish("done")
+        assert task.is_final and done == [task] and failed == []
+        task._finish("error")  # a final task never changes again
+        assert task.state == "done"
+
+    def test_kernel_env(self, tmp_path):
+        bridge = self.kernel.KernelBridge(str(tmp_path / "c.yaml"), None, str(tmp_path))
+        env = bridge.kernel_env()
+        assert env["AOCONF"] == str(tmp_path / "c.yaml")
+        assert env["MPLBACKEND"] == self.kernel.KERNEL_MPL_BACKEND
+        assert env["CALPY_GUI_TMP"] == str(tmp_path)
+
+    def test_conda_env_variables(self, tmp_path):
+        """Variables of ``conda env config vars`` reach a kernel started without activation."""
+        meta = tmp_path / "conda-meta"
+        meta.mkdir()
+        (meta / "state").write_text(json.dumps({"env_vars": {
+            "CUDA_PATH": "/cuda", "LD_LIBRARY_PATH": "/cuda/lib:/cuda/lib64:", "CPATH": "/cuda/include", "EMPTY": "",
+        }}))
+        fn = self.kernel.conda_env_variables
+        assert fn(str(tmp_path), {}) == {
+            "CUDA_PATH": "/cuda", "LD_LIBRARY_PATH": "/cuda/lib:/cuda/lib64:", "CPATH": "/cuda/include",
+        }
+        # What the user already set is kept; missing list entries are prepended.
+        got = fn(str(tmp_path), {"CUDA_PATH": "/mine", "LD_LIBRARY_PATH": "/x:/cuda/lib", "CPATH": "/cuda/include"})
+        assert got == {"LD_LIBRARY_PATH": "/cuda/lib64:/x:/cuda/lib"}
+        assert fn(str(tmp_path / "none"), {}) == {}  # not a conda environment
+        (meta / "state").write_text("not json")
+        assert fn(str(tmp_path), {}) == {}
+
+    def test_kernel_env_includes_conda_variables(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(self.kernel, "conda_env_variables", lambda environ=None: {"CUDA_PATH": "/cuda"})
+        bridge = self.kernel.KernelBridge(str(tmp_path / "c.yaml"), None, str(tmp_path))
+        assert bridge.kernel_env()["CUDA_PATH"] == "/cuda"
+
+
+class _Hostile:
+    """Like a network proxy: touching instance attributes is expensive or fails."""
+
+    touched = []
+
+    def __getattr__(self, name):
+        _Hostile.touched.append(name)
+        raise ConnectionError("remote call")
+
+    def __repr__(self):
+        raise RuntimeError("no repr")
+
+
+class TestArrayInfo:
+    """Arrays carry their shape, dtype and mask in the workspace listing."""
+
+    def test_fields(self):
+        ks._baseline.clear()
+        ns = {
+            "img": np.ma.masked_array(np.zeros((4, 5)), mask=np.zeros((4, 5), bool)),
+            "mask": np.zeros((4, 5), bool),
+            "cube": np.ma.masked_array(np.zeros((4, 5, 2)), mask=np.zeros((4, 5, 2), bool)),
+            "bare": np.ma.masked_array(np.zeros((4, 5))),
+            "vec": np.arange(3),
+            "n": 42,
+        }
+        items = {i["name"]: i for i in ks.workspace_items(ns)}
+        assert (items["img"]["shape"], items["img"]["dtype"], items["img"]["masked"]) == ([4, 5], "float64", True)
+        assert (items["mask"]["shape"], items["mask"]["dtype"], items["mask"]["masked"]) == ([4, 5], "bool", False)
+        assert items["cube"]["shape"] == [4, 5, 2] and items["vec"]["shape"] == [3]
+        # A full mask is an array of the shape of the data.
+        assert [items[n]["full_mask"] for n in ("img", "mask", "cube", "bare", "vec")] == [
+            True, False, True, False, False,
+        ]
+        assert items["bare"]["masked"] is True
+        # Other variables are unchanged, and the listing stays JSON.
+        assert "shape" not in items["n"]
+        assert json.loads(json.dumps(list(items.values())))
+
+    def test_summary_is_unchanged(self):
+        ks._baseline.clear()
+        (item,) = ks.workspace_items({"m": np.ma.masked_array(np.zeros((2, 3)))})
+        assert item["summary"] == "(2, 3) float64 masked"
+
+
+class TestRequire:
+    """The type check generated by the image, mask and cube parameters."""
+
+    IMG = np.ma.masked_array(np.zeros((6, 6)), mask=np.zeros((6, 6), bool))
+    MASK = np.zeros((6, 6), bool)
+
+    def test_accepts_the_right_types_and_returns_the_object(self):
+        assert ks.require(self.IMG, "ImageData") is self.IMG
+        assert ks.require(self.MASK, "MaskData") is self.MASK
+        cube = np.ma.masked_array(np.zeros((6, 6, 2)), mask=np.zeros((6, 6, 2), bool))
+        assert ks.require(cube, "CubeData") is cube
+        as_uint8 = self.MASK.astype(np.uint8)
+        assert ks.require(as_uint8, "MaskData") is as_uint8
+
+    @pytest.mark.parametrize(
+        "obj, kind, text",
+        [
+            (np.zeros((6, 6)), "ImageData", "Expected ImageData, got ndarray (6, 6) float64"),
+            (IMG, "MaskData", "Expected MaskData, got MaskedArray (6, 6) float64"),
+            (np.zeros((6, 6, 2)), "ImageData", "Expected ImageData, got ndarray (6, 6, 2)"),
+            (3, "ImageData", "Expected ImageData, got int."),
+            (None, "MaskData", "Expected MaskData, got NoneType."),
+        ],
+    )
+    def test_rejects_the_wrong_ones(self, obj, kind, text):
+        with pytest.raises(TypeError) as info:
+            ks.require(obj, kind)
+        assert text in str(info.value)
+
+    def test_explains_a_scalar_mask(self):
+        bare = np.ma.masked_array(np.zeros((6, 6)))
+        with pytest.raises(TypeError, match="mask is not an array of the same shape"):
+            ks.require(bare, "ImageData")
+        with pytest.raises(TypeError) as info:
+            ks.require(bare, "MaskData")
+        assert "build it with" not in str(info.value)  # only for images and cubes
+
+    def test_unknown_type_name(self):
+        with pytest.raises(ValueError, match="Unknown class name"):
+            ks.require(self.IMG, "Nonsense")
+
+
+class TestWorkspaceRobustness:
+    def test_hostile_objects_do_not_break_the_listing(self):
+        ks._baseline.clear()
+        _Hostile.touched.clear()
+        ns = {"proxy": _Hostile(), 3: "non-str key", "ok": 1}
+        items = {i["name"]: i for i in ks.workspace_items(ns)}
+        assert set(items) == {"proxy", "ok"}
+        assert items["proxy"]["kind"] == "other"
+        assert _Hostile.touched == []  # classification never probed the instance
+
+    def test_post_execute_skips_other_backends(self, monkeypatch):
+        import matplotlib
+
+        calls = []
+        monkeypatch.setattr(ks, "publish_figures", lambda: calls.append(1))
+        monkeypatch.setattr(matplotlib, "get_backend", lambda: "qtagg")
+        ks._post_execute()
+        assert calls == []
+        monkeypatch.setattr(matplotlib, "get_backend", lambda: ks.BACKEND)
+        ks._post_execute()
+        assert calls == [1]
+
+
+class TestUseExperiment:
+    """The experiment folder is importable from the kernel."""
+
+    def test_path_follows_the_experiment(self, tmp_path, monkeypatch):
+        import sys
+
+        monkeypatch.setattr(sys, "path", list(sys.path))
+        monkeypatch.setattr(ks, "_experiment_path", None)
+        first, second = tmp_path / "expA", tmp_path / "expB"
+        for folder in (first, second):
+            (folder / "SysConfig").mkdir(parents=True)
+        monkeypatch.setenv("AOCONF", str(first / "SysConfig" / "configuration.yaml"))
+        assert ks.use_experiment() == str(first) and sys.path[0] == str(first)
+        assert ks.use_experiment(str(second / "SysConfig" / "configuration.yaml")) == str(second)
+        assert sys.path[0] == str(second) and str(first) not in sys.path
+        # A folder that was already on the path is never removed.
+        sys.path.append(str(first))
+        ks.use_experiment(str(first / "SysConfig" / "configuration.yaml"))
+        ks.use_experiment(str(second / "SysConfig" / "configuration.yaml"))
+        assert str(first) in sys.path
+
+    def test_modules_of_the_previous_experiment_are_not_reused(self, tmp_path, monkeypatch):
+        import sys
+
+        monkeypatch.setattr(sys, "path", list(sys.path))
+        monkeypatch.setattr(ks, "_experiment_path", None)
+        monkeypatch.setattr(sys, "modules", dict(sys.modules))
+        first, second = tmp_path / "expA", tmp_path / "expB"
+        for folder, who in ((first, "A"), (second, "B")):
+            (folder / "SysConfig").mkdir(parents=True)
+            (folder / "lab_driver.py").write_text(f"WHO = {who!r}\n")
+            (folder / "lab_pkg").mkdir()
+            (folder / "lab_pkg" / "__init__.py").write_text("")
+            (folder / "lab_pkg" / "sub.py").write_text(f"WHO = {who!r}\n")
+        ks.use_experiment(str(first / "SysConfig" / "configuration.yaml"))
+        import importlib
+
+        assert importlib.import_module("lab_driver").WHO == "A"
+        assert importlib.import_module("lab_pkg.sub").WHO == "A"
+        ks.use_experiment(str(second / "SysConfig" / "configuration.yaml"))
+        assert "lab_driver" not in sys.modules and "lab_pkg.sub" not in sys.modules
+        assert importlib.import_module("lab_driver").WHO == "B"
+        assert importlib.import_module("lab_pkg.sub").WHO == "B"
+
+    def test_unloading_spares_opticalib_and_installed_code(self, tmp_path, monkeypatch):
+        import sys
+        import types
+
+        monkeypatch.setattr(sys, "modules", dict(sys.modules))
+        site = tmp_path / "venv" / "site-packages"
+        site.mkdir(parents=True)
+        installed = types.ModuleType("installed_thing")
+        installed.__file__ = str(site / "installed_thing.py")
+        sys.modules["installed_thing"] = installed
+        own = types.ModuleType("my_driver")
+        own.__file__ = str(tmp_path / "my_driver.py")
+        sys.modules["my_driver"] = own
+        removed = ks._unload_experiment_modules(str(tmp_path))
+        assert removed == ["my_driver"]
+        assert "installed_thing" in sys.modules and "opticalib.gui.kernel_side" in sys.modules
+

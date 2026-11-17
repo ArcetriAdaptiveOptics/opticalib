@@ -12,13 +12,13 @@ This submodule contains the classes that interface with the hardware devices.
 
 """
 
-from .splattAPI import SPLATTEngine
-from .alpaoAPI import BaseAlpaoMirror
-from .i4dAPI import I4D
+from .dms.splattAPI import SPLATTEngine
+from .dms.alpaoAPI import BaseAlpaoMirror
+from .wfs.i4dAPI import I4D
 from .base_devices import BaseWavefrontSensor, BaseDeformableMirror, BaseCamera
-from .micAPI import BaseAdOpticaDm
-from .piAPI import BasePetalMirror
-from .nacoAPI import NACOMirror
+from .dms.micAPI import BaseAdOpticaDm
+from .dms.piAPI import BasePetalMirror
+from .dms.nacoAPI import NACOMirror
 
 __all__ = [
     "SPLATTEngine",

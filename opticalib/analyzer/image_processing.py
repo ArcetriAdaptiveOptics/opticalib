@@ -1,21 +1,14 @@
 """
-Module: images_processing
-=========================
+Analyzer — offline image, cube and signal processing
+=====================================================
 
-Author(s)
----------
-- Pietro Ferraiuolo
+Offline analysis of acquired data: single-frame reduction, cube-level
+processing (push-pull, rebin, piston unwrap), spectral analysis (PSD,
+periodograms, Fourier filtering) and time-series diagnostics.
 
-Description
------------
+These are pure functions — they take arrays in and give arrays (or
+numbers) out, with no device access and no persisted state.
 
-This module provides utilities to process masked optical phase maps and
-image cubes, including piston unwrapping, push-pull reduction, rebinning,
-Zernike-mode removal, Fourier-domain filtering, and power spectral density
-analysis.
-
-The functions are designed to operate on Opticalib typing aliases and
-``fitsarray``-compatible masked arrays used across the analysis pipeline.
 """
 
 import xupy as _xp
@@ -25,6 +18,51 @@ from ..core import fitsarray as _fa
 from skimage.transform import resize as _resize
 from ..ground import osutils as osu, modal_decomposer as _md
 from scipy import stats as _stats, fft as _fft, ndimage as _ndimage
+
+
+def pad_image_to_shape(
+    img: _ot.ImageData,
+    shape: tuple[int, int],
+    offset: tuple[int, int],
+    fill_value: float = 0.0,
+) -> _ot.ImageData:
+    """
+    Pads an image to a specified shape with a given offset and fill value.
+
+    Parameters
+    ----------
+    img : _ot.ImageData
+        The image to be padded.
+    shape : tuple[int, int]
+        The target shape (height, width) for the padded image.
+    offset : tuple[int, int]
+        The (y, x) offset at which to place the original image in the padded image.
+    fill_value : float, optional
+        The value to fill the padded areas with. Default is 0.
+
+    Returns
+    -------
+    padded_img : _ot.ImageData
+        The padded image.
+    """
+    y, x, Y, X, h, w = [*offset, *shape, *img.shape]
+    if any(p < 0 for p in [y, x, Y - h - y, X - w - x]):
+        raise ValueError("Invalid padding dimensions")
+    pad_width = ((y, Y - h - y), (x, X - w - x))
+    pimg = _np.pad(
+        img.data, pad_width=pad_width, mode="constant", constant_values=fill_value
+    )
+    mask = _np.pad(
+        _np.ma.getmaskarray(img),
+        pad_width=pad_width,
+        mode="constant",
+        constant_values=True,
+    )
+    if hasattr(img, "header"):
+        header = img.header
+    else:
+        header = None
+    return _fa.fits_array(pimg, mask=mask, header=header)
 
 
 def frame(idx: int, mylist: list[_ot.ImageData] | _ot.CubeData) -> _ot.ImageData:
@@ -213,12 +251,13 @@ def push_pull_reduction_algorithm(
     Parameters
     ----------
     imagelist : list of ImageData | CubeData
-        List of images for the PushPull acquisition, organized according to the template.
+        List of images for the PushPull acquisition, organized according to the
+        template.
     template: int | ArrayLike
         Template for the PushPull acquisition.
     normalization : float | int, optional
-        Normalization factor for the final image. If None, the normalization factor
-        is set to the template length minus one.
+        Normalization factor for the final image. If None, the normalization
+        factor is set to the template length minus one.
 
     Returns
     -------
@@ -231,7 +270,7 @@ def push_pull_reduction_algorithm(
     # Template weights computation
     w = _xp.asarray(
         template.astype(_np.result_type(template, imagelist[0].data), copy=True),
-        dtype=_xp.float,
+        dtype=_ot.compute_float(),
     )
     if n_images > 2:
         w[1:-1] *= 2.0
@@ -239,9 +278,9 @@ def push_pull_reduction_algorithm(
     master_mask = _np.logical_or.reduce([ima.mask for ima in imagelist])
     # Compute weighted sum over realizations on raw data
     stack = _xp.stack(
-        [_xp.asarray(ima.data, dtype=_xp.float) for ima in imagelist],
+        [_xp.asarray(ima.data, dtype=_ot.compute_float()) for ima in imagelist],
         axis=0,
-        dtype=_xp.float,
+        dtype=_ot.compute_float(),
     )  # (n, H, W)
     image = _xp.asnumpy(_xp.tensordot(w, stack, axes=(0, 0)))  # (H, W)
 
@@ -254,7 +293,7 @@ def push_pull_reduction_algorithm(
     return image
 
 
-def create_cube(fl_or_il: list[str], register: bool = False) -> _ot.CubeData:
+def create_cube(fl_or_il: list[str]|list[_ot.ImageData], register: bool = False) -> _ot.CubeData:
     """
     Creates a cube of images from an images file list
 
@@ -262,6 +301,7 @@ def create_cube(fl_or_il: list[str], register: bool = False) -> _ot.CubeData:
     ----------
     fl_or_il : list of str
         Either:
+
         - the list of image file paths;
         - a list of ImageData.
     register : int or tuple, optional
@@ -274,13 +314,21 @@ def create_cube(fl_or_il: list[str], register: bool = False) -> _ot.CubeData:
     cube : ndarray
         Data cube containing the images/frames stacked, with shape (npx, npy, nframes).
     """
+    memmap = True
     # check it is a list
     if not isinstance(fl_or_il, list):
-        raise TypeError("filelist must be a list of strings or images")
+        if isinstance(fl_or_il, str) or _ot.isinstance_(fl_or_il, "ImageData"):
+            fl_or_il = [fl_or_il]
+        else:
+            raise TypeError("filelist must be a list of strings or images")
 
     # check if it is composed of file paths to load
     if all([isinstance(item, str) for item in fl_or_il]):
-        fl_or_il = [osu.read_phasemap(f) for f in fl_or_il]
+        N = len(fl_or_il)  # Number of files
+        if N > 1000:
+            memmap = False
+            print("Disabling memory mapping for large file list: N =", N)
+        fl_or_il = [osu.read_phasemap(f, memmap=memmap) for f in fl_or_il]
 
         # Is the list now full of images?
         if not any(
@@ -309,9 +357,13 @@ def create_cube(fl_or_il: list[str], register: bool = False) -> _ot.CubeData:
         if hasattr(item, "header"):
             header.update(item.header)
 
-    cube = _fa.fits_array(_np.ma.dstack(fl_or_il), header=header)
+    if len(fl_or_il) == 1:
+        return _np.expand_dims(
+            _fa.fits_array(fl_or_il[0], header=header),
+            axis=2
+        )
 
-    return cube
+    return _fa.fits_array(_np.ma.dstack(fl_or_il), header=header)
 
 
 def remove_zernike_from_cube(
@@ -865,6 +917,8 @@ def rebin2_d_array(
 
 
 __all__ = [
+    "pad_image_to_shape",
+    # "into_4d_full_frame",
     "frame",
     "unwrap_piston",
     "unwrap_image",

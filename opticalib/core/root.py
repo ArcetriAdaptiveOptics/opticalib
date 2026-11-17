@@ -1,7 +1,17 @@
 """
-this module is at the heart of the package, as it defines its folder structure
-and the configuration file reader and writer. Also, it is fundamental for the
-`calpy` custom entry point functionalities.
+Experiment root — folder layout, configuration file bootstrap and imports
+=========================================================================
+
+This module is at the heart of the package.  It defines the on-disk data
+folder tree (created by :func:`create_folder_tree`), exposes the pre-built
+``folders`` namespace, and reads the 4D interferometer settings from
+``AppSettings.ini`` via :class:`ConfSettingReader4D`.
+
+Import-time side effects: reading ``AOCONF``, opening the configuration
+file and creating the folder tree.  Set ``AOCONF`` before importing
+``opticalib``, or use the ``calpy`` entry point which handles it
+automatically.
+
 """
 
 import os as _os
@@ -89,6 +99,28 @@ def _update_interf_paths(paths: dict[str, str]) -> None:
     CAPTURE_FOLDER_NAME_LOCAL_PC = paths["capture"]
 
 
+def _stamp_created_with(file: str, data_path: str | None = None) -> None:
+    """
+    Stamp ``SYSTEM.created_with`` (package version, provenance only) in *file*.
+
+    Optionally sets ``SYSTEM.data_path`` too. YAML comments are preserved.
+    """
+    from ..__version__ import __version__
+
+    try:
+        with open(file, "r") as _f:
+            config = _gyml.load(_f)
+        config["SYSTEM"]["created_with"] = str(__version__)
+        if data_path is not None:
+            config["SYSTEM"]["data_path"] = data_path
+        with open(file, "w") as _f:
+            _gyml.dump(config, _f)
+    except (OSError, KeyError, TypeError) as exc:
+        import warnings
+
+        warnings.warn(f"Could not stamp `{file}`: {exc}", UserWarning)
+
+
 def create_configuration_file(path: str = "", data_path: str | bool = False) -> None:
     """
     Create a configuration file in the specified path.
@@ -121,15 +153,11 @@ def create_configuration_file(path: str = "", data_path: str | bool = False) -> 
         _create_folder(_os.path.dirname(path))
     _copy(TEMPLATE_CONF_FILE, file)
     print(f"Configuration file created in {path}")
+    if not data_path:
+        _stamp_created_with(file)
     if data_path:
         data_path = _os.path.dirname(file)
-        with open(file, "r") as _f:
-            config = _gyml.load(_f)
-        config["SYSTEM"]["data_path"] = data_path
-        with open(file, "w") as _f:
-            _gyml.dump(config, _f)
-        with open(file, "r") as _f:
-            _config = _gyml.load(_f)
+        _stamp_created_with(file, data_path)
         create_folder_tree(data_path)
         from shutil import move
 
@@ -158,6 +186,7 @@ if BASE_DATA_PATH == _fallback_bdp:
     )
     if not _os.path.exists(CONFIGURATION_FILE):
         _copy(TEMPLATE_CONF_FILE, CONFIGURATION_FILE)
+        _stamp_created_with(CONFIGURATION_FILE)
     with open(CONFIGURATION_FILE, "r") as _f:
         _config = _gyml.load(_f)
 
@@ -213,6 +242,7 @@ def sim_data_file(dmname: str, filename: str, nacts: int = None) -> str:
         The name of the deformable mirror.
     filename : str
         The name of the file. Can be
+
         - 'IF' : Influence functions cube
         - 'IM' : Interaction matrix
         - 'RM' : Reconstruction matrix
@@ -334,36 +364,13 @@ class ConfSettingReader4D:
     """
     Class which reads an interferometer configuration settings file '4DSettings.ini'
 
-    Methods
-    -------
-    get_frame_rate() :
-        Gets the camera frame rate in Hz.
+    How to Use
+    ----------
+    After initializing the class with a file path, just call methods on the
+    defined object:
 
-    getImageWidthInPixels() :
-        Get the width of the frame in pixel units.
-
-    get_image_height_in_pixels() :
-        Get the height of the frame in pixel units.
-
-    get_offset_x() :
-        Get the frame offset in x-axis.
-
-    get_offset_y() :
-        Get the frame offset in y-axis.
-
-    get_pixel_format() :
-        Get the format of the pixels.
-
-    get_user_setting_file_path() :
-        Get the path of the configuration file.
-
-    How to Use it
-    -------------
-    After initializing the class with a file path, just call methods on the defined
-    object
-
-    >>> cr = ConfSettingReader(file_path)
-    >>> cr.get_image_widht_in_pixels()
+    >>> cr = ConfSettingReader4D(file_path)
+    >>> cr.get_image_width_in_pixels()
     2000
     >>> cr.get_image_height_in_pixels()
     2000
@@ -394,13 +401,13 @@ class ConfSettingReader4D:
         frame_rate = self.config.get(self.camera_section, "FrameRate")
         return float(frame_rate)
 
-    def get_image_widht_in_pixels(self):
+    def get_image_width_in_pixels(self):
         """
-        Returns the image widht in pixel scale
+        Returns the image width in pixel scale
 
         Returns
         -------
-        image_wight_in_pixels : int
+        image_width_in_pixels : int
             Image pixel width.
         """
         image_width_in_pixels = self.config.get(
@@ -478,7 +485,7 @@ def set_configuration_file(config_path: str) -> None:
     """
     Dynamically set a new configuration file and reload all runtime modules.
 
-    This function allows changing the opticalib configuration at runtime by
+    This function allows changing the OptiCalib configuration at runtime by
     updating the AOCONF environment variable and reloading all modules that
     depend on the configuration. This ensures the entire package points to
     the new configuration file and data structure.
@@ -497,6 +504,7 @@ def set_configuration_file(config_path: str) -> None:
     Notes
     -----
     This function updates the configuration by:
+
     - Modifying the AOCONF environment variable
     - Reloading the opticalib.core.root module
     - Reloading the opticalib.core.config module
@@ -573,6 +581,8 @@ def set_configuration_file(config_path: str) -> None:
             raise RuntimeError(
                 f"Failed to reload runtime module '{module_name}'"
             ) from exc
+
+    read_config_module.check_configuration_version()
 
 
 def unset_configuration_file() -> None:

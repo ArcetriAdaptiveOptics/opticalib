@@ -1,32 +1,11 @@
 """
-Module: timeseries
-==================
+Time-series analysis — frame extraction, running statistics, structure functions
+================================================================================
 
-Author(s)
----------
-- Runa Briguglio
-- Pietro Ferraiuolo
+Utilities for handling time-ordered data: frame extraction and averaging,
+running differences and means, structure-function estimation, and
+timestamp-based time-vector generation.
 
-Description
------------
-
-This module provides functions to handle and analyze time series data in the context of Optical Imaging.
-It includes utilities for frame extraction, averaging frames, saving and loading averaged images,
-computing running differences, calculating running means, and estimating structure functions from
-time series data.
-
-Functions:
-- frame: Retrieve a single frame from a list or cube.
-- average_frames: Average multiple frames to create an averaged image.
-- save_average: Save the averaged image to a file.
-- open_average: Load an averaged image from a file.
-- running_diff: Compute the running difference between frames with optional zernike removal.
-- timevec: Generate a time vector for a set of frames based on their timestamps.
-- running_mean: Calculate the running mean of a 1D array.
-- structfunc: Compute the structure function for a given time series.
-
-
-This module is part of the OPTICALIB library and relies on other modules within the package for data handling and processing.
 """
 
 import os as _os
@@ -139,6 +118,7 @@ def save_average(
         be passed on
     **kwargs : additional optional arguments
         The same arguments as `average_frames`, to specify the averaging method.
+
         - first : int, optional
             Index number of the first file to consider. If None, the first file in
             the list is considered.
@@ -210,6 +190,7 @@ def running_diff(
     ----------
     tn_or_fl : str or list[str] or list[ImageData] or CubeData
         It can either be:
+
         - a tracking number where the frames to process are;
         - a list of strings with the file list of images to process;
         - a list of ImageData objects;
@@ -408,6 +389,7 @@ def noise_pushpull(
     ----------
     tn_or_fl : str | list[ImageData] | list[str] | CubeData
         The data to be processed. Can be either:
+
         - A tracking number (str)
         - A list of file paths (str)
         - A list of ImageData objects

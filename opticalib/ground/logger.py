@@ -1,32 +1,15 @@
 """
-This module provides an easy interface for setting up scripts logging within
-the Opticalib framework. It includes functions to configure a rotating file logger
-and a simple text file logger class.
+Logging — rotating file logger and text-file logger
+====================================================
 
-Author(s)
----------
-- Chiara Selmi : written in 2020
-- Pietro Ferraiuolo : rewritten in 2024
+Provides a simple logging interface for scripts: a system-wide rotating
+file logger (:class:`SystemLogger`) and a plain text-file logger
+(:class:`TxtLogger`).  Both write to the experiment's ``Logging/``
+directory automatically.
 
-Example Usage
--------------
-To set up logging for your script, use the ``set_up_logger`` function to configure a rotating file logger.
-You can then log messages using the standard logging interface or the provided ``log`` function.
-For simple text logging, instantiate the ``txtLogger`` class.
-
-Example::
-
-    # Set up a rotating file logger
-    logger = set_up_logger('my_script.log', logging.INFO)
-
-    # Log messages using the log function
-    log("This is an informational message.", "INFO")
-    log("This is a debug message.", "DEBUG")
-
-    # Use the txtLogger for simple text logging
-    txt_log = txtLogger('simple_log.txt')
-    txt_log.log("This is a message written to a text file.")
 """
+
+import logging as _l
 
 import logging as _l
 import logging.handlers as _lh
@@ -67,9 +50,13 @@ class SystemLogger:
             use lowercase too).
 
             The default is 'INFO'.
-        no_class : bool, False
-            If True, the class name will not be included in the log message, in the
-            case it is available.
+
+        Other Parameters
+        ----------------
+        no_class : bool, optional
+            If True, the class name will not be included in the log message, in
+            the case it is available.  Defaults to False.  Pulled out of
+            ``**kwargs`` rather than being a declared parameter.
         """
         no_class = kwargs.pop("no_class", False)
         the_class = None if no_class else self.the_class
@@ -195,6 +182,7 @@ def set_up_logger(
 
     Notes
     -----
+
     - The log file will rotate when it reaches 10,000,000 bytes (10 MB).
     - Up to 3 backup log files will be kept.
     - The log format includes the timestamp, log level, logger name, and message.
@@ -257,6 +245,7 @@ def log(
 
     Notes
     -----
+
     - The message will be logged with the specified level.
     - If the specified level is not recognized, the message will be logged at the
       'DEBUG' level.

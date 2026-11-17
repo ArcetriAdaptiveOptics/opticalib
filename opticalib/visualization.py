@@ -1,16 +1,22 @@
 """
-VISUALIZATION
-=============
+Visualization — Matplotlib conveniences for adaptive-optics data
+================================================================
 
-This module contains visualization utilities for plotting and displaying data
-within the interested opticalib framework. This includes wavefront maps, plotting
-DM commands, and other relevant visualizations for optical data analysis.
+Thin wrappers around Matplotlib for the plots that come up constantly on
+an adaptive-optics bench: phase maps as masked images
+(:func:`matshow`, :func:`myimshow`), DM command vectors as mirror-shaped
+surfaces (:func:`surfshow`, :func:`cmdplot`), and superimposed pupil
+overlays (:func:`superimshow`).
+
+All functions return the Matplotlib artists they create, so you can keep
+customising the figure.
+
 """
 
 import numpy as np
 from matplotlib import pyplot as plt
 from .core import _types as _ot
-from .ground import osutils as _osu
+from .ground import osutils as _osu, roi as _roi
 
 
 def matshow(matrix: _ot.MatrixLike, **kwargs: dict[str, _ot.Any]):
@@ -44,13 +50,14 @@ def matshow(matrix: _ot.MatrixLike, **kwargs: dict[str, _ot.Any]):
     title = kwargs.pop("title", "Matrix")
     xlabel = kwargs.pop("xlabel", "X [px]")
     ylabel = kwargs.pop("ylabel", "Y [px]")
+    clabel = kwargs.pop("clabel", "adu")
 
     fig, ax = plt.subplots()
     im = ax.matshow(matrix, **kwargs)
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
     ax.set_title(title)
-    fig.colorbar(im, ax=ax)
+    fig.colorbar(im, ax=ax, label=clabel)
 
     return fig, ax, im
 
@@ -73,8 +80,8 @@ def surfshow(
     cut : bool, optional
         Whether to cut the image to the region of interest. Default is False.
     **kwargs
-        Additional keyword arguments to be passed to `plot_surface`, as well as some
-        additions:
+        Additional keyword arguments to be passed to `imshow` (if ``d3`` is False),
+        as well as some additions:
 
         - title: str, optional
             Title of the plot. Default is "Surface Plot".
@@ -132,7 +139,7 @@ def cmdplot(cmd: _ot.ArrayLike, **kwargs: dict[str, _ot.Any]):
     cmd : array-like
         1D array representing the DM command to be displayed.
     **kwargs
-        Additional keyword arguments to be passed to `imshow`, as well as some
+        Additional keyword arguments to be passed to `plot`, as well as some
         additions:
 
         - title: str, optional
@@ -155,15 +162,114 @@ def cmdplot(cmd: _ot.ArrayLike, **kwargs: dict[str, _ot.Any]):
     xlabel = kwargs.pop("xlabel", "Actuator Index")
     ylabel = kwargs.pop("ylabel", "Amplitude")
     c = _osu.get_kwargs(("color", "c"), default="black", pop=True, kwargs=kwargs)
+    linewidth = kwargs.pop("linewidth", 1)
+    markersize = kwargs.pop("markersize", 5)
 
     fig, ax = plt.subplots()
-    l = ax.plot(cmd, "-o", linewidth=1, markersize=5, color=c, **kwargs)
+    l = ax.plot(
+        cmd, "-o", linewidth=linewidth, markersize=markersize, color=c, **kwargs
+    )
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
     ax.set_title(title)
     ax.grid(True, which="both", linestyle="--", linewidth=0.5, alpha=0.6)
 
     return fig, ax, l
+
+
+def coordplot(
+    coord: _ot.ArrayLike,
+    annotate: bool = True,
+    from_idx: int = 0,
+    **kwargs: dict[str, _ot.Any],
+):
+    """
+    Plot a set of coordinates as a 2D scatter plot.
+
+    Parameters
+    ----------
+    coord : array-like
+        2D array representing the coordinates to be displayed. Each row should
+        correspond to a point, with the first column as the x-coordinate and the
+        second column as the y-coordinate.
+    annotate : bool, optional
+        If True, annotate the points with their indices. Default is True.
+    from_idx : int, optional
+        The starting index for annotation. Default is 0.
+    **kwargs
+        Additional keyword arguments to be passed to `scatter`, as well as some
+        additions:
+
+        - title: str, optional
+            Title of the plot. Default is "Coordinates".
+        - xlabel: str, optional
+            Label for the x-axis. Default is "X [px]".
+        - ylabel: str, optional
+            Label for the y-axis. Default is "Y [px]".
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        The figure object.
+    ax : matplotlib.axes.Axes
+        The axes object.
+    sc : matplotlib.collections.PathCollection
+        The scatter plot object returned by scatter.
+    cb : matplotlib.colorbar.Colorbar | None
+        The colorbar object if a color array was used, otherwise None.
+    """
+    title = kwargs.pop("title", "Coordinates")
+    xlabel = kwargs.pop("xlabel", "X [px]")
+    ylabel = kwargs.pop("ylabel", "Y [px]")
+    clabel = kwargs.pop("clabel", "intensity")
+    c = _osu.get_kwargs(("color", "c"), default="black", pop=True, kwargs=kwargs)
+    use_colorbar = False
+
+    if not isinstance(c, str) and c is not None:
+        c = np.asarray(c)
+        if not c.shape == (coord.shape[0],):
+            raise ValueError(
+                "Color array must have the same length as the number of coordinates."
+            )
+        use_colorbar = True
+
+    if coord.shape[0] != 2:
+        coord = coord.T
+
+    if isinstance(coord, list):
+        coord = np.asarray(coord)
+    if coord.ndim != 2:
+        raise ValueError("Coordinate array must be 2-dimensional.")
+    if coord.shape[0] != 2:
+        coord = coord.T
+
+    Y, X = coord[0, :], coord[1, :]
+    fig, ax = plt.subplots()
+    if annotate:
+        for i, (x, y) in enumerate(zip(X, Y)):
+            if i < from_idx:
+                continue
+            ax.annotate(
+                str(i),
+                (x, y),
+                textcoords="offset points",
+                xytext=(3, 3),
+                ha="left",
+                va="bottom",
+                fontsize=7,
+                color="black",
+            )
+
+    sc = ax.scatter(X, Y, c=c, **kwargs)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_title(title)
+    cb = None
+    if use_colorbar:
+        cb = plt.colorbar(sc, ax=ax)
+        cb.set_label(clabel)
+
+    return fig, ax, sc, cb
 
 
 def myimshow(
@@ -234,6 +340,7 @@ def superimshow(
     xlabels: list[str] | str = None,
     ylabels: list[str] | str = None,
     set_axis_off: bool = False,
+    cut: bool = False,
     *mplargs: _ot.Any,
     **mplkwargs: dict[str, _ot.Any],
 ):
@@ -256,6 +363,9 @@ def superimshow(
         List of y-axis labels for each image. If not provided, the labels are 'Y [px]'.
     set_axis_off : bool, optional
         If True, the axes will be turned off. The default is False.
+    cut : bool, optional
+        If True, the images will be cut using the ROI defined in the `opticalib.ground.roi` module.
+        The default is False.
     *mplargs
         Additional arguments to be passed to `imshow`.
     **mplkwargs
@@ -268,13 +378,12 @@ def superimshow(
     axs : numpy.ndarray
         Array of axes objects corresponding to each subplot.
     """
-    # TODO: add the possibility to set the axis off. Useful for small images.
-
     import matplotlib.pyplot as plt
     from mpl_toolkits.axes_grid1 import make_axes_locatable
 
     if not isinstance(data, np.ndarray):
         data = np.ma.dstack(data)
+
     Nplots = data.shape[-1]
     titles = (
         [f"{i}" for i in range(Nplots)]
@@ -311,7 +420,10 @@ def superimshow(
         divider = make_axes_locatable(ax)
         cax = divider.append_axes("right", size="5%", pad=0.05)
         # Plot dell'immagine
-        im = ax.imshow(data[..., i], *mplargs, **mplkwargs)
+        img = data[..., i]
+        if cut:
+            img = _roi.img_cut(img)
+        im = ax.imshow(img, *mplargs, **mplkwargs)
         ax.set_title(titles[i])
         ax.set_xlabel(xlabel[i])
         ax.set_ylabel(ylabel[i])

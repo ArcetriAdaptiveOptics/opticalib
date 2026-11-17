@@ -1,9 +1,12 @@
 """
-This module contains the high-level classes for the use of interferometer devices.
+Interferometer drivers — 4D Technology PhaseCam, AccuFiz and Processer
+======================================================================
 
-Author(s)
----------
-- Pietro Ferraiuolo : pietro.ferraiuolo@inaf.it
+High-level classes for 4D Technology interferometer models.  All share
+:class:`_4DInterferometer` as the common base, which implements the shared
+workflow: ``acquire_map`` (averaging, delay, rebinning), ``acquire_full_frame``,
+``capture`` and ``produce``.  Low-level protocol communication is delegated
+to ``opticalib.devices._API.i4dAPI``.
 
 """
 
@@ -14,12 +17,15 @@ import shutil as _sh
 import subprocess as _sb
 
 from ._API.base_devices import BaseWavefrontSensor
-from ._API.i4dAPI import I4D
+from ._API.wfs.i4dAPI import I4D
 from opticalib.core import _types as _ot
 from opticalib.core import root as _fn
 from opticalib.ground import osutils as _osu
 from opticalib.ground.logger import SystemLogger as _SL
-from opticalib.analyzer import mode_rebinner as _modeRebinner
+from opticalib.analyzer.image_processing import (
+    mode_rebinner as _modeRebinner,
+    pad_image_to_shape as _to_shape,
+)
 
 global _Folds
 _Folds = _fn.folders
@@ -169,14 +175,14 @@ class _4DInterferometer(BaseWavefrontSensor):
         #     masked_ima = _modeRebinner(masked_ima, rebin)
         return data
 
-    def capture(self, numberOfFrames: int, folder_name: str = None) -> str:
+    def capture(self, nframes: int, folder_name: str = None) -> str:
         """
         Acquires raw phasemaps with ther interferometer, with the set
         frequency.
 
         Parameters
         ----------
-        numberOfFrames: int
+        nframes: int
             Number of frames to acquire
         folder_name: str, optional
             Name of the folder where to saave.
@@ -192,11 +198,9 @@ class _4DInterferometer(BaseWavefrontSensor):
             folder_name = _osu.newtn()
         print(folder_name)
 
-        self._logger.info(
-            f"Capturing {numberOfFrames} frames into folder '{folder_name}'."
-        )
+        self._logger.info(f"Capturing {nframes} frames into folder '{folder_name}'.")
         fold4d = _os.path.join(_Folds.CAPTURE_FOLDER_NAME_4D_PC, folder_name)
-        self._i4d.burstFramesToSpecificDirectory(fold4d, numberOfFrames)
+        self._i4d.burstFramesToSpecificDirectory(fold4d, nframes)
         self.save_configuration(_os.path.join(fold4d, "SoftwareSettings.4dini"))
         self.copy_4d_settings(
             _os.path.join(_Folds.CAPTURE_FOLDER_NAME_LOCAL_PC, folder_name),
@@ -240,7 +244,7 @@ class _4DInterferometer(BaseWavefrontSensor):
                 capture4d,
             )
             _sh.move(produce_local, _Folds.OPD_IMAGES_ROOT_FOLDER)
-            self._rename4_d(t)
+            self._rename_4d_files(t)
             try:
                 _sh.copy(
                     _os.path.join(capture_local, "SoftwareSettings.4dini"),
@@ -287,46 +291,88 @@ class _4DInterferometer(BaseWavefrontSensor):
             self._logger.warning("Triggered mode disabled.")
             print("Triggered mode disabled")
 
-    def save_configuration(self, newConfigurationPath: str) -> None:
+    def save_configuration(
+        self, conf_path: str, filename: str = "SoftwareSettings.4dini"
+    ) -> None:
         """
-        Saves the current configuration of the interferometer to a file.
+        Saves the current ``software`` configuration of the interferometer to a
+        file.
 
         Parameters
         ----------
-        newConfigurationPath: str
+        conf_path: str
             file path for configuration to save
         filename: str
-            name of the configuration file (optional). If None, the original file
-            name is used
+            name of the configuration file (optional). Default is
+            ``SoftwareSettings.4dini``.
         """
-        self._i4d.saveConfiguration(newConfigurationPath)
-        self._logger.info(f"Configuration file saved to '{newConfigurationPath}'.")
+        fpath = conf_path
+        try:
+            self._i4d.saveConfiguration(fpath)
+        except Exception as e:
+            print(e)
+            self._logger.error(
+                f"Failed to save configuration to '{fpath}', "
+                f"trying with filename '{filename}'."
+            )
+            fpath = _os.path.join(conf_path, filename)
+            self._i4d.saveConfiguration(fpath)
+        self._logger.info(f"Configuration file saved to '{fpath}'.")
 
-    def load_configuration(self, conffile: str) -> None:
+    def load_configuration(
+        self, conf_path: str, filename: str = "SoftwareSettings.4dini"
+    ) -> None:
         """
-        Read and loads the configuration file of the interferometer.
+        Read and loads the ``software`` configuration file of the interferometer.
 
         Parameters
         ----------
-        conffile: str
-            name of the configuration file to load
+        conf_path: str
+            file path for configuration to load
+        filename: str
+            name of the configuration file (optional). Default is
+            ``SoftwareSettings.4dini``.
         """
-        self._i4d.loadConfiguration(conffile)
-        self._logger.info(f"Configuration file '{conffile}' loaded.")
+        fpath = conf_path
+        try:
+            self._i4d.loadConfiguration(fpath)
+        except Exception as e:
+            print(e)
+            self._logger.error(
+                f"Failed to load configuration from '{fpath}', "
+                f"trying with filename '{filename}'."
+            )
+            fpath = _os.path.join(conf_path, filename)
+            self._i4d.loadConfiguration(fpath)
+        self._logger.info(f"Configuration file '{fpath}' loaded.")
 
     def copy_4d_settings(
         self,
         dest: str,
         src: str = None,
-        copied_name: str = "CameraSettings.ini",
+        copied_name: str | None = None,
         iscapture: bool = True,
     ) -> None:
         """
         Copies the interferometer settings file to the specified destination.
 
+        Parameters
+        ----------
+        dest: str
+            Destination folder to copy the settings file to.
+        src: str, optional
+            Source folder containing the settings file. If None, the default
+            settings folder is used.
+        copied_name: str, optional
+            Name of the copied settings file. Defaults to None, which will use
+            the ``copied_settings`` in configuration.yaml if an interferometer
+            is instanced, or 'CameraSettings.ini' as default.
+        iscapture: bool, optional
+            If True, the source is considered a capture folder. Defaults to True.
 
         """
-        # TODO: add check to read copied name from conf.yaml
+        if copied_name is None:
+            copied_name = _Folds.COPIED_SETTINGS_CONF_FILE or "CameraSettings.ini"
         destination = _os.path.join(dest, copied_name)
         source = src if src is not None else _Folds.SETTINGS_CONF_FILE
         source = _os.path.join(source, copied_name) if iscapture is False else source
@@ -336,86 +382,109 @@ class _4DInterferometer(BaseWavefrontSensor):
         )
 
     @staticmethod
-    def get_camera_settings(tn: str = None) -> list[int]:
+    def get_camera_settings(
+        tn: str = None, filename: str = "CameraSettings.ini"
+    ) -> list[int]:
         """
-        Reads che actual interferometer settings from its configuration file.
+        Reads the actual interferometer settings from its configuration file or
+        pass in a saved configuration file from a tracking number data folder.
 
-        Return
-        ------
+        Parameters
+        ----------
+        tn: str, optional
+            Tracking number to locate the saved configuration file. If None,
+            the current configuration file is used.
+        filename: str, optional
+            Name of the configuration file. Defaults to 'CameraSettings.ini'.
+
+        Returns
+        -------
         output: list
-        list of camera settings: [width_pixel, height_pixel, offset_x, offset_y]
+            list of camera settings: [width_pixel, height_pixel, offset_x, offset_y]
         """
         if not tn is None:
-            path = _osu.find_tracknum(tn, complete_path=True)
-            try:
-                file_path = _os.path.join(path, _fn.COPIED_SETTINGS_CONF_FILE)
-                setting_reader = _fn.ConfSettingReader4D(file_path)
-            except Exception as e:
-                print(f"Error: {e}")
-                file_path = _os.path.join(path, "4DSettings.ini")
-                setting_reader = _fn.ConfSettingReader4D(file_path)
+            file_path = _4DInterferometer._locate_settings_file(tn, filename)
         else:
             file_path = _Folds.SETTINGS_CONF_FILE
-            setting_reader = _confReader(file_path)
-        width_pixel = setting_reader.get_image_widht_in_pixels()
+            if file_path is None:
+                raise FileNotFoundError(
+                    "No interferometer connected: must pass a `tn`."
+                )
+        setting_reader = _confReader(file_path)
+        width_pixel = setting_reader.get_image_width_in_pixels()
         height_pixel = setting_reader.get_image_height_in_pixels()
         offset_x = setting_reader.get_offset_x()
         offset_y = setting_reader.get_offset_y()
         return [width_pixel, height_pixel, offset_x, offset_y]
 
     @staticmethod
-    def get_frame_rate(tn: str = None) -> float:
+    def get_frame_rate(tn: str = None, filename: str = "CameraSettings.ini") -> float:
         """
-        Reads the frame rate the interferometer is working at.
+        Reads the frame rate the interferometer is working at, either from the
+        current configuration file or from a saved configuration file associated
+        with a tracking number.
 
-        Return
-        ------
+        Parameters
+        ----------
+        tn: str, optional
+            Tracking number to locate the saved configuration file. If None,
+            the current configuration file is used.
+        filename: str, optional
+            Name of the configuration file. Defaults to 'CameraSettings.ini'.
+
+        Returns
+        -------
         frame_rate: float
             Frame rate of the interferometer
         """
-        if not tn is None:
-            path = _osu.find_tracknum(tn, complete_path=True)
-            try:
-                file_path = _os.path.join(path, _fn.COPIED_SETTINGS_CONF_FILE)
-                setting_reader = _fn.ConfSettingReader4D(file_path)
-            except Exception as e:
-                print(f"Error: {e}")
-                file_path = _os.path.join(path, "4DSettings.ini")
-                setting_reader = _fn.ConfSettingReader4D(file_path)
+        if tn is not None:
+            file_path = _4DInterferometer._locate_settings_file(tn, filename)
         else:
             file_path = _Folds.SETTINGS_CONF_FILE
-            setting_reader = _confReader(file_path)
+            if file_path is None:
+                raise FileNotFoundError(
+                    "No interferometer connected: must pass a `tn`."
+                )
+        setting_reader = _confReader(file_path)
         frame_rate = setting_reader.get_frame_rate()
         return frame_rate
 
-    def into_full_frame(self, img: _ot.ImageData) -> _ot.ImageData:
+    @staticmethod
+    def into_full_frame(
+        img: _ot.ImageData,
+        tn: str = None,
+        config_path: str = None,
+    ) -> _ot.ImageData:
         """
-        The function fits the passed frame (expected cropped) into the
-        full interferometer frame (2048x2048), after reading the cropping
-        parameters.
+        The function fits the passed frame (expected cropped) into the full
+        interferometer frame (2048x2048), after reading the cropping parameters
+        either from a passed configuration file, the current configuration or
+        directly from offset parameters.
 
         Parameters
         ----------
         img: ImageData
             The image to be fitted into the full frame.
+        tn: str, optional
+            Tracking number to locate the saved configuration file. If None,
+            the current configuration file is used.
+        config_path: str, optional
+            Path to a specific configuration file.
+            If None, the current configuration is used.
 
-        Return
-        ------
+        Returns
+        -------
         output: ImageData
             The output image, in the interferometer full frame.
         """
-        off = (self.get_camera_settings())[2:4]
-        off = _np.flip(off)
-        nfullpix = _np.array([2048, 2048])
-        fullimg = _np.full(nfullpix, _np.nan)  # was   _np.zeros(nfullpix)
-        fullmask = _np.ones(nfullpix)
-        offx = off[0]
-        offy = off[1]
-        sx = _np.shape(img)[0]  # croppar[2]
-        sy = _np.shape(img)[1]  # croppar[3]
-        fullimg[offx : offx + sx, offy : offy + sy] = img.data
-        fullmask[offx : offx + sx, offy : offy + sy] = img.mask
-        fullimg = _np.ma.masked_array(fullimg, fullmask)
+        if config_path is not None:
+            setting_reader = _fn.ConfSettingReader4D(config_path)
+            offx = setting_reader.get_offset_x()
+            offy = setting_reader.get_offset_y()
+        else:
+            _, _, offx, offy = _4DInterferometer.get_camera_settings(tn)
+
+        fullimg = _to_shape(img, (2048, 2048), (offy, offx), fill_value=_np.nan)
         return fullimg
 
     def _from_data_array_to_masked_array(
@@ -446,7 +515,7 @@ class _4DInterferometer(BaseWavefrontSensor):
         masked_ima = _np.ma.masked_array(data, mask=mask.astype(bool))
         return masked_ima
 
-    def _rename4_d(self, folder: str) -> None:
+    def _rename_4d_files(self, folder: str) -> None:
         """
         Renames the produced 'x.4D' files into '0000x.4D'
 
@@ -466,6 +535,59 @@ class _4DInterferometer(BaseWavefrontSensor):
                     old_file = _os.path.join(fold, file)
                     new_file = _os.path.join(fold, new_name)
                     _os.rename(old_file, new_file)
+
+    @staticmethod
+    def _locate_settings_file(tn: str, filename: str = "CameraSettings.ini") -> str:
+        """
+        Locates the settings file for a given tracking number.
+
+        Parameters
+        ----------
+        tn : str
+            Tracking number.
+        filename : str, optional
+            Name of the settings file to look for, by default "CameraSettings.ini"
+
+        Returns
+        -------
+        str
+            Path to the located settings file.
+
+        Raises
+        ------
+        FileNotFoundError
+            If the tracking number or settings file is not found.
+        ValueError
+            If multiple settings files are found and ambiguity arises.
+        """
+        paths = _osu.find_tracknum(tn, complete_path=True)
+        if isinstance(paths, str):
+            paths = [paths]
+        if not paths:
+            raise FileNotFoundError(f"Tracking number '{tn}' not found in OPTData.")
+        names = [n for n in (_fn.COPIED_SETTINGS_CONF_FILE, filename) if n]
+        matches = []  # first matching file per folder
+        for p in paths:
+            for n in names:
+                f = _os.path.join(p, n)
+                if _os.path.isfile(f):
+                    matches.append(f)
+                    break
+        if not matches:
+            raise FileNotFoundError(
+                f"No settings file {names} found for tn '{tn}' in {paths}."
+            )
+        if len(matches) > 1:
+            # produce() copies the settings into OPDImages/<tn>: prefer that one
+            opd = [
+                m
+                for m in matches
+                if m.startswith(_Folds.OPD_IMAGES_ROOT_FOLDER + _os.sep)
+            ]
+            if len(opd) == 1:
+                return opd[0]
+            raise ValueError(f"Ambiguous tn '{tn}': settings found in {matches}.")
+        return matches[0]
 
     def __repr__(self) -> str:
         return f"{self._name}(ip={self.ip}, port={self.port})"

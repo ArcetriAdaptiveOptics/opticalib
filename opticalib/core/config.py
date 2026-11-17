@@ -1,24 +1,21 @@
 """
-This module provides utilities for reading, writing, and updating YAML configuration files
-used in the opticalib system. It supports configuration management for devices such as
-deformable mirrors and interferometers, as well as acquisition and alignment settings.
+Configuration — YAML configuration file reader, writer and accessors
+====================================================================
 
-Features
---------
-- Load and dump YAML configuration files.
-- Retrieve and update configuration blocks for IFF acquisition, DM devices, and interferometers.
-- Copy configuration files for record keeping.
-- Parse and convert configuration values, including numpy arrays.
-- Access alignment and stitching settings as structured objects.
+Loads, queries, and updates the ``configuration.yaml`` file that
+describes the bench.  Provides typed accessors for every section:
+``SYSTEM``, ``DEVICES`` (interferometers, DMs, cameras, WFS, motors),
+``INFLUENCE.FUNCTIONS``, ``ALIGNMENT``, ``PHASING`` and ``STITCHING``.
 
-Author(s)
----------
-- Pietro Ferraiuolo: written in 2025
-- Runa Briguglio
+Most accessors also accept an explicit ``bpath`` to point at a specific
+``SysConfig`` folder, defaulting to the root resolved at import time from
+``AOCONF``.
+
 """
 
 import os as _os
 import re as _re
+from collections.abc import Mapping as _Mapping
 from ast import literal_eval as _literal_eval
 
 import numpy as _np
@@ -50,6 +47,12 @@ def _update_imports():
 
 _update_imports()
 
+#: Configuration *schema* version (``MAJOR.MINOR``). to be bumped by hand ONLY when
+#: the ``configuration.yaml`` layout changes (sections/keys added, renamed or
+#: removed), and update ``SYSTEM.version`` in the template in the same commit.
+#: It is independent of the package version.
+CONFIG_SCHEMA_VERSION: str = "2.4"
+
 yaml_config_file = "configuration.yaml"
 _iff_config_file = "iffConfig.yaml"
 
@@ -64,12 +67,16 @@ _NREP = "n_repetitions"
 _items = [_TZERO, _MODEID, _MODEAMP, _TEMPLATE, _MODALBASE, _SHUFFLE, _NREP]
 _IFSECTIONS = ["TRIGGER", "REGISTRATION", "IFFUNC"]
 
+### ------------------------------------------------------------------------ ###
+# |              Path and YAML loading/dumping utilities                      |#
+### ------------------------------------------------------------------------ ###
+
 
 def _paths_equal(a: str, b: str) -> bool:
     """Return True when *a* and *b* refer to the same path (OS-normalized)."""
-    return _os.path.normcase(_os.path.normpath(_os.path.abspath(a))) == _os.path.normcase(
-        _os.path.normpath(_os.path.abspath(b))
-    )
+    return _os.path.normcase(
+        _os.path.normpath(_os.path.abspath(a))
+    ) == _os.path.normcase(_os.path.normpath(_os.path.abspath(b)))
 
 
 def _is_under(path: str, parent: str) -> bool:
@@ -147,7 +154,7 @@ def dump(config: dict[str, _Any], path: str | None = None) -> None:
     ----------
     config : dict
         The configuration dictionary to write.
-    bpath : str, optional
+    path : str, optional
         Base path of the file to write. Default points to the configuration root folder.
     """
     fname = _resolve_config_path(path)
@@ -167,6 +174,110 @@ def dump_yaml_config(config: dict[str, _Any], path: str | None = None) -> None:
     Backward-compatible wrapper for :func:`dump`.
     """
     dump(config, path)
+
+
+### ------------------------------------------------------------------------ ###
+# |                   General configuration section handling                  |#
+### ------------------------------------------------------------------------ ###
+
+
+class DeviceSection(dict):
+    """
+    Devices of a ``DEVICES`` subsection, with case-insensitive name lookup.
+
+    Device classes look up their entry by a fixed or derived name (``Ingot``
+    reads ``'Ingot'``, ``PhaseCam('6110')`` reads ``'PhaseCam6110'``).  An
+    exact name always wins; otherwise a name matching a single entry
+    regardless of case is accepted, so an entry written ``Ingot`` or
+    ``phasecam6110`` is still found.  Names that match several entries
+    differing only by case raise a ``KeyError`` instead of guessing.
+    """
+
+    def resolve(self, name: _Any) -> _Any:
+        """
+        Return the entry key matching *name* (or *name* itself when none does).
+
+        Parameters
+        ----------
+        name : Any
+            Requested device name.
+
+        Returns
+        -------
+        Any
+            The key to use for the lookup.
+
+        Raises
+        ------
+        KeyError
+            If *name* matches several entries differing only by case.
+        """
+        if not isinstance(name, str) or dict.__contains__(self, name):
+            return name
+        matches = [k for k in self if isinstance(k, str) and k.lower() == name.lower()]
+        if len(matches) > 1:
+            raise KeyError(
+                f"Device name {name!r} is ambiguous: entries {matches} differ only by case."
+            )
+        return matches[0] if matches else name
+
+    def __getitem__(self, name: _Any) -> _Any:
+        return dict.__getitem__(self, self.resolve(name))
+
+    def __contains__(self, name: object) -> bool:
+        try:
+            return dict.__contains__(self, self.resolve(name))
+        except KeyError:  # ambiguous: several entries match, so it is there
+            return True
+
+    def get(self, name: _Any, default: _Any = None) -> _Any:
+        return dict.get(self, self.resolve(name), default)
+
+
+class LazySection(_Mapping):
+    """
+    A section of ``configuration.yaml``, read when it is used.
+
+    Modules that need a section at import time use it instead of reading the
+    file immediately, so that an experiment that does not define the
+    section (or sets it to ``null``) can still import opticalib.  A missing
+    section reads as empty; ``section[key]`` then raises a ``KeyError``
+    naming the section.  The file is read on every access, so the values
+    follow :func:`opticalib.set_configuration_file`.
+
+    Parameters
+    ----------
+    section : str
+        Top-level section name.
+    """
+
+    def __init__(self, section: str) -> None:
+        """Remember the section; nothing is read yet."""
+        self._section = section
+
+    def _load(self) -> dict[str, _Any]:
+        try:
+            data = get_section_config(self._section)
+        except KeyError:
+            data = None
+        return dict(data) if isinstance(data, dict) else {}
+
+    def __getitem__(self, key: str) -> _Any:
+        data = self._load()
+        if key not in data:
+            raise KeyError(
+                f"`{key}` not found in the `{self._section}` section of the configuration file"
+            )
+        return data[key]
+
+    def __iter__(self):
+        return iter(self._load())
+
+    def __len__(self) -> int:
+        return len(self._load())
+
+    def __repr__(self) -> str:
+        return f"LazySection({self._section!r})"
 
 
 def _get_section_config(
@@ -202,7 +313,10 @@ def _get_section_config(
             f"Configuration subsection `{sub_section}` not found in section "
             f"`{section}`."
         )
-    return section_config[sub_section]
+    sub_config = section_config[sub_section]
+    if section == "DEVICES" and isinstance(sub_config, dict):
+        return DeviceSection(sub_config)
+    return sub_config
 
 
 def get_section_config(section: str, sub_section: str | None = None) -> dict[str, _Any]:
@@ -233,7 +347,8 @@ def get_device_config(device_type: str, device_name: str | None = None):
     device_type : str
         Type of the device (e.g., 'CAMERAS', 'DEFORMABLE.MIRRORS', 'WFS').
     device_name : str | None
-        Name of the device. If None, returns the configuration for all devices of the specified type.
+        Name of the device. If None, returns the configuration for all devices
+        of the specified type.
 
     Returns
     -------
@@ -251,20 +366,9 @@ def get_device_config(device_type: str, device_name: str | None = None):
     return config
 
 
-def get_phasing_config():
-    """
-    Retrieves the phasing configuration from the YAML configuration file.
-
-    Returns
-    -------
-    config : dict
-        The phasing configuration dictionary.
-    """
-    try:
-        return get_section_config("PHASING")
-    except KeyError:
-        raise KeyError("Phasing configuration not found in the YAML file.")
-
+### ------------------------------------------------------------------------ ###
+# |              IFF configuration section handling                           |#
+### ------------------------------------------------------------------------ ###
 
 def get_iff_config(key: str | None, bpath: str = _cfold):
     """
@@ -278,6 +382,7 @@ def get_iff_config(key: str | None, bpath: str = _cfold):
     ----------
     key : str
         Key value of the block of information to read. Can be
+
             - 'TRIGGER'
             - 'REGISTRATION'
             - 'IFFUNC'
@@ -288,6 +393,7 @@ def get_iff_config(key: str | None, bpath: str = _cfold):
     -------
     info : dict
         A dictionary containing the configuration info:
+
             - zeros
             - modes
             - amplitude
@@ -391,128 +497,117 @@ def update_iff_config(tn: str, item: str | list[str], value: _Any | list[_Any]):
         config[key][item] = str(value)
     dump(config, file)
 
+### ------------------------------------------------------------------------ ###
+# |                           General utilities                               |#
+### ------------------------------------------------------------------------ ###
 
-def update_config_file(key: str, item: str, value: _Any, bpath: str = _cfold):
+def get_configuration_version(path: str | None = None) -> str | None:
     """
-    Updates the YAML configuration file for the IFF acquisition.
-    The key passed is within the INFLUENCE.FUNCTIONS section.
+    Retrieves the version of the configuration from the YAML configuration file.
+
+    The value is the *configuration schema version*, not the package version.
 
     Parameters
     ----------
-    key : str
-        Key of the block to update (e.g., 'TRIGGER', 'REGISTRATION', 'IFFUNC').
-    item : str
-        The configuration item to update.
-    value : any
-        New value to update.
-    bpath : str, optional
-        Base path of the configuration file.
+    path : str | None, optional
+        Configuration file (or folder) to read. If ``None``, the active
+        configuration file is used.
+
+    Returns
+    -------
+    version : str | None
+        Version of the configuration as a string, or ``None`` if not defined.
+    """
+    config = _get_section_config(section="SYSTEM", path=path)
+    version = config.get("version", None)
+    return None if version is None else str(version)
+
+
+def check_configuration_version(path: str | None = None) -> None:
+    """
+    Check a configuration file against the expected schema version.
+
+    Only the ``(major, minor)`` components of ``SYSTEM.version`` are compared
+    with those of :data:`CONFIG_SCHEMA_VERSION`. The package version is never
+    involved. Problems are reported as :class:`UserWarning`, never raised.
+
+    Parameters
+    ----------
+    path : str | None, optional
+        Configuration file (or folder) to check. If ``None``, the active
+        configuration file is used.
     """
     import warnings
 
-    warnings.warn(
-        "update_config_file is deprecated. Use update_iff_config instead.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    if _iff_config_file not in bpath:
-        fname = _os.path.join(bpath, _iff_config_file)
-    else:
-        fname = bpath
-    config = load(bpath)
-    if key not in config["INFLUENCE.FUNCTIONS"]:
-        raise KeyError(f"Configuration section `{key}` not found in the YAML file")
-    if item not in _items:
-        raise KeyError(f"Item `{item}` not found in the configuration file")
-    # Update the value (convert np.ndarray to list if needed)
-    if isinstance(value, _np.ndarray):
-        vmax = _np.max(value)
-        vmin = _np.min(value)
-        if _np.array_equal(value, _np.arange(vmin, vmax + 1)):
-            config["INFLUENCE.FUNCTIONS"][key][
-                item
-            ] = f'"np.arange({vmin}, {vmax + 1})"'
-        else:
-            config["INFLUENCE.FUNCTIONS"][key][item] = str(value.tolist())
-    else:
-        config["INFLUENCE.FUNCTIONS"][key][item] = str(value)
-    dump(config, bpath)
+    try:
+        _check_configuration_version(path)
+    except Exception as exc:  # never break ``import opticalib``
+        warnings.warn(
+            f"Could not check the configuration version: {exc!r}",
+            UserWarning,
+            stacklevel=2,
+        )
 
 
-def get_n_acts(bpath: str = _cfold):
+def _check_configuration_version(path: str | None = None) -> None:
     """
-    Retrieves the number of actuators from the YAML configuration file.
+    Implementation of :func:`check_configuration_version`; may raise.
 
     Parameters
     ----------
-    bpath : str, optional
-        Base path of the configuration file.
-
-    Returns
-    -------
-    nacts : int
-        Number of DM actuators.
+    path : str | None, optional
+        Configuration file (or folder) to check. If ``None``, the active
+        configuration file is used.
     """
-    dm_config = _get_section_config(
-        section="INFLUENCE.FUNCTIONS",
-        sub_section="DM",
-        path=bpath,
-    )
-    nacts = int(dm_config["nacts"])
-    return nacts
+    import warnings
+    from packaging.version import Version, InvalidVersion
 
+    fname = _resolve_config_path(path)
+    expected = CONFIG_SCHEMA_VERSION
+    found = get_configuration_version(path)
+    if found is None or str(found).strip() == "":
+        warnings.warn(
+            f"No configuration version found in `{fname}`. Most likely a legacy "
+            "configuration file which may need alignment. Check the configuration "
+            f"documentation and set `SYSTEM.version` to the schema version "
+            f"`{expected}` (CONFIG_SCHEMA_VERSION).",
+            UserWarning,
+            stacklevel=3,
+        )
+        return
+    try:
+        release = Version(str(found).strip()).release
+    except InvalidVersion:
+        warnings.warn(
+            f"Unparseable configuration version `{found}` in `{fname}`. "
+            f"Expected a schema version like `{expected}`.",
+            UserWarning,
+            stacklevel=3,
+        )
+        return
 
-def get_timing(bpath: str = _cfold):
-    """
-    Retrieves timing information from the YAML configuration file.
+    def _mm(rel: tuple[int, ...]) -> tuple[int, int]:
+        return (rel[0], rel[1] if len(rel) > 1 else 0)
 
-    Parameters
-    ----------
-    bpath : str, optional
-        Base path of the configuration file.
-
-    Returns
-    -------
-    timing : int
-        Timing used for synchronization.
-    """
-    dm_config = _get_section_config(
-        section="INFLUENCE.FUNCTIONS",
-        sub_section="DM",
-        path=bpath,
-    )
-    timing = int(dm_config["timing"])
-    return timing
-
-
-def get_cmd_delay(bpath: str = _cfold):
-    """
-    Retrieves the command delay from the YAML configuration file.
-
-    Parameters
-    ----------
-    bpath : str, optional
-        Base path of the configuration file.
-
-    Returns
-    -------
-    cmdDelay : float
-        Command delay for the interferometer synchronization.
-    """
-    dm_config = _get_section_config(
-        section="INFLUENCE.FUNCTIONS",
-        sub_section="DM",
-        path=bpath,
-    )
-    if "sequentialDelay" in dm_config:
-        cmdDelay = float(dm_config["sequentialDelay"])
-    elif "delay" in dm_config:
-        cmdDelay = float(dm_config["delay"])
-    elif "triggeredMode" in dm_config and "cmdDelay" in dm_config["triggeredMode"]:
-        cmdDelay = float(dm_config["triggeredMode"]["cmdDelay"])
-    else:
-        raise KeyError("Command delay not found in INFLUENCE.FUNCTIONS/DM.")
-    return cmdDelay
+    got = _mm(release)
+    want = _mm(Version(expected).release)
+    if got < want:
+        warnings.warn(
+            f"The configuration format of `{fname}` (version `{found}`) is older "
+            f"than what this opticalib expects (schema `{expected}`). Check the "
+            "configuration DOCS, update the file accordingly, then set "
+            f"`SYSTEM.version` to `{expected}`.",
+            UserWarning,
+            stacklevel=3,
+        )
+    elif got > want:
+        warnings.warn(
+            f"The configuration `{fname}` (version `{found}`) was written for a "
+            f"newer opticalib (this one expects schema `{expected}`). Please "
+            "upgrade the opticalib package.",
+            UserWarning,
+            stacklevel=3,
+        )
 
 
 def _parse_val(val: _Any):
@@ -555,6 +650,41 @@ def _parse_val(val: _Any):
         else:
             raise ValueError(f"Value type {type(val)} could not be recognized.")
     return val
+
+### ------------------------------------------------------------------------ ###
+# |              Legacy configuration handling. To be checked                 |#
+### ------------------------------------------------------------------------ ###
+
+def get_cmd_delay(bpath: str = _cfold):
+    """
+    Retrieves the command delay from the YAML configuration file.
+
+    Parameters
+    ----------
+    bpath : str, optional
+        Base path of the configuration file.
+
+    Returns
+    -------
+    cmdDelay : float
+        Command delay for the interferometer synchronization.
+    """
+    dm_config = _get_section_config(
+        section="INFLUENCE.FUNCTIONS",
+        sub_section="DM",
+        path=bpath,
+    )
+    if "sequential_delay" in dm_config:
+        cmdDelay = float(dm_config["sequential_delay"])
+    elif "delay" in dm_config:
+        cmdDelay = float(dm_config["delay"])
+    elif "triggeredMode" in dm_config and "cmdDelay" in dm_config["triggeredMode"]:
+        cmdDelay = float(dm_config["triggeredMode"]["cmdDelay"])
+    else:
+        raise KeyError("Command delay not found in INFLUENCE.FUNCTIONS/DM.")
+    return cmdDelay
+
+
 
 
 def get_cameras_config(device_name: str = None):
@@ -642,6 +772,10 @@ def get_alignment_config():
         The alignment configuration as a class, for backwards compatibility.
     """
     config = get_section_config("SYSTEM.ALIGNMENT")
+    if not isinstance(config, dict):
+        raise KeyError(
+            "The `SYSTEM.ALIGNMENT` section of the configuration file is empty."
+        )
     config["slices"] = [slice(item["start"], item["stop"]) for item in config["slices"]]
 
     class AlignmentConfig:
@@ -670,3 +804,20 @@ def get_stitching_config():
     """
     config = get_section_config("STITCHING")
     return config
+
+
+
+
+def get_phasing_config():
+    """
+    Retrieves the phasing configuration from the YAML configuration file.
+
+    Returns
+    -------
+    config : dict
+        The phasing configuration dictionary.
+    """
+    try:
+        return get_section_config("PHASING")
+    except KeyError:
+        raise KeyError("Phasing configuration not found in the YAML file.")

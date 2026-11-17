@@ -1,7 +1,16 @@
 include README.md
-include requirements.txt
+include LICENSE
+include CITATION.bib
 include opticalib/core/_configurations/configuration.yaml
-include setup_calpy.py
-include opticalib/__init_script__/initCalpy.py
 include opticalib/simulator/_API/alpao_conf.yaml
-recursive-include labott *.py
+include opticalib/__init_script__/initCalpy.py
+recursive-include opticalib/gui/resources *.svg *.png *.ico
+graft tests
+# setuptools-scm adds every git-tracked file to the sdist: drop the dev-only ones.
+prune docs
+prune .github
+exclude CLAUDE.md
+exclude labott.code-workspace
+exclude .readthedocs.yaml
+exclude .gitignore
+global-exclude __pycache__ *.py[cod]

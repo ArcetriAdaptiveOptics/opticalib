@@ -1,22 +1,16 @@
 """
-PROCEDURES module
-=================
-2026
+Procedures — stateful, multi-step bench operations
+==================================================
 
-Author(s):
-----------
-- Pietro Ferraiuolo: pietro.ferraiuolo@inaf.it
-- Runa Briguglio: runa.briguglio@inaf.it
+Procedures are **stateful, multi-step operations** that drive real (or
+simulated) hardware over time.  They are classes you instantiate,
+configure, and step through — unlike the mostly stateless helpers in
+:mod:`opticalib.dmutils`.
 
-Description:
-------------
-This module gathers all the procedures implemented in the opticalib package,
-which are the high-level routines that can be used to perform specific tasks.
-These include:
-- `iff.py`: high level module for managing the acquisition of IFFs.
-- `alignment.py`: high level module for managing the alignment of a DM.
-- `phasing.py`: high level module for managing the phasing of a segmented mirror.
-- `measurements.py`: high level module for managing the time series measurements.
+Current procedures include beam alignment, influence-function and piston
+acquisition, time-series measurements, segmented-mirror phasing (SPL),
+and multi-subfield capture with offline stitching.
+
 """
 
 from . import iff

@@ -134,6 +134,7 @@ class PupilCalibrator:
             The list of slave actuator ids.
         slaving_method : str
             String for the slaving method to use:
+
             - 'spline' : thin plate spline interpolation
             - 'nearest' : nearest grid interpolation
             - 'zero' : set slaves to zero

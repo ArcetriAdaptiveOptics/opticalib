@@ -1,16 +1,11 @@
 """
-Module: signals
-===============
+Signal-processing utilities — FFT, PSD, filtering and periodograms
+==================================================================
 
-Author(s)
----------
-- Pietro Ferraiuolo
+Functions for frequency-domain analysis: Fourier filtering, power spectral
+density estimation, periodogram computation and signal detrending.  All
+functions operate on plain arrays and return plain arrays.
 
-Description
------------
-
-Module containing functions for signal processing and frequency analysis within
-the Opticalib framework.
 """
 
 import numpy as _np
@@ -45,6 +40,7 @@ def extract_frequency_spectrum(
         Axis along which to compute the FFT (default: -1, last axis).
     window : str or None, optional
         Window function to apply before FFT to reduce spectral leakage:
+
         - None: No windowing (rectangular window)
         - "hann": Hann window (default, good general purpose)
         - "hamming": Hamming window
@@ -52,17 +48,20 @@ def extract_frequency_spectrum(
         - "tukey": Tukey window
     detrend : str or None, optional
         Detrending method applied before FFT:
+
         - None: No detrending
         - "constant": Remove mean (default)
         - "linear": Remove linear trend
     scaling : str, optional
         Scaling of the power spectral density:
+
         - "density": Power spectral density (default)
         - "magnitude": Magnitude spectrum
 
     Returns
     -------
     dict with keys:
+
         - "frequencies" : 1D ndarray
             Frequency axis in Hz
         - "magnitude" : ndarray

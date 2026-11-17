@@ -1,11 +1,13 @@
 """
-This module contains the necessary high/user-leve functions to acquire the IFF data,
-given a deformable mirror and an interferometer.
+Influence-function acquisition — full push-pull measurement orchestration
+=========================================================================
 
-Author(s):
-----------
-- Pietro Ferraiuolo: pietro.ferraiuolo@inaf.it
-- Runa Briguglio: runa.briguglio@inaf.it
+High-level functions for acquiring influence-function (IFF) and piston
+data.  These orchestrate the complete measurement loop: command history
+preparation, DM actuation, interferometer capture and data filing.
+
+The two main entry points are :func:`iff_data_acquisition` (per-actuator
+push-pull) and :func:`piston_data_acquisition` (piston-only reference).
 
 """
 
@@ -21,7 +23,7 @@ from opticalib.core import config as _rif, exceptions as _oe
 def iff_data_acquisition(
     dm: _ot.DeformableMirrorDevice,
     wfs: _ot.InterferometerDevice | _ot.WFSDevice,
-    modesList: _ot.Optional[_ot.ArrayLike] = None,
+    modeslist: _ot.Optional[_ot.ArrayLike] = None,
     amplitude: _ot.Optional[float | _ot.ArrayLike] = None,
     template: _ot.Optional[_ot.ArrayLike] = None,
     modalbase: _ot.Optional[str] = None,
@@ -43,7 +45,7 @@ def iff_data_acquisition(
         The inizialized deformable mirror object
     wfs: InterferometerDevice | WFSDevice
         The initialized wavefront sensor object to take measurements
-    modesList: ArrayLike , optional
+    modeslist: ArrayLike , optional
         list of modes index to be measured, relative to the command matrix to be used
     amplitude: float | ArrayLike, optional
         command amplitude
@@ -54,19 +56,17 @@ def iff_data_acquisition(
         from the 'iffconfig.ini' file.
     shuffle: bool , optional
         if True, shuffle the modes before acquisition
+    n_repetitions: int, optional
+        Number of times each mode is repeated during the acquisition. Default is 1.
     read_buffer: bool | dict[str, Any], optional
         If False (default) do not read the buffer data during the acquisition.
         If True, read the buffer data with default parameters.
         If a dictionary is provided, it is passed as keyword arguments to the
         `read_buffer` method of the deformable mirror device.
-    slave: bool | str, optional
-        If True, the deformable mirror device is set to slave mode during the
-        acquisition. If a string is provided, it specifies the slaving method to
-        be used. Default to False
 
     Other Parameters
     ----------------
-    **dm_wkargs: dict[str, Any]
+    **setshape_kwargs: dict[str, Any]
         Additional keyword arguments to be passed to the deformable mirror device
         ``set_shape`` method.
 
@@ -77,7 +77,7 @@ def iff_data_acquisition(
     """
     ifc = _ifa.IFFCapturePreparation(dm)
     tch = ifc.create_timed_cmd_history(
-        modesList=modesList,
+        modeslist=modeslist,
         modesAmp=amplitude,
         template=template,
         shuffle=shuffle,
@@ -85,6 +85,11 @@ def iff_data_acquisition(
         n_repetitions=n_repetitions,
     )
     info = ifc.get_info_to_save()
+    info["header"] = {
+        "DM": (dm._name, "deformable mirror used"),
+        "CAMTYPE": (_ot.get_device_type(wfs), "type of optical sensor used"),
+        "OPTCAM": (wfs._name, "optical sensor used"),
+    }
     tn, _ = _prepare_data2_save(info)
 
     _rif.copy_iff_config_file(tn)
@@ -98,7 +103,7 @@ def iff_data_acquisition(
                 "n_repetitions",
                 "modal_base",
             ],
-            [modesList, amplitude, template, shuffle, n_repetitions, modalbase],
+            [modeslist, amplitude, template, shuffle, n_repetitions, modalbase],
         )
     )
     pars2update = {k: v for k, v in pars2update.items() if v is not None}
@@ -106,8 +111,8 @@ def iff_data_acquisition(
     _rif.update_iff_config(
         tn, item=list(pars2update.keys()), value=list(pars2update.values())
     )
-    slaving = setshape_kwargs.pop("slave", False)
-    dm.upload_cmd_history(tch, slave=slaving)
+    slaving = setshape_kwargs.pop("slaving", False)
+    dm.upload_cmd_history(tch, slaving=slaving)
     if read_buffer is not False:
         try:
             if not hasattr(dm, "read_buffer"):
@@ -182,11 +187,11 @@ def piston_data_acquisition(
 
     # check if dm is segmented
     try:
-        if dm.is_segmented and not segmentID > dm.nSegments - 1:
-            for ns in range(dm.nSegments):
+        if dm.is_segmented and not segmentID > dm.n_segments - 1:
+            for ns in range(dm.n_segments):
                 if not ns == segmentID:
-                    idx = ns * dm.nActsPerSegment
-                    cmdmat[idx : idx + dm.nActsPerSegment, :] = 0.0
+                    idx = ns * dm.n_acts_per_segment
+                    cmdmat[idx : idx + dm.n_acts_per_segment, :] = 0.0
     except AttributeError:
         print(
             f"--WARNING-- `{dm.__class__.__name__}` does not have the `is_segmented` attribute. Assuming monolitic DM."
@@ -215,6 +220,11 @@ def piston_data_acquisition(
     info["modes_list"] = modeslist
     info["index_list"] = modeslist
     info["shuffle"] = 0
+    info["header"] = {
+        "DM": (dm._name, "deformable mirror used"),
+        "CAMTYPE": (_ot.get_device_type(wfs), "type of optical sensor used"),
+        "OPTCAM": (wfs._name, "optical sensor used"),
+    }
     tn, _ = _prepare_data2_save(info)
 
     _rif.copy_iff_config_file(tn)
@@ -273,6 +283,7 @@ def _prepare_data2_save(info: dict[str, _ot.Any]) -> tuple[str, str]:
     """
     Manages the creation of the folder to save the IFF data and saves
     the info dictionary in it, which comprehends:
+
     - the command history
     - the command amplitudes
     - the modes list
@@ -291,21 +302,24 @@ def _prepare_data2_save(info: dict[str, _ot.Any]) -> tuple[str, str]:
     iffpath: str
         The path to the folder where the IFF data are saved
     """
-    tn = _osu.newtn()
-    iffpath = _os.path.join(_fn.IFFUNCTIONS_ROOT_FOLDER, tn)
-    if not _os.path.exists(iffpath):
-        _os.mkdir(iffpath)
+    iffpath, tn = _osu.create_data_folder(_fn.IFFUNCTIONS_ROOT_FOLDER, True)
+
+    header = info.get("header", {})
+
     try:
         for key, value in info.items():
             if not isinstance(value, _np.ndarray):
                 tvalue = _np.asarray(value)
             else:
                 tvalue = value
-            if key in ["shuffle", "n_repetitions"]:
+            if key in ["shuffle", "n_repetitions", "header"]:
                 continue
             else:
                 _osu.save_fits(
-                    _os.path.join(iffpath, f"{key}.fits"), tvalue, overwrite=True
+                    _os.path.join(iffpath, f"{key}.fits"),
+                    tvalue,
+                    overwrite=True,
+                    header=header,
                 )
     except KeyError as e:
         print(f"KeyError: {key}, {e}")

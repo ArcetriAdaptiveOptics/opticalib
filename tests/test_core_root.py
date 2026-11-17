@@ -68,6 +68,33 @@ class TestCreateConfigurationFile:
         expected_file = os.path.join(config_path, "configuration.yaml")
         assert os.path.exists(expected_file)
 
+    def test_create_configuration_file_stamps_created_with(self, temp_dir):
+        """created_with is stamped, version stays the schema version."""
+        import yaml
+        from opticalib.__version__ import __version__
+        from opticalib.core.config import CONFIG_SCHEMA_VERSION
+
+        config_path = os.path.join(temp_dir, "stamped")
+        root.create_configuration_file(path=config_path)
+        with open(os.path.join(config_path, "configuration.yaml")) as f:
+            system = yaml.safe_load(f)["SYSTEM"]
+        assert system["created_with"] == str(__version__)
+        assert system["version"] == CONFIG_SCHEMA_VERSION
+
+    def test_create_configuration_file_data_path_stamps(self, temp_dir):
+        """The data_path branch stamps too and keeps the schema version."""
+        import yaml
+        from opticalib.__version__ import __version__
+        from opticalib.core.config import CONFIG_SCHEMA_VERSION
+
+        config_path = os.path.join(temp_dir, "stamped_dp")
+        root.create_configuration_file(path=config_path, data_path=True)
+        with open(os.path.join(config_path, "SysConfig", "configuration.yaml")) as f:
+            system = yaml.safe_load(f)["SYSTEM"]
+        assert system["created_with"] == str(__version__)
+        assert system["version"] == CONFIG_SCHEMA_VERSION
+        assert system["data_path"] == config_path
+
     @patch("opticalib.core.root.TEMPLATE_CONF_FILE")
     @patch("opticalib.core.root._copy")
     @patch("opticalib.core.root._gyml")
@@ -130,14 +157,14 @@ class TestConfSettingReader4D:
         assert isinstance(frame_rate, float)
 
     def test_get_image_width_in_pixels(self, temp_dir):
-        """Test get_image_widht_in_pixels method."""
+        """Test get_image_width_in_pixels method."""
         settings_file = os.path.join(temp_dir, "4DSettings.ini")
         with open(settings_file, "w") as f:
             f.write("[ACA2440]\n")
             f.write("ImageWidthInPixels = 2000\n")
 
         reader = root.ConfSettingReader4D(settings_file)
-        width = reader.get_image_widht_in_pixels()
+        width = reader.get_image_width_in_pixels()
         assert width == 2000
         assert isinstance(width, int)
 

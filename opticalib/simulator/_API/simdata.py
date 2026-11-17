@@ -141,14 +141,17 @@ def _download_to_cache(filename: str, target: Path) -> None:
         with _urlreq.urlopen(url, timeout=120) as response:
             total = int(response.headers.get("Content-Length", 0)) or None
             chunk_size = 8 * 1024 * 1024
-            with open(tmp_target, "wb") as fout, _tqdm(
-                total=total,
-                unit="B",
-                ncols=90,
-                unit_scale=True,
-                unit_divisor=1024,
-                desc=filename,
-            ) as bar:
+            with (
+                open(tmp_target, "wb") as fout,
+                _tqdm(
+                    total=total,
+                    unit="B",
+                    ncols=90,
+                    unit_scale=True,
+                    unit_divisor=1024,
+                    desc=filename,
+                ) as bar,
+            ):
                 while True:
                     chunk = response.read(chunk_size)
                     if not chunk:

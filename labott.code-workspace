@@ -2,15 +2,12 @@
 	"folders": [
 		{
 			"path": "."
-		}
+		},
 	],
 	"settings": {
-		"python.defaultInterpreterPath": "/home/pietrof/miniforge3/envs/opticalib/bin/python",
+		"python.defaultInterpreterPath": "/home/pietro/miniconda3/envs/opticalib/bin/python",
 		"python.terminal.activateEnvInCurrentTerminal": true,
 		"python.analysis.extraPaths": [
-			"~/git/XuPy"
-		],
-		"cursorpyright.analysis.extraPaths": [
 			"~/git/XuPy"
 		],
 		"jupyter.askForKernelRestart": false,

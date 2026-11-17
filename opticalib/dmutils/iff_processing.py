@@ -1,41 +1,12 @@
 """
-Module containing all the functions necessary to process the data acquired for
-the Influence Function measurements.
+Influence-function processing — push-pull reduction and cube assembly
+=====================================================================
 
-Author(s):
-----------
-- Pietro Ferraiuolo: pietro.ferraiuolo@inaf.it
-- Runa Briguglio: runa.briguglio@inaf.it
+Processes the raw frames acquired during an influence-function
+calibration: push-pull subtraction, piston removal, modal filtering,
+amplitude extraction, and cube assembly.  The main entry point is
+:func:`process`, keyed by tracking number.
 
-High-level Functions
---------------------
-process(tn, registration=False, roi=None, save=False, rebin=1)
-    Function that processes the data contained in the OPDImages/tn folder. By
-    performing the differential algorithm, it produces fits images for each
-    commanded mode into the IFFunctions/tn folder, and creates a cube from these
-    into INTMatrices/tn. If 'registration is not False', upon createing the cube,
-    the registration algorithm is performed.
-
-stack_cubes(tnlist)
-    Function that, given as imput a tracking number list containing cubes data,
-    will stack the found cubes into a new one with a new tracking number, into
-    INTMatrices/new_tn. A 'flag.txt' file will be created to give more information
-    on the process.
-
-Example
--------
-
-```python
-tn1 = '20160516_114916'
-tn2 = '20160516_114917' # A copy of tn1 (simulated) data
-ifp.process(tn1, save=True)
-Cube saved in '/path/to/data/OPTData/INTMatrices/20160516_114916/IMcube.fits'
-ifp.process(tn2, save=True)
-Cube saved in '/path/to/data/OPTData/INTMatrices/20160516_114917/IMcube.fits'
-tnlist = [tn1, tn2]
-ifp.stack_cubes(tnlist)
-Stacked cube and matrices saved in '/path/to/data/OPTData/INTMatrices/'new_tn'/IMcube.fits'
-```
 """
 
 import os as _os
@@ -43,21 +14,19 @@ import numpy as _np
 import shutil as _sh
 import configparser as _cp
 from tqdm import tqdm as _tqdm
-from ..core.root import folders
-from ..core import fitsarray as _fa
-from opticalib.core import _types as _ot
 from ..core import config as _rif
-from concurrent.futures import ThreadPoolExecutor as _tpe
+from ..core import fitsarray as _fa
+from ..core.root import folders as _fn
+from opticalib.core import _types as _ot
 from ..analyzer import image_processing as _ip
+from concurrent.futures import ThreadPoolExecutor as _tpe
 from ..ground import modal_decomposer as _zern, osutils as _osu, roi as _roi
 from ..core.decorators import expand_list_arguments as _expand_list_arguments
 
-_fn = folders
 _config = _cp.ConfigParser()
-_ifFold = _fn.IFFUNCTIONS_ROOT_FOLDER
-_intMatFold = _fn.INTMAT_ROOT_FOLDER
+_IFFOLD = _fn.IFFUNCTIONS_ROOT_FOLDER
+_IMFOLD = _fn.INTMAT_ROOT_FOLDER
 _frameCenter = [200, 200]
-_ts = _osu.newtn
 
 _MODES_FILE = "modes_list.fits"
 _MATRIX_FILE = "cmd_matrix.fits"
@@ -76,6 +45,7 @@ def process(
     save: bool = False,
     rebin: int = 1,
     *,
+    normalization: _ot.Number | bool = True,
     trigger_roi: int | None = None,
     nworkers: int = 2,
     nmode_prefetch: int = 1,
@@ -97,13 +67,33 @@ def process(
     rebin : int, optional
         Rebinning factor to apply to the images before stacking them into the
         cube. The default is 1, which means no rebinning.
+    normalization : number or bool or str, optional
+        Normalization to apply to the processed final images.
+        - If a number is provided, it is used as a scaling factor.
+        - If True, automatic normalization is applied.
+        - If False, no normalization is applied.
+
+        The default is True, which defaults to the normalization factor:
+
+        ..math::
+            \text{norm_{i}} = 2\\,max(T-1,1) \\cdot A_i
+
+        where
+        - T is the number of frames in the push-pull template sequence.
+        - A_i is the amplitude of the i-th mode.
+        - norm_i is the corresponding normalization factor for the i-th mode.
     trigger_roi : int, optional
-        If not None, it defines the size of the square ROI to be used for the
-        registration algorithm. The default is None.
+        If not None, it defines the roi to which the trigger mode is applied
+        at the start of the sequence. The default is None.
     nworkers : int, optional
-        Number of workers to use for the processing. The default is 2.
+        Number of workers (threads) to use for the processing. A higher value
+        will assign more threads for the parallel modes prefetching.
+
+        The default is 2.
     nmode_prefetch : int, optional
-        Number of modes to prefetch during the processing. The default is 1.
+        Number of modes to prefetch during the processing.
+
+        The default is 1.
     """
     info = _get_acq_par(tn)
     if not info["FILES"]["modes_list"].dtype.type is _np.int_:
@@ -111,7 +101,7 @@ def process(
 
     info.update(_get_acq_info(tn))
 
-    new_fold = _os.path.join(_intMatFold, tn)
+    new_fold = _os.path.join(_IMFOLD, tn)
     if not _os.path.exists(new_fold):
         _os.mkdir(new_fold)
 
@@ -135,6 +125,7 @@ def process(
         modeList=info["IFFUNC"]["modes_list"],
         template=info["FILES"]["template"],
         n_repetitions=info["FILES"]["n_repetitions"],
+        normalization=normalization,
         io_workers=nworkers,
         prefetch=nmode_prefetch,
     )
@@ -208,7 +199,7 @@ def piston_process(
 
     info.update(_get_acq_info(tn))
 
-    fold = _os.path.join(_ifFold, tn)
+    fold = _os.path.join(_IFFOLD, tn)
     if not _os.path.exists(fold):
         _os.mkdir(fold)
 
@@ -333,9 +324,10 @@ def cube_roi_processing(
     )
     load_path = _os.path.join(_fn.INTMAT_ROOT_FOLDER, tn)
 
-    cube = _osu.load_fits(_os.path.join(load_path, "IMCube.fits")).transpose(2, 0, 1)
-    cmdmat = _osu.load_fits(_os.path.join(load_path, "cmdMatrix.fits"))
-    modesvec = _osu.load_fits(_os.path.join(load_path, "modesVector.fits"))
+    cube = _osu.load_fits(_os.path.join(load_path, _CUBE_FILE)).transpose(2, 0, 1)
+    cmdmat = _osu.load_fits(_os.path.join(load_path, _MATRIX_FILE))
+    modesvec = _osu.load_fits(_os.path.join(load_path, _MODES_FILE))
+    ampvec = _osu.load_fits(_os.path.join(load_path, _AMP_FILE))
 
     zfitter = _zern.ZernikeFitter(fitting_mask)
 
@@ -345,7 +337,7 @@ def cube_roi_processing(
         activeRoi = _roi.roi_generator(v).pop(activeRoiID)  # type: ignore
 
         # We do Global ROI Fitting here:
-        # Doing Local ROI fitting is equivalent (then right) only the there are
+        # Doing Local ROI fitting is equivalent (then right) only when there are
         # two ROIs, which is not the case in general.
         if tt_detrend:
             r2rImage = v.copy()
@@ -379,19 +371,20 @@ def cube_roi_processing(
         newcube.append(v)
 
     newcube = _fa.fits_array(_np.ma.dstack(newcube), header=cube.header.copy())
+    newcube.header["STARTTN"] = (tn, "starting tracking number for this cube")
     newcube.header["ROIPROCS"] = (True, "flag for roi processing")
     newcube.header["TTDETRND"] = (tt_detrend, "was detrended from tt")
     newcube.header["MEANSUB"] = (mean_subtraction, "was mean subtracted")
+    newcube.header["MEDSUB"] = (median_subtraction, "was median subtracted")
     newcube.header["ROINULL"] = (roinull, "was roi nulled")
 
     if not _os.path.exists(save_path):
         _os.makedirs(save_path)
 
-    _osu.save_fits(_os.path.join(save_path, "IMCube.fits"), newcube, overwrite=True)
-    _osu.save_fits(_os.path.join(save_path, "cmdMatrix.fits"), cmdmat, overwrite=True)
-    _osu.save_fits(
-        _os.path.join(save_path, "modesVector.fits"), modesvec, overwrite=True
-    )
+    _osu.save_fits(_os.path.join(save_path, _CUBE_FILE), newcube, overwrite=True)
+    _osu.save_fits(_os.path.join(save_path, _MATRIX_FILE), cmdmat, overwrite=True)
+    _osu.save_fits(_os.path.join(save_path, _MODES_FILE), modesvec, overwrite=True)
+    _osu.save_fits(_os.path.join(save_path, _AMP_FILE), ampvec, overwrite=True)
 
     return newtn
 
@@ -417,7 +410,7 @@ def save_cube(
         If not False, an int or a tuple of int must be passed as value, and
         the registration algorithm is performed on the images before stacking them
         into the cube. Default is False.
-    cube_header : dict | Header, optional
+    cube_header : dict | astropy.io.fits.Header, optional
         Header to be used for the cube. If None, a default header is created.
 
     Returns
@@ -425,8 +418,8 @@ def save_cube(
     cube : masked_array
         Data cube of the images, with shape (npx, npx, nmodes).
     """
-    cube = _osu.load_cube_from_filelist(tn_or_fl=tn, fold=_ifFold, key="mode_")
-    new_fold = _os.path.join(_intMatFold, tn)
+    cube = _osu.load_cube_from_filelist(tn_or_fl=tn, fold=_IFFOLD, key="mode_")
+    new_fold = _os.path.join(_IMFOLD, tn)
     _os.makedirs(new_fold, exist_ok=True)
 
     ## TODO ??
@@ -441,8 +434,15 @@ def save_cube(
     if rebin > 1:
         cube = _ip.cube_rebinner(cube, rebin)
     cube.header.update(header)
+    if cube.header.get("CAMTYPE", "") == "wfs":
+        from ..ground.reconstructor import compute_interaction_matrix as cim
+
+        header = cube.header.copy()
+        cube = cim(cube)
+        cube_path = _os.path.join(new_fold, _CUBE_FILE.replace("Cube", ""))
+    else:
+        cube_path = _os.path.join(new_fold, _CUBE_FILE)
     # Saving the cube
-    cube_path = _os.path.join(new_fold, _CUBE_FILE)
     _osu.save_fits(cube_path, cube, overwrite=True)
     # Copying the cmdMatrix and the modes_vector into the INTMAT Folder
     _copy_from_iff_to_im(name=_MATRIX_FILE, tn=tn)
@@ -473,8 +473,8 @@ def stack_cubes(tnlist: list[str], cube_names: _ot.Optional[list[str]] = None) -
     tn : str
         New tracking number of the stacked cube.
     """
-    new_tn = _ts()
-    stacked_cube_fold = _os.path.join(_intMatFold, new_tn)
+    new_tn = _osu.newtn()
+    stacked_cube_fold = _os.path.join(_IMFOLD, new_tn)
     _os.mkdir(stacked_cube_fold)
 
     # Get cube parameters and validation info
@@ -534,13 +534,10 @@ def add_mode_to_cube(
     mode_img : ImageData
         Image of the mode to add.
 
-    Returns
-    -------
-    None
     """
-    cube_path = _os.path.join(_intMatFold, tn, _CUBE_FILE)
-    cmdmat_path = _os.path.join(_intMatFold, tn, _MATRIX_FILE)
-    modesvec_path = _os.path.join(_intMatFold, tn, _MODES_FILE)
+    cube_path = _os.path.join(_IMFOLD, tn, _CUBE_FILE)
+    cmdmat_path = _os.path.join(_IMFOLD, tn, _MATRIX_FILE)
+    modesvec_path = _os.path.join(_IMFOLD, tn, _MODES_FILE)
 
     cube = _osu.load_fits(cube_path)
     cmdmat = _osu.load_fits(cmdmat_path)
@@ -557,7 +554,7 @@ def add_mode_to_cube(
     _osu.save_fits(modesvec_path, new_modesvec, overwrite=True)
 
 
-def filter_zernike_cube(
+def remove_zernike_from_iff(
     tn: str,
     zern_modes: _ot.Optional[list[int]] = None,
     mode: str = "global",
@@ -585,10 +582,10 @@ def filter_zernike_cube(
     new_tn : str
         Tracking Number of the new folder where the filtered cube is saved.
     """
-    new_tn = _os.path.join(_intMatFold, _ts())
-    CmdMat = _os.path.join(_intMatFold, tn, _MATRIX_FILE)
-    ModesVec = _os.path.join(_intMatFold, tn, _MODES_FILE)
-    cube = _fa.FitsMaskedArray.from_fits(_os.path.join(_intMatFold, tn, _CUBE_FILE))
+    new_tn = _os.path.join(_IMFOLD, _osu.newtn())
+    CmdMat = _os.path.join(_IMFOLD, tn, _MATRIX_FILE)
+    ModesVec = _os.path.join(_IMFOLD, tn, _MODES_FILE)
+    cube = _fa.FitsMaskedArray.from_fits(_os.path.join(_IMFOLD, tn, _CUBE_FILE))
     zern_modes = zern_modes if zern_modes is not None else [1, 2, 3]
     from opticalib.analyzer import remove_zernike_from_cube
 
@@ -613,6 +610,7 @@ def iff_redux(
     modeList: _ot.ArrayLike,
     template: _ot.ArrayLike,
     n_repetitions: int = 1,
+    normalization: _ot.Number | bool = True,
     *,
     io_workers: int = 1,
     prefetch: int = 0,
@@ -641,6 +639,15 @@ def iff_redux(
         Template for the push-pull command actuation.
     n_repetitions : int, optional
         Number of repetitions for each mode. The default is 1.
+    normalization : number or bool, optional
+        Normalization factor or method to be used for the push-pull analysis.
+        - If a number is provided, it is used as a flat scaling factor.
+        - If True, the default normalization is applied provided by the differential
+            algorithm formula, which scales by 2 * max(T - 1, 1) * A.
+        - If False, no normalization is applied and a flat scaling factor of 1
+        is used.
+
+        The default is True.
     io_workers : int, optional
         Number of threads to use for I/O prefetching. The default is 1.
     prefetch : int, optional
@@ -654,12 +661,29 @@ def iff_redux(
     """
     from opticalib.analyzer import push_pull_reduction_algorithm
 
-    fold = _os.path.join(_ifFold, tn)
+    fold = _os.path.join(_IFFOLD, tn)
 
     N, M, T = fileMat.shape
 
+    if len(template) != T:
+        raise ValueError(
+            "Template length must match the third dimension of ``fileMat`` for push-pull analysis."
+        )
+    if int(n_repetitions) != N:
+        raise ValueError(
+            "Number of repetitions must match the first dimention of ``fileMat``."
+        )
+
     if _np.size(ampVect) == 1:
         ampVect = _np.full(M, ampVect, dtype=_np.float32)
+
+    base_header = _osu.read_fits_header(fileMat[0, 0, 0])
+    base_header.update(
+        {
+            "TEMPLATE": (T, "push-pull length"),
+            "NREP": (N, "averaged repetitions"),
+        }
+    )
 
     # Updated helper: now follows tensor logic:
     def _read_block(rep_idx: int, mode_idx: int) -> list[_ot.ImageData]:
@@ -692,15 +716,18 @@ def iff_redux(
         ):
             _schedule_mode(mode_idx + prefetch + 1)
 
-            sum_data = None
+            sum_data: _ot.ImageData = None
             union_mask = None
+            normfact = _resolve_normalization_factor(
+                normalization, T=T, A=ampVect[mode_idx]
+            )
 
             for rep_idx in range(N):
                 imgs = futures.pop((rep_idx, mode_idx)).result()
                 red = push_pull_reduction_algorithm(
                     imgs,
                     template,
-                    normalization=max(len(template) - 1, 1) * 2 * ampVect[mode_idx],
+                    normalization=normfact,
                 )
 
                 if sum_data is None:
@@ -712,16 +739,18 @@ def iff_redux(
 
             mode_img = _np.ma.masked_array(sum_data / n_repetitions, mask=union_mask)
 
+            base_header.update(
+                {
+                    "MODEID": (int(modeList[mode_idx]), "mode id"),
+                    "AMP": (float(ampVect[mode_idx]), "mode amplitude"),
+                }
+            )
+
             _osu.save_fits(
                 _os.path.join(fold, f"mode_{int(modeList[mode_idx]):05d}.fits"),
                 mode_img,
                 overwrite=True,
-                header={
-                    "MODEID": (int(modeList[mode_idx]), "mode id"),
-                    "AMP": (float(ampVect[mode_idx]), "mode amplitude"),
-                    "TEMPLATE": (len(template), "push-pull length"),
-                    "NREP": (int(n_repetitions), "averaged repetitions"),
-                },
+                header=base_header,
             )
 
 
@@ -755,7 +784,7 @@ def registration_redux(tn: str, fileMat: list[str]) -> list[_ot.ImageData]:
         img = push_pull_reduction_algorithm(imgs, template)
         imglist.append(img)
     # cube = _np.ma.masked_array(imglist)
-    # _osu.save_fits(_os.path.join(_intMatFold, tn, "regActCube.fits"), cube)
+    # _osu.save_fits(_os.path.join(_IMFOLD, tn, "regActCube.fits"), cube)
     return imglist
 
 
@@ -780,7 +809,7 @@ def find_frame_offset(
     dp: float
         Position difference
     """
-    actCoordFile = _os.path.join(_ifFold, tn, _COORD_FILE)
+    actCoordFile = _os.path.join(_IFFOLD, tn, _COORD_FILE)
     act_coord = _osu.load_fits(actCoordFile)
     xy = _fa.find_frame_coord(imglist, actlist, act_coord)  # type: ignore
     dp = xy - _frameCenter
@@ -841,8 +870,10 @@ def get_trigger_frame(
         rr2check = _np.nanstd(zfit.remove_zernike(img1 - img0, [1, 2, 3]))
         print(f"Frame {i-1}: std = {rr2check:.2e}")
         if go > infoT["trailing_zeros"] + 1:
-            msg = f"Frame {go}. Heading Zeros exceeded: std = {rr2check:.2e} < {thresh:.2e} (Amp/sqrt(3))"
-            raise RuntimeError(msg)
+            raise RuntimeError(
+                f"Frame {go}. Heading Zeros exceeded: std = "
+                f"{rr2check:.2e} < {thresh:.2e} (Amp/sqrt(3))"
+            )
         if rr2check > thresh:
             print(f"↑ Trigger Frame found!")
             go = 0
@@ -937,9 +968,18 @@ def get_iff_file_matrix(tn: str, info: dict[str, _ot.Any]) -> _ot.ArrayLike:
         _os.path.isdir(fold)
     else:
         fold = None
-    fileList = _osu.getFileList(
-        tn, fold="OPDImages" if fold is None else fold, key="image_"
-    )
+    try:
+        fileList = _osu.get_file_list(
+            tn, fold="OPDImages" if fold is None else fold, key="image_"
+        )
+        if len(fileList) == 0:
+            raise KeyError(f"No image files found with key `image_`")
+    except KeyError as ke:
+        fileList = _osu.get_file_list(
+            tn, fold="OPDImages" if fold is None else fold, key=".4D"
+        )
+        if len(fileList) == 0:
+            raise KeyError(f"No image files found with key `.4D`") from ke
 
     infoIF = info["IFFUNC"]
     _, regEnd = get_reg_frames(tn, info)
@@ -959,6 +999,40 @@ def get_iff_file_matrix(tn: str, info: dict[str, _ot.Any]) -> _ot.ArrayLike:
         ),
     )  # [N, M, T]
     return iffMat
+
+
+def _resolve_normalization_factor(
+    normalization: _ot.Number | bool,
+    T: int,
+    A: float,
+) -> _ot.Number | callable:
+    """
+    Resolve the normalization factor based on the input type.
+
+    Parameters
+    ----------
+    normalization : number or bool
+        The normalization parameter to resolve.
+    T : int
+        The template length, used for default normalization.
+    A : float
+        The amplitude, used for default normalization.
+
+    Returns
+    -------
+    norm : float
+        The resolved normalization factor or function.
+    """
+    # Default normalization method based on the push-pull template sequence length
+    if isinstance(normalization, bool):
+        if not normalization:
+            return 1.0
+        return 2 * max(T - 1, 1) * A
+    # Flat scaling factor applied to the data
+    if _ot.isinstance_(normalization, "RealNumber"):
+        return normalization
+
+    raise ValueError(f"Unsupported normalization type: {type(normalization)}")
 
 
 def _modes_matrix_reorganization(
@@ -987,7 +1061,7 @@ def _modes_matrix_reorganization(
     # Shuffled case
     N, M, T = modesMat.shape
 
-    # indexList[i, j] stores the original position (in the requested modesList) of the
+    # indexList[i, j] stores the original position (in the requested modeslist) of the
     # mode that was placed at position j during repetition i of the shuffled acquisition
     shuffled_modes = _np.asarray(
         info["FILES"]["modes_list"].reshape((N, M)), dtype=int
@@ -1074,8 +1148,8 @@ def _copy_from_iff_to_im(name: str, tn: str) -> None:
     tn : str
         Tracking number of the data.
     """
-    opd_path = _os.path.join(_ifFold, tn, name)
-    iff_path = _os.path.join(_intMatFold, tn, name)
+    opd_path = _os.path.join(_IFFOLD, tn, name)
+    iff_path = _os.path.join(_IMFOLD, tn, name)
     _os.makedirs(_os.path.dirname(iff_path), exist_ok=True)
     _sh.copy2(opd_path, iff_path)
 
@@ -1113,7 +1187,7 @@ def _get_cube_list(
     if cubeNames is None:
         cubeNames = [_CUBE_FILE] * len(tnlist)
     for tn, cname in zip(tnlist, cubeNames):
-        fold = _os.path.join(_intMatFold, tn)
+        fold = _os.path.join(_IMFOLD, tn)
         cube_name = _os.path.join(fold, cname)
         matrix_name = _os.path.join(fold, _MATRIX_FILE)
         modesVec_name = _os.path.join(fold, _MODES_FILE)
@@ -1142,6 +1216,7 @@ def _get_acq_par(tn: str) -> dict[str, _ot.ArrayLike | bool | int]:
     Returns
     -------
     dictionary containing the acquisition parameters:
+
     - amp_vector : float | ArrayLike
         Vector containg the amplitude of each commanded mode.
     - modes_vector : int | ArrayLike
@@ -1157,7 +1232,7 @@ def _get_acq_par(tn: str) -> dict[str, _ot.ArrayLike | bool | int]:
     - n_repetitions : int
         Number of repetitions for each mode's push-pull packet.
     """
-    base = _os.path.join(_ifFold, tn)
+    base = _os.path.join(_IFFOLD, tn)
     modes_vector = _osu.load_fits(_os.path.join(base, _MODES_FILE))
     indexList = _osu.load_fits(_os.path.join(base, _INDEXLIST_FILE))
     ampVector = _osu.load_fits(_os.path.join(base, _AMP_FILE))
@@ -1195,7 +1270,7 @@ def _get_acq_info(
     info : dict
         Information read from the iffConfig.ini file.
     """
-    path = _os.path.join(_ifFold, tn) if tn is not None else _fn.CONFIGURATION_FOLDER
+    path = _os.path.join(_IFFOLD, tn) if tn is not None else _fn.CONFIGURATION_FOLDER
     info = _rif.get_iff_config(None, bpath=path)
     return info
 
@@ -1214,7 +1289,7 @@ def _check_stacked_cubes(tnlist: str) -> dict[str, _ot.Any]:
     flag : dict
         Dictionary containing the flagging information about the stacked cube.
     """
-    _, _, modesVectList, rebin = _getCubeList(tnlist)
+    _, _, modesVectList, _, rebin = _get_cube_list(tnlist)
     nmodes = len(modesVectList[0])
     nvects = len(modesVectList)
     for i in range(nvects):

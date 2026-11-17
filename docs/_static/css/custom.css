@@ -1,0 +1,278 @@
+/* ==========================================================================
+   opticalib documentation -- Furo customisations
+   Loaded via ``html_css_files`` in docs/conf.py.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   Typography & readability
+   -------------------------------------------------------------------------- */
+
+/* Use system font stack with a touch of elegance. */
+html {
+  font-size: 17px;
+}
+
+body {
+  --font-stack: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, Oxygen, Ubuntu, Cantarell, "Helvetica Neue", Arial, sans-serif;
+  --font-stack--monospace: "JetBrains Mono", "Fira Code", "Cascadia Code",
+    "SF Mono", "Menlo", "Consolas", "DejaVu Sans Mono", monospace;
+  font-family: var(--font-stack);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.65;
+}
+
+/* Softer, more elegant headings. */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+h1 { font-size: 2.2em; }
+h2 { font-size: 1.55em; margin-top: 2.2em; }
+h3 { font-size: 1.2em;  margin-top: 1.8em; }
+h2:first-of-type { margin-top: 0.8em; }
+
+/* Paragraphs should breathe. */
+article p {
+  margin-bottom: 1.1em;
+}
+
+/* --------------------------------------------------------------------------
+   Sidebar
+   -------------------------------------------------------------------------- */
+
+.sidebar-brand {
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.sidebar-tree .toctree-l1 > a {
+  font-weight: 600;
+  font-size: 0.92em;
+}
+
+.sidebar-tree .toctree-l2 > a {
+  font-size: 0.88em;
+  color: var(--color-foreground-muted);
+}
+
+/* --------------------------------------------------------------------------
+   Content area
+   -------------------------------------------------------------------------- */
+
+/* Softer reading width -- not too wide, not too narrow. */
+article {
+  max-width: 52em;
+}
+
+/* --------------------------------------------------------------------------
+   API reference readability
+   -------------------------------------------------------------------------- */
+
+/* Keep long signatures from overflowing the content column. */
+.sig {
+  text-indent: -2em;
+  padding-left: 2em;
+  word-break: break-word;
+}
+
+/* Visually separate grouped members. */
+dl.py.class > dd > dl.py.method,
+dl.py.class > dd > dl.py.attribute {
+  margin-bottom: 1.1rem;
+}
+
+/* Soften the "Bases:" line so it does not compete with the signature. */
+dl.py > dt.sig + dd > em.property,
+.sig span.pre {
+  hyphens: auto;
+}
+
+/* Soften code in signatures so names stand out. */
+.sig-name {
+  font-weight: 700;
+  color: var(--color-brand-primary);
+}
+
+/* --------------------------------------------------------------------------
+   Tables
+   -------------------------------------------------------------------------- */
+
+/* The configuration reference and device matrix are wide; let them scroll
+   horizontally on small screens instead of breaking the layout. */
+.table-wrapper {
+  overflow-x: auto;
+  margin: 1.2em 0;
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+table.docutils {
+  font-size: 0.875rem;
+  border-collapse: collapse;
+}
+
+table.docutils thead {
+  border-bottom: 2px solid var(--color-brand-primary);
+}
+
+table.docutils th {
+  background: var(--color-api-background);
+  font-weight: 600;
+  padding: 0.6em 1em;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+table.docutils td {
+  padding: 0.5em 1em;
+  vertical-align: top;
+  border-bottom: 1px solid var(--color-background-border);
+}
+
+table.docutils tr:last-child td {
+  border-bottom: none;
+}
+
+/* --------------------------------------------------------------------------
+   Code blocks & inline code
+   -------------------------------------------------------------------------- */
+
+code.literal {
+  font-size: 0.9em;
+  padding: 0.15em 0.4em;
+  border-radius: 3px;
+  background: var(--color-inline-code-background);
+}
+
+div.highlight pre {
+  font-size: 0.85rem;
+  line-height: 1.55;
+  border-radius: 6px;
+  padding: 1em 1.2em;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+/* Do not wrap inside code fences that opt out. */
+div.highlight .nowrap pre {
+  white-space: pre;
+}
+
+/* --------------------------------------------------------------------------
+   Admonitions
+   -------------------------------------------------------------------------- */
+
+.admonition {
+  border-radius: 6px;
+  border-left-width: 4px;
+}
+
+.admonition.tip,
+.admonition.important,
+.admonition.note {
+  border-left-color: var(--color-brand-primary);
+}
+
+.admonition.warning {
+  border-left-color: #ed9500;
+}
+
+.admonition.danger,
+.admonition.error {
+  border-left-color: #d32f2f;
+}
+
+.admonition-title {
+  font-weight: 650;
+  letter-spacing: 0.01em;
+}
+
+/* --------------------------------------------------------------------------
+   Figures
+   -------------------------------------------------------------------------- */
+
+figure > img,
+div.figure > img {
+  border-radius: 6px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+figcaption,
+p.caption {
+  font-size: 0.875em;
+  color: var(--color-foreground-muted);
+  margin-top: 0.4em;
+}
+
+/* --------------------------------------------------------------------------
+   sphinx-design cards (API landing page)
+   -------------------------------------------------------------------------- */
+
+.sd-card {
+  border-radius: 8px;
+  border: 1px solid var(--color-background-border);
+  transition: box-shadow 0.2s ease, transform 0.15s ease;
+}
+
+.sd-card:hover {
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  transform: translateY(-1px);
+}
+
+.sd-card-title {
+  font-size: 1.05rem;
+  font-weight: 650;
+}
+
+/* --------------------------------------------------------------------------
+   Footer / navigation
+   -------------------------------------------------------------------------- */
+
+.mobile-header .nav-bar__end a,
+.related-information a {
+  text-decoration: none;
+}
+
+.prev-next-area {
+  margin-top: 3em;
+}
+
+.prev-next-area a p {
+  font-weight: 500;
+}
+
+/* --------------------------------------------------------------------------
+   Dark mode refinements
+   -------------------------------------------------------------------------- */
+
+body[data-theme="dark"] .table-wrapper {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+body[data-theme="dark"] figure > img,
+body[data-theme="dark"] div.figure > img {
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+body[data-theme="dark"] .sd-card:hover {
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
+}
+
+/* --------------------------------------------------------------------------
+   Responsive
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 67em) {
+  html { font-size: 16px; }
+  h1 { font-size: 1.8em; }
+  article { max-width: none; }
+}
+
+@media (max-width: 52em) {
+  html { font-size: 15px; }
+  h1 { font-size: 1.6em; }
+}

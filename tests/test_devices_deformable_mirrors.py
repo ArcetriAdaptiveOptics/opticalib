@@ -19,7 +19,7 @@ class TestDP:
         mock_getiff.return_value.get.return_value = {"frequency": 1.0}
 
         dm = DP.__new__(DP)
-        dm.cmdHistory = np.zeros((actuator_count, 2))
+        dm._cmd_history = np.zeros((actuator_count, 2))
         dm._logger = MagicMock()
         dm._aoClient = MagicMock()
 
