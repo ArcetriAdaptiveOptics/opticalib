@@ -1019,3 +1019,204 @@ class SplattDm(SPLATTEngine):
 
     def __repr__(self):
         return f"{self._name}(n_acts={self.n_acts})"
+
+from ._API.dms.nacoAPI import NACOMirror
+
+
+class NACODm(NACOMirror):
+    """
+    NACO Deformable Mirror interface.
+
+    Communicates with the hardware directly via the NACO API
+    (``nacoAPI`` module) through :class:`~opticalib.devices._API.dms.nacoAPI.NACOMirror`.
+    """
+
+    def __init__(
+        self,
+    ):
+        """
+        Initialise the NACO DM hardware connection.
+        """
+        self._name = "NACODM"
+        try:
+            dm_config = _rc.get_device_config("DEFORMABLE.MIRRORS", self._name)
+            host = dm_config.get("host", [])
+            port = dm_config.get("port", [])
+            reply_timeout = float(dm_config.get("reply_timeout", 1.0))
+        except KeyError:
+            raise _oe.DeviceNotFoundError(
+                f"Configuration for {self._name} not found in the configuration file."
+            )
+        self._logger = _SL(the_class=__class__)
+        super().__init__(host, port, reply_timeout=reply_timeout)
+        self.set_zeros_to_acts()
+        self.is_segmented = False
+
+    def get_shape(self) -> _ot.ArrayLike:
+        """Retrieve the actuators positions."""
+        return super().get_shape()
+
+    def set_shape(
+        self,
+        cmd: _ot.ArrayLike,
+        differential: bool = False,
+    ) -> None:
+        """
+        Applies the given command to the DM actuators.
+
+        Parameters
+        ----------
+        cmd : np.array
+            Command to be applied to the actuators.
+        differential : bool, optional
+            If True, the command is applied differentially (added to the current shape).
+        """
+        if differential:
+            shape = self.get_shape()
+            cmd = cmd + shape
+        super().set_shape(cmd)
+
+    def set_zeros_to_acts(self):
+        """
+        Set all actuators to zero position.
+        """
+        zero = _np.zeros(self.n_acts)
+        self.set_shape(zero)
+
+    def upload_cmd_history(
+        self, tcmdhist: _ot.MatrixLike,
+    ) -> None:
+        """
+        Upload a command history to the DM.
+
+        Parameters
+        ----------
+        tcmdhist : np.array
+            Command history to be uploaded. Should be a 2D matrix of shape
+            (nacts, nmodes).
+        """
+        if not _ot.isinstance_(tcmdhist, "MatrixLike"):
+            raise _oe.MatrixError(
+                f"Expecting a 2D Matrix of shape (nacts, nmodes), got instead: {tcmdhist.shape}"
+            )
+        self.cmdHistory = tcmdhist
+
+    def run_cmd_history(
+        self,
+        wfs: _ot.Optional[_ot.InterferometerDevice | _ot.WFSDevice] = None,
+        save: str = None,
+        **setshape_kwargs: dict[str, _ot.Any],
+    ) -> str:
+        """
+        Runs the command history on the DM.
+
+        Parameters
+        ----------
+        wfs : InterferometerDevice | WFSDevice, optional
+            Wavefront sensor device to acquire images.
+        save : str, optional
+            Directory to save the acquired images.
+        differential : bool, optional
+            If True, the command is applied differentially (added to the current shape).
+
+        Returns
+        -------
+        tn : str
+            Tracking number of the directory where the images are saved.
+        """
+        delay: float = _rc.get_iff_config(key=None).get("sequentialDelay", 0.0)
+        differential: bool = setshape_kwargs.get("differential", True)
+
+        if self.cmdHistory is None:
+            raise _oe.MatrixError("No Command History to run!")
+
+        s = self.get_shape()
+
+        if isinstance(wfs, tuple):
+            import types
+
+            if isinstance(wfs[0], (types.FunctionType, types.MethodType)):
+                tn = []
+                for i, cmd in enumerate(self.cmdHistory.T):
+                    if differential:
+                        cmd = cmd + s
+                    self.set_shape(cmd)
+                    if wfs is not None:
+                        _time.sleep(delay)
+                        img = wfs[0](*wfs[1:])
+                        tn.append(img)
+
+        else:
+
+            if wfs is not None:
+                if save is None:
+                    datafold, tn = _cdf(base_path=_opdi, get_tn=True)
+                else:
+                    tn = save
+                    datafold = _os.path.join(_opdi, tn)
+                    _os.makedirs(datafold, exist_ok=True)
+                print(f"{tn} - {self.cmdHistory.shape[-1]} images to go.")
+
+            for i, cmd in enumerate(self.cmdHistory.T):
+                print(f"{i+1}/{self.cmdHistory.shape[-1]}", end="\r", flush=True)
+
+                if differential:
+                    cmd = cmd + s
+                self.set_shape(cmd)
+
+                if wfs is not None:
+                    _time.sleep(delay)
+                    img = wfs.acquire_map()
+                    _sf(_os.path.join(datafold, f"image_{i:05d}.fits"), img)
+
+        # get back to the starting shape
+        self.set_shape(s)
+        return tn
+
+    def visualize_shape(self, cmd: _ot.ArrayLike = None, **kwargs: dict[str, _ot.Any]):
+        """
+        Visualizes the command amplitudes on the mirror's actuators.
+
+        Parameters
+        ----------
+        cmd : np.array, optional
+            Command to be visualized on the mirror's actuators. If none, will plot
+            the current position of the actuators.
+
+        Returns
+        -------
+        np.array
+            Processed shape based on the command.
+        """
+        from matplotlib import pyplot as plt
+
+        size = (120 * 97) / self.n_acts
+
+        plt.figure(figsize=(7, 6))
+
+        if cmd is None:
+            cmd = _np.zeros(self.n_acts)
+
+            for i, (x, y) in enumerate(self.act_coord.T):
+                plt.annotate(
+                    str(i),
+                    (x, y),
+                    textcoords="offset points",
+                    xytext=(3, 3),
+                    ha="left",
+                    va="bottom",
+                    fontsize=7,
+                    color="black",
+                )
+
+        plt.scatter(self.act_coord[0], self.act_coord[1], c=cmd, s=size, **kwargs)
+
+        plt.xlabel(r"$x$ $[px]$")
+        plt.ylabel(r"$y$ $[px]$")
+        plt.title(f"DM {self.n_acts} Actuator's Coordinates")
+        plt.colorbar()
+        plt.show()
+
+    def __repr__(self):
+        return f"{self._name}(n_acts={self.n_acts})"
+
