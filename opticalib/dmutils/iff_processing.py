@@ -479,7 +479,7 @@ def stack_cubes(tnlist: list[str], cube_names: _ot.Optional[list[str]] = None) -
 
     # Get cube parameters and validation info
     cubes, cmats, mvecs, avecs, rebin = _get_cube_list(tnlist, cube_names)
-    cube_type = _check_stacked_cubes(tnlist)["Flag"]["Cube type"]
+    # cube_type = _check_stacked_cubes(tnlist)["Flag"]["Cube type"]
 
     # Convert FitsMaskedArrayGpu to regular masked arrays for dstack
     cube_list = [
@@ -493,7 +493,7 @@ def stack_cubes(tnlist: list[str], cube_names: _ot.Optional[list[str]] = None) -
     stacked_avec = _np.hstack(avecs)
     # Build header with metadata
     header = {
-        "FLAG": (cube_type, "stacking mode"),
+        # "FLAG": (cube_type, "stacking mode"),
         "NSTACK": (len(tnlist), "number of stacked cubes"),
         "REBIN": (rebin, "common rebinning factor"),
     }
@@ -1276,34 +1276,34 @@ def _get_acq_info(
     return info
 
 
-def _check_stacked_cubes(tnlist: str) -> dict[str, _ot.Any]:
-    """
-    Inspect the cubes to stack, to check whether there are shared modes, or not.
+# def _check_stacked_cubes(tnlist: str) -> dict[str, _ot.Any]:
+#     """
+#     Inspect the cubes to stack, to check whether there are shared modes, or not.
 
-    Parameters
-    ----------
-    tnlist : list of str
-        List containing the tracking number of the cubes to stack.
+#     Parameters
+#     ----------
+#     tnlist : list of str
+#         List containing the tracking number of the cubes to stack.
 
-    Returns
-    -------
-    flag : dict
-        Dictionary containing the flagging information about the stacked cube.
-    """
-    _, _, modesVectList, _, rebin = _get_cube_list(tnlist)
-    nmodes = len(modesVectList[0])
-    nvects = len(modesVectList)
-    for i in range(nvects):
-        for j in range(i + 1, nvects):
-            common_modes = set(modesVectList[i]).intersection(modesVectList[j])
-    c_nmodes = len(common_modes)
-    if c_nmodes in range(1, nmodes):
-        flag = __flag(tnlist, modesVectList, rebin, 2)
-    elif c_nmodes == nmodes:
-        flag = __flag(tnlist, modesVectList, rebin, 1)
-    else:
-        flag = __flag(tnlist, modesVectList, rebin, 0)
-    return flag
+#     Returns
+#     -------
+#     flag : dict
+#         Dictionary containing the flagging information about the stacked cube.
+#     """
+#     _, _, modesVectList, _, rebin = _get_cube_list(tnlist)
+#     nmodes = len(modesVectList[0])
+#     nvects = len(modesVectList)
+#     for i in range(nvects):
+#         for j in range(i + 1, nvects):
+#             common_modes = set(modesVectList[i]).intersection(modesVectList[j])
+#     c_nmodes = len(common_modes)
+#     if c_nmodes in range(1, nmodes):
+#         flag = __flag(tnlist, modesVectList, rebin, 2)
+#     elif c_nmodes == nmodes:
+#         flag = __flag(tnlist, modesVectList, rebin, 1)
+#     else:
+#         flag = __flag(tnlist, modesVectList, rebin, 0)
+#     return flag
 
 
 def _check_information_consistency(info: dict[str, _ot.Any]) -> None:
@@ -1342,55 +1342,55 @@ def _check_information_consistency(info: dict[str, _ot.Any]) -> None:
         )
 
 
-def __flag(
-    tnlist: list[str],
-    modesVectList: list[int] | list[_ot.ArrayLike],
-    rebin: int,
-    type: int,
-) -> dict[str, _ot.Any]:
-    """
-    Creates the dictionary to dump into the 'flag.txt' file accordingly to
-    sequentially stacked cubes with no repeated modes.
+# def __flag(
+#     tnlist: list[str],
+#     modesVectList: list[int] | list[_ot.ArrayLike],
+#     rebin: int,
+#     type: int,
+# ) -> dict[str, _ot.Any]:
+#     """
+#     Creates the dictionary to dump into the 'flag.txt' file accordingly to
+#     sequentially stacked cubes with no repeated modes.
 
-    Parameters
-    ----------
-    tnlist : list of str
-        List containing the tracking number of the cubes to stack.
-    modesVectList : list of ndarray
-        A list containing the modes vectors for each cube.
-    type : int
-        Type of stacked cube created.
-        0 for sequential, 1 for mean, 2 for shared modes.
+#     Parameters
+#     ----------
+#     tnlist : list of str
+#         List containing the tracking number of the cubes to stack.
+#     modesVectList : list of ndarray
+#         A list containing the modes vectors for each cube.
+#     type : int
+#         Type of stacked cube created.
+#         0 for sequential, 1 for mean, 2 for shared modes.
 
-    Returns
-    -------
-    config : dict
-        Dictionary containing the flagging information about the stacked cube.
-    """
-    c_type = [
-        "sequential stack",
-        "mean stack",
-        "(WARN)repeated modes",
-    ]
-    text = ""
-    for i, tn in enumerate(tnlist):
-        if _np.array_equal(
-            modesVectList[i],
-            _np.arange(modesVectList[i][0], modesVectList[i][-1] + 1, 1),
-        ):
-            text += f"""
-{tn}, modes {modesVectList[i][0]} to {modesVectList[i][-1]}"""
-        else:
-            text += f"""
-{tn}, modes {list(modesVectList[i])}"""
-    flag = {
-        "Flag": {
-            "Rebin": str(rebin),
-            "Cube type": c_type[type],
-            "Source cubes": text,
-        }
-    }
-    _config["Flag"] = {}
-    for key, value in flag["Flag"].items():
-        _config["Flag"][key] = value
-    return _config
+#     Returns
+#     -------
+#     config : dict
+#         Dictionary containing the flagging information about the stacked cube.
+#     """
+#     c_type = [
+#         "sequential stack",
+#         "mean stack",
+#         "(WARN)repeated modes",
+#     ]
+#     text = ""
+#     for i, tn in enumerate(tnlist):
+#         if _np.array_equal(
+#             modesVectList[i],
+#             _np.arange(modesVectList[i][0], modesVectList[i][-1] + 1, 1),
+#         ):
+#             text += f"""
+# {tn}, modes {modesVectList[i][0]} to {modesVectList[i][-1]}"""
+#         else:
+#             text += f"""
+# {tn}, modes {list(modesVectList[i])}"""
+#     flag = {
+#         "Flag": {
+#             "Rebin": str(rebin),
+#             "Cube type": c_type[type],
+#             "Source cubes": text,
+#         }
+#     }
+#     _config["Flag"] = {}
+#     for key, value in flag["Flag"].items():
+#         _config["Flag"][key] = value
+#     return _config
