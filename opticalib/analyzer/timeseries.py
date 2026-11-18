@@ -53,7 +53,9 @@ def average_frames(
     s = slice(first, last) if last != -1 else slice(first, None)
 
     if osu.is_tn(tn_or_fl):
-        fl = osu.get_file_list(tn_or_fl, fold=_OPDSER.split("/")[-1], key="20")
+        fl = osu.get_file_list(
+            tn_or_fl, fold=_os.path.basename(_os.path.normpath(_OPDSER)), key="20"
+        )
         fl = fl[s] if file_selector is None else fl[file_selector]
         imcube = _ip.create_cube(fl)
     elif _ot.isinstance_(tn_or_fl, "CubeData"):
@@ -267,7 +269,7 @@ def timevec(tn: str) -> _ot.ArrayLike:
         flist = osu.get_file_list(tn, key="20")
         timevector = []
         for f in flist:
-            tni = (f.split("/")[-1]).replace(".fits", "")
+            tni = _os.path.splitext(_os.path.basename(f))[0]
             jdi = _track2jd(tni)
             timevector.append(jdi)
         timevector = _np.array(timevector)

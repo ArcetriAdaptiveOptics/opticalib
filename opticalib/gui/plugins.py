@@ -133,7 +133,7 @@ def defined_sections(config_path: Optional[str]) -> Optional[Set[str]]:
     if not config_path:
         return None
     try:
-        with open(config_path, "r") as f:
+        with open(config_path, "r", encoding="utf-8") as f:
             config = yaml.safe_load(f)
     except (OSError, yaml.YAMLError):
         return None

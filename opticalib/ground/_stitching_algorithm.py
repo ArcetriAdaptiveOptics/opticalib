@@ -1,3 +1,4 @@
+import sys
 import numpy as np
 import xupy as xp
 from tqdm import tqdm, trange
@@ -30,7 +31,19 @@ def map_stitching(
     -------
     numpy.ndarray
         2D array of the stitched image after removing specified Zernike terms.
+
+    Raises
+    ------
+    NotImplementedError
+        On Windows, when ``xupy`` is not running on GPU: the CPU branch relies
+        on ``multiprocessing``, which is not supported there.
     """
+    if sys.platform == "win32" and not xp.on_gpu:
+        raise NotImplementedError(
+            "CPU stitching uses multiprocessing and is not supported on Windows. "
+            'Install a CUDA backend (e.g. pip install "opticalib[cuda12]" or '
+            '"opticalib[cuda13]") so that xupy runs on GPU, or run on Linux/macOS.'
+        )
     print("Computing Zernike basis...", end="\r", flush=True)
     N = image_vector.shape[0]
     MM = fullmask.copy().astype(xp.uint8)

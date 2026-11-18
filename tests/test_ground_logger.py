@@ -4,6 +4,7 @@ Tests for opticalib.ground.logger module.
 
 import pytest
 import os
+import sys
 import logging
 import tempfile
 import shutil
@@ -323,3 +324,86 @@ class TestTxtLogger:
             assert len(lines) == 2
             assert "First message" in lines[0]
             assert "Second message" in lines[1]
+
+
+class TestSetUpLoggerRolloverPermission:
+    """A PermissionError at the initial rollover (Windows) must not break set-up."""
+
+    @pytest.fixture
+    def root_cleanup(self):
+        root = logging.getLogger()
+        before_handlers = list(root.handlers)
+        before_level = root.level
+        yield root
+        for h in list(root.handlers):
+            if h not in before_handlers:
+                root.removeHandler(h)
+                h.close()  # Windows cannot delete open files
+        root.setLevel(before_level)
+
+    def test_permission_error_is_swallowed_and_logging_works(
+        self, temp_dir, monkeypatch, root_cleanup
+    ):
+        import logging.handlers as lh
+
+        monkeypatch.setattr("opticalib.core.root.LOGGING_ROOT_FOLDER", temp_dir)
+        calls = []
+
+        def boom(self):
+            calls.append(self.baseFilename)
+            raise PermissionError("file in use")
+
+        monkeypatch.setattr(lh.RotatingFileHandler, "doRollover", boom)
+        monkeypatch.setattr(sys, "platform", "win32")
+        with pytest.warns(RuntimeWarning, match="Could not rotate"):
+            root = logger.set_up_logger("perm.log", logging.INFO)
+        assert root is root_cleanup
+        assert len(calls) == 1
+
+        msg = "message after failed rollover µm"
+        logging.getLogger("perm-test").info(msg)
+        for h in root.handlers:
+            h.flush()
+        path = os.path.join(temp_dir, "perm.log")
+        with open(path, encoding="utf-8") as f:
+            assert msg in f.read()
+
+    def test_permission_error_propagates_outside_windows(
+        self, temp_dir, monkeypatch, root_cleanup
+    ):
+        import logging.handlers as lh
+
+        monkeypatch.setattr("opticalib.core.root.LOGGING_ROOT_FOLDER", temp_dir)
+
+        def boom(self):
+            raise PermissionError("not writable")
+
+        monkeypatch.setattr(lh.RotatingFileHandler, "doRollover", boom)
+        monkeypatch.setattr(sys, "platform", "linux")
+        with pytest.raises(PermissionError):
+            logger.set_up_logger("perm_linux.log", logging.INFO)
+
+    def test_other_errors_still_propagate(self, temp_dir, monkeypatch, root_cleanup):
+        import logging.handlers as lh
+
+        monkeypatch.setattr("opticalib.core.root.LOGGING_ROOT_FOLDER", temp_dir)
+
+        def boom(self):
+            raise RuntimeError("other")
+
+        monkeypatch.setattr(lh.RotatingFileHandler, "doRollover", boom)
+        with pytest.raises(RuntimeError):
+            logger.set_up_logger("other.log", logging.INFO)
+
+    def test_second_call_reuses_handler_no_rollover(
+        self, temp_dir, monkeypatch, root_cleanup
+    ):
+        import logging.handlers as lh
+
+        monkeypatch.setattr("opticalib.core.root.LOGGING_ROOT_FOLDER", temp_dir)
+        calls = []
+        monkeypatch.setattr(lh.RotatingFileHandler, "doRollover", lambda self: calls.append(1))
+        logger.set_up_logger("again.log", logging.INFO)
+        n = len(root_cleanup.handlers)
+        logger.set_up_logger("again.log", logging.INFO)
+        assert len(root_cleanup.handlers) == n and len(calls) == 1

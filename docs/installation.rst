@@ -17,6 +17,13 @@ are optional, see :ref:`optional-extras`.
    devices built on it, such as the ``Ingot`` WFS camera) raises an
    ``ImportError`` when created.
 
+.. note::
+   **Windows**: the camera live view (:meth:`GigaVision.live_view
+   <opticalib.devices.cameras.GigaVision.live_view>`) is available only on
+   Linux and macOS.  Stitching (``opticalib.procedures.stitching`` /
+   ``map_stitching``) on Windows requires the GPU backend (``xupy`` running on
+   GPU, e.g. ``pip install "opticalib[cuda12]"``).
+
 Installing from PyPI (stable release)
 --------------------------------------
 

@@ -2,6 +2,7 @@
 Tests for opticalib.analyzer.timeseries module.
 """
 
+import os
 import pytest
 import numpy as np
 import numpy.ma as ma
@@ -181,3 +182,46 @@ class TestStructFunc:
 
         assert result.shape == (1,)
         assert result[0] >= 0
+
+
+class TestTimevecPortable:
+    """timevec / average_frames extract names with os.path (no '/' splitting)."""
+
+    TNS = ["20240101_120000", "20240101_120030", "20240102_000001"]
+
+    def _flist(self, tmp_path):
+        return [os.path.join(str(tmp_path), "OPDSeries", "tn", f"{t}.fits") for t in self.TNS]
+
+    def test_timevec_opdseries_julian_dates(self, monkeypatch, tmp_path):
+        flist = self._flist(tmp_path)
+        monkeypatch.setattr(timeseries.osu, "find_tracknum", lambda tn: os.path.join("x", "OPDSeries", tn))
+        monkeypatch.setattr(timeseries.osu, "get_file_list", lambda tn, **kw: flist)
+        tv = timeseries.timevec("tn")
+        assert isinstance(tv, np.ndarray) and tv.shape == (3,)
+        expected = [timeseries._track2jd(t) for t in self.TNS]
+        np.testing.assert_allclose(tv, expected)
+        # 30 s apart, then ~12h
+        assert tv[1] - tv[0] == pytest.approx(30 / 86400)
+        assert tv[2] - tv[1] == pytest.approx((12 * 3600 - 29) / 86400)
+
+    def test_timevec_empty_file_list(self, monkeypatch):
+        monkeypatch.setattr(timeseries.osu, "find_tracknum", lambda tn: "OPDSeries/tn")
+        monkeypatch.setattr(timeseries.osu, "get_file_list", lambda tn, **kw: [])
+        assert timeseries.timevec("tn").size == 0
+
+    def test_average_frames_fold_name_from_root(self, monkeypatch, tmp_path):
+        """The OPDSeries folder name is derived with basename, even with a trailing separator."""
+        seen = {}
+        root = os.path.join(str(tmp_path), "OPDSeries") + os.sep
+        monkeypatch.setattr(timeseries, "_OPDSER", root)
+        monkeypatch.setattr(timeseries.osu, "is_tn", lambda x: True)
+
+        def gfl(tn, fold=None, key=None):
+            seen["fold"] = fold
+            return ["a", "b"]
+
+        monkeypatch.setattr(timeseries.osu, "get_file_list", gfl)
+        monkeypatch.setattr(timeseries._ip, "create_cube", lambda fl: _make_cube((4, 4, 2)))
+        res = timeseries.average_frames("20240101_120000")
+        assert seen["fold"] == "OPDSeries"
+        assert res.shape == (4, 4)

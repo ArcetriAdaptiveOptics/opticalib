@@ -293,7 +293,9 @@ def push_pull_reduction_algorithm(
     return image
 
 
-def create_cube(fl_or_il: list[str]|list[_ot.ImageData], register: bool = False) -> _ot.CubeData:
+def create_cube(
+    fl_or_il: list[str] | list[_ot.ImageData], register: bool = False
+) -> _ot.CubeData:
     """
     Creates a cube of images from an images file list
 
@@ -359,9 +361,8 @@ def create_cube(fl_or_il: list[str]|list[_ot.ImageData], register: bool = False)
 
     if len(fl_or_il) == 1:
         return _np.expand_dims(
-            _fa.fits_array(fl_or_il[0], header=header),
-            axis=2
-        )
+            _fa.fits_array(fl_or_il[0], header=header), axis=2
+        ).copy()
 
     return _fa.fits_array(_np.ma.dstack(fl_or_il), header=header)
 

@@ -534,7 +534,8 @@ class _4DInterferometer(BaseWavefrontSensor):
                     new_name = f"{num:05d}.4D"
                     old_file = _os.path.join(fold, file)
                     new_file = _os.path.join(fold, new_name)
-                    _os.rename(old_file, new_file)
+                    if old_file != new_file:
+                        _os.replace(old_file, new_file)
 
     @staticmethod
     def _locate_settings_file(tn: str, filename: str = "CameraSettings.ini") -> str:
@@ -579,11 +580,9 @@ class _4DInterferometer(BaseWavefrontSensor):
             )
         if len(matches) > 1:
             # produce() copies the settings into OPDImages/<tn>: prefer that one
-            opd = [
-                m
-                for m in matches
-                if m.startswith(_Folds.OPD_IMAGES_ROOT_FOLDER + _os.sep)
-            ]
+            _norm = lambda x: _os.path.normcase(_os.path.normpath(x))  # noqa: E731
+            _opd_root = _norm(_Folds.OPD_IMAGES_ROOT_FOLDER) + _os.sep
+            opd = [m for m in matches if _norm(m).startswith(_opd_root)]
             if len(opd) == 1:
                 return opd[0]
             raise ValueError(f"Ambiguous tn '{tn}': settings found in {matches}.")

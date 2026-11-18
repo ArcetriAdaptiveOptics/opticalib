@@ -169,10 +169,12 @@ class TestLauncher:
         menu = linux_home / ".local" / "share" / "applications" / "OptiCalib-My_Exp.desktop"
         desktop = linux_home / "Desktop" / "OptiCalib-My_Exp.desktop"
         assert created == [str(menu), str(desktop)]
-        text = menu.read_text()
+        text = menu.read_text(encoding="utf-8")
         assert "Name=OptiCalib (My Exp)" in text
-        assert f'--gui -f "{experiment}"' in text
-        assert os.access(desktop, os.X_OK)
+        # same quoting as the code: OS-independent (Windows paths have backslashes)
+        assert f"--gui -f {setup_calpy._desktop_quote(str(experiment))}" in text
+        if sys.platform != "win32":  # no POSIX exec bit on Windows
+            assert os.access(desktop, os.X_OK)
         assert setup_calpy.uninstall_launcher(str(experiment)) == created
         assert not menu.exists() and not desktop.exists()
 

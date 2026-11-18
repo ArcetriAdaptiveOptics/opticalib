@@ -8,6 +8,7 @@ and frame retrieval.
 
 """
 
+import sys as _sys
 import time as _time
 import threading as _th
 
@@ -314,7 +315,9 @@ class GigaVision(BaseCamera):
                 self._buffer.interrupt()  # waiters raise now, not at timeout
                 self._buffer.clear()  # free the memory of the stored frames
 
-    def _on_frame(self, cam: "_vmbpy.Camera", stream: "_vmbpy.Stream", frame: "_vmbpy.Frame"):
+    def _on_frame(
+        self, cam: "_vmbpy.Camera", stream: "_vmbpy.Stream", frame: "_vmbpy.Frame"
+    ):
         """
         Frame handler: runs in the **Vimba SDK thread**, once per frame.
 
@@ -484,7 +487,17 @@ class GigaVision(BaseCamera):
             accepted by ``imshow`` (e.g. ``cmap``, ``vmin``, ``vmax``). Must
             be JSON-serializable. Giving ``vmin``/``vmax`` disables
             autoscaling.
+
+        Raises
+        ------
+        NotImplementedError
+            On Windows: the live view is available only on Linux and macOS.
         """
+        if _sys.platform == "win32":
+            raise NotImplementedError(
+                "GigaVision live view is available only on Linux and macOS "
+                "(it relies on POSIX shared memory and process handling)."
+            )
         if self.is_live:
             self._logger.info("Live view already running")
             return

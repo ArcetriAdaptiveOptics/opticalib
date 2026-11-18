@@ -91,7 +91,7 @@ def load_code(path: str) -> str:
         return f"data = osu.load_fits({path!r})"
     if path.lower().endswith((".npy", ".npz")):
         return f"data = np.load({path!r})"
-    return f"data = open({path!r}).read()"
+    return f"data = open({path!r}, encoding='utf-8', errors='replace').read()"
 
 
 def _list_dir(path: str) -> List[os.DirEntry]:

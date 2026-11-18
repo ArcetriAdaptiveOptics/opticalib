@@ -230,3 +230,33 @@ class TestCodeEditor:
         assert editor.viewportMargins().left() == width
         assert width > editor.fontMetrics().horizontalAdvance("999")
         editor.grab()  # paints the gutter without errors
+
+
+class TestConfigEditorUtf8:
+    """Saving non-ASCII text writes UTF-8 whatever the locale (Windows: cp1252)."""
+
+    NON_ASCII = "# unit: µm, Ω\nSYSTEM:\n  data_path: ''\nDEVICES:\n  CAMERAS:\n    GigaVision:\n      id: CAM1\n"
+
+    def test_save_writes_utf8_and_roundtrips(self, qapp, tmp_path, monkeypatch):
+        monkeypatch.setattr(ce.QMessageBox, "critical", lambda *a: pytest.fail("save failed"))
+        path = tmp_path / "configuration.yaml"
+        path.write_bytes(VALID_CONFIG.encode("utf-8"))
+        saved = []
+        dlg = ce.ConfigEditorDialog(str(path), on_saved=lambda: saved.append(1))
+        dlg._text_edit.setPlainText(self.NON_ASCII)
+        dlg._revalidate()
+        dlg._save_and_close()
+        raw = path.read_bytes()
+        assert "µm, Ω".encode("utf-8") in raw
+        assert b"\r\n" not in raw  # newline translation is disabled
+        assert saved == [1]
+        # reopening shows the same text
+        dlg2 = ce.ConfigEditorDialog(str(path))
+        assert dlg2._text_edit.toPlainText() == self.NON_ASCII
+
+    def test_non_utf8_file_is_reported_not_raised(self, qapp, tmp_path):
+        path = tmp_path / "configuration.yaml"
+        path.write_bytes(b"# \xb5m latin-1\nSYSTEM: {}\n")
+        dlg = ce.ConfigEditorDialog(str(path))
+        assert not dlg._btn_save.isEnabled()
+        assert "Could not read file" in dlg._text_edit.toPlainText()

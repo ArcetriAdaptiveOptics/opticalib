@@ -293,9 +293,9 @@ class TestAddModeToCube:
         modesvec_path = os.path.join(ifp._IMFOLD, tn, ifp._MODES_FILE)
 
         assert mock_load_fits.call_args_list == [
-            ((cube_path,), {}),
-            ((cmdmat_path,), {}),
-            ((modesvec_path,), {}),
+            ((cube_path,), {"memmap": False}),
+            ((cmdmat_path,), {"memmap": False}),
+            ((modesvec_path,), {"memmap": False}),
         ]
         assert mock_add_vect_to_mat.call_args_list == [
             ((mode_img, cube, mode_id), {"axis": 2}),

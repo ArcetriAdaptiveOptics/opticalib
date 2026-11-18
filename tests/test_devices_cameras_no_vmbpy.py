@@ -49,3 +49,16 @@ def test_devices_package_exports_gigavision():
 @pytest.mark.skipif(sys.platform != "darwin", reason="macOS only: vmbpy is excluded from the install there")
 def test_vmbpy_not_installed_on_macos():
     assert cameras._vmbpy is None
+
+
+def test_live_view_not_supported_on_windows(monkeypatch):
+    """live_view() raises NotImplementedError on win32, before touching the camera."""
+    from unittest.mock import MagicMock
+
+    cam = object.__new__(cameras.GigaVision)
+    cam.start_streaming = MagicMock()
+    cam._logger = MagicMock()
+    monkeypatch.setattr(sys, "platform", "win32")
+    with pytest.raises(NotImplementedError, match="Linux and macOS"):
+        cam.live_view()
+    cam.start_streaming.assert_not_called()

@@ -183,4 +183,3 @@ class NACOMirror(BaseDeformableMirror):
             cy = _np.concatenate((cy, _np.full(rows_number_of_acts[i], i)))
         self.act_coord = _np.array([cx, cy])
         return self.act_coord
-

@@ -1447,7 +1447,7 @@ class CalpyGUI(QMainWindow):
         """
         try:
             config_path = resolve_experiment(path)
-            with open(config_path, "r") as f:
+            with open(config_path, "r", encoding="utf-8") as f:
                 error = validate_config_text(f.read())
         except OSError as exc:
             QMessageBox.warning(self, "Open experiment", str(exc))

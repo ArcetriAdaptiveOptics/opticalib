@@ -97,7 +97,7 @@ def find_class_file(experiment: str, class_name: str) -> str:
         try:
             if os.path.getsize(path) > 2_000_000:
                 continue
-            with open(path, "r", errors="replace") as f:
+            with open(path, "r", encoding="utf-8", errors="replace") as f:
                 if pattern.search(f.read()):
                     return name
         except OSError:
@@ -371,14 +371,20 @@ class ConnectDialog(QDialog):
         if not path:
             return
         if self._experiment:
-            relative = os.path.relpath(path, self._experiment)
+            try:
+                relative = os.path.relpath(path, self._experiment)
+            except ValueError:  # different drives (Windows): keep the absolute path
+                relative = path
             if not relative.startswith(os.pardir):
                 path = relative
         self._custom_module.setText(path)
         if not self._custom_name.text().strip():
             try:
                 with open(
-                    os.path.join(self._experiment, path), "r", errors="replace"
+                    os.path.join(self._experiment, path),
+                    "r",
+                    encoding="utf-8",
+                    errors="replace",
                 ) as f:
                     found = re.search(
                         r"^class\s+([A-Za-z_]\w*)", f.read(), re.MULTILINE

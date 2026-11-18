@@ -211,7 +211,7 @@ class Flattening:
         modes2discard: _ot.Optional[int] = None,
         *,
         img: _ot.Optional[_ot.ImageData] = None,
-        nframes: int|tuple[int] = 5,
+        nframes: int | tuple[int] = 5,
         save: bool = True,
         **setshape_kwargs: dict[str, _ot.Any],
     ) -> _ot.Optional[str]:
@@ -233,11 +233,11 @@ class Flattening:
             Image to flatten. If not provided, it will acquired using the provided
             wavefront sensor.
         nframes : int or tuple, optional
-            Number of frames to average for phasemap acquisition. If a tuple of 
+            Number of frames to average for phasemap acquisition. If a tuple of
             two ints, the first is the number of frames used for acquisition and
-            flattening computation, while the second is for the verification 
-            acquisition. 
-            
+            flattening computation, while the second is for the verification
+            acquisition.
+
             Default is 5 (both `in` and `out`).
         save : bool, optional
             Whether to save the computed flat command and related data. Default is True.

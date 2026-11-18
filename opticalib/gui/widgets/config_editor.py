@@ -398,10 +398,10 @@ class ConfigEditorDialog(QDialog):
         self._text_edit.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
         self._highlighter = YamlHighlighter(self._text_edit.document())
         try:
-            with open(config_path, "r") as f:
+            with open(config_path, "r", encoding="utf-8") as f:
                 self._original_text = f.read()
             self._text_edit.setPlainText(self._original_text)
-        except OSError as exc:
+        except (OSError, UnicodeError) as exc:
             self._text_edit.setPlainText(f"Could not read file:\n{exc}")
             self._text_edit.setReadOnly(True)
 
@@ -526,9 +526,13 @@ class ConfigEditorDialog(QDialog):
             return
 
         try:
-            with open(self._config_path, "w") as f:
+            # Written in place (not via a temp file + rename), so a symlinked
+            # configuration.yaml and its ownership/permissions are preserved.
+            # UTF-8 encodes any text: the file cannot be left truncated by an
+            # encoding error, as happened with Windows' default cp1252.
+            with open(self._config_path, "w", encoding="utf-8", newline="\n") as f:
                 f.write(new_content)
-        except OSError as exc:
+        except (OSError, UnicodeError) as exc:
             QMessageBox.critical(
                 self,
                 "Error Saving Configuration",

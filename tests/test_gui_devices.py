@@ -924,3 +924,40 @@ class TestCollapsibleGroups:
         empty.write_text("DEVICES: {}\n")
         widget = dp.DevicePanel(str(empty), runner=lambda *a: None)
         assert widget.configured_section._summary.isHidden()
+
+
+def _no_relpath(*args, **kwargs):
+    raise ValueError("path is on mount 'C:', start on mount 'D:'")
+
+
+class TestRelpathValueError:
+    """os.path.relpath raises ValueError across drives on Windows."""
+
+    def test_browse_keeps_absolute_path(self, custom_panel, experiment, monkeypatch):
+        from opticalib.gui.widgets import connect_dialog as cd
+
+        card, dialog = TestCustomClassDialog()._custom_dialog(custom_panel)
+        absolute = str(experiment.parent.parent / "morfeo_dm.py")
+        monkeypatch.setattr(cd.QFileDialog, "getOpenFileName", lambda *a, **k: (absolute, ""))
+        monkeypatch.setattr(cd.os.path, "relpath", _no_relpath)
+        dialog._custom_module.setText("")
+        dialog._custom_name.setText("")
+        dialog._browse_module()  # must not raise
+        assert dialog._custom_module.text() == absolute
+        # the class name is still guessed from the (absolute) file
+        assert dialog._custom_name.text() == "MorfeoDM"
+
+    def test_browse_relative_when_relpath_works(self, custom_panel, experiment, monkeypatch):
+        from opticalib.gui.widgets import connect_dialog as cd
+
+        card, dialog = TestCustomClassDialog()._custom_dialog(custom_panel)
+        absolute = str(experiment.parent.parent / "morfeo_dm.py")
+        monkeypatch.setattr(cd.QFileDialog, "getOpenFileName", lambda *a, **k: (absolute, ""))
+        dialog._browse_module()
+        assert dialog._custom_module.text() == "morfeo_dm.py"
+
+    def test_module_name_reraises_value_error(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(reg.os.path, "relpath", _no_relpath)
+        absolute = str(tmp_path / "x.py")
+        with pytest.raises(ValueError, match="not in the experiment folder"):
+            reg.module_name(absolute, str(tmp_path))

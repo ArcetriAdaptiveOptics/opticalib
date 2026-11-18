@@ -305,7 +305,13 @@ def module_name(module: str, experiment: str = "") -> str:
         if os.path.isabs(path):
             if not experiment:
                 raise ValueError(f"'{text}' is not in the experiment folder.")
-            path = os.path.relpath(path, experiment)
+            try:
+                path = os.path.relpath(path, experiment)
+            except ValueError as exc:  # different drives (Windows)
+                raise ValueError(
+                    f"'{text}' is not in the experiment folder ({experiment}): "
+                    "move it there or install it as a package."
+                ) from exc
             if path.startswith(os.pardir):
                 raise ValueError(
                     f"'{text}' is not in the experiment folder ({experiment}): "
@@ -878,7 +884,7 @@ def build_command(entry: DeviceEntry, var_name: Optional[str] = None) -> str:
 
 def _read_config(config_path: str) -> Optional[Dict[str, Any]]:
     try:
-        with open(config_path, "r") as f:
+        with open(config_path, "r", encoding="utf-8") as f:
             config = yaml.safe_load(f)
     except Exception:
         return None
@@ -1070,7 +1076,7 @@ def set_entry_class(config_path: str, section: str, name: str, class_name: str) 
         If the entry cannot be found or the edit would not produce the
         expected configuration.
     """
-    with open(config_path, "r") as f:
+    with open(config_path, "r", encoding="utf-8") as f:
         lines = f.readlines()
 
     entry_i, entry_indent = locate_entry(lines, section, name)
@@ -1122,7 +1128,7 @@ def _write_atomic(config_path: str, text: str) -> None:
         prefix=".configuration-", suffix=".yaml", dir=folder
     )
     try:
-        with os.fdopen(fd, "w") as f:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as f:
             f.write(text)
         if os.path.exists(config_path):
             shutil.copymode(config_path, tmp_path)
@@ -1185,7 +1191,7 @@ def set_custom_class(
         raise ValueError(f"'{name}' is not a valid class name.")
     module_name(module, experiment_folder(config_path))  # validates
 
-    with open(config_path, "r") as f:
+    with open(config_path, "r", encoding="utf-8") as f:
         lines = f.readlines()
     if lines and not lines[-1].endswith("\n"):
         lines[-1] += "\n"

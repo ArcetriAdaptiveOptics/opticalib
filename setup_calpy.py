@@ -543,7 +543,7 @@ def windows_shortcut_script(name: str, target: str, arguments: str = "", icon: O
 def _run_powershell(script: str) -> List[str]:
     result = subprocess.run(
         ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script],
-        capture_output=True, text=True, check=False,
+        capture_output=True, text=True, encoding="oem", check=False,
     )
     if result.returncode != 0:
         raise RuntimeError(result.stderr.strip() or "PowerShell failed")
@@ -583,7 +583,7 @@ def install_launcher(config_path: Optional[str] = None) -> List[str]:
         created = []
         for file in _linux_launcher_files(stem):
             file.parent.mkdir(parents=True, exist_ok=True)
-            file.write_text(content)
+            file.write_text(content, encoding="utf-8")
             file.chmod(0o755)
             if shutil.which("gio"):  # GNOME: allow launching from the desktop
                 subprocess.run(["gio", "set", str(file), "metadata::trusted", "true"],

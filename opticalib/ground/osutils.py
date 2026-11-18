@@ -453,7 +453,7 @@ def load_cube_from_filelist(
         fl = get_file_list(fold=fold, key=key)
     else:
         fl = tn_or_fl
-    
+
     if isinstance(fl, str):
         fl = [fl]
 
@@ -1175,9 +1175,9 @@ class _InterferometerConverter:
         ima: numpy masked array
             Masked array image
         """
-        file = _h5py.File(h5filename, "r")
-        genraw = file["measurement0"]["genraw"]["data"]
-        data = _np.array(genraw)
+        with _h5py.File(h5filename, "r") as file:
+            genraw = file["measurement0"]["genraw"]["data"]
+            data = _np.array(genraw)
         mask = _np.zeros(data.shape, dtype=bool)
         mask[_np.where(data == data.max())] = True
         ima = _np.ma.masked_array(data * 632.8e-9, mask=mask)
@@ -1242,9 +1242,9 @@ class _InterferometerConverter:
         file_name: string
             Final path name
         """
-        file = _h5py.File(i4dname, "r")
-        data = file.get("/Measurement/SurfaceInWaves/Data")
         file_name = _os.path.join(folder, h5name)
-        hf = _h5py.File(file_name, "w")
-        hf.create_dataset("Data", data=data)
+        with _h5py.File(i4dname, "r") as file:
+            data = file.get("/Measurement/SurfaceInWaves/Data")
+            with _h5py.File(file_name, "w") as hf:
+                hf.create_dataset("Data", data=data)
         return file_name

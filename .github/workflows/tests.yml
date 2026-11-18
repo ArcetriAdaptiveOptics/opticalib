@@ -180,6 +180,105 @@ jobs:
         run: |
           pytest --cov=opticalib -rs --verbosity=1 2>&1 | tee "$RUNNER_TEMP/pytest.log"
 
+  test_windows:
+    # Installs opticalib exactly as a Windows user does (``pip install -e .``)
+    # and runs the test suite there: backslash path separators, cp1252 as the
+    # default text encoding, no POSIX signals, files that cannot be removed
+    # while still open, "spawn" multiprocessing.  The default encoding is
+    # deliberately NOT forced to UTF-8 (no PYTHONUTF8), to match a real user.
+    name: Pytest (Python ${{ matrix.python-version }} - Windows)
+    runs-on: windows-latest
+    timeout-minutes: 90
+    # Not blocking yet: the suite has known Windows failures (path handling,
+    # open files on cleanup).  Set to false once the job is green.
+    continue-on-error: true
+
+    defaults:
+      run:
+        # Git Bash: the steps share the same syntax as the Linux/macOS jobs,
+        # and runs with -eo pipefail, so pytest's exit status survives `tee`.
+        shell: bash
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version:
+          - "3.11" # minimum version
+          - "3.14" # latest version supported by every dependency
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history + tags: setuptools-scm derives the version
+
+      - name: Set up Python
+        id: python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Create the virtual environment
+        # On Windows the venv executables live in Scripts\, not bin/.
+        run: |
+          python -m venv "$RUNNER_TEMP/venv"
+          echo "VIRTUAL_ENV=${RUNNER_TEMP}\\venv" >> "$GITHUB_ENV"
+          echo "${RUNNER_TEMP}\\venv\\Scripts" >> "$GITHUB_PATH"
+
+      - name: Cache pip downloads
+        # The weekly run (schedule) deliberately downloads everything afresh.
+        if: github.event_name != 'schedule'
+        uses: actions/cache@v4
+        with:
+          path: ~/AppData/Local/pip/Cache
+          key: pip-${{ runner.os }}-py${{ steps.python.outputs.python-version }}-nogui-${{ hashFiles('pyproject.toml') }}
+          restore-keys: |
+            pip-${{ runner.os }}-py${{ steps.python.outputs.python-version }}-nogui-
+
+      - name: Install opticalib (base install, as users do)
+        # ``python -m pip`` everywhere: on Windows pip cannot replace its own
+        # pip.exe while it is running.
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+          python -m pip install -e ".[test]" flake8
+          python -c "import sys, platform; print(sys.prefix, platform.machine())"
+
+      - name: Check the Windows install
+        run: |
+          python - <<'PY'
+          import importlib.util
+          import opticalib
+          from opticalib.devices import GigaVision  # noqa: F401
+
+          print("opticalib", opticalib.__version__)
+          print("data root:", opticalib.folders.BASE_DATA_PATH)
+          assert importlib.util.find_spec("vmbpy") is not None, "vmbpy should be installed on Windows"
+          print("Windows install OK")
+          PY
+
+      - name: Lint with flake8
+        run: |
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --exclude ./scripts,./build --exit-zero --max-complexity=10 --max-line-length=127
+
+      - name: Run pytest
+        run: |
+          pytest --cov=opticalib -rfEs --verbosity=1 \
+            --junitxml="$RUNNER_TEMP/pytest-results.xml" \
+            2>&1 | tee "$RUNNER_TEMP/pytest.log"
+
+      - name: Upload the test report
+        # Kept for 14 days: the list of Windows failures to work through.
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-windows-py${{ matrix.python-version }}
+          path: |
+            ${{ runner.temp }}/pytest.log
+            ${{ runner.temp }}/pytest-results.xml
+          retention-days: 14
+          if-no-files-found: ignore
+
   test_gui:
     name: Pytest (Python ${{ matrix.python-version }} - GUI)
     runs-on: ubuntu-latest

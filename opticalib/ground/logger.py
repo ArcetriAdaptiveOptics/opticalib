@@ -14,6 +14,8 @@ import logging as _l
 import logging as _l
 import logging.handlers as _lh
 import os
+import sys as _sys
+import warnings as _warnings
 
 
 class SystemLogger:
@@ -217,7 +219,20 @@ def set_up_logger(
     handler.setFormatter(formato)
     handler.setLevel(logging_level)
     if should_rollover:
-        handler.doRollover()
+        try:
+            handler.doRollover()
+        except PermissionError as exc:
+            # Windows cannot rename a log that another process (another
+            # interpreter, the GUI kernel) holds open: keep appending to the
+            # current file.  Elsewhere this is a real error.
+            if _sys.platform != "win32":
+                raise
+            _warnings.warn(
+                f"Could not rotate the log file {file_path} ({exc}): "
+                "appending to the current one.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
     return root_logger
 
 
@@ -303,5 +318,5 @@ class TxtLogger:
         message : str
             The log message to be written to the file.
         """
-        with open(self.file_path, "a") as f:
+        with open(self.file_path, "a", encoding="utf-8") as f:
             f.write(message + "\n")

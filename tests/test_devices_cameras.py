@@ -25,6 +25,13 @@ from opticalib.devices._API.cameras.frame_buffer import FrameBuffer
 from opticalib.devices._API.cameras.GigE_live_viewer import SharedFrame, ViewerProcess
 
 
+_NO_WIN = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="live viewer (SharedFrame/ViewerProcess/live_view) is Linux/macOS only",
+)
+_HAS_DEV_SHM = os.path.isdir("/dev/shm")  # Linux only: macOS has no /dev/shm
+
+
 def _shm_blocks():
     return set(glob.glob("/dev/shm/psm_*"))
 
@@ -164,6 +171,7 @@ class TestFrameBuffer:
 # --------------------------------------------------------------------------- #
 # SharedFrame
 # --------------------------------------------------------------------------- #
+@_NO_WIN
 class TestSharedFrame:
     @pytest.mark.parametrize("dtype", [np.uint8, np.uint16, np.float32, np.float64])
     def test_roundtrip(self, dtype):
@@ -262,7 +270,8 @@ class TestSharedFrame:
         before = _shm_blocks()
         w = SharedFrame.create((4, 4), np.uint16)
         name = w.shm.name
-        assert _shm_blocks() - before
+        if _HAS_DEV_SHM:
+            assert _shm_blocks() - before
         w.close(unlink=True)
         assert _shm_blocks() == before
         with pytest.raises(FileNotFoundError):
@@ -313,6 +322,7 @@ def fake_child(monkeypatch):
             subprocess.Popen.wait(p)
 
 
+@_NO_WIN
 class TestViewerProcess:
     def test_bad_kwargs_type_error_no_leak(self, fake_child):
         before = _shm_blocks()
@@ -352,6 +362,7 @@ class TestViewerProcess:
         vp.close()
 
 
+@_NO_WIN
 class TestRunViewerHeadless:
     @pytest.mark.parametrize(
         "backend, stripped",
@@ -588,6 +599,7 @@ class TestStreaming:
         buf[:] = 9
         assert cam._buffer.snapshot()[0].max() == 0
 
+    @_NO_WIN
     def test_on_frame_feeds_viewer(self, cam):
         v = MagicMock()
         cam._viewer = v
@@ -705,6 +717,7 @@ class TestExptime:
         cam._cam.feature.set.assert_not_called()
 
 
+@_NO_WIN
 class TestLiveView:
     def test_starts_stream_and_viewer(self, cam, fake_child):
         cam.live_view(cmap="gray")
@@ -825,6 +838,7 @@ class TestClose:
     def _patch_exit(self, g):
         g._cam.__exit__ = MagicMock()
 
+    @_NO_WIN
     def test_close_cleans_everything(self, cam, fake_child):
         fc = cam._cam
         cam.live_view()

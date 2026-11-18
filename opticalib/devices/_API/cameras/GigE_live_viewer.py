@@ -32,6 +32,10 @@ reader, so a slow GUI can never slow down the acquisition. (Caveat: numpy
 issues no memory fences, so this relies on the CPU not reordering the stores,
 as on x86; on ARM a torn frame could rarely slip through: a cosmetic glitch.)
 
+.. note::
+    The live viewer is POSIX-only (Linux and macOS): it is not supported on
+    Windows.
+
 This file has two roles:
 
 - imported by ``opticalib`` (parent side): ``ViewerProcess`` starts the child
@@ -78,10 +82,11 @@ class SharedFrame:
             # Before 3.13, attaching registers the block with this process'
             # resource tracker, which would *delete* it when the child exits,
             # although the parent owns it. Unregister to prevent that.
-            from multiprocessing import resource_tracker
-
             shm = shared_memory.SharedMemory(name=name)
-            resource_tracker.unregister(shm._name, "shared_memory")
+            if os.name == "posix":
+                from multiprocessing import resource_tracker
+
+                resource_tracker.unregister(shm._name, "shared_memory")
         return cls(shm, shape, dtype)
 
     # --- writer side (parent, called from the camera SDK thread) ------------

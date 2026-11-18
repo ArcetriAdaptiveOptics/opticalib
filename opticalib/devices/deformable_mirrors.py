@@ -1020,6 +1020,7 @@ class SplattDm(SPLATTEngine):
     def __repr__(self):
         return f"{self._name}(n_acts={self.n_acts})"
 
+
 from ._API.dms.nacoAPI import NACOMirror
 
 
@@ -1084,7 +1085,8 @@ class NACODm(NACOMirror):
         self.set_shape(zero)
 
     def upload_cmd_history(
-        self, tcmdhist: _ot.MatrixLike,
+        self,
+        tcmdhist: _ot.MatrixLike,
     ) -> None:
         """
         Upload a command history to the DM.
@@ -1219,4 +1221,3 @@ class NACODm(NACOMirror):
 
     def __repr__(self):
         return f"{self._name}(n_acts={self.n_acts})"
-

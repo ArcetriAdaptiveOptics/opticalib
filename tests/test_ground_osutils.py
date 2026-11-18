@@ -514,3 +514,63 @@ class TestGetH5FileInfo:
         # Get info without extension
         info = osutils.get_h5file_info(os.path.join(temp_dir, "test_data"))
         assert "data" in info["keys"]
+
+
+class TestInterferometerConverterH5Handles:
+    """The h5py readers/writers must close their files (Windows locks open files)."""
+
+    @staticmethod
+    def _make_phasecam(path, data):
+        with h5py.File(path, "w") as hf:
+            hf.create_dataset("measurement0/genraw/data", data=data)
+
+    def test_from_phase_cam4020_closes_and_converts(self, tmp_path):
+        from opticalib.ground import osutils
+
+        data = np.arange(16, dtype=float).reshape(4, 4)
+        path = str(tmp_path / "pc.h5")
+        self._make_phasecam(path, data)
+        ima = osutils._InterferometerConverter.from_phase_cam4020(path)
+        assert ima.shape == (4, 4)
+        assert ima.mask.sum() == 1 and ima.mask[3, 3]  # max value masked
+        np.testing.assert_allclose(ima.data, data * 632.8e-9)
+        # file closed: can be reopened for writing and removed
+        with h5py.File(path, "w"):
+            pass
+        os.remove(path)
+        assert not os.path.exists(path)
+
+    def test_from_phase_cam4020_missing_key_closes_file(self, tmp_path):
+        from opticalib.ground import osutils
+
+        path = str(tmp_path / "bad.h5")
+        with h5py.File(path, "w") as hf:
+            hf.create_dataset("other", data=[1])
+        with pytest.raises(KeyError):
+            osutils._InterferometerConverter.from_phase_cam4020(path)
+        os.remove(path)  # handle released even on error
+
+    def test_from_i4d_to_simpler_data_complete_and_closed(self, tmp_path):
+        from opticalib.ground import osutils
+
+        data = np.random.default_rng(0).normal(size=(6, 5))
+        src = str(tmp_path / "src.h5")
+        with h5py.File(src, "w") as hf:
+            hf.create_dataset("Measurement/SurfaceInWaves/Data", data=data)
+        out = osutils._InterferometerConverter.from_i4_d_to_simpler_data(
+            src, str(tmp_path), "out.h5"
+        )
+        assert out == os.path.join(str(tmp_path), "out.h5")
+        # both files closed: reopen the destination for writing and delete the source
+        os.remove(src)
+        with h5py.File(out, "r+") as hf:
+            np.testing.assert_array_equal(hf["Data"][()], data)
+        os.remove(out)
+
+    def test_from_i4d_missing_source_raises(self, tmp_path):
+        from opticalib.ground import osutils
+
+        with pytest.raises(OSError):
+            osutils._InterferometerConverter.from_i4_d_to_simpler_data(
+                str(tmp_path / "nope.h5"), str(tmp_path), "o.h5"
+            )

@@ -108,12 +108,12 @@ def _stamp_created_with(file: str, data_path: str | None = None) -> None:
     from ..__version__ import __version__
 
     try:
-        with open(file, "r") as _f:
+        with open(file, "r", encoding="utf-8") as _f:
             config = _gyml.load(_f)
         config["SYSTEM"]["created_with"] = str(__version__)
         if data_path is not None:
             config["SYSTEM"]["data_path"] = data_path
-        with open(file, "w") as _f:
+        with open(file, "w", encoding="utf-8") as _f:
             _gyml.dump(config, _f)
     except (OSError, KeyError, TypeError) as exc:
         import warnings
@@ -166,13 +166,15 @@ def create_configuration_file(path: str = "", data_path: str | bool = False) -> 
         print(f"Configuration file moved to {conf_folder}")
 
 
-TEMPLATE_CONF_FILE: str = (
-    _os.path.dirname(_os.path.abspath(__file__)) + "/_configurations/configuration.yaml"
+TEMPLATE_CONF_FILE: str = _os.path.join(
+    _os.path.dirname(_os.path.abspath(__file__)),
+    "_configurations",
+    "configuration.yaml",
 )
 CONFIGURATION_ROOT_FOLDER: str = _os.path.dirname(TEMPLATE_CONF_FILE)
 CONFIGURATION_FILE: str = _os.getenv("AOCONF", TEMPLATE_CONF_FILE)
 
-with open(CONFIGURATION_FILE, "r") as _f:
+with open(CONFIGURATION_FILE, "r", encoding="utf-8") as _f:
     _config = _gyml.load(_f)
 
 _bdp = _config["SYSTEM"].get("data_path")
@@ -187,7 +189,7 @@ if BASE_DATA_PATH == _fallback_bdp:
     if not _os.path.exists(CONFIGURATION_FILE):
         _copy(TEMPLATE_CONF_FILE, CONFIGURATION_FILE)
         _stamp_created_with(CONFIGURATION_FILE)
-    with open(CONFIGURATION_FILE, "r") as _f:
+    with open(CONFIGURATION_FILE, "r", encoding="utf-8") as _f:
         _config = _gyml.load(_f)
 
 OPT_DATA_ROOT_FOLDER: str = _os.path.join(BASE_DATA_PATH, "OPTData")

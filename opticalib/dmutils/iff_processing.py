@@ -539,9 +539,10 @@ def add_mode_to_cube(
     cmdmat_path = _os.path.join(_IMFOLD, tn, _MATRIX_FILE)
     modesvec_path = _os.path.join(_IMFOLD, tn, _MODES_FILE)
 
-    cube = _osu.load_fits(cube_path)
-    cmdmat = _osu.load_fits(cmdmat_path)
-    modesvec = _osu.load_fits(modesvec_path)
+    # memmap=False: the files are overwritten below (Windows forbids it otherwise)
+    cube = _osu.load_fits(cube_path, memmap=False)
+    cmdmat = _osu.load_fits(cmdmat_path, memmap=False)
+    modesvec = _osu.load_fits(modesvec_path, memmap=False)
 
     # Add the new mode to the cube, cmdmat and modesvec
     new_cube = _add_vect_to_mat(mode_img, cube, mode_id, axis=2)

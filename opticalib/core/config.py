@@ -141,7 +141,7 @@ def load(path: str | None = None) -> dict[str, _Any]:
         The configuration dictionary.
     """
     fname = _resolve_config_path(path)
-    with open(fname, "r") as f:
+    with open(fname, "r", encoding="utf-8") as f:
         config = yaml.safe_load(f) or {}
     return config
 
@@ -158,7 +158,7 @@ def dump(config: dict[str, _Any], path: str | None = None) -> None:
         Base path of the file to write. Default points to the configuration root folder.
     """
     fname = _resolve_config_path(path)
-    with open(fname, "w") as f:
+    with open(fname, "w", encoding="utf-8") as f:
         yaml.safe_dump(config, f, sort_keys=False)
 
 
@@ -370,6 +370,7 @@ def get_device_config(device_type: str, device_name: str | None = None):
 # |              IFF configuration section handling                           |#
 ### ------------------------------------------------------------------------ ###
 
+
 def get_iff_config(key: str | None, bpath: str = _cfold):
     """
     Reads the configuration from the YAML file for the IFF acquisition.
@@ -448,9 +449,9 @@ def copy_iff_config_file(tn: str, old_path: str = _cfold):
     """
     config = _get_section_config(section="INFLUENCE.FUNCTIONS", path=old_path)
     nfname = _os.path.join(_iffold, tn, "iffConfig.yaml")
-    with open(nfname, "w") as f:
+    with open(nfname, "w", encoding="utf-8") as f:
         yaml.safe_dump(config, f, sort_keys=False)
-    print(f"IFF configuration copied to {nfname.rsplit('/' + yaml_config_file, 1)[0]}")
+    print(f"IFF configuration copied to {_os.path.dirname(nfname)}")
     return nfname
 
 
@@ -497,9 +498,11 @@ def update_iff_config(tn: str, item: str | list[str], value: _Any | list[_Any]):
         config[key][item] = str(value)
     dump(config, file)
 
+
 ### ------------------------------------------------------------------------ ###
 # |                           General utilities                               |#
 ### ------------------------------------------------------------------------ ###
+
 
 def get_configuration_version(path: str | None = None) -> str | None:
     """
@@ -651,9 +654,11 @@ def _parse_val(val: _Any):
             raise ValueError(f"Value type {type(val)} could not be recognized.")
     return val
 
+
 ### ------------------------------------------------------------------------ ###
 # |              Legacy configuration handling. To be checked                 |#
 ### ------------------------------------------------------------------------ ###
+
 
 def get_cmd_delay(bpath: str = _cfold):
     """
@@ -683,8 +688,6 @@ def get_cmd_delay(bpath: str = _cfold):
     else:
         raise KeyError("Command delay not found in INFLUENCE.FUNCTIONS/DM.")
     return cmdDelay
-
-
 
 
 def get_cameras_config(device_name: str = None):
@@ -804,8 +807,6 @@ def get_stitching_config():
     """
     config = get_section_config("STITCHING")
     return config
-
-
 
 
 def get_phasing_config():

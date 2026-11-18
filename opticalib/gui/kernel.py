@@ -348,7 +348,7 @@ def conda_env_variables(
     prefix = prefix or sys.prefix
     environ = os.environ if environ is None else environ
     try:
-        with open(os.path.join(prefix, "conda-meta", "state")) as f:
+        with open(os.path.join(prefix, "conda-meta", "state"), encoding="utf-8") as f:
             stored = json.load(f).get("env_vars") or {}
     except (OSError, ValueError, AttributeError):
         return {}

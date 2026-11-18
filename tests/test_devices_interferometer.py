@@ -336,10 +336,10 @@ class TestCaptureProduceConfigIntegration:
         """capture() forwards the full remote file path exactly once."""
         self.inst.capture(3, folder_name="tnA")
         self.inst._i4d.burstFramesToSpecificDirectory.assert_called_once_with(
-            "/4d/capture/tnA", 3
+            os.path.join("/4d/capture", "tnA"), 3
         )
         self.inst._i4d.saveConfiguration.assert_called_once_with(
-            "/4d/capture/tnA/SoftwareSettings.4dini"
+            os.path.join("/4d/capture", "tnA", "SoftwareSettings.4dini")
         )
 
     def test_capture_burst_and_return(self):
@@ -347,7 +347,7 @@ class TestCaptureProduceConfigIntegration:
         tn = self.inst.capture(3, folder_name="tnA")
         assert tn == "tnA"
         self.inst._i4d.burstFramesToSpecificDirectory.assert_called_once_with(
-            "/4d/capture/tnA", 3
+            os.path.join("/4d/capture", "tnA"), 3
         )
 
     def test_capture_generates_tn(self):
@@ -358,7 +358,7 @@ class TestCaptureProduceConfigIntegration:
         """produce(load_interf_config=True) loads the capture-folder settings."""
         self.inst.produce("tnA", load_interf_config=True)
         self.inst._i4d.loadConfiguration.assert_called_once_with(
-            "/4d/capture/tnA/SoftwareSettings.4dini"
+            os.path.join("/4d/capture", "tnA", "SoftwareSettings.4dini")
         )
         self.inst._rename_4d_files.assert_called_once_with("tnA")
 
@@ -776,6 +776,33 @@ class TestLocateSettingsFile:
         _4DInterferometer._locate_settings_file("abc")
         mock.assert_called_once_with("abc", complete_path=True)
 
+    @pytest.mark.parametrize("variant", ["trailing_sep", "dotdot", "double_sep"])
+    def test_opd_root_non_normalized(self, env, monkeypatch, variant):
+        """The OPDImages copy is preferred whatever the form of the root path."""
+        opd, state, root = env
+        raw = {
+            "trailing_sep": str(opd) + os.sep,
+            "dotdot": os.path.join(str(opd), "..", "opd"),
+            "double_sep": str(opd.parent) + os.sep + os.sep + opd.name,
+        }[variant]
+        monkeypatch.setattr(f"{_MOD}._Folds.OPD_IMAGES_ROOT_FOLDER", raw)
+        in_opd = self._folder(opd, "tn")
+        other = self._folder(root, "other")
+        f = _write_ini(in_opd / "Copied.ini")
+        _write_ini(other / "Copied.ini")
+        state["ret"] = [str(other), str(in_opd)]
+        assert _4DInterferometer._locate_settings_file("tn") == f
+
+    def test_ambiguous_outside_opd_raises(self, env):
+        """Several matches, none under OPDImages: ValueError."""
+        _, state, root = env
+        a, b = self._folder(root, "a"), self._folder(root, "b")
+        _write_ini(a / "Copied.ini")
+        _write_ini(b / "Copied.ini")
+        state["ret"] = [str(a), str(b)]
+        with pytest.raises(ValueError, match="Ambiguous"):
+            _4DInterferometer._locate_settings_file("tn")
+
 
 class TestIntoFullFrameRealConfig:
     """Tests for ``into_full_frame`` with real ini files."""
@@ -844,3 +871,46 @@ class TestIntoFullFrameRealConfig:
                 ma.masked_array(np.ones((2, 2))),
                 config_path=str(tmp_path / "nope.ini"),
             )
+
+
+class TestRename4DFiles:
+    """Tests for ``_4DInterferometer._rename_4d_files``."""
+
+    @pytest.fixture
+    def inst(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(f"{_MOD}._OPDIMG", str(tmp_path))
+        (tmp_path / "tn").mkdir()
+        return object.__new__(_4DInterferometer), tmp_path / "tn"
+
+    def test_pads_to_five_digits_and_is_idempotent(self, inst):
+        obj, d = inst
+        for n in ("1.4D", "00002.4D", "10.4D"):
+            (d / n).write_bytes(b"x")
+        obj._rename_4d_files("tn")
+        expected = ["00001.4D", "00002.4D", "00010.4D"]
+        assert sorted(os.listdir(d)) == expected
+        obj._rename_4d_files("tn")  # second run: no error, stable result
+        assert sorted(os.listdir(d)) == expected
+
+    def test_content_preserved(self, inst):
+        obj, d = inst
+        (d / "7.4D").write_bytes(b"seven")
+        obj._rename_4d_files("tn")
+        assert (d / "00007.4D").read_bytes() == b"seven"
+
+    def test_non_numeric_and_other_extensions_untouched(self, inst):
+        obj, d = inst
+        for n in ("abc.4D", "3.txt", "3.4d", "a.b.4D"):
+            (d / n).write_bytes(b"x")
+        obj._rename_4d_files("tn")
+        assert sorted(os.listdir(d)) == sorted(["abc.4D", "3.txt", "3.4d", "a.b.4D"])
+
+    def test_empty_folder(self, inst):
+        obj, d = inst
+        obj._rename_4d_files("tn")
+        assert os.listdir(d) == []
+
+    def test_missing_folder_raises(self, inst):
+        obj, _ = inst
+        with pytest.raises(OSError):
+            obj._rename_4d_files("nope")
