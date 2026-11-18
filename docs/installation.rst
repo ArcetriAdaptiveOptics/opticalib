@@ -15,7 +15,8 @@ are optional, see :ref:`optional-extras`.
    Linux and Windows, so it is not installed on macOS.  Everything else works;
    only the :class:`~opticalib.devices.cameras.GigaVision` camera (and the
    devices built on it, such as the ``Ingot`` WFS camera) raises an
-   ``ImportError`` when created.
+   ``ImportError`` when created.  With a Python from the python.org installer,
+   see also :ref:`macos-certificates`.
 
 .. note::
    **Windows**: the camera live view (:meth:`GigaVision.live_view
@@ -113,3 +114,67 @@ Verifying the installation
 After installation you can verify that the package is importable::
 
     python -c "import opticalib; print(opticalib.__version__)"
+
+Troubleshooting
+---------------
+
+.. _macos-certificates:
+
+macOS: certificate error when downloading the simulator data
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The simulators download their reference data from GitHub the first time they
+need it (see :func:`~opticalib.simulator.prefetch_simdata`).  On macOS this can
+fail with an error like::
+
+    FileNotFoundError: Cannot download simulator data file 'm4_data.h5' from
+    'https://github.com/...': <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED]
+    certificate verify failed: unable to get local issuer certificate (...)>
+
+**Cause.** Your Python comes from the `python.org installer`_, which does not
+use the macOS system certificates: it needs its own certificate bundle,
+installed by the *Install Certificates.command* script that comes with it.
+Until that script is run, Python cannot verify any HTTPS server.  ``pip``
+still works, because it carries its own certificates, so installing
+``opticalib`` succeeds and only the download fails.  Pythons from conda
+(Anaconda, Miniconda, Miniforge) or Homebrew are not affected.
+
+**Fix: run Install Certificates.command.**  It can be run at any time, also
+long after installing Python.  First check which Python version you use::
+
+    python3 -c "import sys; print('%d.%d' % sys.version_info[:2])"
+
+then run the script of that version (here 3.11)::
+
+    open "/Applications/Python 3.11/Install Certificates.command"
+
+or double-click *Install Certificates.command* in the *Python 3.11* folder
+inside *Applications* in Finder.  It installs the ``certifi`` certificate bundle and
+links it where that Python's OpenSSL looks for certificates.  The fix applies
+to that Python installation and to every virtual environment created from it.
+Restart your Python session (or ``calpy``) afterwards.
+
+If the *Python 3.11* folder is missing from *Applications*, run the
+python.org installer of the same version again to restore it, or use the
+alternative below.
+
+**Alternative: point Python to the certifi bundle.**  Without running the
+script, you can tell OpenSSL which certificate file to use with the
+``SSL_CERT_FILE`` environment variable.  ``certifi`` is installed together with
+``opticalib``; from the environment where ``opticalib`` is installed, run::
+
+    export SSL_CERT_FILE="$(python -m certifi)"
+
+This lasts for the current terminal only.  To make it permanent, add that
+line, with the path printed by ``python -m certifi`` written out in full, to
+your ``~/.zshrc``.
+
+**Check.**  Both commands must end without errors::
+
+    python -c "import urllib.request; urllib.request.urlopen('https://github.com'); print('OK')"
+    python -c "from opticalib.simulator import prefetch_simdata; prefetch_simdata()"
+
+The second one downloads every simulator data file into the local cache, so
+later sessions work offline.
+
+.. _python.org installer: https://www.python.org/downloads/macos/

@@ -288,7 +288,7 @@ class BaseFakeDp(BaseSimulatedDM):
             img = np.ma.masked_array(pimg, mask=pmask)
         return geo.rotate_image(img, angle_deg=-70)
 
-    def _mirror_command(self, cmd: _t.ArrayLike, diff: bool, modal: bool):
+    def _mirror_command(self, cmd: _t.ArrayLike, differential: bool, modal: bool=False):
         """
         Applies the given command to the deformable mirror.
 
@@ -316,7 +316,7 @@ class BaseFakeDp(BaseSimulatedDM):
                 mode_img = np.dot(self.zm[s], cmx)
                 cmx = np.dot(mode_img, self.rm[s])
             cmd_amp = cmx
-            if not diff:
+            if not differential:
                 cmd_amp = cmx - self._act_pos[s]
             self._shape[idx] += np.dot(cmd_amp, self.im[s])
             self._act_pos[s] += cmd_amp
