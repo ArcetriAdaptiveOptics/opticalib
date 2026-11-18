@@ -177,7 +177,7 @@ class TestStackCubes:
         )
 
         tnlist = [tn1, tn2]
-        monkeypatch.setattr(ifp, "_check_stacked_cubes", lambda tn_list: {'Flag':{'Cube type': 'sequential stack'}})
+        # monkeypatch.setattr(ifp, "_check_stacked_cubes", lambda tn_list: {'Flag':{'Cube type': 'sequential stack'}})
         ifp.stack_cubes(tnlist, cube_names=None)
 
         # Verify stacked cube was created
