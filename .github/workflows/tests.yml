@@ -104,6 +104,7 @@ jobs:
     name: Pytest (Python ${{ matrix.python-version }} - macOS ${{ matrix.arch }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
+    continue-on-error: false
 
     strategy:
       fail-fast: false
@@ -191,7 +192,7 @@ jobs:
     timeout-minutes: 90
     # Not blocking yet: the suite has known Windows failures (path handling,
     # open files on cleanup).  Set to false once the job is green.
-    continue-on-error: true
+    continue-on-error: false
 
     defaults:
       run:
