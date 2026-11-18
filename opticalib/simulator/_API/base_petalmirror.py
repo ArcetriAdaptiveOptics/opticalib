@@ -50,7 +50,7 @@ class BaseFakePTL(BaseSimulatedDM):
         self._slaveIds = []
         self._borderIds = []
 
-    def _mirror_command(self, cmd: _ot.ArrayLike, diff: bool):
+    def _mirror_command(self, cmd: _ot.ArrayLike, differential: bool):
         """
         Applies the given command to the deformable mirror.
 
@@ -66,7 +66,7 @@ class BaseFakePTL(BaseSimulatedDM):
             calibrated_cmd = cmd[jj * 3 : (jj + 1) * 3] * self._unit_calib
             cmd_amp = _np.dot(calibrated_cmd, self._K.T)
 
-            if not diff:
+            if not differential:
                 cmd_amp -= self._act_pos[jj * 3 : (jj + 1) * 3]
 
             self._shape[idx] += _np.dot(cmd_amp, self.im[jj])
