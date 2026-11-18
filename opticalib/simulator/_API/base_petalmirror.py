@@ -222,7 +222,7 @@ class BaseFakePTL(BaseSimulatedDM):
         cmd = osu.load_fits(get_simdata_file("ptl_init.fits"))
 
         self._shape[cr == 0] += cs[cr == 0]
-        self._mirror_command(cmd, diff=False)
+        self._mirror_command(cmd, differential=False)
 
     def _n2modes(self, act_cmd: _ot.ArrayLike) -> _ot.ArrayLike:
         """
