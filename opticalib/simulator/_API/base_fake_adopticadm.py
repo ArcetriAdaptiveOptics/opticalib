@@ -43,23 +43,33 @@ class BaseFakeM4(BaseSimulatedDM):
 
     def __init__(self):
         """The constuctor"""
-        ## -- DATA LOADING AND CREATION -- ##
-        self._name = "M4AU"
-        self._load_m4_data()
-        self._ZM = None
-
         ## -- DM properties -- ##
         self.is_segmented = True
         self.n_segments = 6
         self.n_acts_per_segment = 892
         self.n_acts = self.n_acts_per_segment * self.n_segments
+        self._slaveIds = []
+        self._borderIds = []
+
+        ## -- DATA LOADING AND CREATION -- ##
+        self._name = "M4AU"
+        self._load_m4_data()
+        self._ZM = None
 
         ## -- INITIALIZATION -- ##
         super().__init__()
         self._shape = (
             np.ma.masked_array(self._mask * 0, mask=self._mask, dtype=float)
-        ).flatten()
+        )
         self._seg_masks = roi.roi_generator(self._shape)
+
+    @property
+    def slave_ids(self):
+        return self._slaveIds
+
+    @property
+    def border_ids(self):
+        return self._borderIds
 
     @property
     def act_coord(self) -> _t.ArrayLike:
@@ -288,7 +298,12 @@ class BaseFakeDp(BaseSimulatedDM):
             img = np.ma.masked_array(pimg, mask=pmask)
         return geo.rotate_image(img, angle_deg=-70)
 
-    def _mirror_command(self, cmd: _t.ArrayLike, differential: bool, modal: bool=False):
+    def _mirror_command(
+        self,
+        cmd: _t.ArrayLike,
+        differential: bool = False,
+        modal: bool=False
+    ):
         """
         Applies the given command to the deformable mirror.
 

@@ -355,6 +355,70 @@ class TestDevicePanel:
         assert requested == [("INTERFEROMETERS", "Mystery")]
 
 
+class TestDisconnect:
+    """The Disconnect button of connected cards."""
+
+    @staticmethod
+    def _connect(panel, key="sim:petal"):
+        card = panel.card(key)
+        card._button.click()
+        task = panel.tasks[-1]
+        task._start("m")
+        task._finish("done")
+        assert card.status == "connected"
+        return card
+
+    def test_buttons_follow_the_connection(self, panel):
+        card = panel.card("sim:petal")
+        assert card._button.text() == "Connect" and card._disconnect_button.isHidden()
+        self._connect(panel)
+        assert card._button.text() == "Reconnect" and not card._disconnect_button.isHidden()
+        assert "'dm'" in card._disconnect_button.toolTip()
+        card.set_status("error", "boom")
+        assert card._disconnect_button.isHidden()
+
+    def test_disconnect_deletes_the_variable(self, panel):
+        card = self._connect(panel)
+        count = len(panel.tasks)
+        card._disconnect_button.click()
+        assert len(panel.tasks) == count + 1
+        task = panel.tasks[-1]
+        assert task.code == "_gui.release('dm')" and card.status == "disconnecting"
+        assert not card._button.isEnabled() and card._disconnect_button.isHidden()
+        task._start("m")
+        task._finish("done")
+        assert card.status == "disconnected" and card._button.text() == "Connect"
+        assert card._button.isEnabled()
+
+    def test_variable_already_gone(self, panel):
+        card = self._connect(panel)
+        card._disconnect_button.click()
+        task = panel.tasks[-1]
+        task._start("m")
+        task._finish("error", {"ename": "NameError", "evalue": "name 'dm' is not defined"})
+        assert card.status == "disconnected"
+
+    def test_failure_is_reported(self, panel):
+        card = self._connect(panel)
+        card._disconnect_button.click()
+        task = panel.tasks[-1]
+        task._start("m")
+        task._finish("error", {"ename": "RuntimeError", "evalue": "hardware busy"})
+        assert card.status == "error" and "hardware busy" in card.message
+
+    def test_dependent_cards_follow(self, panel):
+        self._connect(panel)
+        interf = panel.card("sim:interf")
+        panel.update_workspace([_ws("dm", "PetalMirror", "opticalib.simulator.fake_dms", "dm")])
+        assert interf.status == "disconnected"
+        card = panel.card("sim:petal")
+        card._disconnect_button.click()
+        panel.tasks[-1]._start("m")
+        panel.tasks[-1]._finish("done")
+        panel.update_workspace([])
+        assert interf.status == "unavailable"
+
+
 class TestConnectDialog:
     """Tests for the connect dialog and how the panel applies it."""
 
@@ -907,15 +971,16 @@ class TestCollapsibleGroups:
 
     def test_summary_follows_the_cards(self, panel):
         section = panel.simulated_section
-        assert section._summary.text() == "4 devices"
+        total = f"{len(dp.SIMULATED_DEVICES)} devices"
+        assert section._summary.text() == total
         card = panel.card("sim:alpao")
         card.set_status("connected")
-        assert "4 devices" in section._summary.text() and "1 connected" in section._summary.text()
+        assert total in section._summary.text() and "1 connected" in section._summary.text()
         panel.card("sim:dp").set_status("error", "boom")
         assert "1 failed" in section._summary.text()
         card.set_status("disconnected")
         panel.card("sim:dp").set_status("disconnected")
-        assert section._summary.text() == "4 devices"
+        assert section._summary.text() == total
         # The configured group counts only its own cards.
         assert "connected" not in panel.configured_section._summary.text()
 

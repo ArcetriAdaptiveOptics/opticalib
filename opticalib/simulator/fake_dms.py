@@ -241,7 +241,12 @@ class M4AU(BaseFakeM4):
     def __repr__(self) -> str:
         return f"{self._name}(n_segments={self.n_segments}, n_acts_per_segment={self.n_acts_per_segment})"
 
-    def _mirror_command(self, cmd: _t.ArrayLike, diff: bool, modal: bool):
+    def _mirror_command(
+        self,
+        cmd: _t.ArrayLike,
+        differential: bool = False,
+        modal: bool = False
+    ):
         """
         Applies the given command to the deformable mirror.
 
@@ -258,6 +263,7 @@ class M4AU(BaseFakeM4):
         numpy.ndarray
             Processed shape based on the command.
         """
+        shape = self._shape.flatten()
         if not len(cmd) == self.n_acts:
             raise CommandError(
                 f"Command length {len(cmd)} does not match the number of actuators {self.n_acts}."
@@ -274,8 +280,10 @@ class M4AU(BaseFakeM4):
             else:
                 cmd_amp = cmd[seg * nsag : (seg + 1) * nsag]
 
-            if not diff:
+            if not differential:
                 cmd_amp = cmd_amp - self._act_pos[seg * nsag : (seg + 1) * nsag]
 
-            self._shape[idx] += np.dot(cmd_amp, self.im[seg])
+            shape[idx] += np.dot(cmd_amp, self.im[seg])
             self._act_pos[seg * nsag : (seg + 1) * nsag] += cmd_amp
+        
+        self._shape = shape.reshape(self._mask.shape)

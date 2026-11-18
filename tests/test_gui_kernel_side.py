@@ -438,3 +438,61 @@ class TestUseExperiment:
         assert removed == ["my_driver"]
         assert "installed_thing" in sys.modules and "opticalib.gui.kernel_side" in sys.modules
 
+
+class TestRelease:
+    """Deleting a device variable lets its class clean up."""
+
+    @pytest.fixture
+    def shell(self):
+        from IPython.core.interactiveshell import InteractiveShell
+
+        shell = InteractiveShell.instance()
+        shell.run_cell(
+            "released = []\n"
+            "class Device:\n"
+            "    def __del__(self):\n"
+            "        released.append(1)\n",
+            store_history=True,
+        )
+        yield shell
+        shell.reset()
+
+    @staticmethod
+    def _run(shell, *cells):
+        for cell in cells:
+            assert shell.run_cell(cell, store_history=True).success
+
+    def test_plain_del_is_not_enough_after_show_in_console(self, shell):
+        """The case that motivates it: the displayed object sits in ``Out``."""
+        self._run(shell, "dm = Device()", "dm", "del dm\nimport gc; gc.collect()")
+        assert shell.user_ns["released"] == []
+
+    def test_release_frees_the_displayed_object(self, shell):
+        self._run(shell, "dm = Device()", "dm", "keep = 1")
+        ks.release("dm", shell)
+        assert shell.user_ns["released"] == [1]
+        assert "dm" not in shell.user_ns and shell.user_ns["keep"] == 1
+        assert not any(v.__class__.__name__ == "Device" for v in shell.user_ns["Out"].values())
+
+    def test_release_inside_a_cell(self, shell):
+        """As the GUI runs it: in a cell of its own, after the display."""
+        shell.user_ns["_gui"] = ks
+        self._run(shell, "dm = Device()", "dm", "_gui.release('dm')")
+        assert shell.user_ns["released"] == [1] and "dm" not in shell.user_ns
+
+    def test_other_holders_keep_the_object(self, shell):
+        self._run(shell, "dm = Device()", "holder = [dm]")
+        ks.release("dm", shell)
+        assert "dm" not in shell.user_ns and shell.user_ns["released"] == []
+        self._run(shell, "holder.clear()", "import gc; gc.collect()")
+        assert shell.user_ns["released"] == [1]
+
+    def test_after_a_reset(self, shell):
+        self._run(shell, "dm = Device()")
+        shell.last_execution_result = None
+        ks.release("dm", shell)
+        assert "dm" not in shell.user_ns and shell.user_ns["released"] == [1]
+
+    def test_unknown_variable(self, shell):
+        with pytest.raises(NameError, match="dm"):
+            ks.release("dm", shell)

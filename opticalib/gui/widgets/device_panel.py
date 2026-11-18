@@ -187,6 +187,18 @@ SIMULATED_DEVICES: List[DeviceInfo] = [
         "downloads data and computes the influence functions.",
     ),
     DeviceInfo(
+        key="sim:m4",
+        title="M4 Adaptive Unit",
+        kind="dm",
+        var_name="dm",
+        class_name="M4AU",
+        module_prefix="opticalib.simulator",
+        build_code=_simulated("from opticalib.simulator import M4AU\ndm = M4AU()"),
+        simulated=True,
+        tooltip="Simulated AdOptica M4 Adaptive Unit (6 segments). The first build "
+        "downloads all the mirror's official simulated data.",
+    ),
+    DeviceInfo(
         key="sim:petal",
         title="Petal mirror",
         kind="dm",
@@ -329,6 +341,7 @@ STATUS_STYLES: Dict[str, Tuple[str, str]] = {
     "queued": ("Queued", "warning"),
     "connecting": ("Connecting…", "accent"),
     "connected": ("Connected", "success"),
+    "disconnecting": ("Disconnecting…", "warning"),
     "error": ("Failed", "danger"),
     "unavailable": ("Needs a DM", "text_muted"),
     "setup": ("Needs setup", "warning"),
@@ -352,6 +365,8 @@ class DeviceCard(QFrame):
         The user asked to connect the device (the card is passed).
     setup_requested(object)
         The user asked to connect with options (opens the connect dialog).
+    disconnect_requested(object)
+        The user asked to disconnect the device (the card is passed).
     edit_requested(object)
         The user asked to edit the configuration entry.
     action_requested(str, str)
@@ -362,6 +377,7 @@ class DeviceCard(QFrame):
 
     connect_requested = Signal(object)
     setup_requested = Signal(object)
+    disconnect_requested = Signal(object)
     edit_requested = Signal(object)
     action_requested = Signal(str, str)
     status_changed = Signal()
@@ -394,6 +410,10 @@ class DeviceCard(QFrame):
         self._button = QPushButton("Connect")
         self._button.setProperty("accent", True)
         self._button.clicked.connect(self._on_button)
+        self._disconnect_button = QPushButton("Disconnect")
+        self._disconnect_button.clicked.connect(
+            lambda: self.disconnect_requested.emit(self)
+        )
         self._more = QToolButton()
         self._more.setToolTip("More actions")
         self._more.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
@@ -407,11 +427,9 @@ class DeviceCard(QFrame):
         header.addWidget(self._status)
         actions = QHBoxLayout()
         actions.setSpacing(6)
-        if self._combo is not None:
-            actions.addWidget(self._combo, 1)
-        else:
-            actions.addStretch(1)
+        actions.addStretch(1)
         actions.addWidget(self._button)
+        actions.addWidget(self._disconnect_button)
         actions.addWidget(self._more)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(10, 8, 8, 8)
@@ -419,6 +437,10 @@ class DeviceCard(QFrame):
         layout.addLayout(header)
         layout.addWidget(self._subtitle)
         layout.addWidget(self._problem)
+        # The option has a row of its own: next to the Reconnect and
+        # Disconnect buttons it would not fit in a narrow panel.
+        if self._combo is not None:
+            layout.addWidget(self._combo)
         layout.addLayout(actions)
 
         theme().changed.connect(self._refresh)
@@ -496,8 +518,14 @@ class DeviceCard(QFrame):
         self._status.setText(f"<span style='color:{t.tokens[token]}'>●</span> {label}")
         self._status.setToolTip(self.message)
         self._more.setIcon(t.icon("dots-vertical"))
-        busy = self.status in ("queued", "connecting")
+        busy = self.status in ("queued", "connecting", "disconnecting")
         self._button.setEnabled(not busy and self.status != "unavailable")
+        # Only a connected device can be disconnected.
+        self._disconnect_button.setVisible(self.status == "connected")
+        self._disconnect_button.setToolTip(
+            f"Delete '{self.info.var_name}' from the kernel; the device class "
+            "releases the hardware when the object is deleted."
+        )
         if shown == "setup":
             self._button.setText("Set up…")
         else:
@@ -748,6 +776,7 @@ class DevicePanel(QWidget):
         card = DeviceCard(info)
         card.connect_requested.connect(self._connect)
         card.setup_requested.connect(self.open_connect_dialog)
+        card.disconnect_requested.connect(self._disconnect)
         card.edit_requested.connect(
             lambda c: self.edit_config_requested.emit(
                 c.info.entry.section, c.info.entry.name
@@ -895,6 +924,42 @@ class DevicePanel(QWidget):
         if task is not None:
             task.changed.connect(started)
 
+    def _disconnect(self, card: DeviceCard) -> None:
+        """
+        Delete the variable of a connected device in the kernel.
+
+        The command is run (and echoed) in the console; the class of the
+        device closes the hardware when the object is deleted (see
+        :func:`~opticalib.gui.kernel_side.release`).
+        """
+        key = card.info.key
+        var = card.info.var_name
+
+        def done(task):
+            c = self._cards.get(key)
+            if c is not None:
+                c.set_status("disconnected")
+
+        def failed(task):
+            c = self._cards.get(key)
+            if c is None:
+                return
+            error = task.error or {}
+            if error.get("ename") == "NameError":
+                # The variable was already gone: that is what was asked.
+                c.set_status("disconnected")
+            else:
+                c.set_status(
+                    "error",
+                    f"{error.get('ename', 'Error')}: {error.get('evalue', '')}",
+                )
+
+        task = self._runner(
+            f"_gui.release({var!r})", f"Disconnecting {card.info.title}", done, failed
+        )
+        if task is not None:
+            card.set_status("disconnecting")
+
     def _mark_owner(self, owner: DeviceCard) -> None:
         """Only *owner* is connected to its variable after a (re)connection."""
         for card in self._cards.values():
@@ -952,7 +1017,11 @@ class DevicePanel(QWidget):
                 ):
                     candidates[0].set_status("connected")
         for card in cards:
-            if card.info.requires is None or card.status in ("queued", "connecting"):
+            if card.info.requires is None or card.status in (
+                "queued",
+                "connecting",
+                "disconnecting",
+            ):
                 continue
             available = any(
                 item.get("kind") == card.info.requires and name == card.info.requires

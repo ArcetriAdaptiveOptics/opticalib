@@ -220,8 +220,6 @@ def rotate_image(
     -------
     rotated_img : numpy.ma.MaskedArray
         The rotated masked image.
-    rotated_points : numpy.ndarray
-        The rotated ``(N, 2)`` array of pixel coordinates.
     """
     from scipy.ndimage import affine_transform
 

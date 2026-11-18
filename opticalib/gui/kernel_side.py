@@ -26,6 +26,7 @@ MIME types below; the GUI console intercepts them.
 """
 
 import base64 as _base64
+import gc as _gc
 import io as _io
 import itertools as _itertools
 import json as _json
@@ -543,6 +544,41 @@ def backend() -> str:
             "available": bool(getattr(_core, "_GPU_AVAILABLE", False)),
         }
     )
+
+
+def release(name: str, shell=None) -> None:
+    """
+    Delete a variable and let go of the object it held (like ``%xdel``).
+
+    The object is deleted when nothing refers to it any more: its class can
+    then release the hardware (``__del__``).  Besides the variable, IPython
+    keeps references to what it displayed (``Out[n]``, ``_``, the last
+    result), e.g. after *Show in console*: they are dropped too, with any
+    other name bound to the same object, and a garbage collection frees the
+    reference cycles.  Holders outside the namespace (e.g. an interferometer
+    built on the DM) are left alone, and keep the object alive.
+
+    Parameters
+    ----------
+    name : str
+        Variable to delete.
+    shell : InteractiveShell, optional
+        The IPython shell; defaults to the running one.
+
+    Raises
+    ------
+    NameError
+        If the variable does not exist.
+    """
+    shell = shell or _shell()
+    if name not in shell.user_ns:
+        raise NameError(f"name {name!r} is not defined")
+    try:
+        shell.del_var(name, by_name=False)
+    except AttributeError:
+        # IPython fails to look at the last result after a ``%reset``.
+        shell.user_ns.pop(name, None)
+    _gc.collect()
 
 
 #: Experiment folder this module put on ``sys.path`` (see :func:`use_experiment`).
