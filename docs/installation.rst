@@ -10,6 +10,13 @@ scientific Python libraries that are listed in the ``dependencies`` of
 automatically when you use ``pip``.  The graphical interface and the GPU backend
 are optional, see :ref:`optional-extras`.
 
+.. note::
+   **macOS**: ``vmbpy`` (the Allied Vision Vimba X SDK) is distributed only for
+   Linux and Windows, so it is not installed on macOS.  Everything else works;
+   only the :class:`~opticalib.devices.cameras.GigaVision` camera (and the
+   devices built on it, such as the ``Ingot`` WFS camera) raises an
+   ``ImportError`` when created.
+
 Installing from PyPI (stable release)
 --------------------------------------
 

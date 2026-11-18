@@ -9,8 +9,18 @@ and frame retrieval.
 """
 
 import time as _time
-import vmbpy as _vmbpy
 import threading as _th
+
+try:
+    import vmbpy as _vmbpy
+
+    _VMBPY_IMPORT_ERROR = None
+except ImportError as _exc:
+    # vmbpy ships no wheels for macOS (only Linux and Windows): keep
+    # ``opticalib.devices`` importable there, GigaVision raises on creation
+    # (chaining this error, which also reveals a broken install elsewhere).
+    _vmbpy = None
+    _VMBPY_IMPORT_ERROR = _exc
 
 from ..core import _types as _ot
 from ..core.decorators import allow_reconnect as _ar
@@ -20,8 +30,17 @@ from ._API.base_devices import BaseCamera
 from ._API.cameras.frame_buffer import FrameBuffer as _FrameBuffer
 from ._API.cameras.GigE_live_viewer import ViewerProcess as _ViewerProcess
 
+# SDK exceptions retried by ``allow_reconnect``.  Without vmbpy the camera
+# cannot be created, so only the generic errors are left.
+if _vmbpy is not None:
+    _FEATURE_ERRORS = (_vmbpy.VmbFeatureError, AttributeError)
+    _ACQUISITION_ERRORS = (_vmbpy.VmbCameraError, _vmbpy.VmbTimeout, AttributeError)
+else:
+    _FEATURE_ERRORS = (AttributeError,)
+    _ACQUISITION_ERRORS = (AttributeError,)
 
-def _frame_to_array(frame: _vmbpy.Frame) -> _ot.ImageData:
+
+def _frame_to_array(frame: "_vmbpy.Frame") -> _ot.ImageData:
     """Copy a Vimba frame into a numpy array: (H, W) mono, (C, H, W) color."""
     img = frame.as_numpy_ndarray()  # a *view* on the SDK buffer, shape (H, W, C)
     img = img[:, :, 0] if img.shape[2] == 1 else img.transpose(2, 0, 1)
@@ -40,7 +59,18 @@ class GigaVision(BaseCamera):
         name : str
             The name of the camera to be used, as defined in the configuration
             file.
+
+        Raises
+        ------
+        ImportError
+            If ``vmbpy`` is not installed (it has no macOS distribution).
         """
+        if _vmbpy is None:
+            raise ImportError(
+                "GigaVision needs the Allied Vision 'vmbpy' package (Vimba X "
+                "SDK), which could not be imported. It is distributed only for "
+                "Linux and Windows: there, install it with 'pip install vmbpy'."
+            ) from _VMBPY_IMPORT_ERROR
         self._name = name
         self._cam_config = _gcc(device_name=self._name)
         self._logger = _sl(__class__)
@@ -202,7 +232,7 @@ class GigaVision(BaseCamera):
             finally:
                 self._vimba = None
 
-    @_ar(error_instance=(_vmbpy.VmbFeatureError, AttributeError))
+    @_ar(error_instance=_FEATURE_ERRORS)
     def get_exptime(self) -> float:
         """
         Get the exposure time of the camera in micro-seconds.
@@ -217,7 +247,7 @@ class GigaVision(BaseCamera):
             self._exptime = exptimeFeat.get()
         return self._exptime
 
-    @_ar(error_instance=(_vmbpy.VmbFeatureError, AttributeError))
+    @_ar(error_instance=_FEATURE_ERRORS)
     def set_exptime(self, exptime_us: float):
         """
         Set the exposure time of the camera.
@@ -284,7 +314,7 @@ class GigaVision(BaseCamera):
                 self._buffer.interrupt()  # waiters raise now, not at timeout
                 self._buffer.clear()  # free the memory of the stored frames
 
-    def _on_frame(self, cam: _vmbpy.Camera, stream: _vmbpy.Stream, frame: _vmbpy.Frame):
+    def _on_frame(self, cam: "_vmbpy.Camera", stream: "_vmbpy.Stream", frame: "_vmbpy.Frame"):
         """
         Frame handler: runs in the **Vimba SDK thread**, once per frame.
 
@@ -306,7 +336,7 @@ class GigaVision(BaseCamera):
             # always give the buffer back to the camera, even on errors
             cam.queue_frame(frame)
 
-    @_ar(error_instance=(_vmbpy.VmbCameraError, _vmbpy.VmbTimeout, AttributeError))
+    @_ar(error_instance=_ACQUISITION_ERRORS)
     def acquire_frames(
         self,
         nframes: int | None = None,

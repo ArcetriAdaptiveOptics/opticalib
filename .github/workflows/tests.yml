@@ -94,6 +94,92 @@ jobs:
         run: |
           pytest --cov=opticalib -rs --verbosity=1 2>&1 | tee "$RUNNER_TEMP/pytest.log"
 
+  test_macos:
+    # Installs opticalib exactly as a macOS user does (``pip install -e .``)
+    # and runs the test suite there.  vmbpy (Allied Vision SDK) publishes no
+    # macOS distribution, so pyproject.toml excludes it on darwin: this job
+    # catches any new dependency that cannot be installed on macOS, and any
+    # code that stops importing without vmbpy.  macos-latest is Apple Silicon
+    # (arm64); macos-15-intel covers the Intel Macs still in use in the lab.
+    name: Pytest (Python ${{ matrix.python-version }} - macOS ${{ matrix.arch }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            arch: arm64
+            python-version: "3.11" # minimum version
+          - os: macos-latest
+            arch: arm64
+            python-version: "3.14" # latest version supported by every dependency
+          # TODO: drop when GitHub retires its last Intel macOS image.
+          - os: macos-15-intel
+            arch: x86_64
+            python-version: "3.11"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history + tags: setuptools-scm derives the version
+
+      - name: Set up Python
+        id: python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Create the virtual environment
+        run: |
+          python -m venv "$RUNNER_TEMP/venv"
+          echo "VIRTUAL_ENV=$RUNNER_TEMP/venv" >> "$GITHUB_ENV"
+          echo "$RUNNER_TEMP/venv/bin" >> "$GITHUB_PATH"
+
+      - name: Cache pip downloads
+        # The weekly run (schedule) deliberately downloads everything afresh.
+        if: github.event_name != 'schedule'
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/pip
+          key: pip-${{ runner.os }}-${{ runner.arch }}-py${{ steps.python.outputs.python-version }}-nogui-${{ hashFiles('pyproject.toml') }}
+          restore-keys: |
+            pip-${{ runner.os }}-${{ runner.arch }}-py${{ steps.python.outputs.python-version }}-nogui-
+
+      - name: Install opticalib (base install, as users do)
+        # The plain ``pip install -e .`` is the command that failed on macOS
+        # (no vmbpy distribution): run it on its own so a regression points
+        # straight at the base dependencies, not at the test extras.
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install -e ".[test]"
+          pip install flake8
+          python -c "import sys, platform; print(sys.prefix, platform.machine())"
+
+      - name: Check the macOS install
+        run: |
+          python - <<'PY'
+          import importlib.util
+          import opticalib
+          from opticalib.devices import GigaVision  # noqa: F401  (imports without vmbpy)
+
+          print("opticalib", opticalib.__version__)
+          assert importlib.util.find_spec("vmbpy") is None, "vmbpy should not be installed on macOS"
+          print("macOS install OK")
+          PY
+
+      - name: Lint with flake8
+        run: |
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --exclude ./scripts,./build --exit-zero --max-complexity=10 --max-line-length=127
+
+      - name: Run pytest
+        shell: bash  # -eo pipefail: the exit status of pytest survives `tee`
+        run: |
+          pytest --cov=opticalib -rs --verbosity=1 2>&1 | tee "$RUNNER_TEMP/pytest.log"
+
   test_gui:
     name: Pytest (Python ${{ matrix.python-version }} - GUI)
     runs-on: ubuntu-latest

@@ -36,7 +36,10 @@ dependencies = [
     "astropy",
     "scikit-image",
     "scikit-learn",
-    "vmbpy",
+    # Allied Vision Vimba X SDK: published only as Linux (x86_64/aarch64) and
+    # Windows (amd64) wheels, with no sdist, so it cannot be installed on
+    # macOS.  There, ``opticalib.devices.GigaVision`` raises an ImportError.
+    "vmbpy; sys_platform != 'darwin'",
     "pipython",
     "photutils",
     "scipy",
