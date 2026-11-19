@@ -489,7 +489,8 @@ def stack_cubes(tnlist: list[str], cube_names: _ot.Optional[list[str]] = None) -
     # Stack all components
     stacked_cube = _np.ma.dstack(cube_list)
     stacked_cmat = _np.hstack(cmats)
-    stacked_mvec = _np.dstack(mvecs)
+    stacked_mvec = _np.dstack(mvecs) \
+        if all(_np.ndim(m) <= 2 for m in mvecs) else _np.hstack(mvecs)
     stacked_avec = _np.hstack(avecs)
     # Build header with metadata
     header = {
@@ -1200,7 +1201,7 @@ def _get_cube_list(
         ampvecs.append(_osu.load_fits(ampvec_name))
         rebins.append(int(cube.header.get("REBIN", 1)))
     if not all([rebin == rebins[0] for rebin in rebins]):
-        raise ValueError("Cubes have different rebinning factors")
+        raise ValueError("Can't stack cubes with different rebinning factors.")
     rebin = rebins[0]
     return cubeList, matrixList, modesVectList, ampvecs, rebin
 
