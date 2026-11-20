@@ -30,6 +30,44 @@ def _get_tunable_filter():
 _FILTER_BANDWIDTH_MODE = {"narrow": 8, "medium": 4, "wide": 2, "black": 1}
 
 
+def _read_filter_mode(filt) -> str | None:
+    """
+    Name of the filter's current NON-black bandwidth mode, or None.
+
+    Parameters
+    ----------
+    filt : object | None
+        Tunable filter client (or None).
+
+    Returns
+    -------
+    mode : str | None
+        "wide", "medium" or "narrow". None when: filt is None; filt has no
+        `get_bandwidth_mode`; the call raises; the code is unknown; the mode
+        is "black".
+    """
+
+    def _warn(msg: str):
+        try:
+            _SL("SPL").warning(msg)
+        except Exception:
+            pass
+
+    getter = getattr(filt, "get_bandwidth_mode", None)
+    if getter is None:
+        return None
+    try:
+        code = getter()
+    except Exception as e:
+        _warn(f"Could not read the filter bandwidth mode: {e}")
+        return None
+    for name, value in _FILTER_BANDWIDTH_MODE.items():
+        if code == value:
+            return None if name == "black" else name
+    _warn(f"Unknown filter bandwidth mode code: {code}")
+    return None
+
+
 class SPL:
     """
     Sensor for Phase Lag
@@ -41,10 +79,21 @@ class SPL:
 
     Parameters
     ----------
-    camera: GigaVision
-        The camera used to acquire images in the SPL system
+    camera: str | CameraDevice | None
+        The camera used to acquire images in the SPL system. A device name is
+        used to build a ``GigaVision``; if None, the camera is taken from the
+        ``PHASING.camera`` configuration key (falling back to no camera on
+        failure). The string "none" (case-insensitive) means no camera and no
+        connection attempt (e.g. for hardware-free analysis).
     tunable_filter: object
         The tunable filter client to regulate the wavelength of the incoming light.
+        If None, it is taken from the ``PHASING.filter`` configuration key
+        (falling back to no filter on failure). The string "none"
+        (case-insensitive) means no filter and no connection attempt (e.g. for
+        analysis-only instances). When a filter is present, the remembered
+        sweep mode (`_filter_mode`) is seeded from its current non-black
+        bandwidth mode, read through ``get_bandwidth_mode()`` (codes: 1 black,
+        2 wide, 4 medium, 8 narrow).
     tnfringes: str | None
         The tracking number of the simulated fringes measurements, for template
         comparison during analysis.
@@ -57,7 +106,16 @@ class SPL:
         tnfringes: str | None = None,
     ):
         """
-        The constructor
+        Build the SPL, resolving camera and filter (see the class docstring).
+
+        Parameters
+        ----------
+        camera : str | CameraDevice | None
+            Camera device, device name, "none" or None (use configuration).
+        tunable_filter : object | None
+            Tunable filter client, "none" or None (use configuration).
+        tnfringes : str | None
+            Tracking number of the simulated fringes used as templates.
         """
 
         if isinstance(camera, str):
@@ -76,7 +134,9 @@ class SPL:
             except Exception:
                 camera = None
 
-        if tunable_filter is None:
+        if isinstance(tunable_filter, str) and tunable_filter.lower() == "none":
+            tunable_filter = None
+        elif tunable_filter is None:
             try:
                 tunable_filter = _get_tunable_filter()
             except Exception:
@@ -87,6 +147,7 @@ class SPL:
 
         self.set_tn_fringes(tnfringes)
 
+        self._filter_mode: str | None = _read_filter_mode(self._filter)
         self._darkFrame1sec = None
         self._curr_exptime = None
         self._last_measure_tn = None
@@ -108,10 +169,14 @@ class SPL:
             self._fringes_fold = _os.path.join(_fn.SPL_FRINGES_ROOT_FOLDER, tnfringes)
         else:
             self._fringes_fold = None
+        # Cached templates belong to the previous fringes folder: drop them.
+        self._Qt = None
+        self._Qt_lambda = None
 
     def set_filter_mode(self, mode: str):
         """
-        Set the tunable filter bandwidth mode.
+        Set the tunable filter bandwidth mode. The last non-"black" mode set is
+        remembered in `_filter_mode`.
 
         Parameters
         ----------
@@ -132,6 +197,8 @@ class SPL:
             )
 
         self._filter.set_bandwidth_mode(_FILTER_BANDWIDTH_MODE[mode])
+        if mode != "black":
+            self._filter_mode = mode
         self._logger.info(f"Set filter bandwidth mode to: {mode}")
 
     def set_exptime(self, exptime: float):
@@ -155,7 +222,9 @@ class SPL:
 
     def acquire_dark_frame(self, exptime: float, nframes: int = 1) -> _ot.ImageData:
         """
-        Acquire a dark frame for the camera
+        Acquire a dark frame for the camera, in "black" mode. Afterwards the
+        previous non-black filter mode (if any) is restored, also if the
+        acquisition fails.
 
         Parameters
         ----------
@@ -170,8 +239,20 @@ class SPL:
             The dark frame acquired, scaled to 1 second exposure time
         """
         self.set_exptime(exptime)
+        cur = _read_filter_mode(self._filter)
+        if cur:
+            self._filter_mode = cur
         self.set_filter_mode("black")
-        self._darkFrame1sec = self._camera.acquire_frames(nframes) / exptime
+        try:
+            self._darkFrame1sec = self._camera.acquire_frames(nframes) / exptime
+        finally:
+            if self._filter_mode is not None:
+                self._filter.set_bandwidth_mode(
+                    _FILTER_BANDWIDTH_MODE[self._filter_mode]
+                )
+                self._logger.info(
+                    f"Restored filter bandwidth mode to: {self._filter_mode}"
+                )
 
         if not hasattr(self._darkFrame1sec, "mask"):
             mask = _np.zeros(self._darkFrame1sec.shape)
@@ -253,6 +334,142 @@ class SPL:
         plt.tight_layout()
         plt.show()
 
+    @staticmethod
+    def _validate_lambda(lambda_vector: _ot.ArrayLike | None) -> _np.ndarray:
+        """
+        Validate the wavelengths vector.
+
+        Parameters
+        ----------
+        lambda_vector : ArrayLike | None
+            Wavelengths in nm, between 400 and 720. If None, the default
+            vector `arange(440, 721, 20)` is returned.
+
+        Returns
+        -------
+        lambda_vector : ndarray
+            The validated wavelengths vector.
+
+        Raises
+        ------
+        ValueError
+            If any wavelength is outside the 400-720 nm range.
+        """
+        if lambda_vector is None:
+            return _np.arange(440, 721, 20)
+        lambda_vector = _np.asarray(lambda_vector)
+        if _np.min(lambda_vector) < 400 or _np.max(lambda_vector) > 720:
+            raise ValueError("Wavelengths must be between 400 and 720 nm")
+        return lambda_vector
+
+    @staticmethod
+    def _expgain(lambda_vector: _np.ndarray) -> _np.ndarray:
+        """
+        Exposure gain vector, to be multiplied by the base exposure time, so
+        that the actual exposure at each wavelength is ``base * gain``.
+
+        Parameters
+        ----------
+        lambda_vector : ndarray
+            Wavelengths in nm.
+
+        Returns
+        -------
+        expgain : ndarray
+            The gain for each wavelength.
+        """
+        expgain = _np.ones(lambda_vector.shape[0]) * 0.5
+        expgain[_np.where(lambda_vector < 550)] = 1  # 8
+        expgain[_np.where(lambda_vector < 530)] = 2  # 8
+        expgain[_np.where(lambda_vector > 650)] = 1  # 3
+        expgain[_np.where(lambda_vector > 700)] = 1.5  # 8
+        return expgain
+
+    def _save_frame(
+        self,
+        datapath: str,
+        img: _ot.ImageData,
+        wl: float,
+        exptime: float,
+        expgain: float,
+        mask: _ot.MaskData | None = None,
+        header: dict[str, _ot.Any] | None = None,
+    ) -> None:
+        """
+        Save a raw frame as `rawframe_<wl>nm.fits` in `datapath`.
+
+        Hook for orchestrators (e.g. multi-camera acquisitions).
+
+        Does not read nor write any instance state, so it is safe to call from
+        writer threads.
+
+        Parameters
+        ----------
+        datapath : str
+            Folder where the frame is written.
+        img : ImageData
+            The frame.
+        wl : float
+            Wavelength in nm.
+        exptime : float
+            Exposure time in s, stored in the `EXPTIME` header.
+        expgain : float
+            Stored in the `EXPGAIN` header.
+        mask : MaskData | None
+            Mask of the frame. By default, an empty mask.
+        header : dict | None
+            Extra header entries, merged on top of the standard ones.
+        """
+        if mask is None:
+            mask = _np.zeros(img.shape)
+        hdr = {"EXPTIME": exptime, "WAVELEN": wl, "EXPGAIN": expgain}
+        if header:
+            hdr.update(header)
+        image = _fits_array(data=img, mask=mask, header=hdr)
+        image.writeto(_os.path.join(datapath, f"rawframe_{wl}nm.fits"), overwrite=True)
+
+    def _resolve_datapath(
+        self, tn: str | None = None, datapath: str | None = None
+    ) -> str:
+        """
+        Resolve the folder of a measurement: `datapath` wins over `tn`, which
+        in turn wins over the last measurement (`SPL/<tn>`).
+
+        Parameters
+        ----------
+        tn : str | None
+            Tracking number. If None, the last measurement is used.
+        datapath : str | None
+            Explicit folder; if given, it is returned as is.
+
+        Returns
+        -------
+        datapath : str
+            The measurement folder.
+
+        Raises
+        ------
+        ValueError
+            If neither `datapath`, `tn` nor a previous measurement are available.
+        """
+        if datapath is not None:
+            return datapath
+        tn = tn or self._last_measure_tn
+        if tn is None:
+            self._logger.error(
+                "No tracking number provided and no previous measurement found."
+            )
+            raise ValueError(
+                "No tracking number provided and no previous measurement found."
+            )
+        return _os.path.join(_fn.SPL_DATA_ROOT_FOLDER, tn)
+
+    @staticmethod
+    def _file_list(datapath: str, key: str) -> list[str]:
+        """List of files in `datapath` matching `key`, always as a list."""
+        fl = _osu.get_file_list(fold=datapath, key=key)
+        return [fl] if isinstance(fl, str) else list(fl)
+
     def acquire(
         self,
         exptime: float,
@@ -275,11 +492,14 @@ class SPL:
             - `narrow`
             - `medium`
             - `wide`
+
+            If None, the filter's current non-black mode is used, else the last
+            mode set with `set_filter_mode`. "black" is rejected.
         lambda_vector : ArrayLike, optional
-            Wavelengths vector, of wavelengths between 400 and 700 nm. If None,
+            Wavelengths vector, of wavelengths between 400 and 720 nm. If None,
             a default vector is used:
 
-            - from 400 to 700 with 20 nm step
+            - from 440 to 720 with 20 nm step
 
             By default None.
         nframes : int, optional
@@ -292,19 +512,47 @@ class SPL:
         -------
         tn: string
             Tracking number of measurements, in the `.../SPL` folder.
-        """
-        if lambda_vector is not None:
-            lambda_vector = _np.asarray(lambda_vector)
-            if _np.min(lambda_vector) < 400 or _np.max(lambda_vector) > 700:
-                self._logger.error(
-                    f"AcquisitionError: Wavelengths must be between 400 and 700 nm"
-                )
-                raise ValueError("Wavelengths must be between 400 and 700 nm")
-        else:
-            lambda_vector = _np.arange(440, 721, 20)
 
-        if filter_mode is not None:
-            self.set_filter_mode(filter_mode)
+        Raises
+        ------
+        ValueError
+            If a wavelength is outside 400-720 nm, if `filter_mode` is invalid
+            or "black", or if it is None and no mode is known. Raised before
+            any side effect (filter movement, dark acquisition, folder
+            creation).
+
+        Notes
+        -----
+        If no dark frame was acquired beforehand, one is taken (1 s) BEFORE the
+        sweep mode is set, since the dark switches the filter to black. Each
+        raw frame header carries `EXPTIME` (actual exposure, base x gain),
+        `WAVELEN` (nm) and `EXPGAIN` (the gain used at that wavelength).
+        """
+        lambda_vector = self._validate_lambda(lambda_vector)
+
+        sweep_mode = filter_mode
+        if sweep_mode is None:
+            sweep_mode = _read_filter_mode(self._filter) or self._filter_mode
+        if sweep_mode is None:
+            self._logger.error("No filter mode known: pass filter_mode")
+            raise ValueError("No filter mode known: pass filter_mode")
+        if sweep_mode not in _FILTER_BANDWIDTH_MODE:
+            self._logger.error(
+                f"Invalid filter mode: {sweep_mode}. Must be one of {list(_FILTER_BANDWIDTH_MODE.keys())}"
+            )
+            raise ValueError(
+                f"Invalid filter mode: {sweep_mode}. Must be one of {list(_FILTER_BANDWIDTH_MODE.keys())}"
+            )
+        if sweep_mode == "black":
+            self._logger.error("Cannot sweep in black mode: pass a non-black filter_mode")
+            raise ValueError("Cannot sweep in black mode: pass a non-black filter_mode")
+
+        # The dark is acquired first (it switches the filter to black), then
+        # the sweep mode is set: the sweep never runs in black mode.
+        new_dark = self._darkFrame1sec is None
+        if new_dark:
+            self.acquire_dark_frame(exptime=1.0, nframes=1)
+        self.set_filter_mode(sweep_mode)
 
         datapath = _osu.create_data_folder(basepath=_fn.SPL_DATA_ROOT_FOLDER)
         tn = _os.path.basename(_os.path.normpath(datapath))
@@ -315,29 +563,18 @@ class SPL:
             lambda_vector,
         )
 
-        if self._darkFrame1sec is not None:
-            _osu.save_fits(
-                _os.path.join(datapath, "darkFrame.fits"), self._darkFrame1sec
-            )
-            self._logger.info("Saved current dark frame")
-        else:
-            self.acquire_dark_frame(exptime=1.0, nframes=1)
-            _osu.save_fits(
-                _os.path.join(datapath, "darkFrame.fits"), self._darkFrame1sec
-            )
+        _osu.save_fits(_os.path.join(datapath, "darkFrame.fits"), self._darkFrame1sec)
+        if new_dark:
             self._logger.info("Acquired and saved new dark frame")
+        else:
+            self._logger.info("Saved current dark frame")
 
         self._logger.info(f"Starting SPL acquisition with tracking number: {tn}")
 
-        # Create the Gain Vector
-        expgain = _np.ones(lambda_vector.shape[0]) * 0.5
-        expgain[_np.where(lambda_vector < 550)] = 1  # 8
-        expgain[_np.where(lambda_vector < 530)] = 2  # 8
-        expgain[_np.where(lambda_vector > 650)] = 1  # 3
-        expgain[_np.where(lambda_vector > 700)] = 1.5  # 8
-        self._logger.info(f"Acquisition of frames")
+        expgain = self._expgain(lambda_vector)
+        self._logger.info("Acquisition of frames")
 
-        for wl, t_int in zip(lambda_vector, (expgain * exptime)):
+        for wl, gain, t_int in zip(lambda_vector, expgain, (expgain * exptime)):
             self._filter.move_to(wl)
             self.set_exptime(t_int)
             self._logger.info(
@@ -348,17 +585,13 @@ class SPL:
             if mask is None:
                 mask = _np.zeros(img.shape)
 
-            image = _fits_array(
-                data=img,
+            self._save_frame(
+                datapath,
+                img,
+                wl,
+                exptime=self._curr_exptime,
+                expgain=gain,
                 mask=mask,
-                header={
-                    "EXPTIME": self._curr_exptime,
-                    "WAVELEN": wl,
-                    "EXPGAIN": t_int / self._curr_exptime,
-                },
-            )
-            image.writeto(
-                _os.path.join(datapath, f"rawframe_{wl}nm.fits"), overwrite=True
             )
 
         self._filter.move_to(600)
@@ -371,6 +604,7 @@ class SPL:
         self,
         tn: str | None = None,
         n_psfs: _ot.Optional[int] = None,
+        datapath: str | None = None,
         **process_kwargs: dict[str, _ot.Any],
     ) -> list[float]:
         """
@@ -383,13 +617,36 @@ class SPL:
             Tracking number of the measurement to be processed. If None, the last
             acquired measurement is processed.
         n_psfs : int
-            The number of PSFs expected to analyze. By default, 1.
+            The number of PSFs expected to analyze. If None, read from the
+            ``PHASING.expected_psfs`` configuration key (default 1).
+        datapath : str | None
+            Absolute measurement folder (e.g. `SPL/<tn>/cam0`, for nested
+            layouts used by multi-camera orchestrators). If given, `tn` is
+            ignored.
+        **process_kwargs
+            Additional arguments for `process_psfs`.
+
+        Returns
+        -------
+        pistons : list of float
+            Differential piston measured for each PSF.
+
+        Raises
+        ------
+        ValueError
+            If neither `datapath`, `tn` nor a previous measurement exist, or if
+            no fringes tracking number (`tnfringes`) is set.
+
+        Notes
+        -----
+        Templates are matched through the index mapping ``Fringe_k ->
+        delta[k-1]``; this is a known behaviour, intentionally kept.
         """
-        self.process_psfs(tn=tn, n_psfs=n_psfs, **process_kwargs)
+        datapath = self._resolve_datapath(tn, datapath)
+        self.process_psfs(tn=tn, n_psfs=n_psfs, datapath=datapath, **process_kwargs)
 
         n_psfs = n_psfs or _splconf.get("expected_psfs", 1)
 
-        datapath = _os.path.join(_fn.SPL_DATA_ROOT_FOLDER, tn)
         lambda_vector = _osu.load_fits(_os.path.join(datapath, "lambda_vector.fits"))
         self._last_lambdavec = lambda_vector.copy()
 
@@ -433,6 +690,7 @@ class SPL:
         remove_median: bool = False,
         rotation_order: int = 3,
         rotation_cval: float = 0.0,
+        datapath: str | None = None,
     ):
         """
         Process the raw frames acquired with the `acquire` method, by detecting
@@ -467,17 +725,20 @@ class SPL:
         initial_half_size : int
             The half size of the initial cropped images, in pixels.
 
-            By default, 70, which corresponds to a 300x300 pixels crop.
+            If None, read from ``PHASING.initial_crop_half_size``, and if
+            absent, defaults to 150.
         final_half_size : int
             The half size of the final cropped images, in pixels.
 
-            By default, 40, which corresponds to an 80x80 pixels crop.
+            If None, read from ``PHASING.crop_half_size``, and if absent,
+            defaults to 40 (an 80x80 pixels crop).
         centroid_min_distance : int
             The minimum distance in pixels between centroids to consider them as
             different PSFs. This is used to filter out multiple detections of the
             same PSF, since each PSF has more than one lobe.
 
-            By default, 50 pixels.
+            If None, read from ``PHASING.centroid_min_dist``, and if absent,
+            defaults to 50 pixels.
         method: str
             The method to use for computing the photometric centroid in the cropped PSF images.
             Can be:
@@ -503,6 +764,10 @@ class SPL:
             rotation of the PSF crops.
 
             By default, 0.0.
+        datapath : str | None
+            Absolute measurement folder (e.g. `SPL/<tn>/cam0`). Wins over `tn`;
+            all the files are read from/written to it. If both are None, the
+            last measurement is used.
         """
         n_psfs = n_psfs or _splconf.get("expected_psfs", 1)
         nsigma = nsigma or _splconf.get("sigma_threshold", 2.0)
@@ -512,20 +777,12 @@ class SPL:
             "centroid_min_dist", 50
         )
 
-        tn = tn or self._last_measure_tn
-        if tn is None:
-            self._logger.error(
-                "No tracking number provided and no previous measurement found."
-            )
-            raise ValueError(
-                "No tracking number provided and no previous measurement found."
-            )
+        datapath = self._resolve_datapath(tn, datapath)
 
         if not isinstance(angles, list):
             angles = [angles] * n_psfs
 
-        datapath = _os.path.join(_fn.SPL_DATA_ROOT_FOLDER, tn)
-        filelist = _osu.get_file_list(fold=datapath, key="rawframe")
+        filelist = self._file_list(datapath, "rawframe")
         rawlist = [self._heal_bad_pixels(_osu.load_fits(x)) for x in filelist]
 
         ## FIRST CENTROID DETECTION, made on the sum of all the images
@@ -535,7 +792,7 @@ class SPL:
 
         # Removing the saved dark frame
         if remove_dark:
-            dark = self._get_dark_frame(tn)
+            dark = self._get_dark_frame(datapath)
             print("Removing Dark")
             sumimg = sumimg - dark * sumimg.header["EXPTIME"] * len(rawlist)
             sumimg.header["RDARK"] = True
@@ -579,17 +836,29 @@ class SPL:
 
                 crop.header.update(header)
                 # This save for now for debugging
-                crop.writeto(filename.replace("frame", f"psf{i}"), overwrite=True)
+                crop.writeto(
+                    _os.path.join(
+                        _os.path.dirname(filename),
+                        _os.path.basename(filename).replace("frame", f"psf{i}"),
+                    ),
+                    overwrite=True,
+                )
 
         # Now we find the photometric centroid, shift the crops to put it
         # at the center of the image, rotate them, and then cut again,
         # using a smalled window.
 
         self._shift_and_rotate_psf(
-            tn, n_psfs, method, angles, nsigma, order=rotation_order, cval=rotation_cval
+            datapath,
+            n_psfs,
+            method,
+            angles,
+            nsigma,
+            order=rotation_order,
+            cval=rotation_cval,
         )
 
-        self._create_psf_cubes_and_crop_again(tn, n_psfs, final_half_size)
+        self._create_psf_cubes_and_crop_again(datapath, n_psfs, final_half_size)
 
     def rotate_psf(
         self,
@@ -681,6 +950,11 @@ class SPL:
             "centroid_min_dist", 50
         )
         desired_order = _splconf.get("expected_psf_pos", None)
+        # unfilled template entries (e.g. `- []`) mean "no expected positions"
+        if not desired_order or any(
+            p is None or len(p) < 2 for p in desired_order
+        ):
+            desired_order = None
 
         # 1) Robust background/noise estimate
         bkg = _np.median(raw_frame)
@@ -848,7 +1122,12 @@ class SPL:
 
         return crops, boxes
 
-    def plot_comparison(self, tn: str | None = None, psf_n: int | str = "all") -> None:
+    def plot_comparison(
+        self,
+        tn: str | None = None,
+        psf_n: int | str = "all",
+        datapath: str | None = None,
+    ) -> None:
         """
         Plot measured fringes and best-match templates.
 
@@ -858,18 +1137,25 @@ class SPL:
             Tracking number. If None, use last measurement.
         psf_n : int | str
             PSF index, or "all" to plot all available PSFs.
+        datapath : str | None
+            Absolute measurement folder (e.g. `SPL/<tn>/cam0`). Wins over
+            `tn`. If the templates are not loaded in this instance (e.g.
+            the analysis ran elsewhere), they are read from the fringes folder.
         """
         import math
         import matplotlib.pyplot as plt
 
-        tn = tn or self._last_measure_tn
-        if tn is None:
-            msg = "No tracking number provided and no previous measurement found."
-            self._logger.error(msg)
-            raise ValueError(msg)
-
-        datapath = _os.path.join(_fn.SPL_DATA_ROOT_FOLDER, tn)
+        datapath = self._resolve_datapath(tn, datapath)
+        label = _os.path.basename(_os.path.normpath(datapath))
         wl = _osu.load_fits(_os.path.join(datapath, "lambda_vector.fits"))
+
+        cached_lambda = getattr(self, "_Qt_lambda", None)
+        if (
+            getattr(self, "_Qt", None) is None
+            or cached_lambda is None
+            or not _np.array_equal(cached_lambda, wl)
+        ):
+            self._load_templates(wl)
 
         if psf_n == "all":
             n_expected = int(_splconf.get("expected_psfs", 6))
@@ -928,7 +1214,7 @@ class SPL:
 
         fig.supxlabel(r"$\lambda$ [nm]", fontsize=14)
         fig.supylabel("Pixels", fontsize=14)
-        fig.suptitle(f"Fringes comparison - {tn}", fontsize=16, fontweight="semibold")
+        fig.suptitle(f"Fringes comparison - {label}", fontsize=16, fontweight="semibold")
         plt.show()
 
     def _heal_bad_pixels(
@@ -964,7 +1250,8 @@ class SPL:
         Returns
         -------
         healed_img : ImageData
-            The output image with bad pixels healed.
+            The output image with bad pixels healed. If no hot pixel is found,
+            the image is returned unchanged.
         """
         from scipy.signal import convolve2d
 
@@ -975,6 +1262,8 @@ class SPL:
         filt_grad = convolve2d(grad, ker, mode="same", boundary="symm")
 
         N_hot_pixels = len(grad[grad > sigma_thr * _np.std(grad) + _np.mean(grad)]) // 4
+        if N_hot_pixels == 0:
+            return img.copy().flatten().reshape(img.shape)
         hot_pix_ids = _np.argsort(filt_grad.flatten())[-N_hot_pixels:]
 
         healed_img = img.copy().flatten()
@@ -1019,7 +1308,7 @@ class SPL:
 
     def _shift_and_rotate_psf(
         self,
-        tn: str,
+        datapath: str,
         n_psfs: int,
         method: str,
         angles: list[float],
@@ -1030,7 +1319,7 @@ class SPL:
         """"""
         for p in range(n_psfs):
 
-            fl = _osu.get_file_list(tn, fold=_fn.SPL_DATA_ROOT_FOLDER, key=f"rawpsf{p}")
+            fl = self._file_list(datapath, f"rawpsf{p}")
             rpsfl = [self._heal_bad_pixels(_osu.load_fits(x)) for x in fl]
 
             sumimg = _np.ma.sum(_np.ma.dstack(rpsfl), axis=2)
@@ -1069,11 +1358,17 @@ class SPL:
                 )
 
                 crop.header = header
-                crop.writeto(fn.replace("rawpsf", f"rot_psf"), overwrite=True)
+                crop.writeto(
+                    _os.path.join(
+                        _os.path.dirname(fn),
+                        _os.path.basename(fn).replace("rawpsf", "rot_psf"),
+                    ),
+                    overwrite=True,
+                )
 
     def _create_psf_cubes_and_crop_again(
         self,
-        tn: str,
+        datapath: str,
         n_psfs: int,
         final_half_size: _ot.Optional[int | list[int]] = None,
     ):
@@ -1085,7 +1380,7 @@ class SPL:
 
         for i in range(n_psfs):
             cube = _osu.load_cube_from_filelist(
-                tn, fold=_fn.SPL_DATA_ROOT_FOLDER, key=f"rot_psf{i}"
+                self._file_list(datapath, f"rot_psf{i}")
             )
 
             header = cube.header.copy()
@@ -1096,7 +1391,7 @@ class SPL:
             )
 
             cropped_cube.writeto(
-                _os.path.join(_fn.SPL_DATA_ROOT_FOLDER, tn, f"psf{i}_cube.fits"),
+                _os.path.join(datapath, f"psf{i}_cube.fits"),
                 overwrite=True,
             )
 
@@ -1134,16 +1429,16 @@ class SPL:
         cropped_cube = cube[y0:y1, x0:x1, :].copy()
         return cropped_cube
 
-    def _get_dark_frame(self, tn: str) -> _ot.ImageData:
+    def _get_dark_frame(self, datapath: str) -> _ot.ImageData:
         """
-        Get the dark frame for the camera from the last measurement tracking number folder.
+        Get the dark frame for the camera from the measurement folder.
         If the dark frame is not found, it returns the dark frame acquired with the `acquire_dark_frame`
         method, and saves it in the tracking number folder.
 
         Parameters
         ----------
-        tn : str
-            Tracking number of the measurement to get the dark frame from.
+        datapath : str
+            Folder of the measurement to get the dark frame from.
 
         Returns
         -------
@@ -1151,16 +1446,15 @@ class SPL:
             The dark frame for the camera.
 
         """
-        datapath = _os.path.join(_fn.SPL_DATA_ROOT_FOLDER, tn)
         try:
             dark = _osu.load_fits(_os.path.join(datapath, "darkFrame.fits"))
         except FileNotFoundError:
             if self._darkFrame1sec is not None:
                 dark = self._darkFrame1sec.copy()
                 _osu.save_fits(_os.path.join(datapath, "darkFrame.fits"), dark)
-                self._logger.info(f"Saved current dark frame for tracking number: {tn}")
+                self._logger.info(f"Saved current dark frame in: {datapath}")
             else:
-                self._logger.error(f"Dark frame not found for tracking number: {tn}")
+                self._logger.error(f"Dark frame not found in: {datapath}")
                 raise FileNotFoundError("Dark frame not found")
         return dark.copy()
 
@@ -1173,7 +1467,7 @@ class SPL:
         Parameters
         ----------
         lambda_vector: ArrayLike
-            Vector of wavelengths (between 400/700 nm)
+            Vector of wavelengths (between 400/720 nm)
         cube: CubeData
             Cube of images [pixels, pixels, n_frames=lambda]
 
@@ -1200,7 +1494,7 @@ class SPL:
             w = w[:sx]
             matrix_smooth[:, i] = w
 
-        matrix[_np.where(matrix == _np.nan)] = 0
+        matrix[_np.isnan(matrix)] = 0
         self._matrix = matrix
         self._matrixSmooth = matrix_smooth
         return _fits_array(matrix), _fits_array(matrix_smooth)
@@ -1214,6 +1508,9 @@ class SPL:
         """
         Compare the matrix obtained from the measurements with
         the one recreated with the synthetic data in tn_fringes.
+
+        The best template index ``i`` maps to ``delta[i]`` (templates are
+        ``Fringe_{i+1}``): known mapping, intentionally kept.
 
         Parameters
         ----------
@@ -1231,27 +1528,16 @@ class SPL:
         from tqdm import trange
 
         self._logger.debug(f"Template Comparison with data in {self._tnfringes}")
-        delta, lambda_synth = self._read_delta_and_lambda_from_fringes_folder()
-        idx = _np.isin(lambda_synth, lambda_vector)
+        delta, Qt = self._load_templates(lambda_vector)
 
         Qm = matrix - _np.mean(matrix)
         Qm_smooth = matrix_smooth - _np.mean(matrix_smooth)
         self._Qm = Qm
         self._QmSmooth = Qm_smooth
 
-        F = []
-        for i in range(1, delta.shape[0]):
-            file_name = _os.path.join(self._fringes_fold, "Fringe_%05d.fits" % i)
-            fringe = _osu.load_fits(file_name)
-            fringe_selected = fringe[:, idx]
-            F.append(fringe_selected)
-        F = _np.dstack(F)
-        Qt = F - _np.mean(F)
-        self._Qt = Qt
-
         R = _np.zeros(delta.shape[0] - 1)
         R_smooth = _np.zeros(delta.shape[0] - 1)
-        for i in trange(delta.shape[0] - 1, desc=f"Comparing with synthetic data"):
+        for i in trange(delta.shape[0] - 1, desc="Comparing with synthetic data"):
 
             R[i] = _np.sum(Qm[:, :] * Qt[:, :, i]) / (
                 _np.sum(Qm[:, :] ** 2) ** 0.5 * _np.sum(Qt[:, :, i] ** 2) ** 0.5
@@ -1267,6 +1553,51 @@ class SPL:
         piston = delta[idp]
         piston_smooth = delta[idp_smooth]
         return piston, piston_smooth
+
+    def _load_templates(
+        self, lambda_vector: _ot.ArrayLike
+    ) -> tuple[_np.ndarray, _np.ndarray]:
+        """
+        Load the synthetic fringes templates from the fringes folder, selecting
+        the columns matching `lambda_vector`. Sets `self._Qt` (cache, reused by
+        `plot_comparison`) and `self._Qt_lambda`.
+
+        Raises
+        ------
+        ValueError
+            If no fringes tracking number is set.
+
+        Parameters
+        ----------
+        lambda_vector : ArrayLike
+            Wavelengths of the measurement.
+
+        Returns
+        -------
+        delta : ndarray
+            Differential piston values.
+        Qt : ndarray
+            Zero-mean templates, [pixels, lambda, n_templates].
+        """
+        if self._fringes_fold is None:
+            self._logger.error("No fringe templates tracking number set")
+            raise ValueError(
+                "No fringe templates tracking number set: pass tnfringes or call set_tn_fringes"
+            )
+        delta, lambda_synth = self._read_delta_and_lambda_from_fringes_folder()
+        idx = _np.isin(lambda_synth, lambda_vector)
+
+        F = []
+        for i in range(1, delta.shape[0]):
+            file_name = _os.path.join(self._fringes_fold, "Fringe_%05d.fits" % i)
+            fringe = _osu.load_fits(file_name)
+            fringe_selected = fringe[:, idx]
+            F.append(fringe_selected)
+        F = _np.dstack(F)
+        Qt = F - _np.mean(F)
+        self._Qt = Qt
+        self._Qt_lambda = _np.array(lambda_vector, copy=True)
+        return delta, Qt
 
     def _read_delta_and_lambda_from_fringes_folder(
         self,
@@ -1313,3 +1644,27 @@ class SPL:
         start = _np.ma.cumsum(a[: WSZ - 1])[::2] / r
         stop = (_np.ma.cumsum(a[:-WSZ:-1])[::2] / r)[::-1]
         return _np.ma.concatenate((start, out0, stop))
+
+
+def _analyze_datapath(datapath: str, tnfringes: str, **analysis_kwargs) -> list[float]:
+    """
+    Analyze a measurement folder with a device-less `SPL` instance.
+
+    Module-level so it is picklable by `spawn` worker processes.
+
+    Parameters
+    ----------
+    datapath : str
+        Measurement folder (e.g. `SPL/<tn>/cam0`).
+    tnfringes : str
+        Tracking number of the simulated fringes, for template comparison.
+    **analysis_kwargs
+        Arguments forwarded to `SPL.analysis`.
+
+    Returns
+    -------
+    pistons : list of float
+        Differential pistons, one per PSF.
+    """
+    spl = SPL(camera="none", tunable_filter="none", tnfringes=tnfringes)
+    return spl.analysis(datapath=datapath, **analysis_kwargs)
