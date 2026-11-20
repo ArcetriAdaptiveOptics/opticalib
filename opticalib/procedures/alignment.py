@@ -138,8 +138,6 @@ class Alignment:
             Indices of the degrees of freedom to use.
         modes_to_correct : array-like
             Indices of the modes to correct.
-        tn : str, optional
-            Tracking number of the intMat.fits to be used
         n_frames : int, optional
             Number of frames acquired and averaged the alignment correction. Default is 15.
         apply : bool, optional
@@ -150,7 +148,7 @@ class Alignment:
 
         Returns
         -------
-        numpy.ndarray or str
+        ArrayLike or str
             If `apply` is False, returns the correction command as a numpy array.
             If `apply` is True, applies the correction command and returns a string
             indicating that the alignment has been corrected along with the current

@@ -33,9 +33,12 @@ from ._API.dms.piAPI import BasePetalMirror
 
 class PetalMirror(BasePetalMirror):
     """
-    Petal Deformable Mirror interface.
-
-    Used with the AdOptica AO Client.
+    High level interface of the Petal Mirror.
+    
+    The PetalMirror (PTM) is the segmented active mirror at the heart of the 
+    ADONI-STILES `Petalometer Testbench`. The PTM has 6 actuated segments, each 
+    with 3 piezo actuators, which control Piston, Tip and Tilt. The 7th, central,
+    segment is a hexagonal reference surface.
     """
 
     def __init__(self, ip_addresses: _ot.Optional[list[str]] = None):

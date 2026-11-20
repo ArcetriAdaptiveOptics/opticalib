@@ -175,11 +175,10 @@ class DeformableMirrorCalibrationWindow(ProcedureWindow):
                     ),
                     BoolParam("register", "Register the frames", False),
                     IntParam("rebin", "Rebin factor", 1, minimum=1, maximum=16),
-                    IntParam("nworkers", "Parallel workers", 2, minimum=1, maximum=64),
                 ],
                 lambda v: (
                     f"ifp.process({v['tn']}, register={v['register']}, save=True, "
-                    f"rebin={v['rebin']}, nworkers={v['nworkers']})"
+                    f"rebin={v['rebin']})"
                 ),
                 after=_after_process,
             ),
@@ -201,7 +200,7 @@ class DeformableMirrorCalibrationWindow(ProcedureWindow):
                         "wfs", "Wavefront sensor", kinds=_WFS, default="interf"
                     ),
                     IntParam(
-                        "nframes", "Frames to average", 5, minimum=1, maximum=1000
+                        "nframes", "Frames to average", 1, minimum=1, maximum=1000
                     ),
                     VarParam("out", "Store the flattening object in", "flat"),
                 ],
@@ -209,10 +208,7 @@ class DeformableMirrorCalibrationWindow(ProcedureWindow):
                     f"{v['out']} = dmutils.Flattening({v['tn']}, dm={v['dm']}, wfs={v['wfs']})\n"
                     f"{v['out']}.load_image2_shape({v['wfs']}.acquire_map({v['nframes']}))\n"
                     f"{v['out']}.compute_rec_mat()\n"
-                    f"_, flat_sv, _ = {v['out']}.get_svd_matrices()\n"
-                    f"figure('Singular values ' + {v['tn']})\n"
-                    f"semilogy(np.asarray(flat_sv), 'o-'); xlabel('mode'); ylabel('singular value')\n"
-                    f"title(f'{{len(flat_sv)}} modes')"
+                    f"{v['out']}.plot_eigenvalues(markersize=3, c='blue')\n"
                 ),
                 outputs={"n_modes": "len(flat_sv)"},
             ),
@@ -247,8 +243,14 @@ class DeformableMirrorCalibrationWindow(ProcedureWindow):
                     f"{v['out']} = {v['flat']}.apply_flat_command("
                     + kwargs_code(v, "modes2flat", "modes2discard", "nframes")
                     + ")\n"
-                    f"_gui.view(osu.load_fits(join(folders.FLAT_ROOT_FOLDER, {v['out']}, 'imgstart.fits')), 'Before flattening')\n"
-                    f"_gui.view(osu.load_fits(join(folders.FLAT_ROOT_FOLDER, {v['out']}, 'imgflat.fits')), 'After flattening')"
+                    f"imgstart = osu.load_fits(join(folders.FLAT_ROOT_FOLDER, {v['out']}, 'imgstart.fits'))\n"
+                    f"imgflat = osu.load_fits(join(folders.FLAT_ROOT_FOLDER, {v['out']}, 'imgflat.fits'))\n"
+                    "_gui.view(imgstart, 'Before flattening')\n"
+                    "_gui.view(imgflat, 'After flattening')\n"
+                    "print('Start RMS = ', imgstart.std(), ' nm')\n"
+                    "print('Flat RMS =  ', imgflat.std(), ' nm')\n"
+                    "del imgstart, imgflat\n"
+                    
                 ),
                 outputs={"flat_tn": "{out}"},
                 confirm=_MOVES_DM,
@@ -278,18 +280,29 @@ class DeformableMirrorCalibrationWindow(ProcedureWindow):
                     IntParam(
                         "nframes", "Frames to average", 5, minimum=1, maximum=1000
                     ),
-                    VarParam("out", "Store the tracking numbers in", "tn_flat_loop"),
+                    ChoiceParam(
+                        'save',
+                        'Save',
+                        [
+                            ('last', 'Only last'),
+                            (True, 'Save all'),
+                            (False, 'Nothing')
+                        ]),
+                    VarParam(
+                        "out",
+                        "Where to store the output TN\n"
+                        "(Only when saving last iteration)",
+                        "flat_tn"
+                    ),
                 ],
                 lambda v: (
-                    f"{v['out']} = []\n"
-                    f"for _i in range({v['iterations']}):\n"
-                    f"    {v['out']}.append({v['flat']}.apply_flat_command("
-                    + kwargs_code(v, "modes2flat", "modes2discard", "nframes")
-                    + "))\n"
-                    f"    print(f'{{_i + 1}}/{v['iterations']}')\n"
-                    f"_gui.view(osu.load_fits(join(folders.FLAT_ROOT_FOLDER, {v['out']}[-1], 'imgflat.fits')), 'After closed loop')"
+                    f"{v['out']} = {v['flat']}.closed_loop_flattening(iterations={v['iterations']}," +
+                    kwargs_code(v, "modes2flat", "modes2discard", "nframes", 'save')
+                    + ")\n"
+                    f"if {v['out']} is not None:"
+                    "    _gui.view(osu.load_fits(join(folders.FLAT_ROOT_FOLDER,"
+                    f" {v['out']}, 'imgflat.fits')), 'After closed loop')"
                 ),
-                outputs={"flat_tn": "{out}[-1]"},
                 confirm=_MOVES_DM,
             ),
             Step(

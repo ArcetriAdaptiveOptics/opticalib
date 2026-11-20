@@ -146,23 +146,47 @@ class Flattening:
         kwargs: dict
             The arguments for the `apply_flat_command` function:
 
-            - dm : DeformableMirrorDevice
+            - dm: DeformableMirrorDevice
                 Deformable mirror object.
-            - wfs : InterferometerDevice | WFSDevice
+            - wfs: InterferometerDevice | WFSDevice
                 Wavefront sensor object to acquire phasemaps.
-            - modes2flat : int | ArrayLike
+            - modes2flat: int | ArrayLike
                 Modes to flatten.
-            - modes2discard : int, optional
+            - modes2discard: int, optional
                 Number of modes to discard when computing the reconstruction matrix. Default is 3.
-            - nframes : int, optional
-                Number of frames to average for phasemap acquisition. Default is 5.
+            - nframes: int or tuple, optional
+                Number of frames to average for phasemap acquisition. If a tuple of
+                two ints, the first is the number of frames used for acquisition and
+                flattening computation, while the second is for the verification
+                acquisition.
+
+                Default is 5 (both `in` and `out`).
+            - save: bool or str, optional
+                Whether to save the results. In this case the 'last' string can 
+                be used, meaning only the last iteration is saved. If True, all 
+                are saved.
         """
+        save = kwargs.pop('save', False)
+
         if iterations is not None:
             self._logger.info(
                 f"Starting closed-loop flattening for {iterations} iterations."
             )
+            last = False
+            if isinstance(save, str): 
+                if save=='last':
+                    last = True
+                    kwargs['save'] = False
+                    iterations -= 1
+                else:
+                    raise ValueError("Invalid save option")
+
             for _ in range(iterations):
                 self.apply_flat_command(**kwargs)
+            if last:
+                kwargs['save'] = True
+                tnout = self.apply_flat_command(**kwargs)
+
         else:
             import sys
             import threading
@@ -196,12 +220,27 @@ class Flattening:
             listener_thread.start()
 
             iteration = 0
+
+            last = False
+            if isinstance(save, str): 
+                if save=='last':
+                    last = True
+                    kwargs['save'] = False
+                else:
+                    raise ValueError("Invalid save option")
+            else:
+                kwargs['save'] = save
+
             while not stop_event.is_set():
                 self._logger.info(f"Closed-loop flattening iteration {iteration}")
                 self.apply_flat_command(**kwargs)
                 iteration += 1
+            if last:
+                tnout = self.apply_flat_command(save=True, **kwargs)
 
             self._logger.info("Closed-loop flattening stopped by user.")
+
+        return tnout if last else None
 
     def apply_flat_command(
         self,
@@ -548,7 +587,7 @@ class Flattening:
         plt.ylabel("Eigenvalue")
         plt.xlim(xlim)
         plt.ylim(ylim)
-        plt.grid()
+        plt.grid(alpha=0.3)
         plt.show()
 
     def plot_eigenvectors(
