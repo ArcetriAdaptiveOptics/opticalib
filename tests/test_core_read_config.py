@@ -343,8 +343,43 @@ class TestOptionalSections:
         assert proc.stdout.strip().endswith("ok"), proc.stderr[-3000:]
 
 
+def _schema_mm() -> tuple[int, int]:
+    """(major, minor) of the current ``CONFIG_SCHEMA_VERSION``."""
+    from packaging.version import Version
+
+    release = Version(read_config.CONFIG_SCHEMA_VERSION).release
+    return release[0], (release[1] if len(release) > 1 else 0)
+
+
+def _equal_versions() -> list[str]:
+    """Versions that match the schema on (major, minor), whatever the patch."""
+    M, m = _schema_mm()
+    return [f"{M}.{m}", f"{M}.{m}.0-dev1", f"{M}.{m}.3"]
+
+
+def _older_versions() -> list[str]:
+    """Versions strictly older than the schema (major, minor)."""
+    M, m = _schema_mm()
+    versions = []
+    if m > 0:
+        versions += [f"{M}.{m - 1}", f"{M}.{m - 1}.2-dev0"]
+    if M > 0:
+        versions += [f"{M - 1}.{m}", f"{M - 1}.99"]
+    return versions
+
+
+def _newer_versions() -> list[str]:
+    """Versions strictly newer than the schema (major, minor)."""
+    M, m = _schema_mm()
+    return [f"{M}.{m + 1}", f"{M}.{m + 10}", f"{M + 1}.0", f"{M + 1}.0.0"]
+
+
 class TestCheckConfigurationVersion:
-    """Test configuration schema version checking."""
+    """Test configuration schema version checking.
+
+    Test versions are derived from ``CONFIG_SCHEMA_VERSION``, so bumping the
+    schema does not require touching these tests.
+    """
 
     @staticmethod
     def _write(temp_dir, system):
@@ -353,19 +388,19 @@ class TestCheckConfigurationVersion:
             yaml.dump({"SYSTEM": system}, f)
         return path
 
-    @pytest.mark.parametrize("version", ["2.4", "2.4.0-dev1", "2.4.3"])
+    @pytest.mark.parametrize("version", _equal_versions())
     def test_equal_is_silent(self, temp_dir, version, recwarn):
         path = self._write(temp_dir, {"data_path": "", "version": version})
         read_config.check_configuration_version(path)
         assert not [w for w in recwarn if issubclass(w.category, UserWarning)]
 
-    @pytest.mark.parametrize("version", ["2.3.2-dev0", "2.3", "1.9"])
+    @pytest.mark.parametrize("version", _older_versions())
     def test_older_warns(self, temp_dir, version):
         path = self._write(temp_dir, {"version": version})
         with pytest.warns(UserWarning, match="older"):
             read_config.check_configuration_version(path)
 
-    @pytest.mark.parametrize("version", ["2.10", "3.0", "3.0.0"])
+    @pytest.mark.parametrize("version", _newer_versions())
     def test_newer_warns(self, temp_dir, version):
         path = self._write(temp_dir, {"version": version})
         with pytest.warns(UserWarning, match="newer"):
@@ -383,11 +418,12 @@ class TestCheckConfigurationVersion:
             read_config.check_configuration_version(path)
 
     def test_message_contents(self, temp_dir):
-        path = self._write(temp_dir, {"version": "2.3"})
+        found = _older_versions()[0]
+        path = self._write(temp_dir, {"version": found})
         with pytest.warns(UserWarning) as rec:
             read_config.check_configuration_version(path)
         msg = str(rec[0].message)
-        assert path in msg and "2.4" in msg and read_config.CONFIG_SCHEMA_VERSION in msg
+        assert path in msg and found in msg and read_config.CONFIG_SCHEMA_VERSION in msg
 
     def test_template_matches_schema(self):
         from opticalib.core import root
