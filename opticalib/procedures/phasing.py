@@ -647,12 +647,18 @@ class SPL:
 
         n_psfs = n_psfs or _splconf.get("expected_psfs", 1)
 
-        lambda_vector = _osu.load_fits(_os.path.join(datapath, "lambda_vector.fits"))
+        # memmap=False: these files are overwritten on re-processing, which
+        # Windows forbids while a memory map is still alive.
+        lambda_vector = _osu.load_fits(
+            _os.path.join(datapath, "lambda_vector.fits"), memmap=False
+        )
         self._last_lambdavec = lambda_vector.copy()
 
         pists = []
         for i in range(n_psfs):
-            cube = _osu.load_fits(_os.path.join(datapath, f"psf{i}_cube.fits"))
+            cube = _osu.load_fits(
+                _os.path.join(datapath, f"psf{i}_cube.fits"), memmap=False
+            )
 
             matrix, matrix_smooth = self._compute_matrix(lambda_vector, cube)
             pist, pist_smooth = self._template_comparison(
@@ -1447,7 +1453,9 @@ class SPL:
 
         """
         try:
-            dark = _osu.load_fits(_os.path.join(datapath, "darkFrame.fits"))
+            dark = _osu.load_fits(
+                _os.path.join(datapath, "darkFrame.fits"), memmap=False
+            )
         except FileNotFoundError:
             if self._darkFrame1sec is not None:
                 dark = self._darkFrame1sec.copy()

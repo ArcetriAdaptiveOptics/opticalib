@@ -481,7 +481,7 @@ class TestProcessAndAnalysis:
             assert f"rawpsf0_{wl}nm.fits" in files
             assert f"rot_psf0_{wl}nm.fits" in files
         assert "psf0_cube.fits" in files
-        cube = osu.load_fits(os.path.join(folder, "psf0_cube.fits"))
+        cube = osu.load_fits(os.path.join(folder, "psf0_cube.fits"), memmap=False)
         assert cube.shape == (80, 80, len(LAMBDAS))
         h = _hdr(os.path.join(folder, f"rawpsf0_{LAMBDAS[0]}nm.fits"))
         assert h["PSFNUM"] == 0
@@ -501,14 +501,14 @@ class TestProcessAndAnalysis:
         spl.process_psfs(
             tn=tn, n_psfs=1, initial_half_size=100, final_half_size=30
         )
-        cube = osu.load_fits(os.path.join(env["data"], tn, "psf0_cube.fits"))
+        cube = osu.load_fits(os.path.join(env["data"], tn, "psf0_cube.fits"), memmap=False)
         assert cube.shape == (60, 60, len(LAMBDAS))
 
     def test_end_to_end_recovers_piston(self, env, spl):
         tn = self._acquire(spl)
         spl.process_psfs(tn=tn, n_psfs=1, initial_half_size=100)
         folder = os.path.join(env["data"], tn)
-        cube = osu.load_fits(os.path.join(folder, "psf0_cube.fits"))
+        cube = osu.load_fits(os.path.join(folder, "psf0_cube.fits"), memmap=False)
         matrix, _ = spl._compute_matrix(LAMBDAS, cube)
         assert matrix.shape == (80, len(LAMBDAS))
 
@@ -535,7 +535,7 @@ class TestProcessAndAnalysis:
     def test_analysis_without_tn_uses_last_measurement(self, env, spl):
         tn = self._acquire(spl)
         spl.process_psfs(tn=tn, n_psfs=1, initial_half_size=100)
-        cube = osu.load_fits(os.path.join(env["data"], tn, "psf0_cube.fits"))
+        cube = osu.load_fits(os.path.join(env["data"], tn, "psf0_cube.fits"), memmap=False)
         matrix, _ = spl._compute_matrix(LAMBDAS, cube)
         delta = _make_templates(env, matrix, LAMBDAS, M=5, k=2)
         pists = spl.analysis(n_psfs=1, initial_half_size=100)
@@ -826,7 +826,7 @@ def measured(env, spl):
     tn = spl.acquire(1.0, filter_mode="narrow", lambda_vector=LAMBDAS)
     folder = os.path.join(env["data"], tn)
     spl.process_psfs(tn=tn, n_psfs=1, initial_half_size=100)
-    cube = osu.load_fits(os.path.join(folder, "psf0_cube.fits"))
+    cube = osu.load_fits(os.path.join(folder, "psf0_cube.fits"), memmap=False)
     matrix, _ = spl._compute_matrix(LAMBDAS, cube)
     delta = _make_templates(env, matrix, LAMBDAS, M=5, k=3)
     pists = spl.analysis(tn=tn, n_psfs=1, initial_half_size=100)
@@ -847,7 +847,7 @@ class TestNestedDatapath:
         assert "psf0_cube.fits" in files
         # nothing leaked outside of the nested folder
         assert os.listdir(os.path.join(env["data"], parent)) == ["cam0"]
-        cube = osu.load_fits(os.path.join(nested, "psf0_cube.fits"))
+        cube = osu.load_fits(os.path.join(nested, "psf0_cube.fits"), memmap=False)
         np.testing.assert_array_equal(
             np.asarray(cube), np.asarray(measured["cube"])
         )
