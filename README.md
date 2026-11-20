@@ -1,4 +1,4 @@
-<img width="1280" height="720" alt="gui" src="https://github.com/user-attachments/assets/f7bedf00-5e1a-4a07-9f9b-1392c609d6c1" />
+<img width="1200" height="675" alt="gui" src="https://github.com/user-attachments/assets/f7bedf00-5e1a-4a07-9f9b-1392c609d6c1" />
 
 # OptiCalib : python framework for OPTical CALibration of deformable mirrors and AO experimentation
 
