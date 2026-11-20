@@ -313,10 +313,10 @@ class TestDMCalibration:
         window._form_for(svd)
         assert svd.param("tn").value() == "20260930_100000"  # same tn in INTMatrices
 
-    def test_closed_loop_is_an_explicit_loop(self, window):
+    def test_closed_loop_is_not_an_explicit_loop(self, window):
         code = window.step("loop").code()
-        assert "for _i in range(3):" in code and "closed_loop_flattening" not in code
-        assert "print(f'{_i + 1}/3')" in code  # progress in the activity panel
+        assert "closed_loop_flattening" in code
+        assert "After closed loop" in code  # progress in the activity panel
 
     def test_threshold_is_a_python_int(self, window):
         step = window.step("flatten")

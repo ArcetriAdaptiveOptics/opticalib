@@ -253,17 +253,12 @@ In the following, an example setup for the phasing of the 6 PetalMirror segments
      filter: MOTORS:TunableFilter
      expected_psfs: 6
      psfs_angles: [0, -60, 60, -120, 120, 180]
-     expected_psfs_pos:
-     - []
-     - []
-     - []
-     - []
-     - []
-     - []
+     expected_psf_pos:   # optional, e.g. [[310, 120], [520, 240], ...]
      initial_crop_half_size: 150
      crop_half_size: [75, 23]
      min_px_threshold: 30
      sigma_threshold: 2.0
+     centroid_min_dist: 50
 
 ``camera`` : *str*
     Reference to the camera device defined in ``DEVICES``, in the form
@@ -280,20 +275,28 @@ In the following, an example setup for the phasing of the 6 PetalMirror segments
 ``psfs_angles`` : *list of float*
     Angular positions of the PSF spots, in degrees, measured from the
     horizontal axis of the camera frame.  Must be ordered consistently with
-    ``expected_psfs_pos``.
+    ``expected_psf_pos``.
 
-``expected_psfs_pos`` : *list of [y, x] pairs*
-    Expected pixel coordinates ``[row, col]`` of each PSF centroid.  Used
-    to seed the centroid search and improve robustness.  Leave inner lists
-    empty to let the algorithm search the full frame.
+``expected_psf_pos`` : *list of [x, y] pairs, optional*
+    Expected pixel coordinates ``[col, row]`` of each PSF centroid, ordered as
+    ``psfs_angles``.  Only used to sort the detected PSFs (each detection is
+    assigned the index of the closest expected position), so that PSF ``i``
+    always matches angle ``i``.  Leave it empty (or with unfilled entries) to
+    sort the detections by ``(y, x)``.
 
 ``initial_crop_half_size`` : *int*
     Half-size in pixels of the initial search window applied to the full
-    frame for the first coarse PSF detection.  Defaults to ``150``.
+    frame for the first coarse PSF detection.  Defaults to ``150`` in
+    ``process_psfs``.
 
 ``crop_half_size`` : *int or [y, x]*
     Half-size in pixels of the final crop window around each detected PSF.
-    If a list ``[y, x]`` is provided the window is rectangular.
+    If a list ``[y, x]`` is provided the window is rectangular.  Defaults to
+    ``40``.
+
+``centroid_min_dist`` : *int*
+    Minimum distance in pixels between detected centroids, used to merge the
+    multiple lobes of a single PSF.  Defaults to ``50``.
 
 ``min_px_threshold`` : *int*
     Minimum number of pixels above the detection threshold for a source to
