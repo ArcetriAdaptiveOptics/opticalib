@@ -29,29 +29,26 @@ class BaseAdOpticaDm(BaseDeformableMirror):
         self.dmConf      = os.path.join(fn.MIRROR_FOLDER,tracknum)
         """
         self._aoClient = AO_CLIENT(tracknum)
-        self.ffm = (self._aoClient.aoSystem.sysConf.gen.FFWDSvdMatrix)[0]  #
+        #self.ffm = (self._aoClient.aoSystem.sysConf.gen.FFWDSvdMatrix)[0]  #
         self.ff = self._aoClient.aoSystem.sysConf.gen.FFWDMatrix
         self._biasCmd = self._aoClient.aoSystem.sysConf.gen.biasVectors[0]
         self.n_acts = self._init_n_actuators()
-        self.mirrorModes = self._init_mirror_modes()
+        #self.mirrorModes = self._init_mirror_modes()
         self.act_coord = self._init_act_coord()
         self.workingActs = self._init_working_acts()
         self._aoClient._connect()
-        self._enumerate_devices()
+        # self._enumerate_devices()
 
     def get_counter(self):
         """
-        Function which returns the current shape of the mirror.
+        Function which returns the current skip counter of the mirror.
 
         Returns
         -------
-        shape: numpy.ndarray
-            Current shape of the mirror.
+        counter: int
+            Current skip counter of the mirror.
         """
-        fc = self._aoClient.getCounters()
-        skipByCommand = fc.skipByCommand
-        # .....
-        return skipByCommand
+        return self._aoClient.getCounters()
 
     def get_force(self):
         """
@@ -63,9 +60,7 @@ class BaseAdOpticaDm(BaseDeformableMirror):
             Current force applied to the mirror actuators.
 
         """
-        # micLibrary.get_force()
-        force = self._aoClient.getForce()
-        return force
+        return self._aoClient.getForce()
 
     def plot_acts(self, amp: ot.Optional[ot.ArrayLike] = None, **kwargs):
         """
@@ -169,8 +164,8 @@ class BaseAdOpticaDm(BaseDeformableMirror):
         coords = load_fits(filepath)
         return coords
 
-    def _enumerate_devices(self):
-        """
-        Function which enumerates the connected devices.
-        """
-        self._aoClient.aoSystem.aoSubSystem0.deviceEnum()
+    # def _enumerate_devices(self):
+    #     """
+    #     Function which enumerates the connected devices.
+    #     """
+    #     self._aoClient.aoSystem.aoSubSystem0.deviceEnum()

@@ -259,7 +259,7 @@ class AdOpticaDm(BaseAdOpticaDm):
             )
         cmd = self._apply_slaving(cmd=cmd, slave=slave)
 
-        fc1 = self._get_frame_counter()
+        fc1 = self._get_skip_counter()
 
         # Incremental case
         if incremental:
@@ -311,7 +311,7 @@ class AdOpticaDm(BaseAdOpticaDm):
             self._aoClient.mirrorCommand(cmd)
 
         _time.sleep(0.2)  # needed to get fc updated
-        fc2 = self._get_frame_counter()
+        fc2 = self._get_skip_counter()
         if not fc2 == fc1:
             self._logger.error(f"FRAME SKIPPED.")
         else:
@@ -350,11 +350,13 @@ class AdOpticaDm(BaseAdOpticaDm):
         self,
         wfs: _ot.Optional[_ot.InterferometerDevice | _ot.WFSDevice] = None,
         save: _ot.Optional[str] = None,
+        trigger_dict: dict[str, _ot.Any] | bool = None,
         **setshape_kwargs: dict[str, _ot.Any],
     ) -> None:
         """
-        Runs the loaded command history on the DM. If `triggered` is not False, it must
-        be a dictionary containing the low level arguments for the `aoClient.timeHistoryRun` function.
+        Runs the loaded command history on the DM. If `trigger_dict` is not None,
+        it must contain the low level arguments for the `aoClient.timeHistoryRun`
+        function.
 
         Parameters
         ----------
@@ -368,9 +370,11 @@ class AdOpticaDm(BaseAdOpticaDm):
 
             Note: it works only in sequential mode, not in triggered mode.
             Default is False.
-        triggered : bool | dict[str, _ot.Any], optional
-            If False, the command history will be run in a sequential mode.
-            If not False, a dictionary must be provided, where it should contain the keys
+        trigger_dict : bool | dict[str, _ot.Any], optional
+            If None, whether it will run in triggered mode and the parameters
+            will be determined by the configuration.
+
+            If not None, a dictionary must be provided, containing the keys 
             'freq', 'wait', and 'delay' for the triggered mode.
         sequential_delay : int | float, optional
             The delay between each command execution in seconds (only if not in
@@ -379,10 +383,16 @@ class AdOpticaDm(BaseAdOpticaDm):
             If provided, the command history will be saved with this name as a timestamp.
         """
         dmifconf = _rc.get_iff_config(key=None)
-        triggered = dmifconf["triggered_mode"]
+
+        if trigger_dict is not None:
+            triggered = trigger_dict
+        else:
+            triggered = dmifconf["triggered_mode"]
+
         sequential_delay = dmifconf["sequential_delay"]
         differential: bool = setshape_kwargs.pop("differential", True)
         slaving: bool | str = setshape_kwargs.pop("slaving", False)
+
         if triggered is not False:
             for arg in triggered.keys():
                 if not arg in ["frequency", "cmd_delay"]:
@@ -404,6 +414,7 @@ class AdOpticaDm(BaseAdOpticaDm):
             self._logger.info("Command history execution completed")
 
             return None
+
         else:
             if self._cmd_history is None:
                 raise _oe.CommandError("No Command History uploaded!")
@@ -429,7 +440,7 @@ class AdOpticaDm(BaseAdOpticaDm):
 
             return tn
 
-    def _get_frame_counter(self) -> int:
+    def _get_skip_counter(self) -> int:
         """
         Get the current frame counter from the AO client
 
@@ -605,6 +616,7 @@ class M4AU(AdOpticaDm):
         """The Constructor"""
         super().__init__(tn)
         self._name = "M4AU"
+        self._logger = _SL(the_class=__class__)
         self.is_segmented = True
         self.n_segments = 6
         self.n_acts_per_segment = 892
@@ -612,7 +624,7 @@ class M4AU(AdOpticaDm):
             m4au_config = _rc.get_device_config("DEFORMABLE.MIRRORS", "M4AU")
             self._slaveIds = m4au_config.get("slave_ids", [])
             self._borderIds = m4au_config.get("border_ids", [])
-        except KeyError:
+        except (KeyError, _oe.DeviceNotFoundError):
             self._slaveIds = []
             self._borderIds = []
 
