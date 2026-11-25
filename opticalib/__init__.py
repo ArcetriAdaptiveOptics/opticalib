@@ -29,6 +29,7 @@ from .core.root import (
 from .core import config
 from .core import _types as typings
 from .core.fitsarray import fits_array
+from .core import data_classes as data_classes
 
 from . import (
     analyzer,
@@ -63,6 +64,7 @@ __all__ = [
     "dmutils",
     "simulator",
     "visualization",
+    "data_classes",
     "load_fits",
     "save_fits",
     "read_phasemap",

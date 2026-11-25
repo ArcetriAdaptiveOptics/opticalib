@@ -15,14 +15,29 @@ Key entry points: :meth:`Flattening.compute_rec_mat`,
 
 import os as _os
 import numpy as _np
+from ..core import _types as _ot
+from ..ground import osutils as _osu
 from . import iff_processing as _ifp
-from opticalib.core import _types as _ot
-from opticalib.ground import osutils as _osu
-from opticalib.core.root import folders as _fn
+from ..core.root import folders as _fn
+from ..ground import reconstructor as _crec
 from ..ground.logger import SystemLogger as _SL
-from opticalib.ground import reconstructor as _crec
 from ..analyzer.image_processing import mode_rebinner as _rebin
 
+_FLATDATA = {
+    "flat_delta_cmd": "flat_delta_command.fits",
+    "flat_cmd": "flat_command.fits",
+    "imgstart": "start_image.fits",
+    "imgflat": "flat_image.fits",
+    "modes2flat": "flattened_modes.fits"
+}
+
+files = [
+    "flatPosition.fits", # absolute flat command
+    "flatDeltaCommand.fits", # flat delta command
+    "imgstart.fits", # starting shape
+    "imgflat.fits", # flat shape
+    "modes2flat.fits", # flattened_modes
+]
 
 class Flattening:
     """
@@ -30,28 +45,36 @@ class Flattening:
 
     Overview
     --------
-    This class manages the process of flattening a deformable mirror using an interaction cube
-    and a reference shape (typically acquired from an interferometer). It supports loading and filtering
-    interaction cubes, aligning and processing images, computing reconstruction matrices, and generating
-    the appropriate command to flatten the mirror surface.
+    This class manages the process of flattening a deformable mirror using an 
+    interaction cube and a reference shape (typically acquired from an 
+    interferometer). It supports loading and filtering interaction cubes, aligning
+    and processing images, computing reconstruction matrices, and generating the
+    appropriate command to flatten the mirror surface.
 
     Key Features
     ------------
 
     - Loads and filters interaction cubes based on Zernike modes.
-    - Aligns input images to the interaction cube mask for accurate command computation.
-    - Computes the reconstruction matrix using SVD, with options to discard modes or set thresholds.
-    - Calculates the flattening command for a given shape and applies it to the deformable mirror.
-    - Saves all relevant data (commands, images, metadata) for traceability and reproducibility.
+    - Aligns input images to the interaction cube mask for accurate command 
+    computation.
+    - Computes the reconstruction matrix using SVD, with options to discard 
+    modes or set thresholds.
+    - Calculates the flattening command for a given shape and applies it to the
+    deformable mirror.
+    - Saves all relevant data (commands, images, metadata) for traceability and 
+    reproducibility.
 
     Usage Example
     -------------
-        >>> f = Flattening('20240906_110000')
-        >>> img = wfs.acquire_map()
-        >>> f.load_image2_shape(img)
-        >>> f.compute_rec_mat()
-        >>> flat_cmd = f.compute_flat_cmd(10)
-        >>> f.apply_flat_command(dm, wfs, modes2flat=10)
+
+    ```python
+        f = Flattening('20240906_110000')
+        img = wfs.acquire_map()
+        f.load_image2_shape(img)
+        f.compute_rec_mat()
+        flat_cmd = f.compute_flat_cmd(10)
+        f.apply_flat_command(dm, wfs, modes2flat=10)
+    ``` 
     """
 
     def __init__(
@@ -75,7 +98,7 @@ class Flattening:
         self.flat_cmd = None
         self.rebin = None
         self.filtered = False
-        self.filteredModes = None
+        self.filtered_modes = None
         self._lastFlatImg: _ot.ImageData = None
         self._intCube = self._load_int_cube()
         self._cmdMat = self._load_cmd_mat()
@@ -86,7 +109,7 @@ class Flattening:
         self._cavityOffset = None
         self._synthFlat = None
         # self._flatResidue = None
-        # self._flatteningModes = None
+        # self._flattening_modes = None
 
     @property
     def RM(self) -> _ot.MatrixLike:
@@ -394,15 +417,18 @@ class Flattening:
         flat_cmd : ArrayLike, optional
             The loaded flat command, if not applied.
         """
-        path = _os.path.join(_fn.FLAT_ROOT_FOLDER, tn)
-        flat_cmd = _osu.load_fits(_os.path.join(path, "flatPosition.fits"))
+        from ..core.data_classes import FlatData as _FlatData
+
+        flat_cmd = _FlatData(tn).flat_cmd.copy()
         if apply:
             if self._dm is None:
                 self._logger.error(
-                    "Deformable mirror device must be registered in the class to apply the loaded flat command."
+                    "Deformable mirror device must be registered in the class to"
+                    " apply the loaded flat command."
                 )
                 raise ValueError(
-                    "Deformable mirror device must be registered in the class to apply the loaded flat command."
+                    "Deformable mirror device must be registered in the class to"
+                    " apply the loaded flat command."
                 )
             self._logger.info(f"Applying loaded flat command from {tn} to the DM...")
             self._dm.set_shape(flat_cmd, **setshape_kwargs)
@@ -631,7 +657,7 @@ class Flattening:
 
     def filter_iff_cube(
         self,
-        zernModes: _ot.Optional[list[int] | _ot.ArrayLike] = None,
+        zern_modes: _ot.Optional[list[int] | _ot.ArrayLike] = None,
         mode: str = "global",
     ) -> "Flattening":
         """
@@ -639,27 +665,27 @@ class Flattening:
 
         Parameters
         ----------
-        zernModes : list of int | ArrayLike, optional
+        zern_modes : list of int | ArrayLike, optional
             Zernike modes to filter out this cube (if it's not already filtered).
             Default modes are [1,2,3] -> piston/tip/tilt.
         """
         if self.filtered and all(
-            [x == y for x, y in zip(self.filteredModes, zernModes)]
+            [x == y for x, y in zip(self.filtered_modes, zern_modes)]
         ):
             self._logger.warning("Cube already filtered, skipping...")
-            print(f"Cube already filtered, of {self.filteredModes}.")
+            print(f"Cube already filtered, of {self.filtered_modes}.")
             return
         else:
             print("Filtering cube...")
             self._oldCube = self._intCube.copy()
-            zern2fit = zernModes if zernModes is not None else [1, 2, 3]
+            zern2fit = zern_modes if zern_modes is not None else [1, 2, 3]
             self._logger.info(f"Filtering cube of zernike modes {zern2fit}...")
             self._intCube, new_tn = _ifp.remove_zernike_from_iff(
                 self.tn, zern2fit, mode=mode
             )
             self.load_new_tn(new_tn)
             self.filtered = True
-            self.filteredModes = zern2fit
+            self.filtered_modes = zern2fit
         return self
 
     def load_new_tn(self, tn: str) -> None:
@@ -801,15 +827,15 @@ class Flattening:
         xcm, ycm = self.__get_mask_center(cubemask)
         roll = (xcm - xci, ycm - yci)
         img = _np.roll(img, roll, axis=(0, 1))
-        if self.filteredModes is not None:
+        if self.filtered_modes is not None:
             self._logger.info(
                 "Removing Zernike modes from the image to match the loaded calibration..."
             )
             from opticalib.ground.modal_decomposer import ZernikeFitter
 
             zfit = ZernikeFitter(cubemask)
-            self._logger.info(f"Filtered modes: {self.filteredModes}")
-            img = zfit.remove_zernike(img, self.filteredModes)
+            self._logger.info(f"Filtered modes: {self.filtered_modes}")
+            img = zfit.remove_zernike(img, self.filtered_modes)
         return img
 
     def _load_int_cube(self) -> _ot.CubeData:
@@ -827,7 +853,7 @@ class Flattening:
         fittedModes = eval(intCube.header.get("ZREMOVED", "None"))
         self.rebin = rebin
         self.filtered = filtered
-        self.filteredModes = fittedModes
+        self.filtered_modes = fittedModes
         return intCube
 
     def _load_cmd_mat(self) -> _ot.MatrixLike:
@@ -910,6 +936,6 @@ class Flattening:
         String representation of the class instance.
         """
         tn = self.tn
-        filtered = self.filteredModes if self.filtered else False
+        filtered = self.filtered_modes if self.filtered else False
         r = self.rebin
         return f"Flattening(tn={tn}, filtered={filtered}, rebin={r})"
