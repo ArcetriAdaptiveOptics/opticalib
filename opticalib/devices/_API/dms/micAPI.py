@@ -47,17 +47,14 @@ class BaseAdOpticaDm(BaseDeformableMirror):
 
     def get_counter(self):
         """
-        Function which returns the current shape of the mirror.
+        Function which returns the current skip counter of the mirror.
 
         Returns
         -------
-        shape: numpy.ndarray
-            Current shape of the mirror.
+        counter: int
+            Current skip counter of the mirror.
         """
-        fc = self._aoClient.getCounters()
-        skipByCommand = fc.skipByCommand
-        # .....
-        return skipByCommand
+        return self._aoClient.getCounters()
 
     def get_force(self):
         """
@@ -69,9 +66,7 @@ class BaseAdOpticaDm(BaseDeformableMirror):
             Current force applied to the mirror actuators.
 
         """
-        # micLibrary.get_force()
-        force = self._aoClient.getForce()
-        return force
+        return self._aoClient.getForce()
 
     def plot_acts(self, amp: ot.Optional[ot.ArrayLike] = None, **kwargs):
         """
