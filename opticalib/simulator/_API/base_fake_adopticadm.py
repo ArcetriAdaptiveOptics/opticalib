@@ -110,7 +110,7 @@ class BaseFakeM4(BaseSimulatedDM):
         self._mask = 1 + -1 * datadict["mask"].copy().astype(bool)
 
         self._coords = self._scale_coords(self._mask, datadict["coordinates"])
-        self.mirrorModes = datadict["mirrorModes"].copy()
+        self.mirror_modes = datadict["mirrorModes"].copy()
         self.ff = datadict["FFWD"].copy()
 
         idxs = []
@@ -208,9 +208,9 @@ class BaseFakeDp(BaseSimulatedDM):
     def __init__(self, force_recompute: bool = False):
         """The constuctor"""
         self._name = "AdOpticaDP"
-        self.mirrorModes = osu.load_fits(get_simdata_file("dp_cmdmat.fits"))
+        self.mirror_modes = osu.load_fits(get_simdata_file("dp_cmdmat.fits"))
         self.ff = osu.load_fits(get_simdata_file("dp_ffwd.fits"))
-        self.n_acts = self.mirrorModes.shape[0]
+        self.n_acts = self.mirror_modes.shape[0]
         self.n_segments = 2
         self.n_acts_per_segment = self.n_acts // self.n_segments
         self._create_dp_mask_and_coords()

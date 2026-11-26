@@ -46,7 +46,7 @@ class PetalMirror(BasePetalMirror):
         self._name = "PetalDM"
         self._logger = _SL(the_class=__class__)
         super().__init__(ip_addresses)
-        self.mirrorModes = None
+        self.mirror_modes = None
         self._cmd_history = None
 
     def get_shape(self) -> _ot.ArrayLike:
@@ -1139,7 +1139,7 @@ class NacoDm(NACOMirror):
             raise _oe.MatrixError(
                 f"Expecting a 2D Matrix of shape (nacts, nmodes), got instead: {tcmdhist.shape}"
             )
-        self.cmdHistory = tcmdhist
+        self.cmd_history = tcmdhist
 
     def run_cmd_history(
         self,
@@ -1167,7 +1167,7 @@ class NacoDm(NACOMirror):
         delay: float = _rc.get_iff_config(key=None).get("sequentialDelay", 0.0)
         differential: bool = setshape_kwargs.get("differential", True)
 
-        if self.cmdHistory is None:
+        if self.cmd_history is None:
             raise _oe.MatrixError("No Command History to run!")
 
         s = self.get_shape()
@@ -1177,7 +1177,7 @@ class NacoDm(NACOMirror):
 
             if isinstance(wfs[0], (types.FunctionType, types.MethodType)):
                 tn = []
-                for i, cmd in enumerate(self.cmdHistory.T):
+                for i, cmd in enumerate(self.cmd_history.T):
                     if differential:
                         cmd = cmd + s
                     self.set_shape(cmd)
@@ -1195,10 +1195,10 @@ class NacoDm(NACOMirror):
                     tn = save
                     datafold = _os.path.join(_opdi, tn)
                     _os.makedirs(datafold, exist_ok=True)
-                print(f"{tn} - {self.cmdHistory.shape[-1]} images to go.")
+                print(f"{tn} - {self.cmd_history.shape[-1]} images to go.")
 
-            for i, cmd in enumerate(self.cmdHistory.T):
-                print(f"{i+1}/{self.cmdHistory.shape[-1]}", end="\r", flush=True)
+            for i, cmd in enumerate(self.cmd_history.T):
+                print(f"{i+1}/{self.cmd_history.shape[-1]}", end="\r", flush=True)
 
                 if differential:
                     cmd = cmd + s

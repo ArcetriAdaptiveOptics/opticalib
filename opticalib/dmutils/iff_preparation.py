@@ -49,7 +49,7 @@ class IFFCapturePreparation:
             raise DeviceError(dm, "DeformableMirrorDevice")
 
         self._dm = dm
-        self.mirrorModes = dm.mirrorModes
+        self.mirror_modes = dm.mirrorModes
         self._NActs = dm.n_acts
 
         self._config = _rif.get_iff_config(key=None)
@@ -57,7 +57,7 @@ class IFFCapturePreparation:
         # IFF info
         self.modalBaseId = None
         self._modeslist = None
-        self._modalBase = self.mirrorModes
+        self._modalBase = self.mirror_modes
         self._regActs = None
         self._cmdMatrix = None
         self._indexingList = None
@@ -397,7 +397,7 @@ class IFFCapturePreparation:
         """
         if (mbasename is None) or (mbasename == "mirror"):
             self.modalBaseId = mbasename
-            self._modalBase = self.mirrorModes
+            self._modalBase = self.mirror_modes
         elif mbasename == "zonal":
             self.modalBaseId = mbasename
             self._modalBase = self._create_zonal_mat()
@@ -406,7 +406,7 @@ class IFFCapturePreparation:
             self._modalBase = self._create_hadamard_mat()
         elif mbasename == "mirror":
             self.modalBaseId = mbasename
-            self._modalBase = self.mirrorModes
+            self._modalBase = self.mirror_modes
         else:
             self.modalBaseId = mbasename
             self._modalBase = self._create_user_mat(mbasename)

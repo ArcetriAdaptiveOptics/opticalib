@@ -21,7 +21,7 @@ class PetalMirror(BaseFakePTL):
         self.is_segmented = True
         self.n_segments = 6
         self.n_acts_per_segment = 3
-        self.mirrorModes = None
+        self.mirror_modes = None
 
     @property
     def slave_ids(self) -> _t.ArrayLike:

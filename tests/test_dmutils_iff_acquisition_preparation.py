@@ -17,7 +17,7 @@ class TestIFFCapturePreparation:
         prep = ifa.IFFCapturePreparation(mock_dm)
 
         assert prep._NActs == mock_dm.n_acts
-        assert prep.mirrorModes is not None
+        assert prep.mirror_modes is not None
         assert prep._modalBase is not None
 
     def test_init_invalid_device(self):

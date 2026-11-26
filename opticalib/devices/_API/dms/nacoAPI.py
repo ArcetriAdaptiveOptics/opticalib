@@ -63,8 +63,9 @@ class NACOMirror(BaseDeformableMirror):
         self._last_cmd: _t.ArrayLike = _np.zeros(self.n_acts)
         self._name = f"NACO{self.n_acts}"
         self.act_coord = self._init_act_coord()
-        self.cmdHistory = None
+        self.cmd_history = None
         self.refAct = None
+        self.mirror_modes
 
     # ------------------------------------------------------------------
     # SDK-level interface

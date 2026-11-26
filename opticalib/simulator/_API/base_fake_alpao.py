@@ -19,7 +19,7 @@ class BaseFakeAlpao(BaseSimulatedDM):
         Initializes the base deformable mirror with the number of actuators.
         """
         self._name = f"AlpaoDM{n_acts}"
-        self.mirrorModes = None
+        self.mirror_modes = None
         self.n_acts = n_acts
         self._pxScale = pixel_scale(self.n_acts)
         self._coords, self._mask = get_alpao_coords_mask(self.n_acts)

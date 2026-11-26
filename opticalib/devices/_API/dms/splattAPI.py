@@ -14,7 +14,7 @@ class SPLATTEngine(BaseDeformableMirror):
         self._eng = Pyro4.Proxy(f"PYRO:matlab_engine@{ip}:{port}")
         self.n_acts = int(self._eng.read("sys_data.mirrNAct"))
         self.actCoords = np.array(self._eng.read("mirrorData.coordAct"))
-        self.mirrorModes = np.array(self._eng.read("sys_data.ff_v"))
+        self.mirror_modes = np.array(self._eng.read("sys_data.ff_v"))
         try:
             self.ffMatrix = np.array(self._eng.read("sys_data.ff_matrix_int"))
         except:

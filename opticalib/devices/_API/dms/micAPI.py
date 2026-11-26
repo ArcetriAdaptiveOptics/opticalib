@@ -38,7 +38,7 @@ class BaseAdOpticaDm(BaseDeformableMirror):
         # Retrieves the mirror's FF, M2C and Bias Vector
         # self.ffm = (self._aoClient.aoSystem.sysConf.gen.FFWDSvdMatrix)[0]  #
         self.ff = self._aoClient.aoSystem.sysConf.gen.FFWDMatrix
-        # self.mirrorModes = self._init_mirror_modes()
+        # self.mirror_modes = self._init_mirror_modes()
         self._biasCmd = self._aoClient.aoSystem.sysConf.gen.biasVectors[0]
 
         # Connect to the Ao SubSystems

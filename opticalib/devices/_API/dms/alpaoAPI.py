@@ -143,7 +143,7 @@ class BaseAlpaoMirror(BaseDeformableMirror):
         self.diameter = get_section_config("DEVICES", "DEFORMABLE.MIRRORS")[
             self._name
         ].get("diameter", None)
-        self.mirrorModes = None
+        self.mirror_modes = None
         self._cmd_history = None
         self.refAct = None
         self.ff = None
