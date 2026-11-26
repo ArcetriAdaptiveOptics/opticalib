@@ -155,7 +155,7 @@ class TestFlattening:
         mock_rec.return_value = mock_reconstructor
         f._rec = mock_reconstructor
 
-        result = f.filter_iff_cube(zernModes=[1, 2, 3])
+        result = f.filter_iff_cube(zern_modes=[1, 2, 3])
 
         assert result is f  # Should return self
         # Verify that remove_zernike_from_iff was called

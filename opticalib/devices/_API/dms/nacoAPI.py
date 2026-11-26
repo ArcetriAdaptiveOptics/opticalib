@@ -85,7 +85,7 @@ class NACOMirror(BaseDeformableMirror):
         """
         return self._last_cmd.copy()
 
-    def set_shape(self, cmd: _t.ArrayLike) -> None:
+    def _mirror_command(self, cmd: _t.ArrayLike) -> None:
         """
         Send an absolute command vector to the NACO mirror via the PLC.
 

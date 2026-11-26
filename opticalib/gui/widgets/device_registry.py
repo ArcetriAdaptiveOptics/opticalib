@@ -196,10 +196,10 @@ DEVICE_CLASSES: List[DeviceClass] = [
     DeviceClass(
         "M4AU",
         "DEFORMABLE.MIRRORS",
-        ("m4au",),
+        ("m4au","m4","adopticam4"),
         "none",
         "M4AU",
-        optional_config=True,
+        (("tn",),),
         description="M4 adaptive unit",
     ),
     DeviceClass(
@@ -209,6 +209,15 @@ DEVICE_CLASSES: List[DeviceClass] = [
         "none",
         None,
         description="Generic AdOptica deformable mirror",
+    ),
+    DeviceClass(
+        "NacoDm",
+        "DEFORMABLE.MIRRORS",
+        ("nacodm",),
+        "none",
+        "NacoDm",
+        (("host", "port"),),
+        description="NAOS-CONICA deformable mirror",
     ),
     DeviceClass(
         "GigaVision",

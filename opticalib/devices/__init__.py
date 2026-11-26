@@ -21,7 +21,7 @@ from .deformable_mirrors import (
     DP,
     M4AU,
     PetalMirror,
-    NACODm,
+    NacoDm,
 )
 from .wfs import Ingot
 from .cameras import GigaVision
@@ -38,5 +38,5 @@ __all__ = [
     "GigaVision",
     "Ingot",
     "PetalMirror",
-    "NACODm",
+    "NacoDm",
 ]

@@ -71,7 +71,7 @@ class Procedure:
 #: opticalib's procedures.
 PROCEDURES: List[Procedure] = [
     Procedure(
-        "Deformable Mirror Calibration",
+        "DM Calibration",
         "mirror",
         "Influence functions acquisition and processing, flattening.",
         DeformableMirrorCalibrationWindow,
