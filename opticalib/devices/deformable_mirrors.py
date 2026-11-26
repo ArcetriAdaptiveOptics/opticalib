@@ -318,7 +318,10 @@ class AdOpticaDm(BaseAdOpticaDm):
             self._last_cmd = cmd.copy()
 
     def upload_cmd_history(
-        self, tcmdhist: _ot.MatrixLike, slaving: bool | str = False
+        self, 
+        tcmdhist: _ot.MatrixLike, 
+        looped: bool = False, 
+        slaving: bool | str = False
     ) -> None:
         """
         Uploads the (timed) command history in the DM. if `for_triggered` is true,
@@ -328,7 +331,10 @@ class AdOpticaDm(BaseAdOpticaDm):
         ----------
         tcmdhist : _ot.MatrixLike
             The command history to be uploaded, of shape (used_acts, nmodes).
-        tfor_triggered : bool, optional
+        looped : bool, optional
+            If True, the command history will be uploaded in a looped manner 
+            (default is False).
+        slaving : bool | str, optional
             If True, the command history will be uploaded directly to the AO client for
             the triggered mode run. If False, it will be stored in the `cmdHistory`
             attribute of the DM instance (default is False).
@@ -342,7 +348,7 @@ class AdOpticaDm(BaseAdOpticaDm):
         trig = _rc.get_iff_config(None)["triggered_mode"]
         self._cmd_history = tcmdhist.copy()
         if trig is not False:
-            self._aoClient.timeHistoryUpload(tcmdhist)
+            self._aoClient.timeHistoryUpload(tcmdhist, tHistLoop=looped)
         self._logger.info(f"Command History uploaded to the {self._name} DM.")
         print("Command History uploaded!")
 
@@ -395,14 +401,14 @@ class AdOpticaDm(BaseAdOpticaDm):
 
         if triggered is not False:
             for arg in triggered.keys():
-                if not arg in ["frequency", "cmd_delay"]:
+                if not arg in ["frequency", "start_delay"]:
                     raise _oe.CommandError(
                         f"Invalid argument '{arg}' in triggered commands."
                     )
             if self._cmd_history is None:
                 raise _oe.CommandError("No Command History uploaded!")
             freq = triggered.get("frequency", 1.0)
-            tdelay = triggered.get("cmd_delay", 0.8)
+            tdelay = triggered.get("start_delay", 0.1)
             ins = self._last_cmd.copy()
             self._logger.info("Executing Command history")
             nframes = self._cmd_history.shape[-1]

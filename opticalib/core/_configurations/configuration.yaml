@@ -157,7 +157,7 @@ INFLUENCE.FUNCTIONS:
   sequential_delay: 0.0 # delay, in seconds, between te command application and the wfs acquisition
   triggered_mode: # if not available, put false and comment next 2 lines
     frequency: 5.
-    cmd_delay: 0.0
+    start_delay: 0.0
   TRIGGER:
     trailing_zeros: 0 # 0s before the modes
     modes_list: [] # list of modes ids
