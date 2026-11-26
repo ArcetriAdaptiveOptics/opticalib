@@ -65,7 +65,7 @@ class NACOMirror(BaseDeformableMirror):
         self.act_coord = self._init_act_coord()
         self.cmd_history = None
         self.refAct = None
-        self.mirror_modes
+        self.mirror_modes = None
 
     # ------------------------------------------------------------------
     # SDK-level interface
