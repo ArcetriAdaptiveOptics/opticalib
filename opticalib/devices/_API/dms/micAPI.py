@@ -9,12 +9,7 @@ try:
 except ImportError:
     pass
 
-
-mirrorModesFile = "ff_v_matrix.fits"
-ffFile = "ff_matrix.fits"
 actCoordFile = "ActuatorsCoordinates.fits"
-nActFile = "n_actuators.dat"
-
 
 class BaseAdOpticaDm(BaseDeformableMirror):
     """
@@ -22,22 +17,33 @@ class BaseAdOpticaDm(BaseDeformableMirror):
     This class is intended to be inherited by specific device classes.
     """
 
-    def __init__(self, tracknum: str = None):
-        """The constructor"""
+    def __init__(self, tracknum: str|None = None):
         """
-        print(f"Initializing the M4AU with configuration: '{os.path.join(fn.MIRROR_FOLDER,tracknum)}'")
-        self.dmConf      = os.path.join(fn.MIRROR_FOLDER,tracknum)
+        Constructor for the Microgate AO_CLIENT wrapper
+
+        Parameters
+        ----------
+        tracknum: str, optional
+            Track number for the AO_CLIENT. If None, it will be resolved automatically.
         """
-        self._aoClient = AO_CLIENT(tracknum)
-        self.ffm = (self._aoClient.aoSystem.sysConf.gen.FFWDSvdMatrix)[0]  #
-        self.ff = self._aoClient.aoSystem.sysConf.gen.FFWDMatrix
-        self._biasCmd = self._aoClient.aoSystem.sysConf.gen.biasVectors[0]
+        # Resolve the TN
+        tn = self._resolve_tracknum(tracknum)
+        self._aoClient = AO_CLIENT(tn)
+
+        # Mirror properties
         self.n_acts = self._init_n_actuators()
-        self.mirrorModes = self._init_mirror_modes()
         self.act_coord = self._init_act_coord()
         self.workingActs = self._init_working_acts()
+
+        # Retrieves the mirror's FF, M2C and Bias Vector
+        # self.ffm = (self._aoClient.aoSystem.sysConf.gen.FFWDSvdMatrix)[0]  #
+        self.ff = self._aoClient.aoSystem.sysConf.gen.FFWDMatrix
+        # self.mirrorModes = self._init_mirror_modes()
+        self._biasCmd = self._aoClient.aoSystem.sysConf.gen.biasVectors[0]
+
+        # Connect to the Ao SubSystems
         self._aoClient._connect()
-        self._enumerate_devices()
+        # self._enumerate_devices()
 
     def get_counter(self):
         """
@@ -117,6 +123,7 @@ class BaseAdOpticaDm(BaseDeformableMirror):
         """
         return self._aoClient.aoSystem.sysConf.gen.M2CMatrix.shape[-1]
 
+    # DP
     def _init_mirror_modes(self):
         """
         Function which initialize the mirror modes by reading from a fits file.
@@ -169,8 +176,33 @@ class BaseAdOpticaDm(BaseDeformableMirror):
         coords = load_fits(filepath)
         return coords
 
-    def _enumerate_devices(self):
+    def _resolve_tracknum(self, tracknum: str|None) -> str|None:
         """
-        Function which enumerates the connected devices.
+        Function which resolves the tn.
         """
-        self._aoClient.aoSystem.aoSubSystem0.deviceEnum()
+        from opticalib.ground.osutils import is_tn
+
+        if not tracknum is None:
+            if tracknum.lower() == "default":
+                try:
+                    from Microgate.adopt.AOBaseConfig import baseConfig # type: ignore
+                    tn = baseConfig.SYS_CONF_TN
+                except ImportError:
+                    tn = None
+
+            elif is_tn(tracknum):
+                tn = tracknum
+
+            else:
+                tn = None
+
+        else:
+            tn = None
+
+        return tn
+
+    # def _enumerate_devices(self):
+    #     """
+    #     Function which enumerates the connected devices.
+    #     """
+    #     self._aoClient.aoSystem.aoSubSystem0.deviceEnum()

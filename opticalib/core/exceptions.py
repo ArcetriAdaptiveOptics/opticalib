@@ -11,7 +11,7 @@ clause if needed.
 """
 
 
-class DeviceNotFoundError(Exception):
+class DeviceNotFoundError(KeyError):
     """Exception raised when a device is not found in the
     configuration file.
     """
@@ -20,51 +20,55 @@ class DeviceNotFoundError(Exception):
         super().__init__(f"Device '{device_name}' not found in the configuration file.")
 
 
-class DeviceError(Exception):
-    """Exception raised when a device is not found in the
+class DeviceError(KeyError):
+    """
+    Exception raised when a device is not found in the
     configuration file.
     """
 
     def __init__(self, device_name: str, device_type: str):
         super().__init__(f"Device '{device_name}' is not a valid {device_type}.")
 
+    def __str__(self):
+        return self.args[0]
 
-class DeviceAttributeError(Exception):
+
+class DeviceAttributeError(AttributeError):
     """Exception raised when a device attribute is missing or invalid."""
 
-    def __init__(self, message: str):
-        super().__init__(message)
+    def __init__(self, message: str, attribute: str = None, obj: object = None):
+        super().__init__(message, name=attribute, obj=obj)
 
 
-class MatrixError(Exception):
+class MatrixError(ValueError):
     """Exception raised when a matrix is not valid."""
 
     def __init__(self, message: str):
         super().__init__(message)
 
 
-class CommandError(Exception):
+class CommandError(ValueError):
     """Exception raised when a command is not valid."""
 
     def __init__(self, message: str):
         super().__init__(message)
 
 
-class BufferError(Exception):
+class FrameBufferError(Exception):
     """Exception raised when a buffer operation fails."""
 
     def __init__(self, message: str):
         super().__init__(message)
 
 
-class PathError(Exception):
+class PathError(OSError):
     """Exception raised when a path operation fails."""
 
     def __init__(self, message: str):
         super().__init__(message)
 
 
-class ReconnectionError(Exception):
+class ReconnectionError(ConnectionError):
     """
     Exception raised when a device reconnection fails after multiple
     attempts.

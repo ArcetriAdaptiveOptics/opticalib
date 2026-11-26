@@ -72,7 +72,9 @@ class TestResolution:
             ("DEFORMABLE.MIRRORS", "PetalDM", {"ip0": "x"}, "PetalMirror", "dm = devices.PetalMirror()"),
             ("DEFORMABLE.MIRRORS", "Splatt", {"ip": "x", "port": 1}, "SplattDm", "dm = devices.SplattDm()"),
             ("DEFORMABLE.MIRRORS", "AdOpticaDP", {}, "DP", "dm = devices.DP()"),
-            ("DEFORMABLE.MIRRORS", "M4AU", {}, "M4AU", "dm = devices.M4AU()"),
+            ("DEFORMABLE.MIRRORS", "M4AU", {"tn": "20240101_000000"}, "M4AU", "dm = devices.M4AU()"),
+            ("DEFORMABLE.MIRRORS", "m4au", {"tn": "default"}, "M4AU", "dm = devices.M4AU()"),
+            ("DEFORMABLE.MIRRORS", "NacoDm", {"host": "10.0.0.1", "port": 5000}, "NacoDm", "dm = devices.NacoDm()"),
             ("DEFORMABLE.MIRRORS", "AdOpticaDM", {}, "AdOpticaDm", "dm = devices.AdOpticaDm()"),
             ("CAMERAS", "GigaVision", {"id": "c"}, "GigaVision", "cam = devices.GigaVision('GigaVision')"),
             ("CAMERAS", "Guide", {"ip": "c"}, "GigaVision", "cam = devices.GigaVision('Guide')"),
@@ -124,6 +126,11 @@ class TestResolution:
             ("DEFORMABLE.MIRRORS", "Alpao88", {"plico_ip": "1.2.3.4"}, "Missing: plico_port."),
             ("INTERFEROMETERS", "PhaseCam", {"ip": "a", "port": 1}, "name the entry PhaseCam<model>"),
             ("DEFORMABLE.MIRRORS", "MyPetal", {"class": "PetalMirror", "ip0": "x"}, "PetalMirror reads the entry 'PetalDM'"),
+            ("DEFORMABLE.MIRRORS", "M4AU", {}, "Missing: tn."),
+            ("DEFORMABLE.MIRRORS", "M4AU", {"tn": None}, "Missing: tn."),
+            ("DEFORMABLE.MIRRORS", "M4", {"tn": "default"}, "M4AU reads the entry 'M4AU', not 'M4'"),
+            ("DEFORMABLE.MIRRORS", "NacoDm", {"host": None, "port": None}, "Missing: host, port."),
+            ("DEFORMABLE.MIRRORS", "NacoTest", {"class": "NacoDm", "host": "h", "port": 1}, "NacoDm reads the entry 'NacoDm'"),
         ],
     )
     def test_problems(self, section, name, conf, problem):

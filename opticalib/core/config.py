@@ -51,7 +51,7 @@ _update_imports()
 #: the ``configuration.yaml`` layout changes (sections/keys added, renamed or
 #: removed), and update ``SYSTEM.version`` in the template in the same commit.
 #: It is independent of the package version.
-CONFIG_SCHEMA_VERSION: str = "2.5"
+CONFIG_SCHEMA_VERSION: str = "2.6"
 
 yaml_config_file = "configuration.yaml"
 _iff_config_file = "iffConfig.yaml"

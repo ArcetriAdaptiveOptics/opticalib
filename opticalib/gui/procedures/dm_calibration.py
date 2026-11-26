@@ -301,7 +301,7 @@ class DeformableMirrorCalibrationWindow(ProcedureWindow):
                     + ")\n"
                     f"if {v['out']} is not None:"
                     "    _gui.view(osu.load_fits(join(folders.FLAT_ROOT_FOLDER,"
-                    f" {v['out']}, 'imgflat.fits')), 'After closed loop')"
+                    f" {v['out']}, 'flat_image.fits')), 'After closed loop')"
                 ),
                 confirm=_MOVES_DM,
             ),

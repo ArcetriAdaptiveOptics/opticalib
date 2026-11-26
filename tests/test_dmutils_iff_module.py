@@ -372,7 +372,7 @@ class TestSaveBufferData:
         mock_dm = Mock(spec=[])  # Empty spec means no attributes by default
         mock_dm.bufferData = {"data": np.random.randn(10)}
 
-        with pytest.raises(_oe.BufferError):
+        with pytest.raises(_oe.FrameBufferError):
             iff_module.save_buffer_data(mock_dm, "20240101_120000")
 
     @patch("opticalib.procedures.iff._osu.is_tn")

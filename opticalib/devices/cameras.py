@@ -41,7 +41,7 @@ else:
     _ACQUISITION_ERRORS = (AttributeError,)
 
 
-def _frame_to_array(frame: "_vmbpy.Frame") -> _ot.ImageData:
+def _frame_to_array(frame: "_vmbpy.Frame") -> _ot.ImageData:  # type: ignore
     """Copy a Vimba frame into a numpy array: (H, W) mono, (C, H, W) color."""
     img = frame.as_numpy_ndarray()  # a *view* on the SDK buffer, shape (H, W, C)
     img = img[:, :, 0] if img.shape[2] == 1 else img.transpose(2, 0, 1)
@@ -316,7 +316,7 @@ class GigaVision(BaseCamera):
                 self._buffer.clear()  # free the memory of the stored frames
 
     def _on_frame(
-        self, cam: "_vmbpy.Camera", stream: "_vmbpy.Stream", frame: "_vmbpy.Frame"
+        self, cam: "_vmbpy.Camera", stream: "_vmbpy.Stream", frame: "_vmbpy.Frame" # type: ignore
     ):
         """
         Frame handler: runs in the **Vimba SDK thread**, once per frame.

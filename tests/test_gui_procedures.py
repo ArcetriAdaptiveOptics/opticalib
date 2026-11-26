@@ -261,7 +261,7 @@ def _fill_required(window):
 
 #: Steps that move hardware and must ask for confirmation.
 HARDWARE_STEPS = {
-    "Deformable Mirror Calibration": {"acquire", "flatten", "loop"},
+    "DM Calibration": {"acquire", "flatten", "loop"},
     "Timeseries": set(),
     "Stitching": {"scan"},
     "Alignment": {"calibrate", "apply"},
@@ -423,7 +423,7 @@ class TestConfiguredProcedures:
         path = tmp_path / "configuration.yaml"
         path.write_text("SYSTEM:\n  data_path: ''\nINFLUENCE.FUNCTIONS:\n  timing: 1\nSTITCHING: null\n")
         panel = PluginPanel(lambda name: None, config_path=str(path))
-        assert panel.available() == ["Deformable Mirror Calibration", "Timeseries"]
+        assert panel.available() == ["DM Calibration", "Timeseries"]
         note = panel._hidden_note.text()
         assert "Stitching (STITCHING)" in note and "Alignment (SYSTEM.ALIGNMENT)" in note
         path.write_text(path.read_text().replace("STITCHING: null", "STITCHING:\n  overlap: 1"))

@@ -29,6 +29,7 @@ def iff_data_acquisition(
     modalbase: _ot.Optional[str] = None,
     shuffle: bool = False,
     n_repetitions: int = 1,
+    trigger_dict: dict[str, _ot.Any] | None = None,
     read_buffer: bool | dict[str, _ot.Any] = False,
     **setshape_kwargs: dict[str, _ot.Any],
 ) -> str:
@@ -58,6 +59,10 @@ def iff_data_acquisition(
         if True, shuffle the modes before acquisition
     n_repetitions: int, optional
         Number of times each mode is repeated during the acquisition. Default is 1.
+    trigger_dict: dict[str, Any] | None, optional
+        Dictionary containing trigger settings for the acquisition. 
+        If None (default), whether it's triggered and its parameters are taken
+        from the configuration file.
     read_buffer: bool | dict[str, Any], optional
         If False (default) do not read the buffer data during the acquisition.
         If True, read the buffer data with default parameters.
@@ -113,6 +118,7 @@ def iff_data_acquisition(
     )
     slaving = setshape_kwargs.pop("slaving", False)
     dm.upload_cmd_history(tch, slaving=slaving)
+
     if read_buffer is not False:
         try:
             if not hasattr(dm, "read_buffer"):
@@ -128,8 +134,18 @@ def iff_data_acquisition(
             save_buffer_data(dm, tn)
         except _oe.BufferError as be:
             print(be)
+
     else:
-        _ = dm.run_cmd_history(wfs, save=tn, **setshape_kwargs)
+
+        if trigger_dict is not None:
+            if not "AdOptica" in dm._name:
+                raise _oe.DeviceError(
+                    f"Triggering is only supported for AdOptica devices, but `{dm._name}` is not."
+                )
+            _ = dm.run_cmd_history(wfs, save=tn, trigger_dict=trigger_dict, **setshape_kwargs)
+        else:
+            _ = dm.run_cmd_history(wfs, save=tn, **setshape_kwargs)
+
     return tn
 
 
@@ -266,7 +282,7 @@ def save_buffer_data(dm: _ot.DeformableMirrorDevice, tn_or_fp: str):
         The tracking number or full path where to save the buffer data.
     """
     if not hasattr(dm, "read_buffer"):
-        raise _oe.BufferError(
+        raise _oe.FrameBufferError(
             f"The `{dm.__class__.__name__}` device cannot read buffer data."
         )
     if _osu.is_tn(tn_or_fp):

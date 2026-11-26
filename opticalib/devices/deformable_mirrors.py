@@ -461,7 +461,7 @@ class DP(AdOpticaDm):
         """The Constructor"""
         self._logger = _SL(the_class=__class__)
         super().__init__(tn)
-        self._name = self._name.replace("DM", "DP")
+        self._name = self._name.replace("DM", " DP")
         self.bufferData = None
         self.is_segmented = True
         self.n_segments: int = 2
@@ -603,18 +603,21 @@ class M4AU(AdOpticaDm):
 
     def __init__(self, tn: _ot.Optional[str] = None):
         """The Constructor"""
-        super().__init__(tn)
-        self._name = "M4AU"
-        self.is_segmented = True
-        self.n_segments = 6
-        self.n_acts_per_segment = 892
         try:
             m4au_config = _rc.get_device_config("DEFORMABLE.MIRRORS", "M4AU")
+            tracknum = m4au_config.get("tn", None)
             self._slaveIds = m4au_config.get("slave_ids", [])
             self._borderIds = m4au_config.get("border_ids", [])
         except KeyError:
+            tracknum = tn
             self._slaveIds = []
             self._borderIds = []
+
+        super().__init__(tn if tn is not None else tracknum)
+        self._name = self._name.replace("DM", " M4AU")
+        self.is_segmented = True
+        self.n_segments = 6
+        self.n_acts_per_segment = 892
 
 
 from ._API.dms.alpaoAPI import BaseAlpaoMirror
@@ -1027,7 +1030,7 @@ class SplattDm(SPLATTEngine):
 from ._API.dms.nacoAPI import NACOMirror
 
 
-class NACODm(NACOMirror):
+class NacoDm(NACOMirror):
     """
     NACO Deformable Mirror interface.
 
@@ -1037,22 +1040,41 @@ class NACODm(NACOMirror):
 
     def __init__(
         self,
+        host: str = None,
+        port: int|str = None,
+        reply_timeout: float|None = None,
     ):
         """
         Initialise the NACO DM hardware connection.
+
+        Parameters
+        ----------
+        host : str, optional
+            Hostname or IP address of the NACO DM.
+        port : int or str, optional
+            Port number for the NACO DM connection.
+        reply_timeout : float, optional
+            Reply timeout in seconds for the NACO DM connection.
         """
-        self._name = "NACODM"
+        self._name = "NacoDm"
+
         try:
             dm_config = _rc.get_device_config("DEFORMABLE.MIRRORS", self._name)
-            host = dm_config.get("host", [])
-            port = dm_config.get("port", [])
-            reply_timeout = float(dm_config.get("reply_timeout", 1.0))
+            hostc = dm_config.get("host", None)
+            portc = dm_config.get("port", None)
+            reply_timeoutc = float(dm_config.get("reply_timeout") or 1.0)
         except KeyError:
             raise _oe.DeviceNotFoundError(
                 f"Configuration for {self._name} not found in the configuration file."
+                "Either provide host and port explicitly or configure them in the configuration file."
             )
+
+        timeout = reply_timeout or reply_timeoutc
+        host = host or hostc
+        port = port or portc
+
         self._logger = _SL(the_class=__class__)
-        super().__init__(host, port, reply_timeout=reply_timeout)
+        super().__init__(host, port, reply_timeout=timeout)
         self.set_zeros_to_acts()
         self.is_segmented = False
 
@@ -1064,6 +1086,7 @@ class NACODm(NACOMirror):
         self,
         cmd: _ot.ArrayLike,
         differential: bool = False,
+        slaving: bool|str = False,
     ) -> None:
         """
         Applies the given command to the DM actuators.
@@ -1078,7 +1101,8 @@ class NACODm(NACOMirror):
         if differential:
             shape = self.get_shape()
             cmd = cmd + shape
-        super().set_shape(cmd)
+        cmd = self._apply_slaving(cmd, slaving)
+        super()._mirror_command(cmd)
 
     def set_zeros_to_acts(self):
         """

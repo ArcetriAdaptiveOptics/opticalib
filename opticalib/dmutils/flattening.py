@@ -23,21 +23,23 @@ from ..ground import reconstructor as _crec
 from ..ground.logger import SystemLogger as _SL
 from ..analyzer.image_processing import mode_rebinner as _rebin
 
+
 _FLATDATA = {
-    "flat_delta_cmd": "flat_delta_command.fits",
-    "flat_cmd": "flat_command.fits",
-    "imgstart": "start_image.fits",
-    "imgflat": "flat_image.fits",
-    "modes2flat": "flattened_modes.fits"
+    "_flat_cmd": "flat_command.fits",
+    "_flat_dcmd": "flat_delta_command.fits",
+    "_imgstart": "start_image.fits",
+    "_imgflat": "flat_image.fits",
+    "_modes2flat": "flattened_modes.fits",
+    "_cavityOffset": "cavity_offset.fits"
 }
 
-files = [
-    "flatPosition.fits", # absolute flat command
-    "flatDeltaCommand.fits", # flat delta command
-    "imgstart.fits", # starting shape
-    "imgflat.fits", # flat shape
-    "modes2flat.fits", # flattened_modes
-]
+_DM_OPTIONAL_DATA = {
+    "_last_cmd": "dm_last_command.fits",
+    "_bias_cmd": "bias_command.fits",
+    "_bias_force": "bias_forces.fits",
+    "_flat_total_forces": "flat_total_forces.fits"
+}
+
 
 class Flattening:
     """
@@ -388,7 +390,7 @@ class Flattening:
             fold = self.save_flat_data(cmd, header, modes2flat)
             print(
                 f"Flat command saved in "
-                f".../{_os.sep.join(_os.path.normpath(fold).split(_os.sep)[-2:])}"
+                f"...{_os.sep.join(_os.path.normpath(fold).split(_os.sep)[-2:])}"
             )
             self._logger.info(f"Flat command and images saved in {fold}.")
             return _os.path.basename(_os.path.normpath(fold))
@@ -728,42 +730,28 @@ class Flattening:
         path : str
             Path where the data have been saved.
         """
-        files = [
-            "flatPosition.fits",
-            "flatDeltaCommand.fits",
-            "imgstart.fits",
-            "imgflat.fits",
-            "modes2flat.fits",
-        ]
+        files = list(_FLATDATA.values())
+        dm_optional_data = _DM_OPTIONAL_DATA.copy()
+        dm_optional_data['get_force'] = dm_optional_data.pop('_flat_total_forces')
+
         imgstart = self._startImg.copy()
         imgflat = self._lastFlatImg.copy()
         deltacmd = self.flat_cmd.copy()
         data = [cmd, deltacmd, imgstart, imgflat, modes2flat]
 
-        if self._cavityOffset is not None:
-            data.append(self._cavityOffset.copy())
-            files.append("cavity_offset.fits")
-
-        dm_optionals = {
-            "_last_cmd": "flatCommand.fits",
-            "_bias_cmd": "bias_command.fits",
-            "_bias_force": "bias_forces.fits",
-        }
-
-        for op, file in dm_optionals.items():
+        for op, file in dm_optional_data.items():
             if hasattr(self._dm, op):
-                data.append(getattr(self._dm, op).copy())
+                attr = getattr(self._dm, op)
+                if callable(attr):
+                    attr = attr()
+                data.append(attr)
                 files.append(file)
-
-        if hasattr(self._dm, "get_force"):
-            force = self._dm.get_force()
-            files.append("flatTotalForces.fits")
-            data.append(force)
 
         path = _osu.create_data_folder(_fn.FLAT_ROOT_FOLDER)
 
         for file, dat in zip(files, data):
-            _osu.save_fits(_os.path.join(path, file), dat, header=header)
+            if dat is not None:
+                _osu.save_fits(_os.path.join(path, file), dat, header=header)
 
         return path
 

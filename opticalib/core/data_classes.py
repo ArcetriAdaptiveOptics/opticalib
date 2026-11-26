@@ -12,9 +12,9 @@ interface for downstream consumers.
 
 import os as _os
 from dataclasses import dataclass as _dc
-from opticalib.core import _types as _ot
-from opticalib.ground import osutils as _osu
-from opticalib.core.root import folders as _fn
+from ..core import _types as _ot
+from ..ground import osutils as _osu
+from ..core.root import folders as _fn
 from collections import OrderedDict as _OrderedDict
 
 
@@ -27,24 +27,18 @@ class FlatData:
     tn: str
 
     def __post_init__(self):
+
+        from ..dmutils.flattening import _FLATDATA, _DM_OPTIONAL_DATA
+
+        _FLATDATA.update(_DM_OPTIONAL_DATA)
+        _FILELIST = _FLATDATA.copy()
+
         filelist = _osu.get_file_list(self.tn, _fn.FLAT_ROOT_FOLDER)
 
-        attr_map = {
-            "flatPosition": "_cmd",
-            "flatDeltaCommand": "_deltacmd",
-            "imgstart": "_imgstart",
-            "imgflat": "_imgflat",
-            "modes2flat": "_modes2flat",
-            "cavity_offset": "_cavityOffset",
-            "flatCommand": "_flatCommand",
-            "bias_command": "_biasCommand",
-            "bias_forces": "_biasForces",
-            "flatTotalForces": "_flatTotalForces",
-        }
 
-        for key, attr in attr_map.items():
+        for attr, filename in _FILELIST.items():
             for file in filelist:
-                if key in file:
+                if filename in file:
                     setattr(
                         self,
                         attr,
@@ -60,14 +54,14 @@ class FlatData:
         """
         Absolute flat command.
         """
-        return self._cmd
+        return self._flat_cmd
 
     @property
-    def delta_cmd(self) -> _ot.ArrayLike:
+    def flat_delta_cmd(self) -> _ot.ArrayLike:
         """
         Delta flat command.
         """
-        return self._deltacmd
+        return self._flat_dcmd
 
     @property
     def start_image(self) -> _ot.ImageData:
@@ -102,21 +96,28 @@ class FlatData:
         """
         DM bias command.
         """
-        return self._biasCommand
+        return self._bias_cmd
 
     @property
     def bias_forces(self) -> _ot.ArrayLike:
         """
         DM bias forces.
         """
-        return self._biasForces
+        return self._bias_force
 
     @property
-    def total_forces(self) -> _ot.ArrayLike:
+    def flat_total_forces(self) -> _ot.ArrayLike:
         """
         Total forces on the DM relative to the flattening command.
         """
-        return self._flatTotalForces
+        return self._flat_total_forces
+
+    @property
+    def dm_last_command(self) -> _ot.ArrayLike:
+        """
+        Last command sent to the DM.
+        """
+        return self._last_cmd
 
     def __repr__(self) -> str:
         return f"FlatData(tn={self.tn})"
