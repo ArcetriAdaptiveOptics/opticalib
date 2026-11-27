@@ -24,9 +24,16 @@ class BaseFakePTL(BaseSimulatedDM):
         force_recompute: bool = False,
     ):
         self._name = "FakePetalDM"
+        self.is_segmented = True
+        self.n_segments = 6
+        self.n_acts_per_segment = 3
+        self.mirror_modes = None
+        self.ff = None
+        self._slave_ids = []
+        self._border_ids = []
         self._outer_radius = outer_radius
         self._inner_radius = inner_radius or _np.ceil(0.26666667 * outer_radius)
-        self._mask, self.coords = ff.get_petalmirror_mask_and_coords(
+        self._mask, self._coords = ff.get_petalmirror_mask_and_coords(
             shape,
             outer_radius,
             inner_radius,
@@ -34,7 +41,7 @@ class BaseFakePTL(BaseSimulatedDM):
         self._rois = roi_generator(_np.ma.masked_array(self._mask * 0, mask=self._mask))
         _ = self._rois.pop(3)
         self._idxs = self._get_segs_idxs()
-        self.n_acts = self.coords.shape[0]
+        self.n_acts = self._coords.shape[0]
         self._get_matrices(force_recompute)
         self._unit_calibration()
         self._K = _np.array(
@@ -47,8 +54,6 @@ class BaseFakePTL(BaseSimulatedDM):
         self._K_inv = _np.linalg.inv(self._K)
         super().__init__()
         self._set_initial_shape()
-        self._slaveIds = []
-        self._borderIds = []
 
     def _mirror_command(self, cmd: _ot.ArrayLike, differential: bool):
         """
@@ -97,7 +102,7 @@ class BaseFakePTL(BaseSimulatedDM):
         for jj, roi in enumerate(self._rois):
 
             print(f"Simulating IFF for ROI {jj+1}/{len(self._rois)}")
-            act_pix_coords = self.coords[
+            act_pix_coords = self._coords[
                 jj * 3 : (jj + 1) * 3, :
             ]  # Shape (n_seg_acts, 2)
             n_acts = act_pix_coords.shape[0]
@@ -249,7 +254,7 @@ class BaseFakePTL(BaseSimulatedDM):
         Compute the unit calibration for the command conversion.
         """
 
-        c = self.coords[1:3].copy()
+        c = self._coords[1:3].copy()
 
         pixel_scale = 0.100 / (self._outer_radius * 2)  # m per pixel
 

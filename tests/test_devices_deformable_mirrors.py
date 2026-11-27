@@ -3,6 +3,7 @@
 from unittest.mock import MagicMock, patch
 
 import numpy as np
+import pytest
 
 from opticalib.devices.deformable_mirrors import DP
 
@@ -49,3 +50,34 @@ class TestDP:
             subsystem.support.diagBuf.read.return_value["ch0110"][:, 4],
         )
         np.testing.assert_array_equal(dm.bufferData["actPos"], result["actPos"])
+
+class TestNacoDmConstruction:
+    """Regression: NacoDm used to crash on construction (read-only property)."""
+
+    @pytest.fixture
+    def naco(self, monkeypatch):
+        from opticalib.core.exceptions import DeviceNotFoundError
+        from opticalib.devices.deformable_mirrors import NacoDm
+
+        def _raise(*a, **k):
+            raise DeviceNotFoundError("no config")
+
+        monkeypatch.setattr("opticalib.core.config.get_device_config", _raise)
+        # Patch through NacoDm's own base: other tests reload opticalib modules,
+        # so a freshly imported NACOMirror may not be the class NacoDm inherits.
+        monkeypatch.setattr(
+            NacoDm.__bases__[0], "_mirror_command", lambda self, cmd: None
+        )
+        return NacoDm(host="127.0.0.1", port=45678)
+
+    def test_construction(self, naco):
+        assert naco.cmd_history is None
+        assert naco.act_coord.shape == (185, 2)
+        assert naco.n_segments == 1
+        assert naco.n_acts_per_segment == 185
+        assert naco.slave_ids == [] and naco.border_ids == []
+
+    def test_upload_cmd_history(self, naco):
+        mat = np.random.default_rng(0).normal(size=(185, 3))
+        naco.upload_cmd_history(mat)
+        np.testing.assert_array_equal(naco.cmd_history, mat)

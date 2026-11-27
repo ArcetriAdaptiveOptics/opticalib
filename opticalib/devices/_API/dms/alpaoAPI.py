@@ -138,6 +138,9 @@ class BaseAlpaoMirror(BaseDeformableMirror):
                 stacklevel=2,
             )
 
+        self.is_segmented = False
+        self.n_segments = 1
+        self.n_acts_per_segment = self.n_acts
         self._last_cmd: _t.ArrayLike = _np.zeros(self.n_acts)
         self.act_coord = self._init_act_coord()
         self.diameter = get_section_config("DEVICES", "DEFORMABLE.MIRRORS")[
@@ -145,7 +148,7 @@ class BaseAlpaoMirror(BaseDeformableMirror):
         ].get("diameter", None)
         self.mirror_modes = None
         self._cmd_history = None
-        self.refAct = None
+        self.ref_act = None
         self.ff = None
 
     # ------------------------------------------------------------------
@@ -229,28 +232,23 @@ class BaseAlpaoMirror(BaseDeformableMirror):
     # Higher-level helpers
     # ------------------------------------------------------------------
 
-    @property
-    def n_actuators(self) -> int:
-        """Number of actuators on the DM."""
-        return self.n_acts
-
-    def set_reference_actuator(self, refAct: int) -> None:
+    def set_reference_actuator(self, ref_act: int) -> None:
         """
         Set the reference actuator index for calibration purposes.
 
         Parameters
         ----------
-        refAct : int
+        ref_act : int
             Zero-based index of the reference actuator.
 
         Raises
         ------
         ValueError
-            If *refAct* is outside the valid range ``[0, n_acts)``.
+            If *ref_act* is outside the valid range ``[0, n_acts)``.
         """
-        if refAct < 0 or refAct >= self.n_acts:
-            raise ValueError(f"Reference actuator {refAct} is out of range.")
-        self.refAct = refAct
+        if ref_act < 0 or ref_act >= self.n_acts:
+            raise ValueError(f"Reference actuator {ref_act} is out of range.")
+        self.ref_act = ref_act
 
     def _check_cmd_integrity(
         self, cmd: _t.ArrayLike, amp_threshold: float = 0.9
@@ -289,21 +287,20 @@ class BaseAlpaoMirror(BaseDeformableMirror):
     # Private initialisation helpers
     # ------------------------------------------------------------------
 
-    def _init_act_coord(self) -> _t.ArrayLike:
+    def _init_act_coord(self) -> _t.Optional[_t.ArrayLike]:
         """
         Build the 2-D actuator coordinate array from the DM layout table.
 
         Returns
         -------
         numpy.ndarray or None
-            Array of shape ``(2, n_acts)`` with ``(x, y)`` pixel
-            coordinates, or an empty array if the model is unknown.
+            Array of shape ``(n_acts, 2)`` with columns ``(x, y)`` pixel
+            coordinates, or ``None`` if the model is unknown.
         """
         try:
             nacts_row_sequence = _DMCOORDS_SCHEMA[f"dm{self.n_acts}"]
         except KeyError:
-            self.act_coord = _np.array([], dtype=int)
-            return
+            return None
         n_dim = nacts_row_sequence[-1]
         upper_rows = nacts_row_sequence[:-1]
         lower_rows = list(reversed(upper_rows))
@@ -321,8 +318,7 @@ class BaseAlpaoMirror(BaseDeformableMirror):
                 )
             )
             cy = _np.concatenate((cy, _np.full(rows_number_of_acts[i], i)))
-        self.act_coord = _np.array([cx, cy])
-        return self.act_coord
+        return _np.stack([cx, cy], axis=1)
 
     def _resolve_init(
         self,

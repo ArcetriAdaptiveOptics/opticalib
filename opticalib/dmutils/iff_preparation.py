@@ -49,7 +49,7 @@ class IFFCapturePreparation:
             raise DeviceError(dm, "DeformableMirrorDevice")
 
         self._dm = dm
-        self.mirror_modes = dm.mirrorModes
+        self.mirror_modes = dm.mirror_modes
         self._NActs = dm.n_acts
 
         self._config = _rif.get_iff_config(key=None)

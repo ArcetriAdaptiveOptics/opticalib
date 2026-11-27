@@ -1,5 +1,7 @@
 import numpy as np
-from opticalib.core import _types as _ot
+from opticalib.core import (
+    _types as _ot,
+)
 from pipython import GCSDevice, GCSError
 from pipython.pidevice.interfaces.pisocket import PISocket
 from opticalib.core import config as _rc
@@ -28,21 +30,36 @@ class BasePetalMirror(BaseDeformableMirror):
         """
         Initialize the petal mirror device with the given addresses.
         """
-        ptl_config = _rc.get_device_config("DEFORMABLE.MIRRORS", "PetalDM")
 
         self._had_error = False
+        self.mirror_modes = None
+        self.act_coord = None
+        self.ff = None
+        self._cmd_history = None
         self.is_segmented = True
         self.n_segments = 6
         self.n_acts_per_segment = 3
         self.n_acts = self.n_segments * self.n_acts_per_segment
-        self._slaveIds = ptl_config.get("slave_ids", [])
-        self._borderIds = ptl_config.get("border_ids", [])
+
+        try:
+            ptl_config = _rc.get_device_config("DEFORMABLE.MIRRORS", "PetalDM")
+            self._slave_ids = ptl_config.get("slave_ids", [])
+            self._border_ids = ptl_config.get("border_ids", [])
+            ips = [ptl_config.get(f"ip{i}") for i in range(6)]
+        except KeyError:
+            self._logger.error("Failed to get petal mirror configuration")
+            self._slave_ids = []
+            self._border_ids = []
+            ips = []
 
         if ip_addresses is None:
-            ips = [ptl_config.get(f"ip{i}") for i in range(6)]
             self._ip_addresses = [ip for ip in ips if ip is not None]
         else:
             self._ip_addresses = ip_addresses
+
+        if all(ip is None for ip in self._ip_addresses):
+            self._logger.error("No valid IP addresses provided for petal mirror segments")
+            raise ConnectionError("No valid IP addresses provided for petal mirror segments")
 
         self._gateways = [PISocket(host=ip) for ip in self._ip_addresses]
         self._devices = [
@@ -51,23 +68,13 @@ class BasePetalMirror(BaseDeformableMirror):
 
         if not all([dev.connected for dev in self._devices]):
             self._logger.error("Some connection did not get established")
-            raise RuntimeError("Some connection did not get established")
+            raise ConnectionError("Some connection did not get established")
         else:
             if not hasattr(self, "_had_morning_routine"):
                 self._had_morning_routine = False
             self._logger.info("All connections to petal mirror segments established")
             self._check_servos()
             self._morning_routine()
-
-    @property
-    def slave_ids(self):
-        """Get the IDs of the slave segments."""
-        return self._slaveIds
-
-    @property
-    def border_ids(self):
-        """Get the IDs of the border segments."""
-        return self._borderIds
 
     # def get_acc(self) -> float:
     #     """

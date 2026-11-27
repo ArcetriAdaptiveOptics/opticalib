@@ -167,7 +167,7 @@ class TestIFFCapturePreparation:
         prep._update_modal_base("mirror")
 
         assert prep.modalBaseId == "mirror"
-        np.testing.assert_array_equal(prep._modalBase, mock_dm.mirrorModes)
+        np.testing.assert_array_equal(prep._modalBase, mock_dm.mirror_modes)
 
     def test_update_modal_base_zonal(self, mock_dm):
         """Test updating modal base to zonal."""

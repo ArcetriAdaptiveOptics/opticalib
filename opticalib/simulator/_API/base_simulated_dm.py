@@ -7,30 +7,9 @@ from matplotlib.pyplot import pause
 from opticalib import folders as fp
 from opticalib.ground import osutils as osu
 from opticalib.core import _types as _ot, config as _rc
-from opticalib.dmutils.slaving import compute_slaved_command_matrix, compute_slave_cmd
+from opticalib.core.exceptions import MatrixError
 from opticalib.ground.modal_decomposer import ZernikeFitter as _ZF
 from opticalib.devices._API.base_devices import BaseDeformableMirror
-
-
-def _apply_slaving(
-    dm: _ot.FakeDeformableMirrorDevice,
-    cmd: _ot.ArrayLike | _ot.MatrixLike,
-    slave: bool | str,
-) -> _ot.ArrayLike:
-    """
-    Apply slaving to command if requested.
-    """
-    if isinstance(slave, str):
-        method = slave
-    elif slave:
-        if len(dm.slave_ids) == 0:
-            return cmd
-        method = "zero-force" if len(dm.border_ids) == 0 else "minimum-rms"
-    else:
-        return cmd
-    if _ot.isinstance_(cmd, "MatrixLike"):
-        return compute_slaved_command_matrix(dm, cmd, method=method)
-    return compute_slave_cmd(dm, cmd, method=method)
 
 
 class BaseSimulatedDM(BaseDeformableMirror):
@@ -50,14 +29,14 @@ class BaseSimulatedDM(BaseDeformableMirror):
         self._cmd_history = None
 
     @property
-    def act_coords(self) -> _ot.ArrayLike:
+    def act_coord(self) -> _ot.ArrayLike:
         """
-        Get the current actuator coordinates of the simulated deformable mirror (DM).
+        Get the actuator coordinates of the simulated deformable mirror (DM).
 
         Returns
         -------
-        act_pos : _ot.ArrayLike
-            The current actuator coordinates of the DM.
+        act_coord : _ot.ArrayLike
+            The actuator coordinates of the DM, of shape ``(n_acts, 2)``.
         """
         return self._coords.copy()
 
@@ -65,7 +44,8 @@ class BaseSimulatedDM(BaseDeformableMirror):
         self,
         cmd: _ot.ArrayLike,
         differential: bool = False,
-        slaving: bool | str = True,
+        *,
+        slaving: bool | str = False,
         **kwargs: dict[str, _ot.Any],
     ) -> None:
         """
@@ -78,13 +58,13 @@ class BaseSimulatedDM(BaseDeformableMirror):
         differential : bool, optional
             Whether the command is a differential command (default is False).
         slaving : bool | str, optional
-            Whether to apply slaving to the command (default is True).
+            Whether to apply slaving to the command (default is False).
             It can be a string representing the slaving method to be used. Options
             are "zero-force" and "minimum-rms".
         **kwargs : dict[str,_ot.Any]
             Additional keyword arguments to be passed to the mirror command.
         """
-        cmd = _apply_slaving(self, cmd, slave=slaving)
+        cmd = self._apply_slaving(cmd, slave=slaving)
         self._logger.info(f"Sending mirror command to {self._name}")
         self._mirror_command(cmd, differential=differential, **kwargs)
         if self._live:
@@ -103,89 +83,101 @@ class BaseSimulatedDM(BaseDeformableMirror):
         return self._act_pos.copy()
 
     def upload_cmd_history(
-        self, cmdhist: _ot.MatrixLike, slaving: bool | str = False
+        self, tcmdhist: _ot.MatrixLike, *, slaving: bool | str = False
     ) -> None:
         """
         Upload the command history to the simulated deformable mirror (DM).
 
         Parameters
         ----------
-        cmdhist : _ot.MatrixLike
-            The command history to be uploaded to the DM.
+        tcmdhist : _ot.MatrixLike
+            The command history to be uploaded to the DM, of shape
+            ``(n_acts, n_steps)``.
         slaving : bool | str, optional
             Whether to apply slaving to the command history (default is False).
-
+            It can be a string representing the slaving method to be used.
         """
         self._logger.info(
-            f"Uploading command history of shape {cmdhist.shape} to {self._name}"
+            f"Uploading command history of shape {tcmdhist.shape} to {self._name}"
         )
-        if slaving:
-            cmdhist = _apply_slaving(self, cmdhist, slave=slaving)
-        self._cmd_history = cmdhist.copy()
+        cmdhist = self._apply_slaving(tcmdhist, slave=slaving)
+        self._cmd_history = np.array(cmdhist, copy=True)
         print(f"Command history of shape {cmdhist.shape} uploaded.")
 
     def run_cmd_history(
         self,
         wfs: _ot.Optional[_ot.InterferometerDevice | _ot.WFSDevice] = None,
-        save: str | bool = False,
+        save: _ot.Optional[str] = None,
         **setshape_kwargs: dict[str, _ot.Any],
-    ):
+    ) -> _ot.Optional[str]:
         """
-        Runs the command history on the deformable mirror.
+        Runs the uploaded command history on the deformable mirror.
 
         Parameters
         ----------
         wfs : InterferometerDevice | WFSDevice, optional
-            Wavefront sensor object used to acquire the data.
-        rebin : int
-            Rebinning factor for the acquired phase map.
-        modal : bool
-            If True, the command history is modal.
-        differential : bool
-            If True, the command history is applied differentially
-            to the initial shape.
+            Wavefront sensor object used to acquire the data. If None, the
+            history is only executed and nothing is saved.
+        save : str, optional
+            Tracking number under which to save the acquired images (only
+            used if `wfs` is given). If None, a new tracking number is created.
+        **setshape_kwargs : dict, optional
+            Keyword arguments for `set_shape`. In particular:
+
+            - differential : bool, optional
+                If True (default), each command is applied differentially
+                to the starting shape.
+            - slaving : bool | str, optional
+                Slaving to apply to each command (default is False).
+            - modal : bool, optional
+                If True, the command history is modal (where supported).
 
         Returns
         -------
-        tn :str
-            Timestamp of the data saved.
+        tn : str | None
+            Tracking number of the saved data, or None if no `wfs` was given.
+
+        Raises
+        ------
+        MatrixError
+            If no command history has been uploaded.
         """
-        differential = setshape_kwargs.get("differential", False)
+        differential = setshape_kwargs.pop("differential", True)
+        # `slave` is the former keyword name, still accepted
+        slaving = setshape_kwargs.pop("slaving", setshape_kwargs.pop("slave", False))
         delay: float = _rc.get_iff_config(key=None).get("sequential_delay", 0.0)
-        slaving: bool | str = setshape_kwargs.get(
-            "slaving", setshape_kwargs.get("slave", False)
-        )
 
         if self._cmd_history is None:
             self._logger.error("No Command History found in memory!")
-            raise Exception("No Command History to run!")
-        else:
-            self._logger.info(
-                f"Running command history of shape {self._cmd_history.shape}"
+            raise MatrixError("No Command History to run!")
+        self._logger.info(
+            f"Running command history of shape {self._cmd_history.shape}"
+        )
+
+        if wfs is None:
+            tn = None
+            datafold = None
+        elif save is None:
+            datafold, tn = osu.create_data_folder(
+                basepath=fp.OPD_IMAGES_ROOT_FOLDER, get_tn=True
             )
+        else:
+            tn = save
+            datafold = os.path.join(fp.OPD_IMAGES_ROOT_FOLDER, tn)
+            os.makedirs(datafold, exist_ok=True)
 
+        print(f"{tn} - {self._cmd_history.shape[-1]} modes.")
+        s = self.get_shape()
+        for i, cmd in enumerate(self._cmd_history.T):
+            print(f"{i+1}/{self._cmd_history.shape[-1]}", end="\r", flush=True)
+            if differential:
+                cmd = cmd + s
+            self.set_shape(cmd, slaving=slaving, **setshape_kwargs)
             if wfs is not None:
-                datafold, tn = osu.create_data_folder(get_tn=True)
-            elif save is not False:
-                tn = save
-                datafold = os.path.join(fp.OPD_IMAGES_ROOT_FOLDER, tn)
-                if not os.path.exists(datafold):
-                    os.mkdir(datafold)
-            else:
-                tn = None
-
-            print(f"{tn} - {self._cmd_history.shape[-1]} modes.")
-            s = self.get_shape()
-            for i, cmd in enumerate(self._cmd_history.T):
-                print(f"{i+1}/{self._cmd_history.shape[-1]}", end="\r", flush=True)
-                if differential:
-                    cmd += s
-                self.set_shape(cmd, slaving=slaving)
-                if wfs is not None:
-                    sleep(delay)
-                    img = wfs.acquire_map()
-                    path = os.path.join(datafold, f"image_{i:05d}.fits")
-                    osu.save_fits(path, img)
+                sleep(delay)
+                img = wfs.acquire_map()
+                path = os.path.join(datafold, f"image_{i:05d}.fits")
+                osu.save_fits(path, img)
         self.set_shape(s)
         return tn
 

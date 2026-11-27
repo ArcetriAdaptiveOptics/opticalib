@@ -18,34 +18,6 @@ class PetalMirror(BaseFakePTL):
         self._live = False
         self._logger = _SL(__class__)
         super().__init__(**kwargs)
-        self.is_segmented = True
-        self.n_segments = 6
-        self.n_acts_per_segment = 3
-        self.mirror_modes = None
-
-    @property
-    def slave_ids(self) -> _t.ArrayLike:
-        """
-        Returns the list of slave actuator IDs for the deformable mirror.
-
-        Returns
-        -------
-        numpy.ndarray
-            List of slave actuator IDs.
-        """
-        return self._slaveIds
-
-    @property
-    def border_ids(self) -> _t.ArrayLike:
-        """
-        Returns the list of border actuator IDs for the deformable mirror.
-
-        Returns
-        -------
-        numpy.ndarray
-            List of border actuator IDs.
-        """
-        return self._borderIds
 
     def get_shape(self):
         """
@@ -66,31 +38,6 @@ class AlpaoDm(BaseFakeAlpao):
         super(AlpaoDm, self).__init__(n_acts, force_recompute=force_recompute)
         self._idx = np.where(self._mask == 0)
         self._produce_random_shape()
-        self.is_segmented = False
-
-    @property
-    def slave_ids(self) -> _t.ArrayLike:
-        """
-        Returns the list of slave actuator IDs for the deformable mirror.
-
-        Returns
-        -------
-        numpy.ndarray
-            List of slave actuator IDs.
-        """
-        return self._slaveIds
-
-    @property
-    def border_ids(self) -> _t.ArrayLike:
-        """
-        Returns the list of border actuator IDs for the deformable mirror.
-
-        Returns
-        -------
-        numpy.ndarray
-            List of border actuator IDs.
-        """
-        return self._borderIds
 
     def _mirror_command(
         self, cmd: _t.ArrayLike, differential: bool, **kwargs: dict[str, _t.Any]
@@ -212,9 +159,6 @@ class DP(BaseFakeDp):
         self._live = False
         self._logger = _SL(__class__)
         super().__init__(**kwargs)
-        self.is_segmented = True
-        self.n_segments = 2
-        self.n_acts_per_segment = 111
 
     def get_shape(self):
         """

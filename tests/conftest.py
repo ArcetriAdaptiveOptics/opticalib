@@ -125,9 +125,11 @@ def mock_dm():
     """Create a mock deformable mirror device."""
     dm = MagicMock()
     dm.n_acts = 100
+    dm.is_segmented = True
     dm.n_segments = 2
     dm.n_acts_per_segment = 50
-    dm.mirrorModes = np.random.randn(100, 100).astype(np.float32)
+    dm.mirror_modes = np.random.randn(100, 100).astype(np.float32)
+    dm.cmd_history = None
     dm.name = "TestDM"
     dm._name = "TestDM"
     dm.upload_cmd_history = Mock()

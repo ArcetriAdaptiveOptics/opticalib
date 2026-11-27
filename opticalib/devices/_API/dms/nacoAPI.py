@@ -63,9 +63,13 @@ class NACOMirror(BaseDeformableMirror):
         self._last_cmd: _t.ArrayLike = _np.zeros(self.n_acts)
         self._name = f"NACO{self.n_acts}"
         self.act_coord = self._init_act_coord()
-        self.cmd_history = None
-        self.refAct = None
+        self.is_segmented = False
+        self.n_segments = 1
+        self.n_acts_per_segment = self.n_acts
+        self._cmd_history = None
+        self.ref_act = None
         self.mirror_modes = None
+        self.ff = None
 
     # ------------------------------------------------------------------
     # SDK-level interface
@@ -141,30 +145,24 @@ class NACOMirror(BaseDeformableMirror):
     # Higher-level helpers
     # ------------------------------------------------------------------
 
-    @property
-    def n_actuators(self) -> int:
-        """Number of actuators on the DM."""
-        return self.n_acts
-
     # ------------------------------------------------------------------
     # Private initialisation helpers
     # ------------------------------------------------------------------
 
-    def _init_act_coord(self) -> _t.ArrayLike:
+    def _init_act_coord(self) -> _t.Optional[_t.ArrayLike]:
         """
         Build the 2-D actuator coordinate array from the DM layout table.
 
         Returns
         -------
         numpy.ndarray or None
-            Array of shape ``(2, n_acts)`` with ``(x, y)`` pixel
-            coordinates, or an empty array if the model is unknown.
+            Array of shape ``(n_acts, 2)`` with columns ``(x, y)`` pixel
+            coordinates, or ``None`` if the model is unknown.
         """
         try:
             nacts_row_sequence = self._dmCoords[f"dm{self.n_acts}"]
         except KeyError:
-            self.act_coord = _np.array([], dtype=int)
-            return
+            return None
         n_dim = nacts_row_sequence[-1]
         upper_rows = nacts_row_sequence[:-1]
         lower_rows = list(reversed(upper_rows))
@@ -182,5 +180,4 @@ class NACOMirror(BaseDeformableMirror):
                 )
             )
             cy = _np.concatenate((cy, _np.full(rows_number_of_acts[i], i)))
-        self.act_coord = _np.array([cx, cy])
-        return self.act_coord
+        return _np.stack([cx, cy], axis=1)

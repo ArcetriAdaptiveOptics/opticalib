@@ -39,7 +39,15 @@ class BaseAdOpticaDm(BaseDeformableMirror):
         # self.ffm = (self._aoClient.aoSystem.sysConf.gen.FFWDSvdMatrix)[0]  #
         self.ff = self._aoClient.aoSystem.sysConf.gen.FFWDMatrix
         # self.mirror_modes = self._init_mirror_modes()
-        self._biasCmd = self._aoClient.aoSystem.sysConf.gen.biasVectors[0]
+        self.mirror_modes = None
+        self._bias_cmd = self._aoClient.aoSystem.sysConf.gen.biasVectors[0]
+        self._cmd_history = None
+
+        # Monolithic defaults (overridden by segmented subclasses)
+        self.is_segmented = False
+        self.n_segments = 1
+        self.n_acts_per_segment = self.n_acts
+        self._init_slaving_ids()
 
         # Connect to the Ao SubSystems
         self._aoClient._connect()
@@ -105,6 +113,43 @@ class BaseAdOpticaDm(BaseDeformableMirror):
         plt.axis("equal")
         plt.colorbar()
         plt.show()
+
+
+    def _get_skip_counter(self) -> int:
+        """
+        Get the current frame counter from the AO client
+
+        Returns
+        -------
+        total_skipped_frames : int
+            Current total skipped frames counter value
+        """
+        cc = self._aoClient.getCounters()
+        values = []
+        keys = ["skipByCommand", "skipByDeltaCommand", "skipByForce"]
+        for key in keys:
+            values.append(getattr(cc, key))
+        total_skipped_frames = sum(values)
+        return total_skipped_frames
+
+
+    def _get_clip_counter(self) -> int:
+        """
+        Get the current clip counter from the AO client
+
+        Returns
+        -------
+        total_clipped_frames : int
+            Current total clipped frames counter value
+        """
+        cc = self._aoClient.getCounters()
+        values = []
+        keys = ["clipByCommand", "clipByDeltaCommand", "clipByForce"]
+        for key in keys:
+            values.append(getattr(cc, key))
+        total_clipped_frames = sum(values)
+        return total_clipped_frames
+
 
     def _init_n_actuators(self) -> int:
         """

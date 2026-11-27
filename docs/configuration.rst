@@ -443,7 +443,7 @@ The shared keys are:
       actuator.
     * ``hadamard`` — Hadamard matrix :math:`H_{2^{10}}`, trimmed to
       ``nacts`` rows.
-    * ``mirror`` — mirror's own native modes, loaded from the class variable ``dm.mirrorModes``.  
+    * ``mirror`` — mirror's own native modes, loaded from the class variable ``dm.mirror_modes``.  
       The corresponding FITS file must be present in ``<data_path>/ModalBases/<device_name>Mirror.fits`` 
       (if not loaded in some other way by the dm class itself, as it happens with the AdOpticaDP/M4AU).
     * *custom name* — any other string is interpreted as a FITS filename
