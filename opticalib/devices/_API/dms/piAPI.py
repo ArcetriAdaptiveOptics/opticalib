@@ -57,9 +57,14 @@ class BasePetalMirror(BaseDeformableMirror):
         else:
             self._ip_addresses = ip_addresses
 
-        if all(ip is None for ip in self._ip_addresses):
-            self._logger.error("No valid IP addresses provided for petal mirror segments")
-            raise ConnectionError("No valid IP addresses provided for petal mirror segments")
+        if len(self._ip_addresses) != self.n_segments or any(
+            not ip for ip in self._ip_addresses
+        ):
+            message = (
+                "A valid IP address is required for each petal mirror segment"
+            )
+            self._logger.error(message)
+            raise ConnectionError(message)
 
         self._gateways = [PISocket(host=ip) for ip in self._ip_addresses]
         self._devices = [
