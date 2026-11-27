@@ -544,7 +544,9 @@ class SPL:
                 f"Invalid filter mode: {sweep_mode}. Must be one of {list(_FILTER_BANDWIDTH_MODE.keys())}"
             )
         if sweep_mode == "black":
-            self._logger.error("Cannot sweep in black mode: pass a non-black filter_mode")
+            self._logger.error(
+                "Cannot sweep in black mode: pass a non-black filter_mode"
+            )
             raise ValueError("Cannot sweep in black mode: pass a non-black filter_mode")
 
         # The dark is acquired first (it switches the filter to black), then
@@ -957,9 +959,7 @@ class SPL:
         )
         desired_order = _splconf.get("expected_psf_pos", None)
         # unfilled template entries (e.g. `- []`) mean "no expected positions"
-        if not desired_order or any(
-            p is None or len(p) < 2 for p in desired_order
-        ):
+        if not desired_order or any(p is None or len(p) < 2 for p in desired_order):
             desired_order = None
 
         # 1) Robust background/noise estimate
@@ -1220,7 +1220,9 @@ class SPL:
 
         fig.supxlabel(r"$\lambda$ [nm]", fontsize=14)
         fig.supylabel("Pixels", fontsize=14)
-        fig.suptitle(f"Fringes comparison - {label}", fontsize=16, fontweight="semibold")
+        fig.suptitle(
+            f"Fringes comparison - {label}", fontsize=16, fontweight="semibold"
+        )
         plt.show()
 
     def _heal_bad_pixels(

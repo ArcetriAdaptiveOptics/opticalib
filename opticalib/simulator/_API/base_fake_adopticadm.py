@@ -58,9 +58,7 @@ class BaseFakeM4(BaseSimulatedDM):
 
         ## -- INITIALIZATION -- ##
         super().__init__()
-        self._shape = (
-            np.ma.masked_array(self._mask * 0, mask=self._mask, dtype=float)
-        )
+        self._shape = np.ma.masked_array(self._mask * 0, mask=self._mask, dtype=float)
         self._seg_masks = roi.roi_generator(self._shape)
 
     @property
@@ -266,10 +264,7 @@ class BaseFakeDp(BaseSimulatedDM):
         return geo.rotate_image(img, angle_deg=-70)
 
     def _mirror_command(
-        self,
-        cmd: _t.ArrayLike,
-        differential: bool = False,
-        modal: bool=False
+        self, cmd: _t.ArrayLike, differential: bool = False, modal: bool = False
     ):
         """
         Applies the given command to the deformable mirror.

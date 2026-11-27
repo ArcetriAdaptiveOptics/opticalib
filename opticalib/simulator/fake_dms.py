@@ -186,10 +186,7 @@ class M4AU(BaseFakeM4):
         return f"{self._name}(n_segments={self.n_segments}, n_acts_per_segment={self.n_acts_per_segment})"
 
     def _mirror_command(
-        self,
-        cmd: _t.ArrayLike,
-        differential: bool = False,
-        modal: bool = False
+        self, cmd: _t.ArrayLike, differential: bool = False, modal: bool = False
     ):
         """
         Applies the given command to the deformable mirror.
@@ -229,5 +226,5 @@ class M4AU(BaseFakeM4):
 
             shape[idx] += np.dot(cmd_amp, self.im[seg])
             self._act_pos[seg * nsag : (seg + 1) * nsag] += cmd_amp
-        
+
         self._shape = shape.reshape(self._mask.shape)

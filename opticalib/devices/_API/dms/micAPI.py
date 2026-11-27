@@ -11,13 +11,14 @@ except ImportError:
 
 actCoordFile = "ActuatorsCoordinates.fits"
 
+
 class BaseAdOpticaDm(BaseDeformableMirror):
     """
     Base class for AdOptica DM devices.
     This class is intended to be inherited by specific device classes.
     """
 
-    def __init__(self, tracknum: str|None = None):
+    def __init__(self, tracknum: str | None = None):
         """
         Constructor for the Microgate AO_CLIENT wrapper
 
@@ -30,18 +31,19 @@ class BaseAdOpticaDm(BaseDeformableMirror):
         tn = self._resolve_tracknum(tracknum)
         self._aoClient = AO_CLIENT(tn)
 
-        # Mirror properties
-        self.n_acts = self._init_n_actuators()
-        self.act_coord = self._init_act_coord()
-        self.workingActs = self._init_working_acts()
-
         # Retrieves the mirror's FF, M2C and Bias Vector
         # self.ffm = (self._aoClient.aoSystem.sysConf.gen.FFWDSvdMatrix)[0]  #
         self.ff = self._aoClient.aoSystem.sysConf.gen.FFWDMatrix
+        self._modal_base = self._aoClient.aoSystem.sysConf.gen.M2CMatrix.copy()
         # self.mirror_modes = self._init_mirror_modes()
         self.mirror_modes = None
         self._bias_cmd = self._aoClient.aoSystem.sysConf.gen.biasVectors[0]
         self._cmd_history = None
+
+        # Mirror properties
+        self.n_acts = self._modal_base.shape[-1]
+        self.act_coord = self._init_act_coord()
+        self.workingActs = self._init_working_acts()
 
         # Monolithic defaults (overridden by segmented subclasses)
         self.is_segmented = False
@@ -75,6 +77,16 @@ class BaseAdOpticaDm(BaseDeformableMirror):
 
         """
         return self._aoClient.getForce()
+
+    def recover_shape(self):
+        """
+        Recover the current shape of the mirror by invoking the mirror recovery
+        procedure.
+        """
+        try:
+            self._aoClient.mirrorRecovery()
+        except Exception as e:
+            print(f"Error during mirror recovery: {e}")
 
     def plot_acts(self, amp: ot.Optional[ot.ArrayLike] = None, **kwargs):
         """
@@ -114,6 +126,30 @@ class BaseAdOpticaDm(BaseDeformableMirror):
         plt.colorbar()
         plt.show()
 
+    def _check_current_modal_base(self) -> str:
+        """
+        Check the current modal base of the mirror.
+
+        Returns
+        -------
+        'zonal' or 'modal'.
+        """
+        if np.array_equal(self._modal_base, np.eye(self.n_acts)):
+            return "zonal"
+        return "modal"
+
+    def _has_m2c_changed(self) -> bool:
+        """
+        Check if the M2C matrix has changed from its initial state.
+
+        Returns
+        -------
+        bool
+            True if the M2C matrix has changed, False otherwise.
+        """
+        return not np.array_equal(
+            self._modal_base, self._aoClient.aoSystem.sysConf.gen.M2CMatrix
+        )
 
     def _get_skip_counter(self) -> int:
         """
@@ -132,7 +168,6 @@ class BaseAdOpticaDm(BaseDeformableMirror):
         total_skipped_frames = sum(values)
         return total_skipped_frames
 
-
     def _get_clip_counter(self) -> int:
         """
         Get the current clip counter from the AO client
@@ -150,7 +185,6 @@ class BaseAdOpticaDm(BaseDeformableMirror):
         total_clipped_frames = sum(values)
         return total_clipped_frames
 
-
     def _init_n_actuators(self) -> int:
         """
         Function which reads the number of actuators of the DM from a configuration
@@ -161,7 +195,7 @@ class BaseAdOpticaDm(BaseDeformableMirror):
         nact: int
             number of actuators of the DM.
         """
-        return self._aoClient.aoSystem.sysConf.gen.M2CMatrix.shape[-1]
+        return
 
     # DP
     def _init_mirror_modes(self):
@@ -216,7 +250,7 @@ class BaseAdOpticaDm(BaseDeformableMirror):
         coords = load_fits(filepath)
         return coords
 
-    def _resolve_tracknum(self, tracknum: str|None) -> str|None:
+    def _resolve_tracknum(self, tracknum: str | None) -> str | None:
         """
         Function which resolves the tn.
         """
@@ -225,7 +259,8 @@ class BaseAdOpticaDm(BaseDeformableMirror):
         if not tracknum is None:
             if tracknum.lower() == "default":
                 try:
-                    from Microgate.adopt.AOBaseConfig import baseConfig # type: ignore
+                    from Microgate.adopt.AOBaseConfig import baseConfig  # type: ignore
+
                     tn = baseConfig.SYS_CONF_TN
                 except ImportError:
                     tn = None

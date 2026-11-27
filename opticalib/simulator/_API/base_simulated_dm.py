@@ -149,9 +149,7 @@ class BaseSimulatedDM(BaseDeformableMirror):
         if self._cmd_history is None:
             self._logger.error("No Command History found in memory!")
             raise MatrixError("No Command History to run!")
-        self._logger.info(
-            f"Running command history of shape {self._cmd_history.shape}"
-        )
+        self._logger.info(f"Running command history of shape {self._cmd_history.shape}")
 
         if wfs is None:
             tn = None

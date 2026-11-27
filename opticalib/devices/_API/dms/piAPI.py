@@ -60,9 +60,7 @@ class BasePetalMirror(BaseDeformableMirror):
         if len(self._ip_addresses) != self.n_segments or any(
             not ip for ip in self._ip_addresses
         ):
-            message = (
-                "A valid IP address is required for each petal mirror segment"
-            )
+            message = "A valid IP address is required for each petal mirror segment"
             self._logger.error(message)
             raise ConnectionError(message)
 

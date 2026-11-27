@@ -489,8 +489,9 @@ def stack_cubes(tnlist: list[str], cube_names: _ot.Optional[list[str]] = None) -
     # Stack all components
     stacked_cube = _np.ma.dstack(cube_list)
     stacked_cmat = _np.hstack(cmats)
-    stacked_mvec = _np.dstack(mvecs) \
-        if all(_np.ndim(m) <= 2 for m in mvecs) else _np.hstack(mvecs)
+    stacked_mvec = (
+        _np.dstack(mvecs) if all(_np.ndim(m) <= 2 for m in mvecs) else _np.hstack(mvecs)
+    )
     stacked_avec = _np.hstack(avecs)
     # Build header with metadata
     header = {
@@ -1347,7 +1348,7 @@ def _check_information_consistency(info: dict[str, _ot.Any]) -> None:
 #     tnlist: list[str],
 #     modesVectList: list[int] | list[_ot.ArrayLike],
 #     rebin: int,
-#     type: int,
+# type: int,
 # ) -> dict[str, _ot.Any]:
 #     """
 #     Creates the dictionary to dump into the 'flag.txt' file accordingly to

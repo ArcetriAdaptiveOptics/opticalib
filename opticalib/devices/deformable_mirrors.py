@@ -34,9 +34,9 @@ from ._API.dms.piAPI import BasePetalMirror
 class PetalMirror(BasePetalMirror):
     """
     High level interface of the Petal Mirror.
-    
-    The PetalMirror (PTM) is the segmented active mirror at the heart of the 
-    ADONI-STILES `Petalometer Testbench`. The PTM has 6 actuated segments, each 
+
+    The PetalMirror (PTM) is the segmented active mirror at the heart of the
+    ADONI-STILES `Petalometer Testbench`. The PTM has 6 actuated segments, each
     with 3 piezo actuators, which control Piston, Tip and Tilt. The 7th, central,
     segment is a hexagonal reference surface.
     """
@@ -206,14 +206,70 @@ class AdOpticaDm(BaseAdOpticaDm):
         self._name = "AdOpticaDM"
         self._cmd_history = None
         super().__init__(tn)
-        self._last_cmd = _np.zeros(self.n_acts)
+        self._last_cmd = self._get_current_shape()
+
+    @property
+    def m2c_is_zonal(self) -> bool:
+        """
+        Check if the current modal base is zonal.
+
+        Returns
+        -------
+        bool
+            True if the current modal base is zonal, False otherwise.
+        """
+        return self._check_current_modal_base() == "zonal"
+
+    def update_internal_m2c(self) -> None:
+        """
+        Update the internal M2C matrix to match the current M2C matrix from the
+        AO client.
+        """
+        if self._has_m2c_changed():
+            self._logger.info(
+                "M2C matrix has changed, updating internal representation."
+            )
+            self._modal_base = self._aoClient.aoSystem.sysConf.gen.M2CMatrix
 
     def get_shape(self):
         """
         Retrieve the actuators positions
         """
-        pos = self._aoClient.getPosition()
+        if self.m2c_is_zonal:
+            pos = self._aoClient.getPosition()
+        else:
+            pos = self.get_current_shape("modal")
+
         return pos
+
+    def get_current_shape(self, how: str | None = None):
+        """
+        Retrieve the last applied shape command.
+
+        Parameters
+        ----------
+        zonal : bool, optional
+            If True, returns the zonal command (actuator command), otherwise
+            returns the applied shape (default is False).
+        """
+        match how:
+            case "zonal":
+                return self._aoClient.getActCmd()
+            case "modal":
+                return _np.asarray(self._aoClient.getSPApplied().setpoint)
+            case None:
+                self.get_current_shape(self._check_current_modal_base())
+            case _:
+                raise ValueError(f"Unknown `how` value: {how}")
+
+    def mirror_recovery(self):
+        """
+        Initiates the mirror recovery procedure.
+
+        This procedure is used to recover the mirror to a safe state in case of
+        errors or unexpected behavior.
+        """
+        self._aoClient.mirrorRecovery()
 
     def set_to_initial_shape(self):
         """
@@ -335,7 +391,7 @@ class AdOpticaDm(BaseAdOpticaDm):
         tcmdhist : _ot.MatrixLike
             The command history to be uploaded, of shape (used_acts, nmodes).
         looped : bool, optional
-            If True, the command history will be uploaded in a looped manner 
+            If True, the command history will be uploaded in a looped manner
             (default is False).
         slaving : bool | str, optional
             Slaving option for the input command history. If ``True``, the slaving method
@@ -383,7 +439,7 @@ class AdOpticaDm(BaseAdOpticaDm):
             If None, whether it will run in triggered mode and the parameters
             will be determined by the configuration.
 
-            If not None, a dictionary must be provided, containing the keys 
+            If not None, a dictionary must be provided, containing the keys
             'freq', 'wait', and 'delay' for the triggered mode.
         sequential_delay : int | float, optional
             The delay between each command execution in seconds (only if not in
@@ -404,7 +460,7 @@ class AdOpticaDm(BaseAdOpticaDm):
 
         if triggered is not False:
             cc1 = self._get_clip_counter()
-            
+
             for arg in triggered.keys():
                 if not arg in ["frequency", "start_delay"]:
                     raise _oe.CommandError(
@@ -464,7 +520,6 @@ class AdOpticaDm(BaseAdOpticaDm):
                 self._logger.info("Command history execution completed")
 
             return tn
-
 
     def __repr__(self):
         return f"{self._name}(n_segments={self.n_segments}, n_acts_per_segment={self.n_acts_per_segment})"
@@ -898,9 +953,7 @@ class AlpaoDm(BaseAlpaoMirror):
                     color="black",
                 )
 
-        plt.scatter(
-            self.act_coord[:, 0], self.act_coord[:, 1], c=cmd, s=size, **kwargs
-        )
+        plt.scatter(self.act_coord[:, 0], self.act_coord[:, 1], c=cmd, s=size, **kwargs)
 
         plt.xlabel(r"$x$ $[px]$")
         plt.ylabel(r"$y$ $[px]$")
@@ -1077,8 +1130,8 @@ class NacoDm(NACOMirror):
     def __init__(
         self,
         host: str = None,
-        port: int|str = None,
-        reply_timeout: float|None = None,
+        port: int | str = None,
+        reply_timeout: float | None = None,
     ):
         """
         Initialise the NACO DM hardware connection.
@@ -1301,9 +1354,7 @@ class NacoDm(NACOMirror):
                     color="black",
                 )
 
-        plt.scatter(
-            self.act_coord[:, 0], self.act_coord[:, 1], c=cmd, s=size, **kwargs
-        )
+        plt.scatter(self.act_coord[:, 0], self.act_coord[:, 1], c=cmd, s=size, **kwargs)
 
         plt.xlabel(r"$x$ $[px]$")
         plt.ylabel(r"$y$ $[px]$")

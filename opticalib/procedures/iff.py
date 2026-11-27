@@ -60,7 +60,7 @@ def iff_data_acquisition(
     n_repetitions: int, optional
         Number of times each mode is repeated during the acquisition. Default is 1.
     trigger_dict: dict[str, Any] | None, optional
-        Dictionary containing trigger settings for the acquisition. 
+        Dictionary containing trigger settings for the acquisition.
         If None (default), whether it's triggered and its parameters are taken
         from the configuration file.
     read_buffer: bool | dict[str, Any], optional
@@ -142,7 +142,9 @@ def iff_data_acquisition(
                 raise _oe.DeviceError(
                     f"Triggering is only supported for AdOptica devices, but `{dm._name}` is not."
                 )
-            _ = dm.run_cmd_history(wfs, save=tn, trigger_dict=trigger_dict, **setshape_kwargs)
+            _ = dm.run_cmd_history(
+                wfs, save=tn, trigger_dict=trigger_dict, **setshape_kwargs
+            )
         else:
             _ = dm.run_cmd_history(wfs, save=tn, **setshape_kwargs)
 

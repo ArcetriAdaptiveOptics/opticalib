@@ -196,7 +196,7 @@ DEVICE_CLASSES: List[DeviceClass] = [
     DeviceClass(
         "M4AU",
         "DEFORMABLE.MIRRORS",
-        ("m4au","m4","adopticam4"),
+        ("m4au", "m4", "adopticam4"),
         "none",
         "M4AU",
         (("tn",),),
