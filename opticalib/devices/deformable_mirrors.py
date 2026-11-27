@@ -497,27 +497,38 @@ class AdOpticaDm(BaseAdOpticaDm):
                 raise _oe.CommandError("No Command History uploaded!")
             else:
                 tn = None
+
                 if wfs is not None:
+
                     if save is None:
                         datafold, tn = _cdf(basepath=_opdi, get_tn=True)
                     else:
                         tn = save
                         datafold = _os.path.join(_opdi, tn)
                         _os.makedirs(datafold, exist_ok=True)
+
                     print(f"{tn} - {self._cmd_history.shape[-1]} images to go.")
-                s = self.get_shape() - self._bias_cmd
+
+                s = self.get_shape() - self._bias_cmd # FIXME
+
                 self._logger.info("Executing Command history")
+
                 for i, cmd in enumerate(self._cmd_history.T):
                     print(f"{i+1}/{self._cmd_history.shape[-1]}", end="\r", flush=True)
+
                     if differential:
                         cmd = cmd + s
+
                     self.set_shape(cmd, **setshape_kwargs, slaving=slaving)
+
                     if wfs is not None:
                         _time.sleep(sequential_delay)
                         img = wfs.acquire_map()
                         path = _os.path.join(datafold, f"image_{i:05d}.fits")
                         _sf(path, img)
+
                 self._logger.info("Command history execution completed")
+                self.set_shape(s) # Restore the original shape
 
             return tn
 
