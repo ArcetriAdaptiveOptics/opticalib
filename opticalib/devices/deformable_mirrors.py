@@ -1255,7 +1255,7 @@ class NacoDm(NACOMirror):
                     _sf(_os.path.join(datafold, f"image_{i:05d}.fits"), img)
 
         # get back to the starting shape
-        self.set_shape(s, slaving=slaving)
+        self.set_shape(s)
         return tn
 
     def visualize_shape(self, cmd: _ot.ArrayLike = None, **kwargs: dict[str, _ot.Any]):
