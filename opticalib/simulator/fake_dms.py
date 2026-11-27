@@ -59,7 +59,7 @@ class AlpaoDm(BaseFakeAlpao):
         numpy.ndarray
             Processed shape based on the command.
         """
-        scaled_cmd = cmd * 1e-5  # more realistic command
+        scaled_cmd = cmd
         modal = kwargs.get("modal", False)
         if modal:
             mode_img = np.dot(self.ZM, scaled_cmd)

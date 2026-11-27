@@ -136,7 +136,7 @@ class BaseFakeAlpao(BaseSimulatedDM):
             print(f"{k+1}/{n_acts}", end="\r", flush=True)
             # Create a command vector with a single nonzero element (ZONAL IFF).
             act_data = np.zeros(n_acts)
-            act_data[k] = 1
+            act_data[k] = 1e-6
 
             rbf = RBFInterpolator(
                 act_pix_coords,  # Shape (n_acts, 2)
