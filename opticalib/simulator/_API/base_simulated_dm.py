@@ -144,7 +144,7 @@ class BaseSimulatedDM(BaseDeformableMirror):
         """
         differential = setshape_kwargs.pop("differential", True)
         # `slave` is the former keyword name, still accepted
-        slaving = setshape_kwargs.pop("slaving", setshape_kwargs.pop("slave", False))
+        slaving = setshape_kwargs.pop("slaving", setshape_kwargs.pop("slaving", False))
         delay: float = _rc.get_iff_config(key=None).get("sequential_delay", 0.0)
 
         if self._cmd_history is None:
