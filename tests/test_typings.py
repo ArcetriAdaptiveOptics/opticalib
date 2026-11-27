@@ -133,22 +133,26 @@ class TestInstanceCheck:
         """Test generic_check with a DeformableMirrorDevice-like object."""
 
         class FakeDM:
+            is_segmented = False
+            n_segments = 1
+            n_acts_per_segment = 100
+            mirror_modes = None
+            cmd_history = None
+
             @property
             def n_acts(self):
                 return 100
 
-            def set_shape(self, cmd, differential=False):
+            def set_shape(self, cmd, differential=False, *, slaving=False):
                 pass
 
             def get_shape(self):
                 return np.zeros(100)
 
-            def upload_cmd_history(self, cmdhist):
+            def upload_cmd_history(self, tcmdhist, *, slaving=False):
                 pass
 
-            def run_cmd_history(
-                self, wfs=None, delay=0, save=None, differential=False
-            ):
+            def run_cmd_history(self, wfs=None, save=None, **setshape_kwargs):
                 return "tn"
 
         dm = FakeDM()
@@ -215,22 +219,26 @@ class TestIsinstance:
         """Test isinstance_ for DeformableMirrorDevice protocol."""
 
         class FakeDM:
+            is_segmented = False
+            n_segments = 1
+            n_acts_per_segment = 100
+            mirror_modes = None
+            cmd_history = None
+
             @property
             def n_acts(self):
                 return 100
 
-            def set_shape(self, cmd, differential=False):
+            def set_shape(self, cmd, differential=False, *, slaving=False):
                 pass
 
             def get_shape(self):
                 return np.zeros(100)
 
-            def upload_cmd_history(self, cmdhist):
+            def upload_cmd_history(self, tcmdhist, *, slaving=False):
                 pass
 
-            def run_cmd_history(
-                self, wfs=None, delay=0, save=None, differential=False
-            ):
+            def run_cmd_history(self, wfs=None, save=None, **setshape_kwargs):
                 return "tn"
 
         dm = FakeDM()

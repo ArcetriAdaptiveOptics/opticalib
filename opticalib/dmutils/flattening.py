@@ -23,21 +23,20 @@ from ..ground import reconstructor as _crec
 from ..ground.logger import SystemLogger as _SL
 from ..analyzer.image_processing import mode_rebinner as _rebin
 
-
 _FLATDATA = {
     "_flat_cmd": "flat_command.fits",
     "_flat_dcmd": "flat_delta_command.fits",
     "_imgstart": "start_image.fits",
     "_imgflat": "flat_image.fits",
     "_modes2flat": "flattened_modes.fits",
-    "_cavityOffset": "cavity_offset.fits"
+    "_cavityOffset": "cavity_offset.fits",
 }
 
 _DM_OPTIONAL_DATA = {
     "_last_cmd": "dm_last_command.fits",
     "_bias_cmd": "bias_command.fits",
     "_bias_force": "bias_forces.fits",
-    "_flat_total_forces": "flat_total_forces.fits"
+    "_flat_total_forces": "flat_total_forces.fits",
 }
 
 
@@ -47,8 +46,8 @@ class Flattening:
 
     Overview
     --------
-    This class manages the process of flattening a deformable mirror using an 
-    interaction cube and a reference shape (typically acquired from an 
+    This class manages the process of flattening a deformable mirror using an
+    interaction cube and a reference shape (typically acquired from an
     interferometer). It supports loading and filtering interaction cubes, aligning
     and processing images, computing reconstruction matrices, and generating the
     appropriate command to flatten the mirror surface.
@@ -57,13 +56,13 @@ class Flattening:
     ------------
 
     - Loads and filters interaction cubes based on Zernike modes.
-    - Aligns input images to the interaction cube mask for accurate command 
+    - Aligns input images to the interaction cube mask for accurate command
     computation.
-    - Computes the reconstruction matrix using SVD, with options to discard 
+    - Computes the reconstruction matrix using SVD, with options to discard
     modes or set thresholds.
     - Calculates the flattening command for a given shape and applies it to the
     deformable mirror.
-    - Saves all relevant data (commands, images, metadata) for traceability and 
+    - Saves all relevant data (commands, images, metadata) for traceability and
     reproducibility.
 
     Usage Example
@@ -76,7 +75,7 @@ class Flattening:
         f.compute_rec_mat()
         flat_cmd = f.compute_flat_cmd(10)
         f.apply_flat_command(dm, wfs, modes2flat=10)
-    ``` 
+    ```
     """
 
     def __init__(
@@ -187,21 +186,21 @@ class Flattening:
 
                 Default is 5 (both `in` and `out`).
             - save: bool or str, optional
-                Whether to save the results. In this case the 'last' string can 
-                be used, meaning only the last iteration is saved. If True, all 
+                Whether to save the results. In this case the 'last' string can
+                be used, meaning only the last iteration is saved. If True, all
                 are saved.
         """
-        save = kwargs.pop('save', False)
+        save = kwargs.pop("save", False)
 
         if iterations is not None:
             self._logger.info(
                 f"Starting closed-loop flattening for {iterations} iterations."
             )
             last = False
-            if isinstance(save, str): 
-                if save=='last':
+            if isinstance(save, str):
+                if save == "last":
                     last = True
-                    kwargs['save'] = False
+                    kwargs["save"] = False
                     iterations -= 1
                 else:
                     raise ValueError("Invalid save option")
@@ -209,7 +208,7 @@ class Flattening:
             for _ in range(iterations):
                 self.apply_flat_command(**kwargs)
             if last:
-                kwargs['save'] = True
+                kwargs["save"] = True
                 tnout = self.apply_flat_command(**kwargs)
 
         else:
@@ -247,14 +246,14 @@ class Flattening:
             iteration = 0
 
             last = False
-            if isinstance(save, str): 
-                if save=='last':
+            if isinstance(save, str):
+                if save == "last":
                     last = True
-                    kwargs['save'] = False
+                    kwargs["save"] = False
                 else:
                     raise ValueError("Invalid save option")
             else:
-                kwargs['save'] = save
+                kwargs["save"] = save
 
             while not stop_event.is_set():
                 self._logger.info(f"Closed-loop flattening iteration {iteration}")
@@ -732,7 +731,7 @@ class Flattening:
         """
         files = list(_FLATDATA.values())
         dm_optional_data = _DM_OPTIONAL_DATA.copy()
-        dm_optional_data['get_force'] = dm_optional_data.pop('_flat_total_forces')
+        dm_optional_data["get_force"] = dm_optional_data.pop("_flat_total_forces")
 
         imgstart = self._startImg.copy()
         imgflat = self._lastFlatImg.copy()

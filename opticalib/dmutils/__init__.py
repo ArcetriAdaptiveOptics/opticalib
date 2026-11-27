@@ -19,6 +19,7 @@ from .iff_preparation import IFFCapturePreparation
 
 from ._misc import *
 
+
 def load_flat_data(tn: str):
     """
     Load Flattening data by tracking number.
@@ -34,6 +35,7 @@ def load_flat_data(tn: str):
         The loaded flat data.
     """
     return FlatData(tn)
+
 
 __all__ = [
     "Flattening",

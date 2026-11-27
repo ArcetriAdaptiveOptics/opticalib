@@ -18,7 +18,7 @@ import os
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from qtpy.QtCore import QSize, Qt, Signal                       # type: ignore
+from qtpy.QtCore import QSize, Qt, Signal  # type: ignore
 from qtpy.QtGui import QGuiApplication
 from qtpy.QtWidgets import (
     QComboBox,

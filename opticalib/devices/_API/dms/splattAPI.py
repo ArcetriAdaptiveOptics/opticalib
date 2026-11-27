@@ -13,12 +13,16 @@ class SPLATTEngine(BaseDeformableMirror):
         ip, port = self._get_address(ip, port)
         self._eng = Pyro4.Proxy(f"PYRO:matlab_engine@{ip}:{port}")
         self.n_acts = int(self._eng.read("sys_data.mirrNAct"))
-        self.actCoords = np.array(self._eng.read("mirrorData.coordAct"))
+        self.is_segmented = False
+        self.n_segments = 1
+        self.n_acts_per_segment = self.n_acts
+        self._cmd_history = None
+        self.act_coord = np.array(self._eng.read("mirrorData.coordAct"))
         self.mirror_modes = np.array(self._eng.read("sys_data.ff_v"))
         try:
-            self.ffMatrix = np.array(self._eng.read("sys_data.ff_matrix_int"))
+            self.ff = np.array(self._eng.read("sys_data.ff_matrix_int"))
         except:
-            self.ffMatrix = np.array(self._eng.read("sys_data.ff_matrix"))
+            self.ff = np.array(self._eng.read("sys_data.ff_matrix"))
         self._bits2meters = float(self._eng.read("2^-sys_data.coeffs.Scale_F_Lin"))
         self._N2bits = float(self._eng.read("sys_data.coeffs.Force2DAC_V"))
         self._shellset = True
@@ -86,8 +90,8 @@ class SPLATTEngine(BaseDeformableMirror):
             max_val = max(values)
         margin = 0.03
         markerSize = 800
-        x = self.actCoords[:, 0]
-        y = self.actCoords[:, 1]
+        x = self.act_coord[:, 0]
+        y = self.act_coord[:, 1]
         indices = np.arange(self.n_acts) + 1
         plt.figure()
         plt.scatter(

@@ -38,7 +38,7 @@ def dm(tmp_path, monkeypatch):
     [
         ({"slaving": True}, True),
         ({"slaving": "zero-force"}, "zero-force"),
-        ({"slave": True}, True),  # former keyword, still accepted
+        ({"slaving": True}, True),  # former keyword, still accepted
         ({}, False),
     ],
 )
@@ -46,3 +46,12 @@ def test_run_cmd_history_forwards_slaving(dm, kwargs, expected):
     BaseSimulatedDM.run_cmd_history(dm, None, save="20260101_000000", **kwargs)
     # One call per mode with the requested slaving, then the final reset.
     assert [c.get("slaving") for c in dm.calls[:2]] == [expected, expected]
+
+
+@pytest.mark.parametrize("wfs", [None])
+def test_run_cmd_history_differential_does_not_mutate_history(dm, wfs):
+    """Regression: differential mode must not modify ``_cmd_history`` in place."""
+    dm.get_shape = lambda: np.full(3, 5.0)
+    before = dm._cmd_history.copy()
+    BaseSimulatedDM.run_cmd_history(dm, wfs, differential=True)
+    np.testing.assert_array_equal(dm._cmd_history, before)

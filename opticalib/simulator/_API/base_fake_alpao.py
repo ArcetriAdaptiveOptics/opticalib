@@ -20,9 +20,15 @@ class BaseFakeAlpao(BaseSimulatedDM):
         """
         self._name = f"AlpaoDM{n_acts}"
         self.mirror_modes = None
+        self.ff = None
         self.n_acts = n_acts
+        self.is_segmented = False
+        self.n_segments = 1
+        self.n_acts_per_segment = n_acts
         self._pxScale = pixel_scale(self.n_acts)
         self._coords, self._mask = get_alpao_coords_mask(self.n_acts)
+        if self._coords.shape[0] == 2 and self._coords.shape[1] != 2:
+            self._coords = self._coords.T  # canonical (n_acts, 2) layout
         super().__init__()
         self.scaled_coords = self._scale_act_coords()
         self._iffCube = None
@@ -30,21 +36,7 @@ class BaseFakeAlpao(BaseSimulatedDM):
         self.ZM = None
         self.RM = None
         self._load_matrices(force_recompute=force_recompute)
-        try:
-            dmc = _rc.get_device_config("DEFORMABLE.MIRRORS", self._name)
-            self._slaveIds = dmc.get("slave_ids", [])
-            self._borderIds = dmc.get("border_ids", [])
-        except Exception:
-            self._slaveIds = []
-            self._borderIds = []
-
-    @property
-    def slave_ids(self):
-        return self._slaveIds
-
-    @property
-    def border_ids(self):
-        return self._borderIds
+        self._init_slaving_ids()
 
     def _load_matrices(self, force_recompute: bool = False):
         """
@@ -144,7 +136,7 @@ class BaseFakeAlpao(BaseSimulatedDM):
             print(f"{k+1}/{n_acts}", end="\r", flush=True)
             # Create a command vector with a single nonzero element (ZONAL IFF).
             act_data = np.zeros(n_acts)
-            act_data[k] = 1
+            act_data[k] = 1e-6
 
             rbf = RBFInterpolator(
                 act_pix_coords,  # Shape (n_acts, 2)

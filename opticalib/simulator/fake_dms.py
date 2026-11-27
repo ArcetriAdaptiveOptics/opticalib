@@ -18,34 +18,6 @@ class PetalMirror(BaseFakePTL):
         self._live = False
         self._logger = _SL(__class__)
         super().__init__(**kwargs)
-        self.is_segmented = True
-        self.n_segments = 6
-        self.n_acts_per_segment = 3
-        self.mirror_modes = None
-
-    @property
-    def slave_ids(self) -> _t.ArrayLike:
-        """
-        Returns the list of slave actuator IDs for the deformable mirror.
-
-        Returns
-        -------
-        numpy.ndarray
-            List of slave actuator IDs.
-        """
-        return self._slaveIds
-
-    @property
-    def border_ids(self) -> _t.ArrayLike:
-        """
-        Returns the list of border actuator IDs for the deformable mirror.
-
-        Returns
-        -------
-        numpy.ndarray
-            List of border actuator IDs.
-        """
-        return self._borderIds
 
     def get_shape(self):
         """
@@ -66,31 +38,6 @@ class AlpaoDm(BaseFakeAlpao):
         super(AlpaoDm, self).__init__(n_acts, force_recompute=force_recompute)
         self._idx = np.where(self._mask == 0)
         self._produce_random_shape()
-        self.is_segmented = False
-
-    @property
-    def slave_ids(self) -> _t.ArrayLike:
-        """
-        Returns the list of slave actuator IDs for the deformable mirror.
-
-        Returns
-        -------
-        numpy.ndarray
-            List of slave actuator IDs.
-        """
-        return self._slaveIds
-
-    @property
-    def border_ids(self) -> _t.ArrayLike:
-        """
-        Returns the list of border actuator IDs for the deformable mirror.
-
-        Returns
-        -------
-        numpy.ndarray
-            List of border actuator IDs.
-        """
-        return self._borderIds
 
     def _mirror_command(
         self, cmd: _t.ArrayLike, differential: bool, **kwargs: dict[str, _t.Any]
@@ -112,7 +59,7 @@ class AlpaoDm(BaseFakeAlpao):
         numpy.ndarray
             Processed shape based on the command.
         """
-        scaled_cmd = cmd * 1e-5  # more realistic command
+        scaled_cmd = cmd
         modal = kwargs.get("modal", False)
         if modal:
             mode_img = np.dot(self.ZM, scaled_cmd)
@@ -212,9 +159,6 @@ class DP(BaseFakeDp):
         self._live = False
         self._logger = _SL(__class__)
         super().__init__(**kwargs)
-        self.is_segmented = True
-        self.n_segments = 2
-        self.n_acts_per_segment = 111
 
     def get_shape(self):
         """
@@ -242,10 +186,7 @@ class M4AU(BaseFakeM4):
         return f"{self._name}(n_segments={self.n_segments}, n_acts_per_segment={self.n_acts_per_segment})"
 
     def _mirror_command(
-        self,
-        cmd: _t.ArrayLike,
-        differential: bool = False,
-        modal: bool = False
+        self, cmd: _t.ArrayLike, differential: bool = False, modal: bool = False
     ):
         """
         Applies the given command to the deformable mirror.
@@ -285,5 +226,5 @@ class M4AU(BaseFakeM4):
 
             shape[idx] += np.dot(cmd_amp, self.im[seg])
             self._act_pos[seg * nsag : (seg + 1) * nsag] += cmd_amp
-        
+
         self._shape = shape.reshape(self._mask.shape)

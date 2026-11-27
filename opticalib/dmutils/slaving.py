@@ -73,7 +73,7 @@ def compute_slave_cmd(
     if method == "zero-force":
         return _zero_force_slaving(sid, mid, dm.ff, command)
     elif method == "minimum-rms":
-        return _minimum_rms_slaving(sid, mid, bid, dm.ff, command)
+        return _minimum_rms_slaving(sid, bid, mid, dm.ff, command)
 
     else:
         raise ValueError(

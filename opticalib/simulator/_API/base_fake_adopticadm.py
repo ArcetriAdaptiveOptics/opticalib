@@ -33,7 +33,7 @@ class BaseFakeM4(BaseSimulatedDM):
 
     Attributes
     ----------
-    mirrorModes : numpy.ndarray
+    mirror_modes : numpy.ndarray
         Command matrix mapping modal coefficients to actuator commands.
     ff : numpy.ndarray
         Feed-forward matrix of the simulated mirror.
@@ -48,8 +48,8 @@ class BaseFakeM4(BaseSimulatedDM):
         self.n_segments = 6
         self.n_acts_per_segment = 892
         self.n_acts = self.n_acts_per_segment * self.n_segments
-        self._slaveIds = []
-        self._borderIds = []
+        self._slave_ids = []
+        self._border_ids = []
 
         ## -- DATA LOADING AND CREATION -- ##
         self._name = "M4AU"
@@ -58,23 +58,8 @@ class BaseFakeM4(BaseSimulatedDM):
 
         ## -- INITIALIZATION -- ##
         super().__init__()
-        self._shape = (
-            np.ma.masked_array(self._mask * 0, mask=self._mask, dtype=float)
-        )
+        self._shape = np.ma.masked_array(self._mask * 0, mask=self._mask, dtype=float)
         self._seg_masks = roi.roi_generator(self._shape)
-
-    @property
-    def slave_ids(self):
-        return self._slaveIds
-
-    @property
-    def border_ids(self):
-        return self._borderIds
-
-    @property
-    def act_coord(self) -> _t.ArrayLike:
-        """Actuator coordinates in pixels."""
-        return self._coords.copy()
 
     @property
     def zm(self):
@@ -197,7 +182,7 @@ class BaseFakeDp(BaseSimulatedDM):
 
     Attributes
     ----------
-    mirrorModes : numpy.ndarray
+    mirror_modes : numpy.ndarray
         Command matrix mapping modal coefficients to actuator commands.
     ff : numpy.ndarray
         Feed-forward matrix used to derive the slaved actuator commands.
@@ -211,38 +196,18 @@ class BaseFakeDp(BaseSimulatedDM):
         self.mirror_modes = osu.load_fits(get_simdata_file("dp_cmdmat.fits"))
         self.ff = osu.load_fits(get_simdata_file("dp_ffwd.fits"))
         self.n_acts = self.mirror_modes.shape[0]
+        self.is_segmented = True
         self.n_segments = 2
         self.n_acts_per_segment = self.n_acts // self.n_segments
         self._create_dp_mask_and_coords()
         self._idx0, self._idx1 = self._get_segments_idx()
         self._load_matrices(force_recompute=force_recompute)
         self._ccalcurve = self._get_capsens_calibration()
-        self._biasCmd = self._get_bias_cmd()
-        try:
-            dmc = _rc.get_device_config("DEFORMABLE.MIRRORS", self._name)
-            self._slaveIds = dmc.get("slave_ids", [])
-            self._borderIds = dmc.get("border_ids", [])
-        except Exception:
-            self._slaveIds = []
-            self._borderIds = []
+        self._bias_cmd = self._get_bias_cmd()
+        self._init_slaving_ids()
         super().__init__()
         self._act_pos = [np.zeros(self.n_acts // 2), np.zeros(self.n_acts // 2)]
         self.set_shape(np.zeros(self.n_acts))  # initialize to flat + offset
-
-    @property
-    def slave_ids(self) -> list[int]:
-        """List of indices of the slaved actuators."""
-        return self._slaveIds
-
-    @property
-    def border_ids(self) -> list[int]:
-        """List of indices of the border actuators."""
-        return self._borderIds
-
-    @property
-    def act_coord(self) -> _t.ArrayLike:
-        """Actuator coordinates in pixels."""
-        return self._coords.copy()
 
     def _wavefront(self, **kwargs: dict[str, _t.Any]) -> _t.ImageData:
         """
@@ -299,10 +264,7 @@ class BaseFakeDp(BaseSimulatedDM):
         return geo.rotate_image(img, angle_deg=-70)
 
     def _mirror_command(
-        self,
-        cmd: _t.ArrayLike,
-        differential: bool = False,
-        modal: bool=False
+        self, cmd: _t.ArrayLike, differential: bool = False, modal: bool = False
     ):
         """
         Applies the given command to the deformable mirror.
@@ -432,7 +394,7 @@ class BaseFakeDp(BaseSimulatedDM):
         """
         ncmd = cmd * self._ccalcurve
         if all(cmd == 0):
-            ncmd += self._biasCmd
+            ncmd += self._bias_cmd
         return ncmd
 
     def _simulate_dp(self):

@@ -316,7 +316,7 @@ class GigaVision(BaseCamera):
                 self._buffer.clear()  # free the memory of the stored frames
 
     def _on_frame(
-        self, cam: "_vmbpy.Camera", stream: "_vmbpy.Stream", frame: "_vmbpy.Frame" # type: ignore
+        self, cam: "_vmbpy.Camera", stream: "_vmbpy.Stream", frame: "_vmbpy.Frame"  # type: ignore
     ):
         """
         Frame handler: runs in the **Vimba SDK thread**, once per frame.

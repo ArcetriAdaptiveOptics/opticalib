@@ -35,7 +35,6 @@ class FlatData:
 
         filelist = _osu.get_file_list(self.tn, _fn.FLAT_ROOT_FOLDER)
 
-
         for attr, filename in _FILELIST.items():
             for file in filelist:
                 if filename in file:

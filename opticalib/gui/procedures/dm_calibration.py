@@ -250,7 +250,6 @@ class DeformableMirrorCalibrationWindow(ProcedureWindow):
                     "print('Start RMS = ', imgstart.std(), ' nm')\n"
                     "print('Flat RMS =  ', imgflat.std(), ' nm')\n"
                     "del imgstart, imgflat\n"
-                    
                 ),
                 outputs={"flat_tn": "{out}"},
                 confirm=_MOVES_DM,
@@ -281,23 +280,20 @@ class DeformableMirrorCalibrationWindow(ProcedureWindow):
                         "nframes", "Frames to average", 5, minimum=1, maximum=1000
                     ),
                     ChoiceParam(
-                        'save',
-                        'Save',
-                        [
-                            ('last', 'Only last'),
-                            (True, 'Save all'),
-                            (False, 'Nothing')
-                        ]),
+                        "save",
+                        "Save",
+                        [("last", "Only last"), (True, "Save all"), (False, "Nothing")],
+                    ),
                     VarParam(
                         "out",
                         "Where to store the output TN\n"
                         "(Only when saving last iteration)",
-                        "flat_tn"
+                        "flat_tn",
                     ),
                 ],
                 lambda v: (
-                    f"{v['out']} = {v['flat']}.closed_loop_flattening(iterations={v['iterations']}," +
-                    kwargs_code(v, "modes2flat", "modes2discard", "nframes", 'save')
+                    f"{v['out']} = {v['flat']}.closed_loop_flattening(iterations={v['iterations']},"
+                    + kwargs_code(v, "modes2flat", "modes2discard", "nframes", "save")
                     + ")\n"
                     f"if {v['out']} is not None:"
                     "    _gui.view(osu.load_fits(join(folders.FLAT_ROOT_FOLDER,"
