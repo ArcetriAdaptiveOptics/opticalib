@@ -61,7 +61,6 @@ class NACOMirror(BaseDeformableMirror):
         }
 
         self._last_cmd: _t.ArrayLike = _np.zeros(self.n_acts)
-        self._name = f"NACO{self.n_acts}"
         self.act_coord = self._init_act_coord()
         self.is_segmented = False
         self.n_segments = 1
