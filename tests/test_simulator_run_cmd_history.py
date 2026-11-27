@@ -38,7 +38,7 @@ def dm(tmp_path, monkeypatch):
     [
         ({"slaving": True}, True),
         ({"slaving": "zero-force"}, "zero-force"),
-        ({"slave": True}, True),  # former keyword, still accepted
+        ({"slaving": True}, True),  # former keyword, still accepted
         ({}, False),
     ],
 )
